@@ -1,0 +1,4 @@
+.vimspector.json
+bin/*
+obj/*
+build/*
