@@ -26,6 +26,8 @@ WS [ \t\v\n\f]
 #include "tokens.h"
 
 
+extern void yyerror(const char *);
+
 extern int num_chars;
 extern int num_lines;
 // extern YYLTYPE yylloc;
@@ -47,21 +49,22 @@ static void comment(void);
 "break"					{ return(BREAK); }
 "case"					{ return(CASE); }
 "char"					{ return(CHAR); }
-"continue"				{ return(CONTINUE); }
+"const"				  { return(CONST); }
+"continue"			{ return(CONTINUE); }
 "default"				{ return(DEFAULT); }
-"do"					{ return(DO); }
+"do"				  	{ return(DO); }
 "double"				{ return(DOUBLE); }
 "else"					{ return(ELSE); }
 "enum"					{ return(ENUM); }
 "extern"				{ return(EXTERN); }
 "float"					{ return(FLOAT); }
-"for"					{ return(FOR); }
+"for"				  	{ return(FOR); }
 "goto"					{ return(GOTO); }
-"if"					{ return(IF); }
-"int"					{ return(INT); }
+"if"					  { return(IF); }
+"int"					  { return(INT); }
 "long"					{ return(LONG); }
-"register"				{ return(REGISTER); }
-"restrict"				{ return(RESTRICT); }
+"register"			{ return(REGISTER); }
+"restrict"			{ return(RESTRICT); }
 "return"				{ return(RETURN); }
 "short"					{ return(SHORT); }
 "signed"				{ return(SIGNED); }
@@ -71,7 +74,7 @@ static void comment(void);
 "switch"				{ return(SWITCH); }
 "typedef"				{ return(TYPEDEF); }
 "union"					{ return(UNION); }
-"unsigned"				{ return(UNSIGNED); }
+"unsigned"			{ return(UNSIGNED); }
 "void"					{ return(VOID); }
 "while"					{ return(WHILE); }
 
@@ -144,5 +147,27 @@ static void comment(void);
 
 
 static void comment(void) {
-  // todo 
+  int c;
+
+  while ((c = input()) != 0) {
+    ++num_chars;
+    
+    if (c == '\n') 
+      ++num_lines;
+    
+    if (c == '*') {
+      while ((c = input()) == '*')
+        ++num_chars; 
+
+      if (c == '/')
+        return;
+
+      if (c == '\n')
+        ++num_lines;
+
+      if (c == 0)
+        break;
+    }
+  }
+  yyerror("unterminated comment");
 }
