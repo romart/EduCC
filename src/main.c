@@ -12,8 +12,10 @@ int main(int argc, char** argv) {
     num_lines = num_chars = 0;
     const char* inputFile = argv[i];
     yyin = fopen(inputFile, "r");
-    yylex();
-    printf("File %s contains %d lines and %d chars\n", inputFile, num_lines, num_chars);
+    if (yyin != NULL) {
+      yylex();
+      printf("File %s contains %d lines and %d chars\n", inputFile, num_lines, num_chars);
+    }
   }
-  return ;
+  return 0;
 }
