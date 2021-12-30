@@ -10,6 +10,7 @@ enum Tokens {
   // key words
   BREAK,
   CASE,
+  CONST,
   CHAR,
   CONTINUE,
   DEFAULT,
