@@ -3,9 +3,10 @@ CC=gcc
 LEX=flex
 CFLAGS=-I./include
 DEPS=$(wildcard ./include/*.h)
-OBJDIR=obj
 SRCDIR=src
 BUILDDIR=build
+OBJDIR=$(BUILDDIR)/obj
+BINDIR=$(BUILDDIR)/bin
 GENERATED_DIR=generated
 GENERATED_SRC_DIR=$(SRCDIR)/$(GENERATED_DIR)
 GENERATED_OBJ_DIR=$(OBJDIR)/$(GENERATED_DIR)
@@ -18,9 +19,7 @@ SOURCES=\
     $(SRCDIR)/flex_defs.c \
     $(GENERATED_SRC_DIR)/lex.yy.c
 
-OBJ=$(patsubst %.c,%.o,$(subst src/,obj/, $(SOURCES)))
-
-BINDIR=bin
+OBJ=$(patsubst %.c,%.o,$(subst $(SRCDIR)/,$(OBJDIR)/, $(SOURCES)))
 
 
 all: main
@@ -43,4 +42,4 @@ main: $(OBJ)
 .PHONY: clean
 
 clean:
-	rm -rf $(BUILDDIR) $(OBJDIR) $(BINDIR) $(GENERATED_SRC_DIR) $(GENERATED_BJ_DIR)
+	rm -rf $(BUILDDIR) $(GENERATED_SRC_DIR)
