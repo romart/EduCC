@@ -75,6 +75,15 @@ enum Tokens {
   EQ_OP, // ==
   NE_OP, // !=   
 
+  // error tokens
+  DANGLING_NEWLINE,
+  UNTERMINATED_COMMENT,
+  BAD_CHARACTER,
+
+
+  // Preprocessor
+  PP_TOKEN,
+
   NUMBER_OF_TOKENS 
 };
 
