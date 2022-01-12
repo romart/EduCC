@@ -17,7 +17,7 @@ IS (((u|U)(l|L|ll|LL)?)|((l|L|ll|LL)(u|U)?))
 CP (u|U|L)
 SP (u8|u|U|L)
 ES (\\(['"\?\\abfnrtv]|[0-7]{1,3}|x[a-fA-F0-9]+))
-WS [ \t\v\n\f]
+WS [ \t\v\f]
 
 
 
@@ -33,18 +33,38 @@ extern int num_lines;
 // extern YYLTYPE yylloc;
 
 
-static void comment(void);
-
 #define YY_USER_ACTION         \
   num_chars += yyleng; 
 
 
 %}
 
+%x COMMENT
+%x PP
+%x STRING
 
 %%
-"/*"     { comment(); }
-"//".*   { }
+
+"/"+"*"                  { BEGIN(COMMENT); }
+<COMMENT>[^*\n]*
+<COMMENT>[^*\n]*\n         { ++num_lines; }
+<COMMENT>"*"+[^*/\n]*
+<COMMENT>"*"+[^*/\n]*\n    { ++num_lines; }
+<COMMENT>"*"+"/"           { BEGIN(INITIAL); }
+<COMMENT><<EOF>>           { BEGIN(INITIAL); return(UNTERMINATED_COMMENT); }
+
+
+"/"+"/"+[^\n]*   { }
+
+"\""                    { BEGIN(STRING); }
+<STRING>[^\"\n]*        { return(STRING_LITERAL); }
+<STRING>"\n"            { BEGIN(INITIAL); ++num_lines; return(DANGLING_NEWLINE); }
+<STRING>"\""            { BEGIN(INITIAL); }
+
+"#"             { BEGIN(PP); }
+<PP>[^\n]*      { return(PP_TOKEN); }
+<PP>"\n"        { ++num_lines; BEGIN(INITIAL); }
+
 
 "break"					{ return(BREAK); }
 "case"					{ return(CASE); }
@@ -78,10 +98,14 @@ static void comment(void);
 "void"					{ return(VOID); }
 "while"					{ return(WHILE); }
 
+
+{L}{A}*         { return(IDENTIFIER); }
+
+
 {HP}{H}+{IS}?				{ return I_CONSTANT; }
 {NZ}{D}*{IS}?				{ return I_CONSTANT; }
 "0"{O}*{IS}?				{ return I_CONSTANT; }
-"0"{BS}{B}+                             { return I_CONSTANT; }
+"0"{BS}{B}+         { return I_CONSTANT; }
 {CP}?"'"([^'\\\n]|{ES})+"'"		{ return I_CONSTANT; }
 
 {D}+{E}{FS}?				{ return F_CONSTANT; }
@@ -91,7 +115,6 @@ static void comment(void);
 {HP}{H}*"."{H}+{P}{FS}?			{ return F_CONSTANT; }
 {HP}{H}+"."{P}{FS}?			{ return F_CONSTANT; }
 
-({SP}?\"([^"\\\n]|{ES})*\"{WS}*)+	{ return STRING_LITERAL; }
 
 "..."					{ return ELLIPSIS; }
 ">>="					{ return RIGHT_ASSIGN; }
@@ -116,8 +139,8 @@ static void comment(void);
 "=="					{ return EQ_OP; }
 "!="					{ return NE_OP; }
 ";"					{ return ';'; }
-("{"|"<%")				{ return '{'; }
-("}"|"%>")				{ return '}'; }
+("{"|"<%")	{ return '{'; }
+("}"|"%>")	{ return '}'; }
 ","					{ return ','; }
 ":"					{ return ':'; }
 "="					{ return '='; }
@@ -141,33 +164,7 @@ static void comment(void);
 "?"					{ return '?'; }
 
 \n					{ ++num_lines; }
-{WS}+					{ }
-.					{ } 
+{WS}+				{ }
+.           { return(BAD_CHARACTER); }
 %%
 
-
-static void comment(void) {
-  int c;
-
-  while ((c = input()) != 0) {
-    ++num_chars;
-    
-    if (c == '\n') 
-      ++num_lines;
-    
-    if (c == '*') {
-      while ((c = input()) == '*')
-        ++num_chars; 
-
-      if (c == '/')
-        return;
-
-      if (c == '\n')
-        ++num_lines;
-
-      if (c == 0)
-        break;
-    }
-  }
-  yyerror("unterminated comment");
-}
