@@ -1,13 +1,18 @@
 #include <stdio.h>
 #include "hello.h"
 #include "lex.h"
+#include "tokens.h"
 
 int num_lines = 0;
 int num_chars = 0;
 
 
 static void processFileTokens() {
-  
+      int token = -1;
+      while (token = yylex()) {
+        printf("Token %s:#%d (at line %d), its text '%s'\n", tokenName(token), token, num_lines + 1, yytext);
+      }
+      printf("File ended (%d lines, %d chars).\n", num_lines, num_chars); 
 }
 
 static void processInputFile(const char* inputFile) {
@@ -16,11 +21,7 @@ static void processInputFile(const char* inputFile) {
     if (opened != NULL) {
       yyin = opened;
       printf("Scanning file %s...\n", inputFile);
-      int token = -1;
-      while (token = yylex()) {
-        printf("Token ID: %d (at line %d), its text '%s'\n", token, num_lines + 1, yytext);
-      }
-      printf("File ended (%d lines, %d chars).\n", num_lines, num_chars); 
+      processFileTokens();
       // yylex();
       // printf("File %s contains %d lines and %d chars\n", inputFile, num_lines, num_chars);
       fclose(opened);

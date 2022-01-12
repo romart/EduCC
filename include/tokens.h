@@ -1,90 +1,84 @@
 
+#ifndef __TOKENS_H__
+#define __TOKENS_H__ 1
 
 
+#define TOKENS \
+  TOKEN_DEF(IDENTIFIER), \
+  TOKEN_DEF(BREAK), \
+  TOKEN_DEF(CASE), \
+  TOKEN_DEF(CONST), \
+  TOKEN_DEF(CHAR), \
+  TOKEN_DEF(CONTINUE), \
+  TOKEN_DEF(DEFAULT), \
+  TOKEN_DEF(DO), \
+  TOKEN_DEF(DOUBLE), \
+  TOKEN_DEF(ELSE), \
+  TOKEN_DEF(ENUM), \
+  TOKEN_DEF(EXTERN), \
+  TOKEN_DEF(FLOAT), \
+  TOKEN_DEF(FOR), \
+  TOKEN_DEF(GOTO), \
+  TOKEN_DEF(IF), \
+  TOKEN_DEF(INT), \
+  TOKEN_DEF(LONG), \
+  TOKEN_DEF(REGISTER), \
+  TOKEN_DEF(RESTRICT), \
+  TOKEN_DEF(RETURN), \
+  TOKEN_DEF(SHORT), \
+  TOKEN_DEF(SIGNED), \
+  TOKEN_DEF(SIZEOF), \
+  TOKEN_DEF(STATIC), \
+  TOKEN_DEF(STRUCT), \
+  TOKEN_DEF(SWITCH), \
+  TOKEN_DEF(TYPEDEF), \
+  TOKEN_DEF(UNION), \
+  TOKEN_DEF(UNSIGNED), \
+  TOKEN_DEF(VOID), \
+  TOKEN_DEF(WHILE), \
+  TOKEN_DEF(I_CONSTANT), \
+  TOKEN_DEF(F_CONSTANT), \
+  TOKEN_DEF(STRING_LITERAL), \
+  TOKEN_DEF(ELLIPSIS), \
+  TOKEN_DEF(RIGHT_ASSIGN), \
+  TOKEN_DEF(LEFT_ASSIGN), \
+  TOKEN_DEF(ADD_ASSIGN), \
+  TOKEN_DEF(SUB_ASSIGN), \
+  TOKEN_DEF(MUL_ASSIGN), \
+  TOKEN_DEF(DIV_ASSIGN), \
+  TOKEN_DEF(MOD_ASSIGN), \
+  TOKEN_DEF(AND_ASSIGN), \
+  TOKEN_DEF(XOR_ASSIGN), \
+  TOKEN_DEF(OR_ASSIGN), \
+  TOKEN_DEF(RIGHT_OP), \
+  TOKEN_DEF(LEFT_OP), \
+  TOKEN_DEF(INC_OP), \
+  TOKEN_DEF(DEC_OP), \
+  TOKEN_DEF(PTR_OP), \
+  TOKEN_DEF(AND_OP), \
+  TOKEN_DEF(OR_OP), \
+  TOKEN_DEF(LE_OP), \
+  TOKEN_DEF(GE_OP), \
+  TOKEN_DEF(EQ_OP), \
+  TOKEN_DEF(NE_OP), \
+  TOKEN_DEF(DANGLING_NEWLINE), \
+  TOKEN_DEF(UNTERMINATED_COMMENT), \
+  TOKEN_DEF(BAD_CHARACTER), \
+  TOKEN_DEF(PP_TOKEN)
+
+#define TOKEN_DEF(tt) tt
 
 enum Tokens {
-  LAST_SIMEPL_TOKEN=0xff,
+  LAST_SIMPLE_TOKEN=0xff, 
  
-  IDENTIFIER,
-
-  // key words
-  BREAK,
-  CASE,
-  CONST,
-  CHAR,
-  CONTINUE,
-  DEFAULT,
-  DO,
-  DOUBLE,
-  ELSE,
-  ENUM,
-  EXTERN, 
-  FLOAT,
-  FOR,
-  GOTO,
-  IF, 
-  INT,
-  LONG,
-  REGISTER,
-  RESTRICT,
-  RETURN,
-  SHORT,
-  SIGNED,
-  SIZEOF,
-  STATIC,
-  STRUCT,
-  SWITCH,
-  TYPEDEF,
-  UNION, 
-  UNSIGNED,
-  VOID, 
-  WHILE, 
-  
-  // extra key words 
-
-  // constants
-  I_CONSTANT,
-  F_CONSTANT,
-  STRING_LITERAL,
-
-  // operations
-  ELLIPSIS,
-  
-  // op= operations
-  RIGHT_ASSIGN, // >>=
-  LEFT_ASSIGN, // <<=
-  ADD_ASSIGN, // +=
-  SUB_ASSIGN, // -=
-  MUL_ASSIGN, // *=
-  DIV_ASSIGN, // /=
-  MOD_ASSIGN, // %=
-  AND_ASSIGN, // &=
-  XOR_ASSIGN, // ^=
-  OR_ASSIGN, // |=
-  
-  // ops
-  RIGHT_OP, // >>
-  LEFT_OP, // <<
-  INC_OP, // ++
-  DEC_OP, // --
-  PTR_OP, // ->
-  AND_OP, // &&
-  OR_OP, // ||
-  LE_OP, // <=
-  GE_OP, // >=
-  EQ_OP, // ==
-  NE_OP, // !=   
-
-  // error tokens
-  DANGLING_NEWLINE,
-  UNTERMINATED_COMMENT,
-  BAD_CHARACTER,
-
-
-  // Preprocessor
-  PP_TOKEN,
+  TOKENS,
 
   NUMBER_OF_TOKENS 
 };
 
 
+#undef TOKEN_DEF
+
+const char* tokenName(int token);
+
+#endif // __TOKENS_H__
