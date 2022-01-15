@@ -168,3 +168,7 @@ extern int num_lines;
 .           { return(BAD_CHARACTER); }
 %%
 
+
+void unputChar(int t) {
+    unput(t);
+}
