@@ -20,6 +20,7 @@ ES (\\(['"\?\\abfnrtv]|[0-7]{1,3}|x[a-fA-F0-9]+))
 WS [ \t\v\f]
 
 
+%option reentrant
 
 %{
 
@@ -169,6 +170,6 @@ extern int num_lines;
 %%
 
 
-void unputChar(int t) {
-    unput(t);
+void unputChar(yyscan_t scanner, int t) {
+    yyunput(t, ((struct yyguts_t*)scanner)->yytext_ptr, scanner);
 }
