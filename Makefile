@@ -17,6 +17,7 @@ SOURCES=\
     $(SRCDIR)/main.c \
     $(SRCDIR)/hello.c \
     $(SRCDIR)/tokens.c \
+    $(SRCDIR)/utils.c \
     $(SRCDIR)/flex_defs.c \
     $(GENERATED_SRC_DIR)/lex.yy.c
 
