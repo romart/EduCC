@@ -4,6 +4,7 @@
 
 #include "lex.h"
 #include "tree.h"
+#include "mem.h"
 
 enum SymbolKind {
     FunctionSymbol = 1,
@@ -58,6 +59,10 @@ typedef struct _ParserContext {
 
     Token *firstToken;
     Token *token;
+
+    Arena *tokenArena;
+    Arena *astArena;
+    Arena *typeArena;
 
     int anonSymbolsCounter;
 } ParserContext;
