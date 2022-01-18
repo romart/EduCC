@@ -39,18 +39,25 @@ typedef struct _Scope {
 typedef struct _Token {
 
     int code;
-    char *text;
-    int pos;
+    int rawCode;
+    const char *text;
+    union {
+      long long iv;
+      double dv;
+    } value;
+    struct _Token *next;
 } Token;
 
 typedef struct _ParserContext {
     AstFile* parsedFile;
 
     yyscan_t scanner;
-    int token;
 
     Scope* rootScope;
     Scope* currentScope;
+
+    Token *firstToken;
+    Token *token;
 
     int anonSymbolsCounter;
 } ParserContext;
