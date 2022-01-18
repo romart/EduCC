@@ -1,6 +1,7 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__ 1
 
+#include <stdio.h>
 
 enum {
     FALSE = 0,
@@ -40,5 +41,8 @@ const void* getFromHashMap(HashMap* map, const void* key);
 const void* removeFromHashMap(HashMap* map, const void* key);
 
 int isInHashMap(HashMap* map, const void* key);
+
+
+unsigned countLines(FILE* file);
 
 #endif // __UTILS_H__
