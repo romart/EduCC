@@ -26,6 +26,7 @@ WS [ \t\v\f]
 
 #include "tokens.h"
 
+int fileno(FILE *stream);
 
 extern void yyerror(const char *);
 
