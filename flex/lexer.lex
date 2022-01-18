@@ -63,9 +63,10 @@ extern int num_lines;
 <STRING>"\n"            { BEGIN(INITIAL); ++num_lines; return(DANGLING_NEWLINE); }
 <STRING>"\""            { BEGIN(INITIAL); }
 
-"#"             { BEGIN(PP); }
-<PP>[^\n]*      { return(PP_TOKEN); }
-<PP>"\n"        { ++num_lines; BEGIN(INITIAL); }
+"#"                     { BEGIN(PP); }
+<PP>[^\n\\]*            { return(PP_TOKEN); }
+<PP>"\\"+(WS)*\n        { ++num_lines; }
+<PP>"\n"                { ++num_lines; BEGIN(INITIAL); }
 
 
 "break"					{ return(BREAK); }
@@ -86,7 +87,7 @@ extern int num_lines;
 "int"					  { return(INT); }
 "long"					{ return(LONG); }
 "register"			{ return(REGISTER); }
-"restrict"			{ return(RESTRICT); }
+"volatile"			{ return(VOLATILE); }
 "return"				{ return(RETURN); }
 "short"					{ return(SHORT); }
 "signed"				{ return(SIGNED); }
@@ -169,8 +170,3 @@ extern int num_lines;
 {WS}+				{ }
 .           { return(BAD_CHARACTER); }
 %%
-
-
-void unputChar(yyscan_t scanner, int t) {
-    yyunput(t, ((struct yyguts_t*)scanner)->yytext_ptr, scanner);
-}

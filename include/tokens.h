@@ -5,6 +5,7 @@
 
 #define TOKENS \
   TOKEN_DEF(IDENTIFIER), \
+  TOKEN_DEF(TYPE_NAME), \
   TOKEN_DEF(BREAK), \
   TOKEN_DEF(CASE), \
   TOKEN_DEF(CONST), \
@@ -23,7 +24,7 @@
   TOKEN_DEF(INT), \
   TOKEN_DEF(LONG), \
   TOKEN_DEF(REGISTER), \
-  TOKEN_DEF(RESTRICT), \
+  TOKEN_DEF(VOLATILE), \
   TOKEN_DEF(RETURN), \
   TOKEN_DEF(SHORT), \
   TOKEN_DEF(SIGNED), \
@@ -80,5 +81,6 @@ enum Tokens {
 #undef TOKEN_DEF
 
 const char* tokenName(int token);
+const char* tokenNameInBuffer(int token, char* buff);
 
 #endif // __TOKENS_H__
