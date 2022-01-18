@@ -144,3 +144,17 @@ int isInHashMap(HashMap* map, const void* key) {
     return FALSE;
 }
 
+unsigned countLines(FILE* file) {
+  unsigned result = 0;
+  while(!feof(file)) {
+    int ch = fgetc(file);
+    if(ch == '\n') {
+      result++;
+    }
+  }
+
+  rewind(file);
+
+  return result;
+}
+
