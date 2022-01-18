@@ -1,7 +1,7 @@
 
 CC=gcc
 LEX=flex
-CFLAGS=-I./include
+CFLAGS=-I./include -g -O0 -std=c99
 DEPS=$(wildcard ./include/*.h)
 SRCDIR=src
 BUILDDIR=build
