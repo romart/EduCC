@@ -10,10 +10,8 @@
 // types
 
 TypeDesc *createTypeDescriptor(ParserContext *ctx, int typeId, const char *name, int size) {
-  TypeDesc *result = (TypeDesc*)malloc(sizeof(TypeDesc));
-  if (result == NULL) exit(-5);
+  TypeDesc *result = (TypeDesc*)areanAllocate(ctx->astArena, sizeof(TypeDesc));
 
-  memset(result, 0, sizeof(TypeDesc));
   result->typeId = typeId;
   result->name = name;
   result->size = size;
@@ -24,8 +22,7 @@ TypeDesc *createTypeDescriptor(ParserContext *ctx, int typeId, const char *name,
 // declarations
 
 EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset, const char* name, int value) {
-    EnumConstant* result = (EnumConstant*)malloc(sizeof(EnumConstant));
-    if (result == NULL) exit(-5);
+    EnumConstant* result = (EnumConstant*)areanAllocate(ctx->astArena, sizeof(EnumConstant));
 
     result->coordinates.startOffset = startOffset;
     result->coordinates.endOffset = startOffset;
@@ -36,9 +33,7 @@ EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset
 }
 
 AstStructDeclarator* createStructDeclarator(ParserContext *ctx, int startOffset, int endOffset, DeclarationSpecifiers *specifiers, Declarator* declarator, int width) {
-    AstStructDeclarator* result = (AstStructDeclarator*)malloc(sizeof(AstStructDeclarator));
-    if (result == NULL) exit(-5);
-    memset(result, 0, sizeof(AstStructDeclarator));
+    AstStructDeclarator* result = (AstStructDeclarator*)areanAllocate(ctx->astArena, sizeof(AstStructDeclarator));
 
     result->coordinates.startOffset = startOffset;
     result->coordinates.endOffset = startOffset;
@@ -48,9 +43,7 @@ AstStructDeclarator* createStructDeclarator(ParserContext *ctx, int startOffset,
 }
 
 AstStructDeclaration *createStructDeclaration(ParserContext *ctx, int startOffset, int endOffset, int token, const char *name, Vector *members) {
-    AstStructDeclaration *result = (AstStructDeclaration*)malloc(sizeof(AstStructDeclaration));
-    if (result == NULL) exit(-5);
-    memset(result, 0, sizeof(AstStructDeclaration));
+    AstStructDeclaration *result = (AstStructDeclaration*)areanAllocate(ctx->astArena, sizeof(AstStructDeclaration));
 
     result->coordinates.startOffset = startOffset;
     result->coordinates.endOffset = startOffset;
@@ -63,9 +56,7 @@ AstStructDeclaration *createStructDeclaration(ParserContext *ctx, int startOffse
 }
 
 AstEnumDeclaration *createEnumDeclaration(ParserContext *ctx, int startOffset, int endOffset, const char *name, Vector *enumerators) {
-    AstEnumDeclaration *result = (AstEnumDeclaration*)malloc(sizeof(AstEnumDeclaration));
-    if (result == NULL) exit(-5);
-    memset(result, 0, sizeof(AstStructDeclaration));
+    AstEnumDeclaration *result = (AstEnumDeclaration*)areanAllocate(ctx->astArena, sizeof(AstEnumDeclaration));
 
     result->coordinates.startOffset = startOffset;
     result->coordinates.endOffset = startOffset;
@@ -77,9 +68,7 @@ AstEnumDeclaration *createEnumDeclaration(ParserContext *ctx, int startOffset, i
 }
 
 ParameterDeclaration *createParameterDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, int index) {
-    ParameterDeclaration *result = (ParameterDeclaration *)malloc(sizeof (ParameterDeclaration));
-    if (result == NULL) exit(-5);
-    memset(result, 0, sizeof(AstStructDeclaration));
+    ParameterDeclaration *result = (ParameterDeclaration *)areanAllocate(ctx->astArena, sizeof (ParameterDeclaration));
 
     result->coordinates.startOffset = startOffset;
     result->coordinates.endOffset = startOffset;
@@ -92,8 +81,7 @@ ParameterDeclaration *createParameterDeclaration(ParserContext *ctx, int startOf
 }
 
 AstDeclaration *createAstDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, AstInitializer *initializer, unsigned flags) {
-    AstDeclaration* result = (AstDeclaration*)malloc(sizeof(AstDeclaration));
-    if (result == NULL) exit(-5);
+    AstDeclaration* result = (AstDeclaration*)areanAllocate(ctx->astArena, sizeof(AstDeclaration));
 
     result->coordinates.startOffset = startOffset;
     result->coordinates.endOffset = startOffset;
@@ -107,8 +95,7 @@ AstDeclaration *createAstDeclaration(ParserContext *ctx, int startOffset, int en
 }
 
 AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, AstExpression *expr, Vector *initializers) {
-    AstInitializer* result = (AstInitializer*)malloc(sizeof(AstInitializer));
-    if (result == NULL) exit(-5);
+    AstInitializer* result = (AstInitializer*)areanAllocate(ctx->astArena, sizeof(AstInitializer));
 
     result->coordinates.startOffset = startOffset;
     result->coordinates.endOffset = startOffset;
@@ -125,8 +112,7 @@ AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int en
 
 AstFile *createAstFile(ParserContext *ctx, int capacity) {
 
-    AstFile* astFile = (AstFile*)malloc(sizeof(AstFile));
-    if (astFile == NULL) exit(-5);
+    AstFile* astFile = (AstFile*)areanAllocate(ctx->astArena, sizeof(AstFile));
 
     astFile->fileName = NULL;
     astFile->declarations = createVector(capacity);
@@ -136,9 +122,7 @@ AstFile *createAstFile(ParserContext *ctx, int capacity) {
 
 
 Declaration *createVariableDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, AstInitializer *initializer, SpecifierFlags flags) {
-    Declaration *result = (Declaration *)malloc(sizeof(Declaration));
-    if (result == NULL) exit(5);
-    memset(result, 0, sizeof(Declaration));
+    Declaration *result = (Declaration *)areanAllocate(ctx->astArena, sizeof(Declaration));
 
     result->coordinates.startOffset = startOffset;
     result->coordinates.endOffset = startOffset;
@@ -154,9 +138,7 @@ Declaration *createVariableDeclaration(ParserContext *ctx, int startOffset, int 
 }
 
 Declaration *createFunctionDefinition(ParserContext *ctx, const char *name, FunctionTypeDescriptor *descriptor, SpecifierFlags flags) {
-    Declaration *result = (Declaration *)malloc(sizeof(Declaration));
-    if (result == NULL) exit(5);
-    memset(result, 0, sizeof(Declaration));
+    Declaration *result = (Declaration *)areanAllocate(ctx->astArena, sizeof(Declaration));
 
     result->isExternal = flags.bits.isExternal;
     result->isStatic = flags.bits.isStatic;
@@ -170,20 +152,20 @@ Declaration *createFunctionDefinition(ParserContext *ctx, const char *name, Func
 
 
 static AstExpression *allocAstExpression(ParserContext *ctx, int startOffset, int endOffset) {
-  AstExpression *result = (AstExpression *)malloc(sizeof(AstExpression));
-  if (result == NULL) exit(-4);
-  memset(result, 0, sizeof(AstExpression));
+  AstExpression *result = (AstExpression *)areanAllocate(ctx->astArena, sizeof(AstExpression));
+
   result->coordinates.startOffset = startOffset;
   result->coordinates.endOffset = startOffset;
+
   return result;
 }
 
 static AstStatement *allocAstStatement(ParserContext *ctx, int startOffset, int endOffset) {
-  AstStatement *result = (AstStatement *)malloc(sizeof(AstStatement));
-  if (result == NULL) exit(-4);
-  memset(result, 0, sizeof(AstStatement));
+  AstStatement *result = (AstStatement *)areanAllocate(ctx->astArena, sizeof(AstStatement));
+
   result->coordinates.startOffset = startOffset;
   result->coordinates.endOffset = startOffset;
+
   return result;
 }
 
