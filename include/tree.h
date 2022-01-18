@@ -478,47 +478,47 @@ typedef struct _AstFile {
 
 // types
 
-TypeDesc *createTypeDescriptor(int typeId, const char *name, int size);
+TypeDesc *createTypeDescriptor(ParserContext *ctx, int typeId, const char *name, int size);
 
 // declarations
 
-EnumConstant *createEnumConst(const char* name, int value);
+EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset, const char* name, int value);
 
-AstInitializer *createAstInitializer(AstExpression *expr, Vector *initializers);
-AstStructDeclarator *createStructDeclarator(DeclarationSpecifiers *specifiers, Declarator* declarator, int width);
-AstStructDeclaration *createStructDeclaration(int token, const char *name, Vector *members);
-AstEnumDeclaration *createEnumDeclaration(const char *name, Vector *enumerators);
-AstDeclaration *createAstDeclaration(TypeRef *type, const char *name, AstInitializer *initializer, unsigned flags);
-AstFile *createAstFile(int capacity);
+AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, AstExpression *expr, Vector *initializers);
+AstStructDeclarator *createStructDeclarator(ParserContext *ctx, int startOffset, int endOffset, DeclarationSpecifiers *specifiers, Declarator* declarator, int width);
+AstStructDeclaration *createStructDeclaration(ParserContext *ctx, int startOffset, int endOffset, int token, const char *name, Vector *members);
+AstEnumDeclaration *createEnumDeclaration(ParserContext *ctx, int startOffset, int endOffset, const char *name, Vector *enumerators);
+AstDeclaration *createAstDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, AstInitializer *initializer, unsigned flags);
+AstFile *createAstFile(ParserContext *ctx, int capacity);
 
-Declaration *createVariableDeclaration(ParserContext *ctx, TypeRef *type, const char *name, AstInitializer *initializer, SpecifierFlags flags);
+Declaration *createVariableDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, AstInitializer *initializer, SpecifierFlags flags);
 Declaration *createFunctionDefinition(ParserContext *ctx, const char *name, FunctionTypeDescriptor *descriptor, SpecifierFlags flags);
 
-ParameterDeclaration *createParameterDeclaration(ParserContext *ctx, TypeRef *type, const char *name, int index);
+ParameterDeclaration *createParameterDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, int index);
 
 // expressions
 
-AstExpression* createAstConst(int type, void* value);
-AstExpression *createCastExpression(TypeRef *typeRef, AstExpression *argument);
-AstExpression *createTernaryExpression(AstExpression *cond, AstExpression *t, AstExpression* f);
-AstExpression *createBinaryExpression(int op, AstExpression *left, AstExpression *right);
-AstExpression *createUnaryExpression(int op, AstExpression *argument);
-AstExpression *createNameRef(const char *name);
-AstExpression *createCallExpression(AstExpression *callee, Vector *arguments);
-AstExpression *createFieldExpression(int op, AstExpression *receiver, const char *member);
+AstExpression* createAstConst(ParserContext *ctx, int startOffset, int endOffset, int type, void* value);
+AstExpression *createCastExpression(ParserContext *ctx, int startOffset, int endOffset, TypeRef *typeRef, AstExpression *argument);
+AstExpression *createTernaryExpression(ParserContext *ctx, AstExpression *cond, AstExpression *t, AstExpression* f);
+AstExpression *createBinaryExpression(ParserContext *ctx, int op, AstExpression *left, AstExpression *right);
+AstExpression *createUnaryExpression(ParserContext *ctx, int startOffset, int endOffset, int op, AstExpression *argument);
+AstExpression *createNameRef(ParserContext *ctx, int startOffset, int endOffset, const char *name);
+AstExpression *createCallExpression(ParserContext *ctx, int startOffset, int endOffset, AstExpression *callee, Vector *arguments);
+AstExpression *createFieldExpression(ParserContext *ctx, int startOffset, int endOffset, int op, AstExpression *receiver, const char *member);
 
 
 // statemetns
 
-AstStatement *createBlockStatement(Vector *stmts);
-AstStatement *createExprStatement(AstExpression* expression);
-AstStatement *createLabelStatement(int labelKind, AstStatement *body, const char *label, int c);
-AstStatement *createDeclStatement(AstDeclaration *decl);
-AstStatement *createIfStatement(AstExpression *cond, AstStatement *thenB, AstStatement *elseB);
-AstStatement *createSwitchStatement(AstExpression *cond, AstStatement *body);
-AstStatement *createLoopStatement(int kind, AstExpression *cond, AstStatement *body);
-AstStatement *createForStatement(AstExpression* init, AstExpression *cond, AstExpression *modifier, AstStatement *body);
-AstStatement *createJumpStatement(int jumpKind);
-AstStatement *createEmptyStatement();
+AstStatement *createBlockStatement(ParserContext *ctx, int startOffset, int endOffset, Vector *stmts);
+AstStatement *createExprStatement(ParserContext *ctx, AstExpression* expression);
+AstStatement *createLabelStatement(ParserContext *ctx, int startOffset, int endOffset, int labelKind, AstStatement *body, const char *label, int c);
+AstStatement *createDeclStatement(ParserContext *ctx, AstDeclaration *decl);
+AstStatement *createIfStatement(ParserContext *ctx, int startOffset, int endOffset, AstExpression *cond, AstStatement *thenB, AstStatement *elseB);
+AstStatement *createSwitchStatement(ParserContext *ctx, int startOffset, int endOffset, AstExpression *cond, AstStatement *body);
+AstStatement *createLoopStatement(ParserContext *ctx, int startOffset, int endOffset, int kind, AstExpression *cond, AstStatement *body);
+AstStatement *createForStatement(ParserContext *ctx, int startOffset, int endOffset, AstExpression* init, AstExpression *cond, AstExpression *modifier, AstStatement *body);
+AstStatement *createJumpStatement(ParserContext *ctx, int startOffset, int endOffset, int jumpKind);
+AstStatement *createEmptyStatement(ParserContext *ctx, int startOffset, int endOffset);
 
 #endif // __TREE_H__

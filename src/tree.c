@@ -9,7 +9,7 @@
 
 // types
 
-TypeDesc *createTypeDescriptor(int typeId, const char *name, int size) {
+TypeDesc *createTypeDescriptor(ParserContext *ctx, int typeId, const char *name, int size) {
   TypeDesc *result = (TypeDesc*)malloc(sizeof(TypeDesc));
   if (result == NULL) exit(-5);
 
@@ -23,30 +23,37 @@ TypeDesc *createTypeDescriptor(int typeId, const char *name, int size) {
 
 // declarations
 
-EnumConstant *createEnumConst(const char* name, int value) {
+EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset, const char* name, int value) {
     EnumConstant* result = (EnumConstant*)malloc(sizeof(EnumConstant));
     if (result == NULL) exit(-5);
 
+    result->coordinates.startOffset = startOffset;
+    result->coordinates.endOffset = startOffset;
     result->name = name;
     result->value = value;
 
     return result;
 }
 
-AstStructDeclarator* createStructDeclarator(DeclarationSpecifiers *specifiers, Declarator* declarator, int width) {
+AstStructDeclarator* createStructDeclarator(ParserContext *ctx, int startOffset, int endOffset, DeclarationSpecifiers *specifiers, Declarator* declarator, int width) {
     AstStructDeclarator* result = (AstStructDeclarator*)malloc(sizeof(AstStructDeclarator));
     if (result == NULL) exit(-5);
     memset(result, 0, sizeof(AstStructDeclarator));
 
+    result->coordinates.startOffset = startOffset;
+    result->coordinates.endOffset = startOffset;
     result->f_width = width;
 
     return result;
 }
 
-AstStructDeclaration *createStructDeclaration(int token, const char *name, Vector *members) {
+AstStructDeclaration *createStructDeclaration(ParserContext *ctx, int startOffset, int endOffset, int token, const char *name, Vector *members) {
     AstStructDeclaration *result = (AstStructDeclaration*)malloc(sizeof(AstStructDeclaration));
     if (result == NULL) exit(-5);
     memset(result, 0, sizeof(AstStructDeclaration));
+
+    result->coordinates.startOffset = startOffset;
+    result->coordinates.endOffset = startOffset;
 
     result->token = token;
     result->name = name;
@@ -55,10 +62,13 @@ AstStructDeclaration *createStructDeclaration(int token, const char *name, Vecto
     return result;
 }
 
-AstEnumDeclaration *createEnumDeclaration(const char *name, Vector *enumerators) {
+AstEnumDeclaration *createEnumDeclaration(ParserContext *ctx, int startOffset, int endOffset, const char *name, Vector *enumerators) {
     AstEnumDeclaration *result = (AstEnumDeclaration*)malloc(sizeof(AstEnumDeclaration));
     if (result == NULL) exit(-5);
     memset(result, 0, sizeof(AstStructDeclaration));
+
+    result->coordinates.startOffset = startOffset;
+    result->coordinates.endOffset = startOffset;
 
     result->name = name;
     result->enumerators = enumerators;
@@ -66,10 +76,13 @@ AstEnumDeclaration *createEnumDeclaration(const char *name, Vector *enumerators)
     return result;
 }
 
-ParameterDeclaration *createParameterDeclaration(ParserContext *ctx, TypeRef *type, const char *name, int index) {
+ParameterDeclaration *createParameterDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, int index) {
     ParameterDeclaration *result = (ParameterDeclaration *)malloc(sizeof (ParameterDeclaration));
     if (result == NULL) exit(-5);
     memset(result, 0, sizeof(AstStructDeclaration));
+
+    result->coordinates.startOffset = startOffset;
+    result->coordinates.endOffset = startOffset;
 
     result->name = name;
     result->index = index;
@@ -78,9 +91,12 @@ ParameterDeclaration *createParameterDeclaration(ParserContext *ctx, TypeRef *ty
     return result;
 }
 
-AstDeclaration *createAstDeclaration(TypeRef *type, const char *name, AstInitializer *initializer, unsigned flags) {
+AstDeclaration *createAstDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, AstInitializer *initializer, unsigned flags) {
     AstDeclaration* result = (AstDeclaration*)malloc(sizeof(AstDeclaration));
     if (result == NULL) exit(-5);
+
+    result->coordinates.startOffset = startOffset;
+    result->coordinates.endOffset = startOffset;
 
     result->flags.storage = flags;
     result->name = name;
@@ -90,9 +106,12 @@ AstDeclaration *createAstDeclaration(TypeRef *type, const char *name, AstInitial
     return result;
 }
 
-AstInitializer *createAstInitializer(AstExpression *expr, Vector *initializers) {
+AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, AstExpression *expr, Vector *initializers) {
     AstInitializer* result = (AstInitializer*)malloc(sizeof(AstInitializer));
     if (result == NULL) exit(-5);
+
+    result->coordinates.startOffset = startOffset;
+    result->coordinates.endOffset = startOffset;
 
     if (expr) {
       result->kind = IK_EXPRESSION;
@@ -104,7 +123,7 @@ AstInitializer *createAstInitializer(AstExpression *expr, Vector *initializers) 
     return result;
 }
 
-AstFile *createAstFile(int capacity) {
+AstFile *createAstFile(ParserContext *ctx, int capacity) {
 
     AstFile* astFile = (AstFile*)malloc(sizeof(AstFile));
     if (astFile == NULL) exit(-5);
@@ -116,10 +135,13 @@ AstFile *createAstFile(int capacity) {
 }
 
 
-Declaration *createVariableDeclaration(ParserContext *ctx, TypeRef *type, const char *name, AstInitializer *initializer, SpecifierFlags flags) {
+Declaration *createVariableDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, AstInitializer *initializer, SpecifierFlags flags) {
     Declaration *result = (Declaration *)malloc(sizeof(Declaration));
     if (result == NULL) exit(5);
     memset(result, 0, sizeof(Declaration));
+
+    result->coordinates.startOffset = startOffset;
+    result->coordinates.endOffset = startOffset;
 
     result->isExternal = flags.bits.isExternal;
     result->isStatic = flags.bits.isStatic;
@@ -147,22 +169,26 @@ Declaration *createFunctionDefinition(ParserContext *ctx, const char *name, Func
 }
 
 
-static AstExpression *allocAstExpression() {
+static AstExpression *allocAstExpression(ParserContext *ctx, int startOffset, int endOffset) {
   AstExpression *result = (AstExpression *)malloc(sizeof(AstExpression));
   if (result == NULL) exit(-4);
   memset(result, 0, sizeof(AstExpression));
+  result->coordinates.startOffset = startOffset;
+  result->coordinates.endOffset = startOffset;
   return result;
 }
 
-static AstStatement *allocAstStatement() {
+static AstStatement *allocAstStatement(ParserContext *ctx, int startOffset, int endOffset) {
   AstStatement *result = (AstStatement *)malloc(sizeof(AstStatement));
   if (result == NULL) exit(-4);
   memset(result, 0, sizeof(AstStatement));
+  result->coordinates.startOffset = startOffset;
+  result->coordinates.endOffset = startOffset;
   return result;
 }
 
-AstExpression* createAstConst(int type, void* value) {
-    AstExpression* result = allocAstExpression();
+AstExpression* createAstConst(ParserContext *ctx, int startOffset, int endOffset, int type, void* value) {
+    AstExpression* result = allocAstExpression(ctx, startOffset, endOffset);
     result->op = E_CONST;
     result->constExpr.op = type;
     switch (type) {
@@ -179,16 +205,16 @@ AstExpression* createAstConst(int type, void* value) {
 
 
 
-AstExpression *createCastExpression(TypeRef *typeRef, AstExpression *argument) {
-    AstExpression *result = allocAstExpression();
+AstExpression *createCastExpression(ParserContext *ctx, int startOffset, int endOffset, TypeRef *typeRef, AstExpression *argument) {
+    AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
     result->op = E_CAST;
     result->castExpr.type= typeRef;
     result->castExpr.argument = argument;
     return result;
 }
 
-AstExpression *createTernaryExpression(AstExpression *cond, AstExpression *t, AstExpression* f) {
-    AstExpression *result = allocAstExpression();
+AstExpression *createTernaryExpression(ParserContext *ctx, AstExpression *cond, AstExpression *t, AstExpression* f) {
+    AstExpression *result = allocAstExpression(ctx, cond->coordinates.startOffset, f->coordinates.endOffset);
     result->op = E_TERNARY;
     result->ternaryExpr.condition = cond;
     result->ternaryExpr.ifTrue = t;
@@ -196,38 +222,38 @@ AstExpression *createTernaryExpression(AstExpression *cond, AstExpression *t, As
     return result;
 }
 
-AstExpression *createBinaryExpression(int op, AstExpression *left, AstExpression *right) {
-    AstExpression *result = allocAstExpression();
+AstExpression *createBinaryExpression(ParserContext *ctx, int op, AstExpression *left, AstExpression *right) {
+    AstExpression *result = allocAstExpression(ctx, left->coordinates.startOffset, right->coordinates.endOffset);
     result->op = op;
     result->binaryExpr.left = left;
     result->binaryExpr.right = right;
     return result;
 }
 
-AstExpression *createUnaryExpression(int op, AstExpression *argument) {
-    AstExpression *result = allocAstExpression();
+AstExpression *createUnaryExpression(ParserContext *ctx, int startOffset, int endOffset, int op, AstExpression *argument) {
+    AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
     result->op = op;
     result->unaryExpr.argument = argument;
     return result;
 }
 
-AstExpression *createNameRef(const char *name) {
-    AstExpression *result = allocAstExpression();
+AstExpression *createNameRef(ParserContext *ctx, int startOffset, int endOffset, const char *name) {
+    AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
     result->op = E_NAMEREF;
     result->nameRefExpr.name = name;
     return result;
 }
 
-AstExpression *createCallExpression(AstExpression *callee, Vector *arguments) {
-    AstExpression *result = allocAstExpression();
+AstExpression *createCallExpression(ParserContext *ctx, int startOffset, int endOffset, AstExpression *callee, Vector *arguments) {
+    AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
     result->op = E_CALL;
     result->callExpr.callee = callee;
     result->callExpr.arguments = arguments;
     return result;
 }
 
-AstExpression *createFieldExpression(int op, AstExpression *receiver, const char *member) {
-    AstExpression *result = allocAstExpression();
+AstExpression *createFieldExpression(ParserContext *ctx, int startOffset, int endOffset, int op, AstExpression *receiver, const char *member) {
+    AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
     result->op = op;
     result->fieldExpr.recevier = receiver;
     result->fieldExpr.member = member;
@@ -236,8 +262,8 @@ AstExpression *createFieldExpression(int op, AstExpression *receiver, const char
 
 // statements
 
-AstStatement *createBlockStatement(Vector *stmts) {
-    AstStatement *result = allocAstStatement();
+AstStatement *createBlockStatement(ParserContext *ctx, int startOffset, int endOffset, Vector *stmts) {
+    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
 
     result->statementKind = SK_BLOCK;
     result->block.stmts = stmts;
@@ -245,8 +271,8 @@ AstStatement *createBlockStatement(Vector *stmts) {
     return result;
 }
 
-AstStatement *createExprStatement(AstExpression* expression) {
-    AstStatement *result = allocAstStatement();
+AstStatement *createExprStatement(ParserContext *ctx, AstExpression* expression) {
+    AstStatement *result = allocAstStatement(ctx, expression->coordinates.startOffset, expression->coordinates.endOffset);
 
     result->statementKind = SK_EXPR_STMT;
     result->exprStmt.expression = expression;
@@ -254,8 +280,8 @@ AstStatement *createExprStatement(AstExpression* expression) {
     return result;
 }
 
-AstStatement *createLabelStatement(int labelKind, AstStatement *body, const char *label, int c) {
-    AstStatement *result = allocAstStatement();
+AstStatement *createLabelStatement(ParserContext *ctx, int startOffset, int endOffset, int labelKind, AstStatement *body, const char *label, int c) {
+    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
 
     result->statementKind = SK_LABEL;
     result->labelStmt.kind = labelKind;
@@ -269,8 +295,8 @@ AstStatement *createLabelStatement(int labelKind, AstStatement *body, const char
     return result;
 }
 
-AstStatement *createDeclStatement(AstDeclaration *decl) {
-    AstStatement *result = allocAstStatement();
+AstStatement *createDeclStatement(ParserContext *ctx, AstDeclaration *decl) {
+    AstStatement *result = allocAstStatement(ctx, decl->coordinates.startOffset, decl->coordinates.endOffset);
 
     result->statementKind = SK_DECLARATION;
     result->declStmt.declaration = decl;
@@ -278,8 +304,8 @@ AstStatement *createDeclStatement(AstDeclaration *decl) {
     return result;
 }
 
-AstStatement *createIfStatement(AstExpression *cond, AstStatement *thenB, AstStatement *elseB) {
-    AstStatement *result = allocAstStatement();
+AstStatement *createIfStatement(ParserContext *ctx, int startOffset, int endOffset, AstExpression *cond, AstStatement *thenB, AstStatement *elseB) {
+    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
 
     result->statementKind = SK_IF;
     result->ifStmt.condition = cond;
@@ -289,8 +315,8 @@ AstStatement *createIfStatement(AstExpression *cond, AstStatement *thenB, AstSta
     return result;
 }
 
-AstStatement *createSwitchStatement(AstExpression *cond, AstStatement *body) {
-    AstStatement *result = allocAstStatement();
+AstStatement *createSwitchStatement(ParserContext *ctx, int startOffset, int endOffset, AstExpression *cond, AstStatement *body) {
+    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
 
     result->statementKind = SK_SWITCH;
     result->switchStmt.condition = cond;
@@ -299,8 +325,8 @@ AstStatement *createSwitchStatement(AstExpression *cond, AstStatement *body) {
     return result;
 }
 
-AstStatement *createLoopStatement(int kind, AstExpression *cond, AstStatement *body) {
-    AstStatement *result = allocAstStatement();
+AstStatement *createLoopStatement(ParserContext *ctx, int startOffset, int endOffset, int kind, AstExpression *cond, AstStatement *body) {
+    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
 
     result->statementKind = kind;
     result->loopStmt.condition = cond;
@@ -309,8 +335,8 @@ AstStatement *createLoopStatement(int kind, AstExpression *cond, AstStatement *b
     return result;
 }
 
-AstStatement *createForStatement(AstExpression* init, AstExpression *cond, AstExpression *modifier, AstStatement *body) {
-    AstStatement *result = allocAstStatement();
+AstStatement *createForStatement(ParserContext *ctx, int startOffset, int endOffset, AstExpression* init, AstExpression *cond, AstExpression *modifier, AstStatement *body) {
+    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
 
     result->statementKind = SK_FOR;
     result->forStmt.initial = init;
@@ -321,16 +347,16 @@ AstStatement *createForStatement(AstExpression* init, AstExpression *cond, AstEx
     return result;
 }
 
-AstStatement *createJumpStatement(int jumpKind) {
-    AstStatement *result = allocAstStatement();
+AstStatement *createJumpStatement(ParserContext *ctx, int startOffset, int endOffset, int jumpKind) {
+    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
 
     result->statementKind = jumpKind;
 
     return result;
 }
 
-AstStatement *createEmptyStatement() {
-    AstStatement *result = allocAstStatement();
+AstStatement *createEmptyStatement(ParserContext *ctx, int startOffset, int endOffset) {
+    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
 
     result->statementKind = SK_EMPTY;
 
