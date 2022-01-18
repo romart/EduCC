@@ -20,7 +20,7 @@ ES (\\(['"\?\\abfnrtv]|[0-7]{1,3}|x[a-fA-F0-9]+))
 WS [ \t\v\f]
 
 
-%option reentrant
+%option reentrant bison-locations
 
 %{
 
@@ -28,15 +28,8 @@ WS [ \t\v\f]
 
 int fileno(FILE *stream);
 
-extern void yyerror(const char *);
-
-extern int num_chars;
-extern int num_lines;
-// extern YYLTYPE yylloc;
-
-
 #define YY_USER_ACTION         \
-  num_chars += yyleng; 
+  *yylloc += yyleng;
 
 
 %}
@@ -49,9 +42,9 @@ extern int num_lines;
 
 "/"+"*"                  { BEGIN(COMMENT); }
 <COMMENT>[^*\n]*
-<COMMENT>[^*\n]*\n         { ++num_lines; }
+<COMMENT>[^*\n]*\n         { return NEWLINE; }
 <COMMENT>"*"+[^*/\n]*
-<COMMENT>"*"+[^*/\n]*\n    { ++num_lines; }
+<COMMENT>"*"+[^*/\n]*\n    { return NEWLINE; }
 <COMMENT>"*"+"/"           { BEGIN(INITIAL); }
 <COMMENT><<EOF>>           { BEGIN(INITIAL); return(UNTERMINATED_COMMENT); }
 
@@ -60,13 +53,13 @@ extern int num_lines;
 
 "\""                    { BEGIN(STRING); }
 <STRING>[^\"\n]*        { return(STRING_LITERAL); }
-<STRING>"\n"            { BEGIN(INITIAL); ++num_lines; return(DANGLING_NEWLINE); }
+<STRING>"\n"            { BEGIN(INITIAL); return(DANGLING_NEWLINE); }
 <STRING>"\""            { BEGIN(INITIAL); }
 
 "#"                     { BEGIN(PP); }
 <PP>[^\n\\]*            { return(PP_TOKEN); }
-<PP>"\\"+(WS)*\n        { ++num_lines; }
-<PP>"\n"                { ++num_lines; BEGIN(INITIAL); }
+<PP>"\\"+(WS)*\n        { return NEWLINE; }
+<PP>"\n"                { BEGIN(INITIAL); return NEWLINE; }
 
 
 "break"					{ return(BREAK); }
@@ -166,7 +159,7 @@ extern int num_lines;
 "|"					{ return '|'; }
 "?"					{ return '?'; }
 
-\n					{ ++num_lines; }
+\n					{ return NEWLINE; }
 {WS}+				{ }
 .           { return(BAD_CHARACTER); }
 %%

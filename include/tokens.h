@@ -2,6 +2,7 @@
 #ifndef __TOKENS_H__
 #define __TOKENS_H__ 1
 
+#include <stddef.h>
 
 #define TOKENS \
   TOKEN_DEF(IDENTIFIER), \
@@ -64,6 +65,7 @@
   TOKEN_DEF(EQ_OP), \
   TOKEN_DEF(NE_OP), \
   TOKEN_DEF(DANGLING_NEWLINE), \
+  TOKEN_DEF(NEWLINE), \
   TOKEN_DEF(UNTERMINATED_COMMENT), \
   TOKEN_DEF(BAD_CHARACTER), \
   TOKEN_DEF(PP_TOKEN)
@@ -80,6 +82,11 @@ enum Tokens {
 
 
 #undef TOKEN_DEF
+
+
+typedef size_t YYLTYPE;
+typedef int YYSTYPE;
+
 
 const char* tokenName(int token);
 const char* tokenNameInBuffer(int token, char* buff);
