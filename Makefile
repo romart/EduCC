@@ -15,7 +15,6 @@ FLEX_FILE=flex/lexer.lex
 
 SOURCES=\
     $(SRCDIR)/main.c \
-    $(SRCDIR)/hello.c \
     $(SRCDIR)/tokens.c \
     $(SRCDIR)/utils.c \
     $(SRCDIR)/flex_defs.c \
