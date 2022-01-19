@@ -33,7 +33,7 @@ void releaseHeap(void *p) {
 
 static void *mmapAllocate(size_t size) {
   void *result = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-  if (result == (void*)-1) {
+  if (result == MAP_FAILED) {
       fprintf(stderr, "Cannot allocate %zu bytes via mmap, %s\n", size, strerror(errno));
       exit(ERR_MMAP);
   }
