@@ -117,10 +117,8 @@ enum ExpressionType {
     E_CALL,
 
 
-    EC_S_INT_CONST,
-    EC_U_INT_CONST,
+    EC_INT_CONST,
     EC_FLOAT_CONST,
-    EC_DOUBLE_CONST,
     EC_STRING_LITERAL,
     EC_SIZEOF,
 
@@ -176,15 +174,18 @@ enum ExpressionType {
     EB_OR_ASSIGN
 };
 
+typedef signed long long sint64_const_t;
+typedef unsigned long long int64_const_t;
+typedef double float64_const_t;
+typedef const char *literal_const_t;
+
 typedef struct ConstOp {
   int op;
   union {
     // TODO: is that OK to distinguish signed and unsinged consts
-      signed long long s;
-      unsigned long long u;
-      float f;
-      double d;
-      const char* l;
+      int64_const_t i;
+      float64_const_t f;
+      literal_const_t l;
       struct _TypeDesc* t;
   };
 } AstConst;
@@ -482,7 +483,7 @@ TypeDesc *createTypeDescriptor(ParserContext *ctx, int typeId, const char *name,
 
 // declarations
 
-EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset, const char* name, int value);
+EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset, const char* name, int64_const_t value);
 
 AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, AstExpression *expr, Vector *initializers);
 AstStructDeclarator *createStructDeclarator(ParserContext *ctx, int startOffset, int endOffset, DeclarationSpecifiers *specifiers, Declarator* declarator, int width);

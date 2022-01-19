@@ -20,7 +20,7 @@ TypeDesc *createTypeDescriptor(ParserContext *ctx, int typeId, const char *name,
 
 // declarations
 
-EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset, const char* name, int value) {
+EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset, const char* name, int64_const_t value) {
     EnumConstant* result = (EnumConstant*)areanAllocate(ctx->astArena, sizeof(EnumConstant));
 
     result->coordinates.startOffset = startOffset;
@@ -173,11 +173,9 @@ AstExpression* createAstConst(ParserContext *ctx, int startOffset, int endOffset
     result->op = E_CONST;
     result->constExpr.op = type;
     switch (type) {
-        case EC_S_INT_CONST: result->constExpr.s = *(signed long long*)value; break;
-        case EC_U_INT_CONST: result->constExpr.u = *(unsigned long long*)value; break;
-        case EC_FLOAT_CONST: result->constExpr.f = *(float*)value; break;
-        case EC_DOUBLE_CONST: result->constExpr.d = *(double*)value; break;
-        case EC_STRING_LITERAL: result->constExpr.l = *(const char**)value; break;
+        case EC_INT_CONST: result->constExpr.i = *(int64_const_t*)value; break;
+        case EC_FLOAT_CONST: result->constExpr.f = *(float64_const_t*)value; break;
+        case EC_STRING_LITERAL: result->constExpr.l = *(literal_const_t*)value; break;
     default: assert(0);
     }
 
