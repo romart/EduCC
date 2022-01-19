@@ -4,8 +4,9 @@
 #include "treeDump.h"
 
 static int dumpTypeRefImpl(FILE *output, int indent, TypeRef *type);
-static int dumpInitializerImpl(FILE *output, int indent, AstInitializer *init);
 static int dumpTypeDescImpl(FILE *output, int indent, TypeDesc *desc);
+static int dumpAstInitializerImpl(FILE *output, int indent, AstInitializer *init);
+static int dumpAstDeclarationImpl(FILE *output, int indent, AstDeclaration *decl);
 
 static int putIndent(FILE *output, int indent) {
   int result = indent;
@@ -136,40 +137,6 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
       result += dumpAstExpressionImpl(output, 0, expr->binaryExpr.right);
       result += fprintf(output, "]");
       break;
-  }
-
-  return result;
-}
-
-static int dumpAstDeclarationImpl(FILE *output, int indent, AstDeclaration *decl) {
-  int result = putIndent(output, indent);
-
-  result += fprintf(output, "VAR ");
-
-  int hasSpecs = FALSE;
-
-  if (decl->flags.bits.isExternal) {
-      result += fprintf(output, "E");
-      hasSpecs = TRUE;
-  }
-  if (decl->flags.bits.isStatic) {
-      result += fprintf(output, "S");
-      hasSpecs = TRUE;
-  }
-  if (decl->flags.bits.isRegister) {
-      result += fprintf(output, "R");
-      hasSpecs = TRUE;
-  }
-
-  if (hasSpecs) {
-      result += fprintf(output, " ");
-  }
-
-  result += dumpTypeRefImpl(output, 0, decl->type);
-  result += fprintf(output, " %s", decl->name);
-  if (decl->initializer) {
-      result += fprintf(output, " = ");
-      result += dumpInitializerImpl(output, 0, decl->initializer);
   }
 
   return result;
@@ -308,15 +275,56 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
 }
 
 
-
-
-static int dumpParameterDeclarationImpl(FILE *output, int indent, ParameterDeclaration *param, int dumpName) {
+static int dumpAstInitializerImpl(FILE *output, int indent, AstInitializer *init) {
   int result = putIndent(output, indent);
-  result += fprintf(output, "#%d: ", param->index);
-  result += dumpTypeRefImpl(output, 0, param->type);
-  if (dumpName) {
-      result += fprintf(output, " %s", param->name);
+
+  if (init->kind == IK_EXPRESSION) {
+    result += dumpAstExpressionImpl(output, 0, init->expression);
+  } else {
+      assert(init->kind == IK_LIST);
+      result += fprintf(output, "\n");
+      int i;
+      for (i = 0; i < init->initializers->size; ++i) {
+          AstInitializer *inner = (AstInitializer *)init->initializers->storage[i];
+          result += dumpAstInitializerImpl(output, indent + 2, inner);
+          result += fprintf(output, "\n");
+      }
   }
+  return result;
+}
+
+static int dumpAstValueDeclarationImpl(FILE *output, int indent, AstValueDeclaration *value) {
+  int result = putIndent(output, indent);
+
+  int hasBits = FALSE;
+  if (value->flags.bits.isStatic) {
+      result += fprintf(output, "S");
+      hasBits = TRUE;
+  }
+  if (value->flags.bits.isExternal) {
+      result += fprintf(output, "E");
+      hasBits = TRUE;
+  }
+
+  if (hasBits) {
+    result += fprintf(output, " ");
+  }
+
+  if (value->kind == VD_PARAMETER) {
+    result += fprintf(output, "#%d: ", value->index);
+  }
+  result += dumpTypeRefImpl(output, 0, value->type);
+  if (value->name) {
+      result += fprintf(output, " %s", value->name);
+  }
+
+  if (value->kind == VD_VARIABLE) {
+      if (value->initializer) {
+          result += fprintf(output, " = ");
+          result += dumpAstInitializerImpl(output, 0, value->initializer);
+      }
+  }
+
   return result;
 }
 
@@ -399,7 +407,8 @@ static int dumpTypeRefImpl(FILE *output, int indent, TypeRef *type) {
       int i;
       for (i = 0; i < desc->parameterCount; ++i) {
           if (i != 0) result += fprintf(output, ", ");
-          result += dumpParameterDeclarationImpl(output, 0, &desc->parameters[i], FALSE);
+          TypeRef *paramType = desc->parameters[i];
+          result += dumpTypeRefImpl(output, 0, paramType);
       }
 
       if (desc->isVariadic) {
@@ -412,34 +421,15 @@ static int dumpTypeRefImpl(FILE *output, int indent, TypeRef *type) {
   }
 }
 
-static int dumpInitializerImpl(FILE *output, int indent, AstInitializer *init) {
-  int result = putIndent(output, indent);
-
-  if (init->kind == IK_EXPRESSION) {
-    result += dumpAstExpressionImpl(output, 0, init->expression);
-  } else {
-      assert(init->kind == IK_LIST);
-      result += fprintf(output, "\n");
-      int i;
-      for (i = 0; i < init->initializers->size; ++i) {
-          AstInitializer *inner = (AstInitializer *)init->initializers->storage[i];
-          result += dumpInitializerImpl(output, indent + 2, inner);
-          result += fprintf(output, "\n");
-      }
-  }
-  return result;
-}
-
-
-static int dumpDeclarationImpl(FILE *output, int indent, Declaration *decl) {
+static int dumpAstFuntionDeclarationImpl(FILE *output, int indent, AstFunctionDeclaration *decl) {
   int result = putIndent(output, indent);
 
   int hasBits = FALSE;
-  if (decl->isStatic) {
+  if (decl->flags.bits.isStatic) {
       result += fprintf(output, "S");
       hasBits = TRUE;
   }
-  if (decl->isExternal) {
+  if (decl->flags.bits.isExternal) {
       result += fprintf(output, "E");
       hasBits = TRUE;
   }
@@ -448,47 +438,130 @@ static int dumpDeclarationImpl(FILE *output, int indent, Declaration *decl) {
     result += fprintf(output, " ");
   }
 
+  result += fprintf(output, "FUN ");
+  result += dumpTypeRefImpl(output, 0, decl->returnType);
+  result += fprintf(output, " ");
+  result += fprintf(output, "%s ", decl->name);
+  result += fprintf(output, "PARAM COUNT %d", decl->parameterCount);
+  int i;
+  for (i = 0; i < decl->parameterCount; ++i) {
+    result += fprintf(output, "\n");
+    result += dumpAstValueDeclarationImpl(output, indent + 2, decl->parameters[i]);
+  }
+  if (decl->isVariadic) {
+      result += putIndent(output, indent);
+      result += fprintf(output, "## ...");
+  }
+
+  return result;
+}
+
+static int dumpAstEnumDeclarationImpl(FILE *output, int indent, AstEnumDeclaration *enumDeclaration) {
+  int result = putIndent(output, indent);
+
+  result += printf("ENUM");
+
+  if (enumDeclaration->name) {
+    result += fprintf(output, " %s", enumDeclaration->name);
+  }
+
+  Vector *enumerators = enumDeclaration->enumerators;
+
+  if (enumerators) {
+      result += fprintf(output, "\n");
+      int i;
+      for (i = 0; i < enumerators->size; ++i) {
+          EnumConstant *enumerator = enumerators->storage[i];
+          result += putIndent(output, indent + 2);
+          result += fprintf(output, "%s = %d\n", enumerator->name, enumerator->value);
+      }
+      result += putIndent(output, indent);
+      result += fprintf(output, "ENUM_END");
+  }
+
+  return result;
+}
+
+static int dumpAstStructDeclarationImpl(FILE *output, int indent, int kind, AstStructDeclaration *structDeclaration) {
+  int result = putIndent(output, indent);
+
+  const char *prefix = kind == DKX_STRUCT ? "STRUCT" : "UNION";
+  result += fprintf(output, "%s", prefix);
+
+  if (structDeclaration->name) {
+    result += fprintf(output, " %s", structDeclaration->name);
+  }
+
+  Vector *members = structDeclaration->members;
+  if (members) {
+    result += fprintf(output, "\n");
+    int i;
+    for (i = 0; i < members->size; ++i) {
+        AstStructDeclarator *declarator = members->storage[i];
+        result += dumpTypeRefImpl(output, indent + 2, declarator->typeRef);
+        result += fprintf(output, " %s", declarator->name);
+        if (declarator->f_width >= 0) {
+            result += fprintf(output, " : %d", declarator->f_width);
+        }
+        result += fprintf(output, "\n");
+    }
+    result += putIndent(output, indent);
+    result += fprintf(output, "%s_END", prefix);
+  }
+
+  return result;
+}
+
+static int dumpAstDeclarationImpl(FILE *output, int indent, AstDeclaration *decl) {
+  int result = 0;
+
   switch (decl->kind) {
-    case DECLK_FUNCTION_DEFINITION: {
-       FunctionTypeDescriptor *descriptor = decl->functionDefinition.declaration;
-       result += fprintf(output, "FUN ");
-       result += dumpTypeRefImpl(output, 0, descriptor->returnType);
-       result += fprintf(output, " ");
-       result += fprintf(output, "%s ", decl->name);
-       result += fprintf(output, "PARAM COUNT %d\n", descriptor->parameterCount);
-       int i;
-       for (i = 0; i < descriptor->parameterCount; ++i) {
-         result += dumpParameterDeclarationImpl(output, indent + 2, &descriptor->parameters[i], TRUE);
-         result += fprintf(output, "\n");
-       }
-       if (descriptor->isVariadic) {
-           result += putIndent(output, indent);
-           result += fprintf(output, "## ...\n");
-       }
-       if (decl->functionDefinition.body) {
-         result += putIndent(output, indent);
-         result += fprintf(output, "BEGIN\n");
-         dumpAstStatementImpl(output, indent + 2, decl->functionDefinition.body);
-         result += fprintf(output, "\n");
-         result += putIndent(output, indent);
-         result += fprintf(output, "END");
-       }
-       return result;
-      }
-    case DECLK_VARIABLE_DECLARATION: {
-       result += fprintf(output, "VAR ");
-       result += dumpTypeRefImpl(output, 0, decl->variableDeclaration.variableType);
-       result += fprintf(output, " ");
-       result += fprintf(output, "%s", decl->name);
-       AstInitializer *initializer = decl->variableDeclaration.initializer;
-       if (initializer) {
-           result += fprintf(output, "\n");
-           result += dumpInitializerImpl(output, indent + 2, initializer);
-       }
-       return result;
-      }
-    default:
-      assert("Unreachable" && 0);
+  case DKX_ENUM:
+      result += dumpAstEnumDeclarationImpl(output, indent, decl->enumDeclaration);
+      return result;
+  case DKX_STRUCT:
+      result += dumpAstStructDeclarationImpl(output, indent, DKX_STRUCT, decl->structDeclaration);
+      return result;
+  case DKX_UNION:
+      result += dumpAstStructDeclarationImpl(output, indent, DKX_UNION, decl->structDeclaration);
+      return result;
+  case DKX_PROTOTYPE:
+      result += dumpAstFuntionDeclarationImpl(output, indent, decl->functionProrotype);
+      return result;
+  case DKX_VAR:
+      result += dumpAstValueDeclarationImpl(output, indent, decl->variableDeclaration);
+      return result;
+  case DKX_TYPEDEF:
+      result += fprintf(output, "TYPEDF %s = ", decl->name);
+      result += dumpTypeRefImpl(output, 0, decl->typeDefinition.definedType);
+      return result;
+  }
+
+  unreachable("Declaration node corruption, unknown declaration kind");
+}
+
+static int dumpAstFunctionDefinitionImpl(FILE *output, int indent, AstFunctionDefinition *definition) {
+  int result = 0;
+
+  dumpAstFuntionDeclarationImpl(output, indent, definition->declaration);
+  result += fprintf(output, "\n");
+
+  result += putIndent(output, indent);
+  result += fprintf(output, "BEGIN\n");
+  dumpAstStatementImpl(output, indent + 2, definition->body);
+  result += fprintf(output, "\n");
+  result += putIndent(output, indent);
+  result += fprintf(output, "END");
+
+
+  return result;
+}
+
+static int dumpTranslationUnitImpl(FILE *output, int indent, AstTranslationUnit *unit) {
+  if (unit->kind == TU_DECLARATION) {
+     return dumpAstDeclarationImpl(output, indent, unit->declaration);
+  } else {
+     return dumpAstFunctionDefinitionImpl(output, indent, unit->definition);
   }
 }
 
@@ -498,8 +571,8 @@ int dumpAstFile(FILE *output, AstFile *file) {
   int i;
   for (i = 0; i < file->declarations->size; ++i) {
       if (i) r += fprintf(output, "\n----\n");
-      Declaration *declaration = (Declaration*)file->declarations->storage[i];
-      r += dumpDeclarationImpl(output, 2, declaration);
+      AstTranslationUnit *unit = (AstTranslationUnit*)file->declarations->storage[i];
+      r += dumpTranslationUnitImpl(output, 2, unit);
   }
   return r;
 }
@@ -512,8 +585,8 @@ int dumpAstStatement(FILE *output, AstStatement *stmt) {
   return dumpAstStatementImpl(output, 0, stmt);
 }
 
-int dumpDeclaration(FILE *output, Declaration *declaration) {
-  return dumpDeclarationImpl(output, 0, declaration);
+int dumpAstDeclaration(FILE *output, AstDeclaration *declaration) {
+  return dumpAstDeclarationImpl(output, 0, declaration);
 }
 
 int dumpTypeRef(FILE *output, TypeRef *type) {
@@ -524,10 +597,10 @@ int dumpTypeDesc(FILE *output, TypeDesc *desc) {
   return dumpTypeDescImpl(output, 0, desc);
 }
 
-int dumpParameterDeclaration(FILE *output, ParameterDeclaration *param, int dumpName) {
-  return dumpParameterDeclarationImpl(output, 0, param, dumpName);
+int dumpAstValueDeclaration(FILE *output, AstValueDeclaration *param) {
+  return dumpAstValueDeclarationImpl(output, 0, param);
 }
 
-int dumpInitializer(FILE *outout, AstInitializer *init) {
-  return dumpInitializerImpl(outout, 0, init);
+int dumpAstInitializer(FILE *outout, AstInitializer *init) {
+  return dumpAstInitializerImpl(outout, 0, init);
 }

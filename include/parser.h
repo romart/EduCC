@@ -25,7 +25,7 @@ typedef struct _Symbol {
     union {
         struct {
             FunctionTypeDescriptor *typeDescriptor;
-            Declaration *definition;
+            AstDeclaration *definition;
         } functionSymbol;
         TypeDesc *typeDescriptor; /** struct S; */
         TypeRef * typeref; /** typedef struct TS* ts_t; */

@@ -11,7 +11,7 @@
 int dumpAstFile(FILE *output, AstFile *file);
 int dumpAstExpression(FILE *output, AstExpression *expr);
 int dumpAstStatement(FILE *output, AstStatement *stmt);
-int dumpDeclaration(FILE *output, Declaration *declaration);
+int dumpAstDeclaration(FILE *output, AstDeclaration *declaration);
 
 int dumpTypeRef(FILE *output, TypeRef *type);
 int dumpTypeDesc(FILE *output, TypeDesc *desc);
