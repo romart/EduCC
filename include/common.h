@@ -14,6 +14,8 @@ enum {
     TRUE = !FALSE
 };
 
+#define BIT(n) (1U << (n))
+
 void unreachable(const char *msg);
 
 #endif // __COMMON_H__

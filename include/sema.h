@@ -5,6 +5,7 @@
 #include "common.h"
 #include "tree.h"
 #include "parser.h"
+#include "types.h"
 
 enum {
   POINTER_TYPE_SIZE = 8,

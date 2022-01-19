@@ -31,12 +31,15 @@ EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset
     return result;
 }
 
-AstStructDeclarator* createStructDeclarator(ParserContext *ctx, int startOffset, int endOffset, DeclarationSpecifiers *specifiers, Declarator* declarator, int width) {
+AstStructDeclarator* createStructDeclarator(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, int width) {
     AstStructDeclarator* result = (AstStructDeclarator*)areanAllocate(ctx->astArena, sizeof(AstStructDeclarator));
 
     result->coordinates.startOffset = startOffset;
     result->coordinates.endOffset = startOffset;
     result->f_width = width;
+
+    result->name = name;
+    result->typeRef = type;
 
     return result;
 }
@@ -66,32 +69,48 @@ AstEnumDeclaration *createEnumDeclaration(ParserContext *ctx, int startOffset, i
     return result;
 }
 
-ParameterDeclaration *createParameterDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, int index) {
-    ParameterDeclaration *result = (ParameterDeclaration *)areanAllocate(ctx->astArena, sizeof (ParameterDeclaration));
+AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, int startOffset, int endOffset, int kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer) {
+    AstValueDeclaration *result = (AstValueDeclaration *)areanAllocate(ctx->astArena, sizeof (AstValueDeclaration));
 
     result->coordinates.startOffset = startOffset;
     result->coordinates.endOffset = startOffset;
 
+    result->kind = kind;
     result->name = name;
-    result->index = index;
     result->type = type;
+    if (kind == VD_PARAMETER) {
+      result->index = index;
+    } else {
+        result->flags.storage = flags;
+        result->initializer = initializer;
+    }
 
     return result;
 }
 
-AstDeclaration *createAstDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, AstInitializer *initializer, unsigned flags) {
+AstDeclaration *createAstDeclaration(ParserContext *ctx, int kind, const char *name) {
     AstDeclaration* result = (AstDeclaration*)areanAllocate(ctx->astArena, sizeof(AstDeclaration));
 
-    result->coordinates.startOffset = startOffset;
-    result->coordinates.endOffset = startOffset;
-
-    result->flags.storage = flags;
     result->name = name;
-    result->type = type;
-    result->initializer = initializer;
+    result->kind = kind;
 
     return result;
 }
+
+AstTranslationUnit *createTranslationUnit(ParserContext *ctx, AstDeclaration *declaration, AstFunctionDefinition *definition) {
+   AstTranslationUnit* result = (AstTranslationUnit*)areanAllocate(ctx->astArena, sizeof(AstTranslationUnit));
+
+   if (definition) {
+       assert(declaration == NULL);
+       result->kind = TU_FUNCTION_DEFINITION;
+       result->definition = definition;
+   } else {
+       result->kind = TU_DECLARATION;
+       result->declaration = declaration;
+   }
+}
+
+
 
 AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, AstExpression *expr, Vector *initializers) {
     AstInitializer* result = (AstInitializer*)areanAllocate(ctx->astArena, sizeof(AstInitializer));
@@ -119,32 +138,28 @@ AstFile *createAstFile(ParserContext *ctx, int capacity) {
     return astFile;
 }
 
+AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *returnType, const char *name, unsigned flags, unsigned parameterCount, AstValueDeclaration **parameters, int isVariadic) {
+  AstFunctionDeclaration *result = (AstFunctionDeclaration *)areanAllocate(ctx->astArena, sizeof(AstFunctionDeclaration));
 
-Declaration *createVariableDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, AstInitializer *initializer, SpecifierFlags flags) {
-    Declaration *result = (Declaration *)areanAllocate(ctx->astArena, sizeof(Declaration));
+  result->coordinates.startOffset = startOffset;
+  result->coordinates.endOffset = endOffset;
 
-    result->coordinates.startOffset = startOffset;
-    result->coordinates.endOffset = startOffset;
+  result->flags.storage = flags;
+  result->name = name;
 
-    result->isExternal = flags.bits.isExternal;
-    result->isStatic = flags.bits.isStatic;
-    result->kind = DECLK_VARIABLE_DECLARATION;
-    result->variableDeclaration.variableType = type;
-    result->variableDeclaration.initializer = initializer;
-    result->name = name;
+  result->returnType = returnType;
+  result->parameterCount = parameterCount;
+  result->parameters = parameters;
+  result->isVariadic = isVariadic != 0;
 
-    return result;
+  return result;
 }
 
-Declaration *createFunctionDefinition(ParserContext *ctx, const char *name, FunctionTypeDescriptor *descriptor, SpecifierFlags flags) {
-    Declaration *result = (Declaration *)areanAllocate(ctx->astArena, sizeof(Declaration));
+AstFunctionDefinition *createFunctionDefinition(ParserContext *ctx, AstFunctionDeclaration *declaration, AstStatement *body) {
+    AstFunctionDefinition *result = (AstFunctionDefinition *)areanAllocate(ctx->astArena, sizeof(AstFunctionDefinition));
 
-    result->isExternal = flags.bits.isExternal;
-    result->isStatic = flags.bits.isStatic;
-    result->kind = DECLK_FUNCTION_DEFINITION;
-
-    result->functionDefinition.declaration = descriptor;
-    result->functionDefinition.body = NULL;
+    result->declaration = declaration;
+    result->body = body;
 
     return result;
 }
@@ -274,8 +289,8 @@ AstStatement *createLabelStatement(ParserContext *ctx, int startOffset, int endO
     return result;
 }
 
-AstStatement *createDeclStatement(ParserContext *ctx, AstDeclaration *decl) {
-    AstStatement *result = allocAstStatement(ctx, decl->coordinates.startOffset, decl->coordinates.endOffset);
+AstStatement *createDeclStatement(ParserContext *ctx, int startOffset, int endOffset, AstDeclaration *decl) {
+    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
 
     result->statementKind = SK_DECLARATION;
     result->declStmt.declaration = decl;
