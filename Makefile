@@ -17,6 +17,7 @@ SOURCES=\
     $(SRCDIR)/main.c \
     $(SRCDIR)/tokens.c \
     $(SRCDIR)/utils.c \
+    $(SRCDIR)/sema.c \
     $(SRCDIR)/treeDump.c \
     $(SRCDIR)/tree.c \
     $(SRCDIR)/flex_defs.c \
