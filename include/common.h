@@ -9,6 +9,11 @@ enum {
   ERR_MMAP = 4,
 };
 
+enum {
+    FALSE = 0,
+    TRUE = !FALSE
+};
+
 void unreachable(const char *msg);
 
 #endif // __COMMON_H__
