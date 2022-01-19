@@ -14,6 +14,8 @@ typedef struct _Arena {
   struct _HeapChunck *bigChuncks;
 } Arena;
 
+void *heapAllocate(size_t size);
+void releaseHeap(void *);
 
 Arena *createArena(const char *name, size_t chuckSize);
 void *areanAllocate(Arena *arena, size_t size);
