@@ -44,13 +44,13 @@ AstStructDeclarator* createStructDeclarator(ParserContext *ctx, int startOffset,
     return result;
 }
 
-AstStructDeclaration *createStructDeclaration(ParserContext *ctx, int startOffset, int endOffset, int token, const char *name, Vector *members) {
-    AstStructDeclaration *result = (AstStructDeclaration*)areanAllocate(ctx->astArena, sizeof(AstStructDeclaration));
+AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, int startOffset, int endOffset, int kind, const char *name, Vector *members) {
+    AstSUEDeclaration *result = (AstSUEDeclaration*)areanAllocate(ctx->astArena, sizeof(AstSUEDeclaration));
 
     result->coordinates.startOffset = startOffset;
     result->coordinates.endOffset = startOffset;
 
-    result->token = token;
+    result->kind = kind;
     result->name = name;
     result->members = members;
 
