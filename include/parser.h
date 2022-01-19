@@ -7,6 +7,8 @@
 #include "tree.h"
 #include "mem.h"
 
+AstConst* eval(ParserContext *ctx, AstExpression* expression);
+
 enum SymbolKind {
     FunctionSymbol = 1,
     StructOrUnionSymbol,
