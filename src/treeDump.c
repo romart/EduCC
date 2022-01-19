@@ -145,10 +145,6 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
 static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
   int result = 0;
 
-  if (stmt->statementKind != SK_BLOCK) {
-    result += putIndent(output, indent);
-  }
-
   switch (stmt->statementKind) {
    case SK_BLOCK: {
       AstBlock *block = &stmt->block;
@@ -163,9 +159,11 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
       break;
    }
    case SK_EXPR_STMT:
+      result += putIndent(output, indent);
       result += dumpAstExpressionImpl(output, 0, stmt->exprStmt.expression);
       break;
    case SK_LABEL: {
+        result += putIndent(output, indent);
         AstLabelStatement *lbl = &stmt->labelStmt;
         switch (lbl->kind) {
         case LK_LABEL: result += fprintf(output, "%s: ", lbl->label); break;
@@ -176,12 +174,13 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
         break;
    }
    case SK_DECLARATION:
-       result += dumpAstDeclarationImpl(output, 0, stmt->declStmt.declaration);
+       result += dumpAstDeclarationImpl(output, indent, stmt->declStmt.declaration);
        break;
    case SK_EMPTY:
        break;
    case SK_IF: {
        AstIfStatement *ifStmt = &stmt->ifStmt;
+       result += putIndent(output, indent);
        result += fprintf(output, "IF (");
        result += dumpAstExpressionImpl(output, 0, ifStmt->condition);
        result += fprintf(output, ")\n");
@@ -201,6 +200,7 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
     }
     case SK_SWITCH: {
        AstSwitchStatement *switchStmt = &stmt->switchStmt;
+       result += putIndent(output, indent);
        result += fprintf(output, "SWITCH (");
        result += dumpAstExpressionImpl(output, 0, switchStmt->condition);
        result += fprintf(output, ")\n");
@@ -213,6 +213,7 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
     case SK_WHILE:
     case SK_DO_WHILE: {
        AstLoopStatement *loop = &stmt->loopStmt;
+       result += putIndent(output, indent);
        if (stmt->statementKind == SK_WHILE) {
            result += fprintf(output, "WHILE (");
            result += dumpAstExpressionImpl(output, 0, loop->condition);
@@ -235,7 +236,7 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
     case SK_FOR: {
 
        AstForStatement *forLoop = &stmt->forStmt;
-
+       result += putIndent(output, indent);
        result += fprintf(output, "FOR (");
        if (forLoop->initial) {
          result += dumpAstExpressionImpl(output, 0, forLoop->initial);
@@ -260,10 +261,21 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
 
        break;
     }
-    case SK_BREAK: result += fprintf(output, "BREAK"); break;
-    case SK_CONTINUE: result += fprintf(output, "CONTINUE"); break;
-    case SK_GOTO: result += fprintf(output, "GOTO %s", stmt->jumpStmt.label); break;
-    case SK_RETURN: result += fprintf(output, "RETURN");
+    case SK_BREAK:
+      result += putIndent(output, indent);
+      result += fprintf(output, "BREAK");
+      break;
+    case SK_CONTINUE:
+      result += putIndent(output, indent);
+      result += fprintf(output, "CONTINUE");
+      break;
+    case SK_GOTO:
+      result += putIndent(output, indent);
+      result += fprintf(output, "GOTO %s", stmt->jumpStmt.label);
+      break;
+    case SK_RETURN:
+      result += putIndent(output, indent);
+      result += fprintf(output, "RETURN");
       if (stmt->jumpStmt.expression) {
           result += fprintf(output, " ");
           result += dumpAstExpressionImpl(output, 0, stmt->jumpStmt.expression);
@@ -276,18 +288,17 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
 
 
 static int dumpAstInitializerImpl(FILE *output, int indent, AstInitializer *init) {
-  int result = putIndent(output, indent);
-
+  int result = 0;
   if (init->kind == IK_EXPRESSION) {
+    result += putIndent(output, indent);
     result += dumpAstExpressionImpl(output, 0, init->expression);
   } else {
       assert(init->kind == IK_LIST);
-      result += fprintf(output, "\n");
       int i;
       for (i = 0; i < init->initializers->size; ++i) {
+          if (i) result += fprintf(output, "\n");
           AstInitializer *inner = (AstInitializer *)init->initializers->storage[i];
-          result += dumpAstInitializerImpl(output, indent + 2, inner);
-          result += fprintf(output, "\n");
+          result += dumpAstInitializerImpl(output, indent, inner);
       }
   }
   return result;
@@ -303,6 +314,10 @@ static int dumpAstValueDeclarationImpl(FILE *output, int indent, AstValueDeclara
   }
   if (value->flags.bits.isExternal) {
       result += fprintf(output, "E");
+      hasBits = TRUE;
+  }
+  if (value->flags.bits.isRegister) {
+      result += fprintf(output, "R");
       hasBits = TRUE;
   }
 
@@ -321,7 +336,17 @@ static int dumpAstValueDeclarationImpl(FILE *output, int indent, AstValueDeclara
   if (value->kind == VD_VARIABLE) {
       if (value->initializer) {
           result += fprintf(output, " = ");
-          result += dumpAstInitializerImpl(output, 0, value->initializer);
+          if (value->initializer->kind == IK_EXPRESSION)
+            result += dumpAstInitializerImpl(output, 0, value->initializer);
+          else {
+            result += fprintf(output, "\n");
+            result += putIndent(output, indent);
+            result += fprintf(output, "INIT_BEGIN\n");
+            result += dumpAstInitializerImpl(output, indent + 2, value->initializer);
+            result += fprintf(output, "\n");
+            result += putIndent(output, indent);
+            result += fprintf(output, "INIT_END");
+          }
       }
   }
 
