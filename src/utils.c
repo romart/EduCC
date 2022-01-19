@@ -2,6 +2,7 @@
 
 #include <memory.h>
 #include <assert.h>
+#include <stdlib.h>
 
 #include "mem.h"
 #include "utils.h"
@@ -157,5 +158,10 @@ unsigned countLines(FILE* file) {
   rewind(file);
 
   return result;
+}
+
+void unreachable(const char *msg) {
+  fprintf(stderr, "Unreachable execition: %s\n", msg);
+  abort();
 }
 
