@@ -15,7 +15,7 @@ void addToVector(Vector* vector, void* value) {
         int newCapacity = (int)(vector->capacity * 1.2f) ;
         void** newStorage = (void**)heapAllocate(sizeof(void*) * newCapacity);
         memcpy(newStorage, vector->storage, vector->capacity);
-        free(vector->storage);
+        releaseHeap(vector->storage);
         vector->storage = newStorage;
         vector->capacity = newCapacity;
     }
@@ -36,8 +36,8 @@ Vector* createVector(int capacity) {
 }
 
 void releaseVector(Vector *vector) {
-    free(vector->storage);
-    free(vector);
+    releaseHeap(vector->storage);
+    releaseHeap(vector);
 }
 
 void* getFromVector(Vector* vector, int idx) {
@@ -120,7 +120,7 @@ const void* removeFromHashMap(HashMap* map, const void* key) {
         if (map->compare(list->key, key) == 0) {
             *prev = list->next;
             const void* oldValue = list->value;
-            free(list);
+            releaseHeap(list);
             return oldValue;
         }
         prev = &list->next;
