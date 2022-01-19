@@ -334,13 +334,13 @@ static int dumpTypeDescImpl(FILE *output, int indent, TypeDesc *desc) {
   // TODO: support verbose
   switch (desc->typeId) {
     case T_ENUM:
-      result += fprintf(output, "ENUM %s", desc->enumInfo->name ? desc->enumInfo->name : "<anon>");
+      result += fprintf(output, "ENUM %s", desc->structInfo->name);
       break;
     case T_UNION:
-      result += fprintf(output, "UNION %s", desc->structInfo->name ? desc->structInfo->name : "<anon>");
+      result += fprintf(output, "UNION %s", desc->structInfo->name);
       break;
     case T_STRUCT:
-      result += fprintf(output, "STRUCT %s", desc->structInfo->name ? desc->structInfo->name : "<anon>");
+      result += fprintf(output, "STRUCT %s", desc->structInfo->name);
       break;
     default:
       result += fprintf(output, "%s", desc->name);
@@ -456,36 +456,12 @@ static int dumpAstFuntionDeclarationImpl(FILE *output, int indent, AstFunctionDe
   return result;
 }
 
-static int dumpAstEnumDeclarationImpl(FILE *output, int indent, AstEnumDeclaration *enumDeclaration) {
+static int dumpAstSUEDeclarationImpl(FILE *output, int indent, AstSUEDeclaration *structDeclaration) {
   int result = putIndent(output, indent);
 
-  result += printf("ENUM");
-
-  if (enumDeclaration->name) {
-    result += fprintf(output, " %s", enumDeclaration->name);
-  }
-
-  Vector *enumerators = enumDeclaration->enumerators;
-
-  if (enumerators) {
-      result += fprintf(output, "\n");
-      int i;
-      for (i = 0; i < enumerators->size; ++i) {
-          EnumConstant *enumerator = enumerators->storage[i];
-          result += putIndent(output, indent + 2);
-          result += fprintf(output, "%s = %d\n", enumerator->name, enumerator->value);
-      }
-      result += putIndent(output, indent);
-      result += fprintf(output, "ENUM_END");
-  }
-
-  return result;
-}
-
-static int dumpAstStructDeclarationImpl(FILE *output, int indent, int kind, AstStructDeclaration *structDeclaration) {
-  int result = putIndent(output, indent);
-
-  const char *prefix = kind == DKX_STRUCT ? "STRUCT" : "UNION";
+  int kind = structDeclaration->kind;
+  int isEnum = kind == DKX_ENUM;
+  const char *prefix = kind == DKX_STRUCT ? "STRUCT" : isEnum ? "ENUM" : "UNION";
   result += fprintf(output, "%s", prefix);
 
   if (structDeclaration->name) {
@@ -497,11 +473,17 @@ static int dumpAstStructDeclarationImpl(FILE *output, int indent, int kind, AstS
     result += fprintf(output, "\n");
     int i;
     for (i = 0; i < members->size; ++i) {
-        AstStructDeclarator *declarator = members->storage[i];
-        result += dumpTypeRefImpl(output, indent + 2, declarator->typeRef);
-        result += fprintf(output, " %s", declarator->name);
-        if (declarator->f_width >= 0) {
-            result += fprintf(output, " : %d", declarator->f_width);
+        if (isEnum) {
+          EnumConstant *enumerator = members->storage[i];
+          result += putIndent(output, indent + 2);
+          result += fprintf(output, "%s = %d", enumerator->name, enumerator->value);
+        } else {
+          AstStructDeclarator *declarator = members->storage[i];
+          result += dumpTypeRefImpl(output, indent + 2, declarator->typeRef);
+          result += fprintf(output, " %s", declarator->name);
+          if (declarator->f_width >= 0) {
+              result += fprintf(output, " : %d", declarator->f_width);
+          }
         }
         result += fprintf(output, "\n");
     }
@@ -517,13 +499,9 @@ static int dumpAstDeclarationImpl(FILE *output, int indent, AstDeclaration *decl
 
   switch (decl->kind) {
   case DKX_ENUM:
-      result += dumpAstEnumDeclarationImpl(output, indent, decl->enumDeclaration);
-      return result;
   case DKX_STRUCT:
-      result += dumpAstStructDeclarationImpl(output, indent, DKX_STRUCT, decl->structDeclaration);
-      return result;
   case DKX_UNION:
-      result += dumpAstStructDeclarationImpl(output, indent, DKX_UNION, decl->structDeclaration);
+      result += dumpAstSUEDeclarationImpl(output, indent, decl->structDeclaration);
       return result;
   case DKX_PROTOTYPE:
       result += dumpAstFuntionDeclarationImpl(output, indent, decl->functionProrotype);

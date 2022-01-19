@@ -329,17 +329,21 @@ typedef struct _AstStructDeclarator {
     int f_width; // -1 if not specified;
 } AstStructDeclarator;
 
-typedef struct _AstStructDeclaration {
+typedef struct _AstSUEDeclaration { // Struct | Union | Enum declaration
     Coordinates coordinates;
-    int token; // SD_STRUCT or SD_UNION
+    int kind; // DKX_UNION | DKX_STRUCT | DKX_ENUM
     const char *name;
-    Vector *members;
-} AstStructDeclaration;
+    Vector *members; // Vector<AstStructDeclarator> | Vector<EnumConstant>
+} AstSUEDeclaration;
 
 typedef struct _DeclarationSpecifiers {
   SpecifierFlags flags;
-  TypeDesc * typeSpecifier;
-  TypeRef *typeRef;
+  TypeRef *basicType;
+
+  int kind; // DKX_UNION | DKX_STRUCT | DKX_ENUM
+
+  AstSUEDeclaration *defined;
+
 } DeclarationSpecifiers;
 
 enum DeclarationKind {
@@ -391,8 +395,7 @@ typedef struct _AstDeclaration {
   int kind; // DKX
   const char *name;
   union {
-    AstEnumDeclaration *enumDeclaration; // DKX_ENUM
-    AstStructDeclaration *structDeclaration; // DKX_STRUCT | DKX_UNION
+    AstSUEDeclaration *structDeclaration; // DKX_ENUM | DKX_STRUCT | DKX_UNION
     struct {
       TypeRef *definedType; // DKX_TYPEDEF
       Coordinates coordinates;
@@ -440,8 +443,7 @@ EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset
 
 AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, AstExpression *expr, Vector *initializers);
 AstStructDeclarator *createStructDeclarator(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, int width);
-AstStructDeclaration *createStructDeclaration(ParserContext *ctx, int startOffset, int endOffset, int token, const char *name, Vector *members);
-AstEnumDeclaration *createEnumDeclaration(ParserContext *ctx, int startOffset, int endOffset, const char *name, Vector *enumerators);
+AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, int startOffset, int endOffset, int kind, const char *name, Vector *members);
 AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *returnType, const char *name, unsigned flags, unsigned parameterCount, AstValueDeclaration **parameters, int isVariadic);
 AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, int startOffset, int endOffset, int kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer);
 

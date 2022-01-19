@@ -57,10 +57,7 @@ typedef struct _TypeDesc {
   int typeId;
   const char *name;
   int size;
-  union {
-    struct _AstStructDeclaration *structInfo;
-    struct _AstEnumDeclaration *enumInfo;
-  };
+  struct _AstSUEDeclaration *structInfo;
 } TypeDesc;
 
 enum TypeRefKind {
