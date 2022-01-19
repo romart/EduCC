@@ -1,9 +1,10 @@
 
-#include "utils.h"
 
-#include <malloc.h>
 #include <memory.h>
 #include <assert.h>
+
+#include "mem.h"
+#include "utils.h"
 
 static Vector emptyImpl = {0};
 
@@ -12,7 +13,7 @@ Vector *emptyVector = &emptyImpl;
 void addToVector(Vector* vector, void* value) {
     if (vector->size == vector->capacity) {
         int newCapacity = (int)(vector->capacity * 1.2f) ;
-        void** newStorage = (void**)malloc(sizeof(void*) * newCapacity);
+        void** newStorage = (void**)heapAllocate(sizeof(void*) * newCapacity);
         memcpy(newStorage, vector->storage, vector->capacity);
         free(vector->storage);
         vector->storage = newStorage;
@@ -24,11 +25,11 @@ void addToVector(Vector* vector, void* value) {
 
 static void initVector(Vector* vector, int capacity) {
     vector->capacity = capacity;
-    vector->storage = (void**)malloc(sizeof(void*) * capacity);
+    vector->storage = (void**)heapAllocate(sizeof(void*) * capacity);
 }
 
 Vector* createVector(int capacity) {
-    Vector* result = (Vector*)malloc(sizeof(Vector));
+    Vector* result = (Vector*)heapAllocate(sizeof(Vector));
     memset(result, 0, sizeof(Vector));
     initVector(result, capacity);
     return result;
@@ -60,11 +61,11 @@ typedef struct _HashMap {
 
 
 HashMap* createHashMap(int capacity, hashCode_fun hc, compare_fun cmp) {
-    HashMap* map = (HashMap*)malloc(sizeof(HashMap));
+    HashMap* map = (HashMap*)heapAllocate(sizeof(HashMap));
     map->hashCode = hc;
     map->compare = cmp;
     map->capacity = capacity;
-    map->storage = (struct LinkedNode**)malloc(sizeof(struct LinkedNode*) *  capacity);
+    map->storage = (struct LinkedNode**)heapAllocate(sizeof(struct LinkedNode*) *  capacity);
 
     return map;
 }
@@ -83,7 +84,7 @@ const void* putToHashMap(HashMap* map, const void* key, const void* value) {
         list = list->next;
     }
 
-    struct LinkedNode* newNode = (struct LinkedNode*)malloc(sizeof(struct LinkedNode));
+    struct LinkedNode* newNode = (struct LinkedNode*)heapAllocate(sizeof(struct LinkedNode));
     newNode->key = key;
     newNode->value = value;
     newNode->next = map->storage[idx];
