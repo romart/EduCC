@@ -312,7 +312,7 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
 
 static int dumpParameterDeclarationImpl(FILE *output, int indent, ParameterDeclaration *param, int dumpName) {
   int result = putIndent(output, indent);
-  result += fprintf(output, "#%d ", param->index);
+  result += fprintf(output, "#%d: ", param->index);
   result += dumpTypeRefImpl(output, 0, param->type);
   if (dumpName) {
       result += fprintf(output, " %s", param->name);
@@ -372,7 +372,17 @@ static int dumpTypeRefImpl(FILE *output, int indent, TypeRef *type) {
       break;
   case TR_ARRAY: {
         ArrayTypeDescriptor *desc = &type->arrayTypeDesc;
+        int wrap = desc->elementType->kind != TR_VALUE ? TRUE : FALSE;
+        if (wrap) {
+            result += fprintf(output, "(");
+        }
+
         result += dumpTypeRefImpl(output, 0, desc->elementType);
+
+        if (wrap) {
+            result += fprintf(output, ")");
+        }
+
         if (desc->size) {
             result += fprintf(output, "[%d]", desc->size);
         } else {
@@ -382,9 +392,9 @@ static int dumpTypeRefImpl(FILE *output, int indent, TypeRef *type) {
       break;
   case TR_FUNCTION: {
       FunctionTypeDescriptor *desc = &type->functionTypeDesc;
-      result += fprintf(output, "(");
+      result += fprintf(output, "{");
       result += dumpTypeRefImpl(output, 0, desc->returnType);
-      result += fprintf(output, "(");
+      result += fprintf(output, " (");
 
       int i;
       for (i = 0; i < desc->parameterCount; ++i) {
@@ -396,7 +406,7 @@ static int dumpTypeRefImpl(FILE *output, int indent, TypeRef *type) {
           result += fprintf(output, ", ...");
       }
 
-      result += fprintf(output, "))");
+      result += fprintf(output, ")}");
       break;
     }
   }
