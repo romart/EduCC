@@ -229,6 +229,7 @@ typedef struct _AstFieldExpression {
 typedef struct _AstExpression {
   Coordinates coordinates;
   int op;
+  TypeRef *type;
   union {
     AstConst constExpr;
     AstUnaryExpression unaryExpr;
