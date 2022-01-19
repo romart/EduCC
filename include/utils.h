@@ -2,11 +2,7 @@
 #define __UTILS_H__ 1
 
 #include <stdio.h>
-
-enum {
-    FALSE = 0,
-    TRUE = !FALSE
-};
+#include "common.h"
 
 typedef struct _Vector {
     int size;
