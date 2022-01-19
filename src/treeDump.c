@@ -21,10 +21,8 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
     case E_CONST: {
         AstConst *cnts = &expr->constExpr;
         switch (cnts->op) {
-        case EC_S_INT_CONST: result += fprintf(output, "%lld", cnts->s); break;
-        case EC_U_INT_CONST: result += fprintf(output, "%8llx", cnts->u); break;
+        case EC_INT_CONST: result += fprintf(output, "%lld", cnts->i); break;
         case EC_FLOAT_CONST: result += fprintf(output, "%f", cnts->f); break;
-        case EC_DOUBLE_CONST: result += fprintf(output, "%f", cnts->d); break;
         case EC_STRING_LITERAL: result += fprintf(output, "\"%s\"", cnts->l); break;
         case EC_SIZEOF:
             result += fprintf(output, "SIZEOF( ");
