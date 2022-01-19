@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include "common.h"
 #include "mem.h"
 
 #define PAGE_SIZE 0x1000
@@ -15,6 +16,29 @@
 #define ALIGN_SIZE_TO_PAGE(len) ALIGN_SIZE(len, PAGE_SIZE)
 #define ALIGN_SIZE_TO_WORD(len) ALIGN_SIZE(len, 0x8)
 
+void *heapAllocate(size_t size) {
+  void *result = malloc(size);
+
+  if (result == NULL) {
+      fprintf(stderr, "Cannot allocate %zu bytes, OutOfMemory, halt\n", size);
+      exit(ERR_MALLOC);
+  }
+
+  return result;
+}
+
+void releaseHeap(void *p) {
+  free(p);
+}
+
+static void *mmapAllocate(size_t size) {
+  void *result = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  if (result == (void*)-1) {
+      fprintf(stderr, "Cannot allocate %zu bytes via mmap, %s\n", size, strerror(errno));
+      exit(ERR_MMAP);
+  }
+  return result;
+}
 
 typedef unsigned char byte;
 
@@ -34,16 +58,11 @@ typedef struct _HeapChunck {
 } HeapChunck;
 
 static Chunck *createChuck(size_t size) {
-  Chunck *chunck = (Chunck *)malloc(sizeof (Chunck));
-  if (chunck == NULL) exit(5);
+  Chunck *chunck = (Chunck *)heapAllocate(sizeof (Chunck));
 
-  byte *storage = (byte *)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-  if (storage == (void*)-1) {
-      fprintf(stderr, "%s\n", strerror(errno));
-      exit(-5);
-  }
-
+  byte *storage = (byte *)mmapAllocate(size);
   memset(storage, 0, size);
+
   chunck->size = chunck->avaliable = size;
   chunck->start = chunck->pnt = storage;
   chunck->next = NULL;
@@ -52,10 +71,7 @@ static Chunck *createChuck(size_t size) {
 }
 
 Arena *createArena(const char *name, size_t chuckSize) {
-  Arena *result = (Arena *)malloc(sizeof(Arena));
-
-  if (result == NULL) exit(5);
-
+  Arena *result = (Arena *)heapAllocate(sizeof(Arena));
   memset(result, 0, sizeof(Arena));
 
   if (chuckSize < PAGE_SIZE)
@@ -70,11 +86,10 @@ Arena *createArena(const char *name, size_t chuckSize) {
 }
 
 static HeapChunck *allocateOnHeap(size_t size) {
-  HeapChunck *c = (HeapChunck *)malloc(sizeof(HeapChunck));
-  if (c == NULL) exit(5);
+  HeapChunck *c = (HeapChunck *)heapAllocate(sizeof(HeapChunck));
 
   c->next = NULL;
-  c->allocated = malloc(size);
+  c->allocated = heapAllocate(size);
   memset(c->allocated, 0, size);
 
   return c;
@@ -117,18 +132,18 @@ void releaseArena(Arena *arena) {
   while (chunck) {
       munmap(chunck->start, chunck->size);
       Chunck *next = chunck->next;
-      free(chunck);
+      releaseHeap(chunck);
       chunck = next;
   }
 
   HeapChunck *heap = arena->bigChuncks;
 
   while (heap) {
-      free(heap->allocated);
+      releaseHeap(heap->allocated);
       HeapChunck *next = heap->next;
-      free(heap);
+      releaseHeap(heap);
       heap = next;
   }
 
-  free(arena);
+  releaseHeap(arena);
 }
