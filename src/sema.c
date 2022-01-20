@@ -27,6 +27,34 @@ int typesEquals(TypeRef *t1, TypeRef *t2) {
   return TRUE;
 }
 
+static int stringHashCode(const void *v) {
+    const char *s = (const char *)v;
+    int result = 0;
+
+    int i = 0;
+
+    while (s[i]) {
+        result *= 31;
+        result += s[i++];
+    }
+
+    return result;
+}
+
+static int stringCmp(const void *v1, const void *v2) {
+    const char *s1 = (const char *)v1;
+    const char *s2 = (const char *)v2;
+
+    return strcmp(s1, s2);
+}
+
+Scope *newScope(ParserContext *ctx, Scope *parent) {
+  Scope *result = (Scope *)areanAllocate(ctx->typeArena, sizeof (Scope));
+  result->parent = parent;
+  result->symbols = createHashMap(DEFAULT_MAP_CAPACITY, stringHashCode, stringCmp);
+  return result;
+}
+
 Symbol* findSymbol(ParserContext *ctx, const char *name) {
     Scope* s = ctx->currentScope;
     while (s != NULL) {
