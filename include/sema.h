@@ -13,5 +13,6 @@ enum {
 
 size_t computeTypeSize(TypeRef *type);
 
+int typesEquals(TypeRef *t1, TypeRef *t2);
 
 #endif // __SEMA_H__
