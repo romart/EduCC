@@ -57,5 +57,13 @@ Symbol *declareEnumConstantSymbol(ParserContext *ctx, EnumConstant *enumerator);
 
 Scope *newScope(ParserContext *ctx, Scope *parent);
 
+TypeRef *makeBasicType(ParserContext *ctx, TypeDesc *descriptor, unsigned flags);
+TypeRef* makePointedType(ParserContext *ctx, SpecifierFlags flags, TypeRef *pointedTo);
+TypeRef *makeArrayType(ParserContext *ctx, int size, TypeRef *elementType);
+TypeRef *makeFunctionType(ParserContext *ctx, TypeRef *returnType, FunctionParams *params);
+TypeRef *makeFunctionReturnType(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator);
+TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator);
+TypeRef *makeErrorRef(ParserContext *ctx);
+
 
 #endif // __SEMA_H__

@@ -226,7 +226,6 @@ Symbol *declareSUESymbol(ParserContext *ctx, int symbolKind, int typeId, const c
   return old;
 }
 
-
 Symbol *declareEnumConstantSymbol(ParserContext *ctx, EnumConstant *enumerator) {
   Symbol *s = findSymbolInScope(ctx->currentScope, enumerator->name);
   if (s) {
@@ -238,4 +237,140 @@ Symbol *declareEnumConstantSymbol(ParserContext *ctx, EnumConstant *enumerator) 
   s = declareSymbol(ctx, EnumConstSymbol, enumerator->name);
   s->enumerator = enumerator;
   return s;
+}
+
+// Types
+
+static TypeDesc errorTypeImpl = { T_ERROR, "<error>", -1, NULL };
+
+TypeDesc *errorTypeDescriptor = &errorTypeImpl;
+
+TypeDesc builtInTypeDescriptors[] = {
+    { T_VOID, "void", 0, NULL },
+
+    { T_S1, "signed char", 1, NULL },
+    { T_S2, "signed short", 2, NULL },
+    { T_S4, "signed int", 4, NULL },
+    { T_S8, "signed long", 8, NULL },
+
+    { T_U1, "unsigned char", 1, NULL },
+    { T_U2, "unsigned short", 2, NULL },
+    { T_U4, "unsigned int", 4, NULL },
+    { T_U8, "unsigned long", 8, NULL },
+
+    { T_F4, "float", 4, NULL },
+    { T_F8, "double", 8, NULL }
+};
+
+TypeRef *makeBasicType(ParserContext *ctx, TypeDesc *descriptor, unsigned flags) {
+  TypeRef *ref = (TypeRef *)areanAllocate(ctx->typeArena, sizeof(TypeRef));
+
+  ref->kind = TR_VALUE;
+  ref->flags.storage = flags;
+  ref->descriptorDesc = descriptor;
+}
+
+TypeRef* makePointedType(ParserContext *ctx, SpecifierFlags flags, TypeRef *pointedTo) {
+    TypeRef *result = (TypeRef *)areanAllocate(ctx->typeArena, sizeof(TypeRef));
+    result->kind = TR_POINTED;
+    result->flags.storage = flags.storage;
+    result->pointedTo = pointedTo;
+    return result;
+}
+
+TypeRef *makeArrayType(ParserContext *ctx, int size, TypeRef *elementType) {
+    TypeRef *result = (TypeRef *)areanAllocate(ctx->typeArena, sizeof(TypeRef));
+    result->kind = TR_ARRAY;
+    result->arrayTypeDesc.size = size;
+    result->arrayTypeDesc.elementType = elementType;
+    return result;
+}
+
+TypeRef *makeFunctionType(ParserContext *ctx, TypeRef *returnType, FunctionParams *params) {
+    TypeRef *result = (TypeRef *)areanAllocate(ctx->typeArena, sizeof(TypeRef));
+    result->kind = TR_FUNCTION;
+    result->functionTypeDesc.isVariadic = params->isVariadic;
+    result->functionTypeDesc.returnType = returnType;
+
+    Vector *parameters = params->parameters;
+
+    if (parameters) {
+        int parameterCount = parameters->size;
+        TypeRef **paramStorage = (TypeRef**)areanAllocate(ctx->typeArena, sizeof (TypeRef*) * parameterCount);
+
+        void** paramVector = parameters->storage;
+
+        unsigned i;
+        for (i = 0; i < parameterCount; ++i) {
+            AstValueDeclaration *parami = (AstValueDeclaration *)paramVector[i];
+            paramStorage[i] = parami->type;
+        }
+
+        releaseVector(parameters);
+        params->parameters = NULL;
+        result->functionTypeDesc.parameterCount = parameterCount;
+        result->functionTypeDesc.parameters = paramStorage;
+    } else {
+        result->functionTypeDesc.parameterCount = 0;
+        result->functionTypeDesc.parameters = NULL;
+    }
+
+    return result;
+}
+
+TypeRef *makeFunctionReturnType(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator) {
+
+    TypeRef *type = specifiers->basicType;
+
+    int i;
+    for (i = declarator->partsCounter - 1; i >= 0; --i) {
+        DeclaratorPart *part = &declarator->declaratorParts[i];
+        switch (part->kind) {
+        case DPK_POINTER:
+            type = makePointedType(ctx, part->flags, type);
+            break;
+        case DPK_ARRAY:
+            type = makeArrayType(ctx, part->arraySize, type);
+            break;
+        case DPK_FUNCTION:
+            return type;
+        case DPK_NONE:
+        default:
+            unreachable("UNKNOWN Declarator Part");
+        }
+    }
+
+    parseError(ctx, "Expected function declarator here");
+    return NULL; // return error type
+}
+
+
+TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator) {
+
+    TypeRef *type = specifiers->basicType;
+
+    int i;
+    for (i = declarator->partsCounter - 1; i >= 0; --i) {
+        DeclaratorPart *part = &declarator->declaratorParts[i];
+        switch (part->kind) {
+        case DPK_POINTER:
+            type = makePointedType(ctx, part->flags, type);
+            break;
+        case DPK_ARRAY:
+            type = makeArrayType(ctx, part->arraySize, type);
+            break;
+        case DPK_FUNCTION:
+            type = makeFunctionType(ctx, type, &part->parameters);
+            break;
+        case DPK_NONE:
+        default:
+            unreachable("UNKNOWN Declarator Part");
+        }
+    }
+
+    return type;
+}
+
+TypeRef *makeErrorRef(ParserContext *ctx) {
+  return makeBasicType(ctx, errorTypeDescriptor, 0);
 }
