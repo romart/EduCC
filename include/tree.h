@@ -329,11 +329,24 @@ typedef struct _AstStructDeclarator {
     int f_width; // -1 if not specified;
 } AstStructDeclarator;
 
+enum StructMember {
+  SM_DECLARATOR,
+  SM_DECLARATION,
+};
+
+typedef struct _AstStructMember {
+  int kind; // SM_DECLARATOR | SM_DECLARATION
+  union {
+    AstStructDeclarator *declarator;
+    struct _AstDeclaration *declaration;
+  };
+} AstStructMember;
+
 typedef struct _AstSUEDeclaration { // Struct | Union | Enum declaration
     Coordinates coordinates;
     int kind; // DKX_UNION | DKX_STRUCT | DKX_ENUM
     const char *name;
-    Vector *members; // Vector<AstStructDeclarator> | Vector<EnumConstant>
+    Vector *members; // Vector<AstStructMember> | Vector<EnumConstant>
 } AstSUEDeclaration;
 
 typedef struct _DeclarationSpecifiers {
@@ -443,6 +456,7 @@ EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset
 
 AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, AstExpression *expr, Vector *initializers);
 AstStructDeclarator *createStructDeclarator(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, int width);
+AstStructMember* createStructMember(ParserContext *ctx, AstDeclaration *declaration, AstStructDeclarator *declarator);
 AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, int startOffset, int endOffset, int kind, const char *name, Vector *members);
 AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *returnType, const char *name, unsigned flags, unsigned parameterCount, AstValueDeclaration **parameters, int isVariadic);
 AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, int startOffset, int endOffset, int kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer);

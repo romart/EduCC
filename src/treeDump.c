@@ -503,11 +503,19 @@ static int dumpAstSUEDeclarationImpl(FILE *output, int indent, AstSUEDeclaration
           result += putIndent(output, indent + 2);
           result += fprintf(output, "%s = %d", enumerator->name, enumerator->value);
         } else {
-          AstStructDeclarator *declarator = members->storage[i];
-          result += dumpTypeRefImpl(output, indent + 2, declarator->typeRef);
-          result += fprintf(output, " %s", declarator->name);
-          if (declarator->f_width >= 0) {
-              result += fprintf(output, " : %d", declarator->f_width);
+          AstStructMember *member = members->storage[i];
+          if (member->kind == SM_DECLARATOR) {
+            AstStructDeclarator *declarator = member->declarator;
+            assert(declarator != NULL);
+            result += dumpTypeRefImpl(output, indent + 2, declarator->typeRef);
+            result += fprintf(output, " %s", declarator->name);
+            if (declarator->f_width >= 0) {
+                result += fprintf(output, " : %d", declarator->f_width);
+            }
+          } else {
+            AstDeclaration *declaration = member->declaration;
+            assert(member->kind == SM_DECLARATION && declaration != NULL);
+            result += dumpAstDeclarationImpl(output, indent + 2, declaration);
           }
         }
         result += fprintf(output, "\n");
@@ -535,6 +543,7 @@ static int dumpAstDeclarationImpl(FILE *output, int indent, AstDeclaration *decl
       result += dumpAstValueDeclarationImpl(output, indent, decl->variableDeclaration);
       return result;
   case DKX_TYPEDEF:
+      result += putIndent(output, indent);
       result += fprintf(output, "TYPEDF %s = ", decl->name);
       result += dumpTypeRefImpl(output, 0, decl->typeDefinition.definedType);
       return result;
