@@ -33,6 +33,9 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
         }
         break;
     }
+    case E_ERROR:
+      result += fprintf(output, "%s", "ERROR EXPR");
+      break;
     case E_NAMEREF:
       result += fprintf(output, "%s", expr->nameRefExpr.name);
       break;
@@ -362,6 +365,8 @@ int renderTypeDesc(TypeDesc *desc, char *b, int bufferSize) {
       return snprintf(b, bufferSize, "UNION %s", desc->structInfo->name);
     case T_STRUCT:
       return snprintf(b, bufferSize, "STRUCT %s", desc->structInfo->name);
+    case T_ERROR:
+      return snprintf(b, bufferSize, "ERROR TYPE");
     default:
       return snprintf(b, bufferSize, "%s", desc->name);
   }

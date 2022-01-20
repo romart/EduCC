@@ -5,7 +5,7 @@
 
 #include "tree.h"
 #include "parser.h"
-
+#include "sema.h"
 // types
 
 TypeDesc *createTypeDescriptor(ParserContext *ctx, int typeId, const char *name, int size) {
@@ -214,7 +214,14 @@ AstExpression* createAstConst(ParserContext *ctx, int startOffset, int endOffset
     return result;
 }
 
+AstExpression *createErrorExpression(ParserContext *ctx, int startOffset, int endOffset) {
+  AstExpression* result = allocAstExpression(ctx, startOffset, endOffset);
 
+  result->op = E_ERROR;
+  result->type = makeErrorRef(ctx);
+
+  return result;
+}
 
 AstExpression *createCastExpression(ParserContext *ctx, int startOffset, int endOffset, TypeRef *typeRef, AstExpression *argument) {
     AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
