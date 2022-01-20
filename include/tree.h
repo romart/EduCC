@@ -37,6 +37,7 @@ enum ExpressionType {
     E_CAST,
     E_NAMEREF,
     E_CALL,
+    E_ERROR,
 
 
     EC_INT_CONST,
@@ -172,6 +173,7 @@ enum StatementKind {
     SK_LABEL,
     SK_DECLARATION,
     SK_EMPTY,
+    SK_ERROR,
 
     SK_IF,
     SK_SWITCH,
@@ -478,6 +480,7 @@ AstExpression *createNameRef(ParserContext *ctx, int startOffset, int endOffset,
 AstExpression *createCallExpression(ParserContext *ctx, int startOffset, int endOffset, AstExpression *callee, Vector *arguments);
 AstExpression *createFieldExpression(ParserContext *ctx, int startOffset, int endOffset, int op, AstExpression *receiver, const char *member);
 
+AstExpression *createErrorExpression(ParserContext *ctx, int startOffset, int endOffset);
 
 // statemetns
 
