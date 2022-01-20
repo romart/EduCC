@@ -9,7 +9,7 @@
 // types
 
 TypeDesc *createTypeDescriptor(ParserContext *ctx, int typeId, const char *name, int size) {
-  TypeDesc *result = (TypeDesc*)areanAllocate(ctx->astArena, sizeof(TypeDesc));
+  TypeDesc *result = (TypeDesc*)areanAllocate(ctx->typeArena, sizeof(TypeDesc));
 
   result->typeId = typeId;
   result->name = name;
