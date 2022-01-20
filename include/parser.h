@@ -11,25 +11,28 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression);
 
 enum SymbolKind {
     FunctionSymbol = 1,
-    StructOrUnionSymbol,
+    UnionSymbol,
+    StructSymbol,
     TypedefSymbol,
     VariableSymbol,
     EnumSymbol, /** TODO: not sure about it */
+    EnumConstSymbol
 };
 
 struct VariableDesc;
 
 typedef struct _Symbol {
     int kind;
-    const char* name; /** struct/union is referenced via "struct $name" or "union $name" */
+    const char* name; /** struct/union/enum is referenced via "$$name" or "|$name" or "#$enum"*/
     union {
         struct {
             FunctionTypeDescriptor *typeDescriptor;
             AstDeclaration *definition;
-        } functionSymbol;
-        TypeDesc *typeDescriptor; /** struct S; */
-        TypeRef * typeref; /** typedef struct TS* ts_t; */
-        struct VariableDesc* variableDesc; /** int a = 10; */
+        } functionSymbol; // FunctionSymbol
+        TypeDesc *typeDescriptor; // StructSymbol | UnionSymbol | EnumSymbol, struct S;
+        TypeRef * typeref; // TypedefSymbol, typedef struct TS* ts_t;
+        struct VariableDesc* variableDesc; // VariableSymbol, int a = 10;
+        struct _EnumConstant *enumerator; // EnumConstSymbol
     };
 } Symbol;
 
