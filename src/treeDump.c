@@ -339,12 +339,12 @@ static int dumpAstValueDeclarationImpl(FILE *output, int indent, AstValueDeclara
           if (value->initializer->kind == IK_EXPRESSION)
             result += dumpAstInitializerImpl(output, 0, value->initializer);
           else {
-            result += fprintf(output, "\n");
-            result += putIndent(output, indent);
+            result += fprintf(output, "\\\n");
+            result += putIndent(output, indent + 2);
             result += fprintf(output, "INIT_BEGIN\n");
-            result += dumpAstInitializerImpl(output, indent + 2, value->initializer);
+            result += dumpAstInitializerImpl(output, indent + 4, value->initializer);
             result += fprintf(output, "\n");
-            result += putIndent(output, indent);
+            result += putIndent(output, indent + 2);
             result += fprintf(output, "INIT_END");
           }
       }
