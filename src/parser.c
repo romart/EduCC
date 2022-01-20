@@ -419,23 +419,22 @@ argument_expression_list
     : assignment_expression (',' assignment_expression)*
     ;
  */
-static Vector *parseArgumentExpressionList(ParserContext *ctx, struct _Scope *scope) {
-    AstExpression *expr = parseAssignmentExpression(ctx, scope);
-    Vector *result;
-    if (ctx->token->code != ',') {
-        result = createVector(1);
-        addToVector(result, expr);
-        return result;
-    } else {
-        result = createVector(10);
-        addToVector(result, expr);
-    }
+static AstExpressionList *parseArgumentExpressionList(ParserContext *ctx, struct _Scope *scope) {
+    AstExpressionList *head = NULL, *tail = NULL;
 
-    while (nextTokenIf(ctx, ',')) {
-        addToVector(result, parseAssignmentExpression(ctx, scope));
-    }
+    do {
+      AstExpression *expr = parseAssignmentExpression(ctx, scope);
+      AstExpressionList *node = (AstExpressionList*)areanAllocate(ctx->astArena, sizeof(AstExpressionList));
+      node->expression = expr;
+      if (tail) {
+          tail->next = node;
+      } else {
+          head = node;
+      }
+      tail = node;
+    } while (nextTokenIf(ctx, ','));
 
-    return result;
+    return head;
 }
 
 
@@ -465,11 +464,11 @@ postfix_expression
 static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *scope) {
     AstExpression *left = parsePrimaryExpression(ctx, scope);
     AstExpression *right = NULL;
-    Vector *arguments = NULL;
 
     int op, so, eo;
 
     for (;;) {
+        AstExpressionList *arguments = NULL;
         so = left->coordinates.startOffset;
         switch (ctx->token->code) {
         case '[': // '[' expression ']'
@@ -482,11 +481,8 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
             break;
         case '(': // '(' argument_expression_list? ')'
             nextToken(ctx);
-
             if (ctx->token->code != ')') {
                 arguments = parseArgumentExpressionList(ctx, scope);
-            } else {
-                arguments = emptyVector;
             }
             eo = ctx->token->coordinates.endOffset;
             consume(ctx, ')');
@@ -880,9 +876,8 @@ enumerator
     : IDENTIFIER ('=' constant_expression)?
     ;
 */
-static Vector *parseEnumeratorList(ParserContext *ctx, struct _Scope* scope) {
-    Vector *result = createVector(INITIAL_VECTOR_CAPACITY);
-
+static AstStructMember *parseEnumeratorList(ParserContext *ctx, struct _Scope* scope) {
+    AstStructMember *head = NULL, *tail = NULL;
     int64_const_t idx = 0;
     do {
         int token = ctx->token->code;
@@ -908,10 +903,16 @@ static Vector *parseEnumeratorList(ParserContext *ctx, struct _Scope* scope) {
         token = ctx->token->code;
         EnumConstant *enumerator = createEnumConst(ctx, so, eo, name, v);
         declareEnumConstantSymbol(ctx, enumerator);
-        addToVector(result, enumerator);
+        AstStructMember *member = createStructMember(ctx, NULL, NULL, enumerator);
+        if (tail) {
+            tail->next = member;
+        } else {
+            head = member;
+        }
+        tail = member;
     } while (nextTokenIf(ctx, ','));
 
-    return result;
+    return head;
 }
 
 /**
@@ -922,8 +923,8 @@ enum_specifier
  */
 static AstSUEDeclaration* parseEnumDeclaration(ParserContext *ctx, struct _Scope* scope) {
     const char *name = NULL;
-    Vector *enumerators = NULL;
 
+    AstStructMember *members = NULL;
     int so = ctx->token->coordinates.startOffset;
     int token = nextToken(ctx)->code;
     int eo = ctx->token->coordinates.endOffset;
@@ -940,12 +941,12 @@ static AstSUEDeclaration* parseEnumDeclaration(ParserContext *ctx, struct _Scope
           parseError(ctx, "use of empty enum");
       }
 
-      enumerators = parseEnumeratorList(ctx, scope);
+      members = parseEnumeratorList(ctx, scope);
       eo = ctx->token->coordinates.endOffset;
       consume(ctx, '}');
     }
 
-    return createSUEDeclaration(ctx, so, eo, DKX_ENUM, name, enumerators);
+    return createSUEDeclaration(ctx, so, eo, DKX_ENUM, TRUE, name, members);
 }
 
 
@@ -975,8 +976,8 @@ struct_declarator
     | declarator ':' constant_expression
     ;
 */
-static Vector *parseStructDeclarationList(ParserContext *ctx, struct _Scope* scope) {
-    Vector* result = createVector(INITIAL_VECTOR_CAPACITY);
+static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _Scope* scope) {
+    AstStructMember *head = NULL, *tail = NULL;
     int token = ctx->token->code;
     do {
         int so = ctx->token->coordinates.startOffset;
@@ -987,7 +988,13 @@ static Vector *parseStructDeclarationList(ParserContext *ctx, struct _Scope* sco
             AstSUEDeclaration *definition = specifiers.defined;
             AstDeclaration *declaration = createAstDeclaration(ctx, definition->kind, definition->name);
             declaration->structDeclaration = definition;
-            addToVector(result, createStructMember(ctx, declaration, NULL));
+            AstStructMember *m1 = createStructMember(ctx, declaration, NULL, NULL);
+            if (tail) {
+                tail->next = m1;
+            } else {
+                head = m1;
+            }
+            tail = m1;
         }
 
         for (;;) {
@@ -1017,8 +1024,13 @@ static Vector *parseStructDeclarationList(ParserContext *ctx, struct _Scope* sco
             } else {
               structDeclarator = createStructDeclarator(ctx, so, eo, type, name, width);
             }
-            AstStructMember *member = createStructMember(ctx, declaration, structDeclarator);
-            addToVector(result, member);
+            AstStructMember *member = createStructMember(ctx, declaration, structDeclarator, NULL);
+            if (tail) {
+                tail->next = member;
+            } else {
+                head = member;
+            }
+            tail = member;
             if (ctx->token->code == ',') nextToken(ctx);
             else break;
         }
@@ -1026,9 +1038,8 @@ static Vector *parseStructDeclarationList(ParserContext *ctx, struct _Scope* sco
         consume(ctx, ';');
     } while (ctx->token->code != '}');
 
-    return result;
+    return head;
 }
-
 
 /**
 struct_or_union_specifier
@@ -1044,7 +1055,8 @@ struct_or_union
  */
 static AstSUEDeclaration* parseStructOrUnionDeclaration(ParserContext *ctx, int kind, struct _Scope* scope) {
     const char *name = NULL;
-    Vector *members = NULL;
+    AstStructMember *members = NULL;
+    unsigned isDefinition = FALSE;
 
     int so = ctx->token->coordinates.startOffset;
     int token = nextToken(ctx)->rawCode;
@@ -1059,10 +1071,10 @@ static AstSUEDeclaration* parseStructOrUnionDeclaration(ParserContext *ctx, int 
         goto done;
     }
     token = nextToken(ctx)->code;
+    isDefinition = TRUE;
 
     eo = ctx->token->coordinates.endOffset;
     if (nextTokenIf(ctx, '}')) {
-        members = emptyVector;
         goto done;
     }
 
@@ -1072,7 +1084,7 @@ static AstSUEDeclaration* parseStructOrUnionDeclaration(ParserContext *ctx, int 
     consume(ctx, '}');
 
 done:
-    return createSUEDeclaration(ctx, so, eo, kind, name, members);
+    return createSUEDeclaration(ctx, so, eo, kind, isDefinition, name, members);
 }
 
 /**
@@ -1354,7 +1366,7 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
             if (typeId != T_ENUM) {
               ctx->currentScope = ctx->currentScope->parent;
             }
-            if (declaration->members)
+            if (declaration->isDefinition)
               specifiers->defined = declaration;
 
             const char* name = declaration->name;
@@ -1375,7 +1387,7 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
 
                 typeDescriptor = s->typeDescriptor;
             } else {
-                if (declaration->members) {
+                if (declaration->isDefinition) {
                   size = sprintf(tmpBuf, "<anon$%d>", ctx->anonSymbolsCounter++);
                   name = (char *)heapAllocate(size + 1);
                   memcpy((char *)name, tmpBuf, size + 1);
@@ -1459,12 +1471,10 @@ static SpecifierFlags parseTypeQualifierList(ParserContext *ctx) {
               result.bits.isVolatile |= tmp == TQT_VOLATILE;
               break;
 
-        default: {
-            return result;
+          default: {
+              return result;
+          }
         }
-        }
-
-
     } while (nextToken(ctx));
 }
 
@@ -1478,25 +1488,33 @@ initializer
     ;
  */
 static AstInitializer* parseInitializer(ParserContext *ctx, struct _Scope* scope) {
-    Vector* initializers = NULL;
     AstExpression *expr = NULL;
+    int kind = -1;
     int so = ctx->token->coordinates.startOffset, eo = -1;
 
+    AstInitializer *head = NULL, *tail = NULL;
+
     if (nextTokenIf(ctx, '{')) {
-        initializers = createVector(INITIAL_VECTOR_CAPACITY);
+        kind = IK_LIST;
         do {
             AstInitializer* initializer = parseInitializer(ctx, scope);
-            addToVector(initializers, initializer);
             nextTokenIf(ctx, ',');
             eo = ctx->token->coordinates.endOffset;
+            if (tail) {
+                tail->initializers = initializer;
+            } else {
+                head = initializer;
+            }
+            tail = initializer;
         } while (ctx->token->code != '}');
         nextToken(ctx); // eat '}'
     } else {
+        kind = IK_EXPRESSION;
         expr = parseAssignmentExpression(ctx, scope);
         eo = expr->coordinates.endOffset;
     }
 
-    return createAstInitializer(ctx, so, eo, expr, initializers);
+    return createAstInitializer(ctx, so, eo, kind, expr, head);
 }
 
 /**
@@ -1543,8 +1561,7 @@ parameter_list
  */
 static void parseParameterList(ParserContext *ctx, FunctionParams *params, struct _Scope* scope) {
     int idx = 0;
-
-    Vector *parameters = NULL;
+    AstValueDeclaration *head = NULL, *tail = NULL;
 
     int ellipsisIdx = -1;
 
@@ -1581,9 +1598,6 @@ static void parseParameterList(ParserContext *ctx, FunctionParams *params, struc
               }
           }
 
-          if (!parameters)
-              parameters = createVector(8);
-
           // pointer | direct_abstract_declarator | pointer direct_abstract_declarator | pointer? direct_declarator
           Declarator declarator = { 0 };
           parseDeclarator(ctx, &declarator, DK_ANY);
@@ -1598,11 +1612,16 @@ static void parseParameterList(ParserContext *ctx, FunctionParams *params, struc
               declareValueSymbol(ctx, name, parameter);
           }
 
-          addToVector(parameters, parameter);
+          if (tail) {
+            tail->next = parameter;
+          } else {
+            head = parameter;
+          }
+          tail = parameter;
         }
     } while (nextTokenIf(ctx, ','));
 
-    params->parameters = parameters;
+    params->parameters = head;
 }
 
 /**
@@ -1867,7 +1886,13 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
 }
 
 static unsigned processDeclarationPart(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator) {
+  return 0;
+}
 
+static AstStatementList *allocateStmtList(ParserContext *ctx, AstStatement *stmt) {
+  AstStatementList* result = (AstStatementList*)areanAllocate(ctx->astArena, sizeof(AstStatementList));
+  result->stmt = stmt;
+  return result;
 }
 
 /**
@@ -1889,10 +1914,7 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
     consume(ctx, '{');
 
     Scope *blockScope = ctx->currentScope;
-
-
-    // define a new scope
-    Vector* items = createVector(8);
+    AstStatementList *head = NULL, *tail = NULL;
 
     while (ctx->token->code && ctx->token->code != '}') {
         if (isDeclarationSpecifierToken(ctx->token->code)) {
@@ -1904,10 +1926,12 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
             if (specifiers.defined) {
                 AstDeclaration *declaration = createAstDeclaration(ctx, specifiers.defined->kind, specifiers.defined->name);
                 declaration->structDeclaration = specifiers.defined;
-                addToVector(items, createDeclStatement(ctx, sod, eod, declaration));
+                AstStatement *declStmt = createDeclStatement(ctx, sod, eod, declaration);
+                AstStatementList *node = allocateStmtList(ctx, declStmt);
+                if (tail) tail->next = node;
+                else head = node;
+                tail = node;
             }
-
-            Vector* initDeclarators = NULL;
 
             if (ctx->token->code != ';') {
                 do {
@@ -1940,7 +1964,11 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                         // TODO: declare value symbol here (needs Scope support)
                     }
 
-                    addToVector(items, createDeclStatement(ctx, sod, eod, declaration));
+                    AstStatement *declStmt = createDeclStatement(ctx, sod, eod, declaration);
+                    AstStatementList *node = allocateStmtList(ctx, declStmt);
+                    if (tail) tail->next = node;
+                    else head = node;
+                    tail = node;
                 } while (nextTokenIf(ctx, ','));
             } else {
                 // TODO: warning: declaration does not declare anything
@@ -1949,14 +1977,17 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
             consume(ctx, ';');
         } else {
             AstStatement *statement = parseStatement(ctx, NULL);
-            addToVector(items, statement);
+            AstStatementList *node = allocateStmtList(ctx, statement);
+            if (tail) tail->next = node;
+            else head = node;
+            tail = node;
         }
     }
 
     int eo = ctx->token->coordinates.endOffset;
     consume(ctx, '}');
 
-    return createBlockStatement(ctx, so, eo, ctx->currentScope, items);
+    return createBlockStatement(ctx, so, eo, ctx->currentScope, head);
 }
 
 static AstStatement *parseCompoundStatement(ParserContext *ctx) {
@@ -1985,6 +2016,16 @@ declaration_list
  */
 static void* parseDeclarationList(ParserContext *ctx, struct _Scope* scope) {
     return NULL;
+}
+
+static void addToFile(AstFile *file, AstTranslationUnit *newUnit) {
+  AstTranslationUnit *tail = file->last;
+  if (tail) {
+    tail->next = newUnit;
+    file->last = newUnit;
+  } else {
+    file->units = file->last = newUnit;
+  }
 }
 
 /**
@@ -2028,7 +2069,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
     AstSUEDeclaration *defined = specifiers.defined;
     AstDeclaration *declaration = createAstDeclaration(ctx, defined->kind, defined->name);
     declaration->structDeclaration = defined;
-    addToVector(file->declarations, createTranslationUnit(ctx, declaration, NULL));
+    addToFile(file, createTranslationUnit(ctx, declaration, NULL));
   }
 
   if (nextTokenIf(ctx, ';')) {
@@ -2096,21 +2137,8 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
       }
 
       assert(params_dpk != NULL);
-
-      AstValueDeclaration **params = NULL;
-      unsigned paramCount = 0;
-      Vector *paramVector = params_dpk->parameters;
-      if (paramVector) {
-        params = (AstValueDeclaration **)areanAllocate(ctx->astArena, sizeof (AstValueDeclaration *) * paramVector->size);
-        paramCount = paramVector->size;
-        for (i = 0; i < paramVector->size; ++i) {
-          params[i] = (AstValueDeclaration *)paramVector->storage[i];
-        }
-        releaseVector(paramVector);
-        paramVector = NULL;
-      }
-
-      functionDeclaration = createFunctionDeclaration(ctx, so, eo, returnType, name, specifiers.flags.storage, paramCount, params, params_dpk->isVariadic);
+      AstValueDeclaration *params = params_dpk->parameters;
+      functionDeclaration = createFunctionDeclaration(ctx, so, eo, returnType, name, specifiers.flags.storage, params, params_dpk->isVariadic);
       Symbol *s = declareFunctionSymbol(ctx, name, functionDeclaration);
       if (ctx->token->code == '{') {
           funName = name;
@@ -2131,7 +2159,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
         declaration = createAstDeclaration(ctx, DKX_VAR, name);
         declaration->variableDeclaration = valueDeclaration;
     }
-    addToVector(file->declarations, createTranslationUnit(ctx, declaration, NULL));
+    addToFile(file, createTranslationUnit(ctx, declaration, NULL));
     ++id_idx;
   } while (nextTokenIf(ctx, ','));
 
@@ -2151,7 +2179,6 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
   if (functionDeclaration == NULL) {
       parseError(ctx, "Expected function type");
       return;
-
   }
 
   assert(functionScope != NULL);
@@ -2164,7 +2191,8 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
   definition->scope = functionScope;
   ctx->currentScope = functionScope->parent;
 
-  addToVector(file->declarations, createTranslationUnit(ctx, NULL, definition));
+  AstTranslationUnit *newUnit = createTranslationUnit(ctx, NULL, definition);
+  addToFile(file, newUnit);
 }
 
 /**

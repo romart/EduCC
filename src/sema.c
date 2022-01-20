@@ -292,28 +292,22 @@ TypeRef *makeFunctionType(ParserContext *ctx, TypeRef *returnType, FunctionParam
     result->functionTypeDesc.isVariadic = params->isVariadic;
     result->functionTypeDesc.returnType = returnType;
 
-    Vector *parameters = params->parameters;
+    AstValueDeclaration *parameter = params->parameters;
 
-    if (parameters) {
-        int parameterCount = parameters->size;
-        TypeRef **paramStorage = (TypeRef**)areanAllocate(ctx->typeArena, sizeof (TypeRef*) * parameterCount);
+    TypeList *tail = NULL;
 
-        void** paramVector = parameters->storage;
-
-        unsigned i;
-        for (i = 0; i < parameterCount; ++i) {
-            AstValueDeclaration *parami = (AstValueDeclaration *)paramVector[i];
-            paramStorage[i] = parami->type;
-        }
-
-        releaseVector(parameters);
-        params->parameters = NULL;
-        result->functionTypeDesc.parameterCount = parameterCount;
-        result->functionTypeDesc.parameters = paramStorage;
-    } else {
-        result->functionTypeDesc.parameterCount = 0;
-        result->functionTypeDesc.parameters = NULL;
+    while (parameter) {
+      TypeList *cur = (TypeList*)areanAllocate(ctx->typeArena, sizeof (TypeList));
+      cur->type = parameter->type;
+      parameter = parameter->next;
+      if (tail) {
+        tail->next = cur;
+      } else {
+        result->functionTypeDesc.parameters = cur;
+      }
+      tail = cur;
     }
+    params->parameters = NULL;
 
     return result;
 }

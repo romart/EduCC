@@ -28,9 +28,6 @@ enum NodeType {
   N_TYPE_REF
 };
 
-// TODO: make AstNodes be allocated in Arena
-
-
 enum ExpressionType {
     E_CONST,
     E_TERNARY,
@@ -137,9 +134,14 @@ typedef struct _AstNameRef {
   struct _Symbol *s;
 } AstNameRef;
 
+typedef struct _AstExpressionList {
+  struct _AstExpression *expression;
+  struct _AstExpressionList *next;
+} AstExpressionList;
+
 typedef struct _AstCallExpression {
   struct _AstExpression* callee;
-  Vector *arguments;
+  AstExpressionList *arguments; // linked list
 } AstCallExpression;
 
 typedef struct _AstFieldExpression {
@@ -188,9 +190,14 @@ enum StatementKind {
     SK_RETURN
 };
 
+typedef struct _AstStatementList {
+  struct _AstStatement *stmt;
+  struct _AstStatementList *next;
+} AstStatementList;
+
 typedef struct _AstBlock {
   struct _Scope *scope;
-  Vector * stmts; // Vector<AstStatement*>
+  AstStatementList *stmts; // LinkedList<AstStatement*>
 } AstBlock;
 
 typedef struct _AstExpressionStatement {
@@ -233,7 +240,6 @@ typedef struct _AstLoopStatement {
 } AstLoopStatement;
 
 typedef struct _AstForStatement {
-//    struct _AstDeclaration* declaration;
     AstExpression* initial;
     AstExpression *condition;
     AstExpression *modifier;
@@ -278,10 +284,8 @@ enum InitializerKind {
 typedef struct _AstInitializer {
     Coordinates coordinates;
     int kind; // expression | list of initializers
-    union {
-        AstExpression* expression;
-        Vector* initializers; // Vector<AstInitializer>
-    };
+    AstExpression *expression;
+    struct _AstInitializer *initializers; // Next initializers | Head of initializer list
 } AstInitializer;
 
 enum DeclaratorPartKind {
@@ -292,7 +296,7 @@ enum DeclaratorPartKind {
 };
 
 typedef struct _FunctionParams {
-    Vector *parameters;
+    struct _AstValueDeclaration *parameters; // linked list
     struct _Scope *scope;
     unsigned isVariadic : 1; // (int, int, ...)
 } FunctionParams;
@@ -300,9 +304,9 @@ typedef struct _FunctionParams {
 typedef struct _DeclaratorPart {
     int kind;
     union {
-        SpecifierFlags flags;
-        int arraySize;
-        FunctionParams parameters; // Vector<ParameterDeclaration>
+      SpecifierFlags flags;
+      int arraySize;
+      FunctionParams parameters;
     };
 } DeclaratorPart;
 
@@ -318,12 +322,6 @@ typedef struct _EnumConstant {
     int value;
 } EnumConstant;
 
-typedef struct _AstEnumDeclaration {
-    Coordinates coordinates;
-    const char* name;
-    Vector* enumerators; //Vector<EnumConstant>
-} AstEnumDeclaration;
-
 typedef struct _AstStructDeclarator {
     Coordinates coordinates;
     TypeRef *typeRef;
@@ -335,6 +333,7 @@ typedef struct _AstStructDeclarator {
 enum StructMember {
   SM_DECLARATOR,
   SM_DECLARATION,
+  SM_ENUMERATOR
 };
 
 typedef struct _AstStructMember {
@@ -342,14 +341,17 @@ typedef struct _AstStructMember {
   union {
     AstStructDeclarator *declarator;
     struct _AstDeclaration *declaration;
+    EnumConstant *enumerator;
   };
+  struct _AstStructMember *next;
 } AstStructMember;
 
 typedef struct _AstSUEDeclaration { // Struct | Union | Enum declaration
     Coordinates coordinates;
     int kind; // DKX_UNION | DKX_STRUCT | DKX_ENUM
     const char *name;
-    Vector *members; // Vector<AstStructMember> | Vector<EnumConstant>
+    AstStructMember *members; // linked list
+    unsigned isDefinition : 1;
 } AstSUEDeclaration;
 
 typedef struct _DeclarationSpecifiers {
@@ -361,11 +363,6 @@ typedef struct _DeclarationSpecifiers {
   AstSUEDeclaration *defined;
 
 } DeclarationSpecifiers;
-
-enum DeclarationKind {
-    DECLK_FUNCTION_DEFINITION,
-    DECLK_VARIABLE_DECLARATION
-};
 
 enum {
   VD_PARAMETER,
@@ -380,7 +377,10 @@ typedef struct _AstValueDeclaration {
   TypeRef *type;
   SpecifierFlags flags;
   union {
-    unsigned index; // VD_PARAMETER
+    struct {
+      unsigned index; // VD_PARAMETER
+      struct _AstValueDeclaration* next; // Parameters are linked into list
+    };
     AstInitializer *initializer; // VD_VARIABLE
   };
 } AstValueDeclaration;
@@ -391,7 +391,7 @@ typedef struct _AstFunctionDeclaration {
   const char *name;
   TypeRef *returnType;
   unsigned parameterCount;
-  AstValueDeclaration **parameters;
+  AstValueDeclaration *parameters; // linkedList
   unsigned isVariadic : 1;
 } AstFunctionDeclaration;
 
@@ -436,11 +436,13 @@ typedef struct _AstTranslationUnit {
       AstDeclaration *declaration;
       AstFunctionDefinition *definition;
     };
+    struct _AstTranslationUnit *next; // linked list
 } AstTranslationUnit;
 
 typedef struct _AstFile {
   const char* fileName;
-  Vector* declarations; // Vector<AstTranslationUnit*>
+  AstTranslationUnit *units; // LinkedList<AstTranslationUnit>
+  AstTranslationUnit *last; // LinkedList<AstTranslationUnit>
   struct _AstFile *next;
 } AstFile;
 
@@ -455,11 +457,11 @@ TypeDesc *createTypeDescriptor(ParserContext *ctx, int typeId, const char *name,
 
 EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset, const char* name, int64_const_t value);
 
-AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, AstExpression *expr, Vector *initializers);
+AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, int kind, AstExpression *expr, AstInitializer *initializers);
 AstStructDeclarator *createStructDeclarator(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, int width);
-AstStructMember* createStructMember(ParserContext *ctx, AstDeclaration *declaration, AstStructDeclarator *declarator);
-AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, int startOffset, int endOffset, int kind, const char *name, Vector *members);
-AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *returnType, const char *name, unsigned flags, unsigned parameterCount, AstValueDeclaration **parameters, int isVariadic);
+AstStructMember* createStructMember(ParserContext *ctx, AstDeclaration *declaration, AstStructDeclarator *declarator, EnumConstant *enumerator);
+AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, int startOffset, int endOffset, int kind, unsigned isDefinition, const char *name, AstStructMember *members);
+AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, int isVariadic);
 AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, int startOffset, int endOffset, int kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer);
 
 AstDeclaration *createAstDeclaration(ParserContext *ctx, int kind, const char *name);
@@ -477,14 +479,14 @@ AstExpression *createTernaryExpression(ParserContext *ctx, AstExpression *cond, 
 AstExpression *createBinaryExpression(ParserContext *ctx, int op, AstExpression *left, AstExpression *right);
 AstExpression *createUnaryExpression(ParserContext *ctx, int startOffset, int endOffset, int op, AstExpression *argument);
 AstExpression *createNameRef(ParserContext *ctx, int startOffset, int endOffset, const char *name);
-AstExpression *createCallExpression(ParserContext *ctx, int startOffset, int endOffset, AstExpression *callee, Vector *arguments);
+AstExpression *createCallExpression(ParserContext *ctx, int startOffset, int endOffset, AstExpression *callee, AstExpressionList *arguments);
 AstExpression *createFieldExpression(ParserContext *ctx, int startOffset, int endOffset, int op, AstExpression *receiver, const char *member);
 
 AstExpression *createErrorExpression(ParserContext *ctx, int startOffset, int endOffset);
 
 // statemetns
 
-AstStatement *createBlockStatement(ParserContext *ctx, int startOffset, int endOffset, struct _Scope *scope, Vector *stmts);
+AstStatement *createBlockStatement(ParserContext *ctx, int startOffset, int endOffset, struct _Scope *scope, AstStatementList *stmts);
 AstStatement *createExprStatement(ParserContext *ctx, AstExpression* expression);
 AstStatement *createLabelStatement(ParserContext *ctx, int startOffset, int endOffset, int labelKind, AstStatement *body, const char *label, int c);
 AstStatement *createDeclStatement(ParserContext *ctx, int startOffset, int endOffset, AstDeclaration *decl);

@@ -43,9 +43,13 @@ typedef union {
     } bits;
 } SpecifierFlags;
 
+typedef struct _TypeList {
+  struct _TypeRef *type;
+  struct _TypeList *next;
+} TypeList;
+
 typedef struct _FunctionTypeDescriptor {
-    unsigned parameterCount;
-    struct _TypeRef **parameters;
+    TypeList *parameters;
     struct _TypeRef *returnType;
     unsigned isVariadic : 1;
 } FunctionTypeDescriptor;
