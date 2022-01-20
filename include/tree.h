@@ -376,12 +376,10 @@ typedef struct _AstValueDeclaration {
   int kind; // VD_PARAMETER | VD_VARIABLE
   const char *name;
   TypeRef *type;
+  SpecifierFlags flags;
   union {
     unsigned index; // VD_PARAMETER
-    struct {
-      SpecifierFlags flags;
-      AstInitializer *initializer; // VD_VARIABLE
-    };
+    AstInitializer *initializer; // VD_VARIABLE
   };
 } AstValueDeclaration;
 
