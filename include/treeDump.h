@@ -16,4 +16,7 @@ int dumpAstDeclaration(FILE *output, AstDeclaration *declaration);
 int dumpTypeRef(FILE *output, TypeRef *type);
 int dumpTypeDesc(FILE *output, TypeDesc *desc);
 
+int renderTypeDesc(TypeDesc *desc, char *buffer, int bufferSize);
+int renderTypeRef(TypeRef *type, char *buffer, int bufferSize);
+
 #endif // __TREE_DUMP_H__
