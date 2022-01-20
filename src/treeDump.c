@@ -44,10 +44,16 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
        result += dumpAstExpressionImpl(output, 0, callExpr->callee);
        result += fprintf(output, "(");
        int i;
-       for (i = 0; i < callExpr->arguments->size; ++i) {
-           if (i) result += fprintf(output, ", ");
-           AstExpression *arg = callExpr->arguments->storage[i];
-           result += dumpAstExpressionImpl(output, 0, arg);
+       AstExpressionList *arguments = callExpr->arguments;
+       int first = TRUE;
+       while (arguments) {
+           if (first) {
+               first = FALSE;
+           } else {
+               result += fprintf(output, ", ");
+           }
+          result += dumpAstExpressionImpl(output, 0, arguments->expression);
+          arguments = arguments->next;
        }
        result += fprintf(output, ")");
        break;
@@ -152,12 +158,17 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
    case SK_BLOCK: {
       AstBlock *block = &stmt->block;
       int i;
-      for (i = 0; i < block->stmts->size; ++i) {
-        AstStatement *inner = (AstStatement*)block->stmts->storage[i];
-        if (i) result += fprintf(output, "\n");
-        result += dumpAstStatementImpl(output, indent, inner);
+      AstStatementList *stmts = block->stmts;
+      int first = TRUE;
+      while (stmts) {
+          if (first) {
+              first = FALSE;
+          } else {
+              result += fprintf(output, "\n");
+          }
+         result += dumpAstStatementImpl(output, indent, stmts->stmt);
+         stmts = stmts->next;
       }
-
       result += putIndent(output, indent);
       break;
    }
@@ -298,10 +309,16 @@ static int dumpAstInitializerImpl(FILE *output, int indent, AstInitializer *init
   } else {
       assert(init->kind == IK_LIST);
       int i;
-      for (i = 0; i < init->initializers->size; ++i) {
-          if (i) result += fprintf(output, "\n");
-          AstInitializer *inner = (AstInitializer *)init->initializers->storage[i];
-          result += dumpAstInitializerImpl(output, indent, inner);
+      AstInitializer *nested = init->initializers;
+      int first = TRUE;
+      while (nested) {
+          if (first) {
+              first = FALSE;
+          } else {
+              result += fprintf(output, "\n");
+          }
+          result += dumpAstInitializerImpl(output, indent, nested);
+          nested = nested->initializers;
       }
   }
   return result;
@@ -453,15 +470,18 @@ int renderTypeRef(TypeRef *type, char *b, int bufferSize) {
       l = snprintf(b, bufferSize, " ("); b += l; bufferSize -= l;
       if (bufferSize <= 0) goto done;
 
-      int i;
-      for (i = 0; i < desc->parameterCount; ++i) {
-          if (i != 0)  {
+      int i = 0;
+
+      TypeList *paramList = desc->parameters;
+
+      while (paramList) {
+          if (i++)  {
               l = snprintf(b, bufferSize, ", "); b += l; bufferSize -= l;
               if (bufferSize <= 0) goto done;
           }
-          TypeRef *paramType = desc->parameters[i];
-          l = renderTypeRef(paramType, b, bufferSize); b += l; bufferSize -= l;
+          l = renderTypeRef(paramList->type, b, bufferSize); b += l; bufferSize -= l;
           if (bufferSize <= 0) goto done;
+          paramList = paramList->next;
       }
 
       if (desc->isVariadic) {
@@ -509,12 +529,17 @@ static int dumpAstFuntionDeclarationImpl(FILE *output, int indent, AstFunctionDe
   result += dumpTypeRefImpl(output, 0, decl->returnType);
   result += fprintf(output, " ");
   result += fprintf(output, "%s ", decl->name);
-  result += fprintf(output, "PARAM COUNT %d", decl->parameterCount);
+//  result += fprintf(output, "PARAM COUNT %d", decl->parameterCount);
   int i;
-  for (i = 0; i < decl->parameterCount; ++i) {
+
+  AstValueDeclaration *parameter = decl->parameters;
+
+  while (parameter) {
     result += fprintf(output, "\n");
-    result += dumpAstValueDeclarationImpl(output, indent + 2, decl->parameters[i]);
+    result += dumpAstValueDeclarationImpl(output, indent + 2, parameter);
+    parameter = parameter->next;
   }
+
   if (decl->isVariadic) {
       result += putIndent(output, indent);
       result += fprintf(output, "## ...");
@@ -535,32 +560,32 @@ static int dumpAstSUEDeclarationImpl(FILE *output, int indent, AstSUEDeclaration
     result += fprintf(output, " %s", structDeclaration->name);
   }
 
-  Vector *members = structDeclaration->members;
-  if (members) {
+  AstStructMember *member = structDeclaration->members;
+  if (member) {
     result += fprintf(output, "\n");
-    int i;
-    for (i = 0; i < members->size; ++i) {
-        if (isEnum) {
-          EnumConstant *enumerator = members->storage[i];
-          result += putIndent(output, indent + 2);
-          result += fprintf(output, "%s = %d", enumerator->name, enumerator->value);
-        } else {
-          AstStructMember *member = members->storage[i];
-          if (member->kind == SM_DECLARATOR) {
-            AstStructDeclarator *declarator = member->declarator;
-            assert(declarator != NULL);
-            result += dumpTypeRefImpl(output, indent + 2, declarator->typeRef);
-            result += fprintf(output, " %s", declarator->name);
-            if (declarator->f_width >= 0) {
-                result += fprintf(output, " : %d", declarator->f_width);
-            }
-          } else {
-            AstDeclaration *declaration = member->declaration;
-            assert(member->kind == SM_DECLARATION && declaration != NULL);
-            result += dumpAstDeclarationImpl(output, indent + 2, declaration);
+    while (member) {
+      if (isEnum) {
+        assert(member->kind == SM_ENUMERATOR);
+        EnumConstant *enumerator = member->enumerator;
+        result += putIndent(output, indent + 2);
+        result += fprintf(output, "%s = %d", enumerator->name, enumerator->value);
+      } else {
+        if (member->kind == SM_DECLARATOR) {
+          AstStructDeclarator *declarator = member->declarator;
+          assert(declarator != NULL);
+          result += dumpTypeRefImpl(output, indent + 2, declarator->typeRef);
+          result += fprintf(output, " %s", declarator->name);
+          if (declarator->f_width >= 0) {
+            result += fprintf(output, " : %d", declarator->f_width);
           }
+        } else {
+          AstDeclaration *declaration = member->declaration;
+          assert(member->kind == SM_DECLARATION && declaration != NULL);
+          result += dumpAstDeclarationImpl(output, indent + 2, declaration);
         }
-        result += fprintf(output, "\n");
+      }
+      result += fprintf(output, "\n");
+      member = member->next;
     }
     result += putIndent(output, indent);
     result += fprintf(output, "%s_END", prefix);
@@ -623,10 +648,11 @@ int dumpAstFile(FILE *output, AstFile *file) {
   int r = 0;
   r += fprintf(output, "FILE %s\n", file->fileName);
   int i;
-  for (i = 0; i < file->declarations->size; ++i) {
-      if (i) r += fprintf(output, "\n----\n");
-      AstTranslationUnit *unit = (AstTranslationUnit*)file->declarations->storage[i];
+  AstTranslationUnit *unit = file->units;
+  while (unit) {
+      if (i++) r += fprintf(output, "\n----\n");
       r += dumpTranslationUnitImpl(output, 2, unit);
+      unit = unit->next;
   }
   return r;
 }

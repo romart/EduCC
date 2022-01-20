@@ -31,16 +31,21 @@ EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset
     return result;
 }
 
-AstStructMember* createStructMember(ParserContext *ctx, AstDeclaration *declaration, AstStructDeclarator *declarator) {
+AstStructMember* createStructMember(ParserContext *ctx, AstDeclaration *declaration, AstStructDeclarator *declarator, EnumConstant *enumerator) {
     AstStructMember* result = (AstStructMember*)areanAllocate(ctx->astArena, sizeof(AstStructMember));
 
     if (declaration) {
         assert(declarator == NULL);
+        assert(enumerator == NULL);
         result->kind = SM_DECLARATION;
         result->declaration = declaration;
-    } else {
+    } else if (declarator) {
+        assert(enumerator == NULL);
         result->kind = SM_DECLARATOR;
         result->declarator = declarator;
+    } else {
+        result->kind = SM_ENUMERATOR;
+        result->enumerator = enumerator;
     }
 
     return result;
@@ -60,7 +65,7 @@ AstStructDeclarator* createStructDeclarator(ParserContext *ctx, int startOffset,
     return result;
 }
 
-AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, int startOffset, int endOffset, int kind, const char *name, Vector *members) {
+AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, int startOffset, int endOffset, int kind, unsigned isDefinition, const char *name, AstStructMember *members) {
     AstSUEDeclaration *result = (AstSUEDeclaration*)areanAllocate(ctx->astArena, sizeof(AstSUEDeclaration));
 
     result->coordinates.startOffset = startOffset;
@@ -69,18 +74,7 @@ AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, int startOffset, int
     result->kind = kind;
     result->name = name;
     result->members = members;
-
-    return result;
-}
-
-AstEnumDeclaration *createEnumDeclaration(ParserContext *ctx, int startOffset, int endOffset, const char *name, Vector *enumerators) {
-    AstEnumDeclaration *result = (AstEnumDeclaration*)areanAllocate(ctx->astArena, sizeof(AstEnumDeclaration));
-
-    result->coordinates.startOffset = startOffset;
-    result->coordinates.endOffset = startOffset;
-
-    result->name = name;
-    result->enumerators = enumerators;
+    result->isDefinition = isDefinition;
 
     return result;
 }
@@ -126,35 +120,28 @@ AstTranslationUnit *createTranslationUnit(ParserContext *ctx, AstDeclaration *de
    }
 }
 
-
-
-AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, AstExpression *expr, Vector *initializers) {
+AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, int kind, AstExpression *expr, AstInitializer *initializers) {
     AstInitializer* result = (AstInitializer*)areanAllocate(ctx->astArena, sizeof(AstInitializer));
 
     result->coordinates.startOffset = startOffset;
     result->coordinates.endOffset = startOffset;
 
-    if (expr) {
-      result->kind = IK_EXPRESSION;
-      result->expression = expr;
-    } else {
-      result->kind = IK_LIST;
-      result->initializers = initializers;
-    }
+    result->kind = kind;
+    result->expression = expr;
+    result->initializers = initializers;
+
     return result;
 }
 
 AstFile *createAstFile(ParserContext *ctx, int capacity) {
-
     AstFile* astFile = (AstFile*)areanAllocate(ctx->astArena, sizeof(AstFile));
 
     astFile->fileName = NULL;
-    astFile->declarations = createVector(capacity);
 
     return astFile;
 }
 
-AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *returnType, const char *name, unsigned flags, unsigned parameterCount, AstValueDeclaration **parameters, int isVariadic) {
+AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, int isVariadic) {
   AstFunctionDeclaration *result = (AstFunctionDeclaration *)areanAllocate(ctx->astArena, sizeof(AstFunctionDeclaration));
 
   result->coordinates.startOffset = startOffset;
@@ -164,7 +151,6 @@ AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, int startO
   result->name = name;
 
   result->returnType = returnType;
-  result->parameterCount = parameterCount;
   result->parameters = parameters;
   result->isVariadic = isVariadic != 0;
 
@@ -262,7 +248,7 @@ AstExpression *createNameRef(ParserContext *ctx, int startOffset, int endOffset,
     return result;
 }
 
-AstExpression *createCallExpression(ParserContext *ctx, int startOffset, int endOffset, AstExpression *callee, Vector *arguments) {
+AstExpression *createCallExpression(ParserContext *ctx, int startOffset, int endOffset, AstExpression *callee, AstExpressionList *arguments) {
     AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
     result->op = E_CALL;
     result->callExpr.callee = callee;
@@ -280,7 +266,7 @@ AstExpression *createFieldExpression(ParserContext *ctx, int startOffset, int en
 
 // statements
 
-AstStatement *createBlockStatement(ParserContext *ctx, int startOffset, int endOffset, struct _Scope *scope, Vector *stmts) {
+AstStatement *createBlockStatement(ParserContext *ctx, int startOffset, int endOffset, struct _Scope *scope, AstStatementList *stmts) {
     AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
 
     result->statementKind = SK_BLOCK;
