@@ -7,6 +7,8 @@
 #include "tree.h"
 #include "mem.h"
 
+AstFile* parseFile(FILE* file, const char* fileName);
+
 AstConst* eval(ParserContext *ctx, AstExpression* expression);
 
 void parseError(ParserContext *ctx, const char* fmt, ...);

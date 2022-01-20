@@ -19,6 +19,7 @@ SOURCES=\
     $(SRCDIR)/utils.c \
     $(SRCDIR)/sema.c \
     $(SRCDIR)/treeDump.c \
+    $(SRCDIR)/parser.c \
     $(SRCDIR)/tree.c \
     $(SRCDIR)/flex_defs.c \
     $(SRCDIR)/memory.c \
