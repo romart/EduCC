@@ -19,3 +19,7 @@ size_t computeTypeSize(TypeRef *type) {
 
   return POINTER_TYPE_SIZE;
 }
+
+int typesEquals(TypeRef *t1, TypeRef *t2) {
+  return TRUE;
+}
