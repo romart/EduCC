@@ -94,11 +94,11 @@ AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, int startOffs
     result->kind = kind;
     result->name = name;
     result->type = type;
+    result->flags.storage = flags;
     if (kind == VD_PARAMETER) {
       result->index = index;
     } else {
-        result->flags.storage = flags;
-        result->initializer = initializer;
+      result->initializer = initializer;
     }
 
     return result;
