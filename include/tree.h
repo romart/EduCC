@@ -306,7 +306,6 @@ typedef struct _Declarator {
     const char* identificator;
     unsigned partsCounter;
     DeclaratorPart declaratorParts[256];
-    unsigned isFunctionDeclarator : 1;
 } Declarator;
 
 typedef struct _EnumConstant {
