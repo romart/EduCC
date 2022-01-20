@@ -353,97 +353,134 @@ static int dumpAstValueDeclarationImpl(FILE *output, int indent, AstValueDeclara
   return result;
 }
 
-static int dumpTypeDescImpl(FILE *output, int indent, TypeDesc *desc) {
-  int result = putIndent(output, indent);
 
-  // TODO: support verbose
+int renderTypeDesc(TypeDesc *desc, char *b, int bufferSize) {
   switch (desc->typeId) {
     case T_ENUM:
-      result += fprintf(output, "ENUM %s", desc->structInfo->name);
-      break;
+      return snprintf(b, bufferSize, "ENUM %s", desc->structInfo->name);
     case T_UNION:
-      result += fprintf(output, "UNION %s", desc->structInfo->name);
-      break;
+      return snprintf(b, bufferSize, "UNION %s", desc->structInfo->name);
     case T_STRUCT:
-      result += fprintf(output, "STRUCT %s", desc->structInfo->name);
-      break;
+      return snprintf(b, bufferSize, "STRUCT %s", desc->structInfo->name);
     default:
-      result += fprintf(output, "%s", desc->name);
-      break;
+      return snprintf(b, bufferSize, "%s", desc->name);
   }
+}
+
+static int dumpTypeDescImpl(FILE *output, int indent, TypeDesc *desc) {
+  int result = putIndent(output, indent);
+  char b[1024] = { 0 };
+  renderTypeDesc(desc, b, sizeof b);
+  result += fprintf(output, "%s", b);
   return result;
 }
 
-
-static int dumpTypeRefImpl(FILE *output, int indent, TypeRef *type) {
-  int result = putIndent(output, indent);
-
+int renderTypeRef(TypeRef *type, char *b, int bufferSize) {
   int hasBits = FALSE;
+  char *s = b;
+  int l = 0;
   if (type->flags.bits.isConst) {
-    result += fprintf(output, "C");
+    l = snprintf(b, bufferSize, "C");
+    bufferSize -=l;
+    b +=l;
     hasBits = TRUE;
   }
+
+  if (bufferSize <= 0) goto done;
 
   if (type->flags.bits.isVolatile) {
-    result += fprintf(output, "V");
+    l = snprintf(b, bufferSize, "V");
+    bufferSize -=l;
+    b +=l;
     hasBits = TRUE;
   }
 
+  if (bufferSize <= 0) goto done;
+
   if (hasBits) {
-    result += fprintf(output, " ");
+      l = snprintf(b, bufferSize, " ");
+      bufferSize -=l;
+      b +=l;
   }
 
+  if (bufferSize <= 0) goto done;
 
   // TODO: support multi-line
   switch (type->kind) {
   case TR_VALUE:
-      result += dumpTypeDescImpl(output, 0, type->descriptorDesc);
+      b += renderTypeDesc(type->descriptorDesc, b, bufferSize);
       break;
   case TR_POINTED:
-      result += fprintf(output, "*");
-      result += dumpTypeRefImpl(output, 0, type->pointedTo);
+      l = snprintf(b, bufferSize, "*"); b += l; bufferSize -= l;
+      if (bufferSize <= 0) goto done;
+      b += renderTypeRef(type->pointedTo, b, bufferSize);
       break;
   case TR_ARRAY: {
         ArrayTypeDescriptor *desc = &type->arrayTypeDesc;
         int wrap = desc->elementType->kind != TR_VALUE ? TRUE : FALSE;
         if (wrap) {
-            result += fprintf(output, "(");
+            l = snprintf(b, bufferSize, "("); b += l; bufferSize -= l;
+            if (bufferSize <= 0) goto done;
         }
 
-        result += dumpTypeRefImpl(output, 0, desc->elementType);
+        l = renderTypeRef(desc->elementType, b, bufferSize); b += l; bufferSize -= l;
+        if (bufferSize <= 0) goto done;
 
         if (wrap) {
-            result += fprintf(output, ")");
+            l = snprintf(b, bufferSize, ")"); b += l; bufferSize -= l;
+            if (bufferSize <= 0) goto done;
         }
 
         if (desc->size) {
-            result += fprintf(output, "[%d]", desc->size);
+            l = snprintf(b, bufferSize, "[%d]", desc->size);
         } else {
-            result += fprintf(output, "[]");
+            l = snprintf(b, bufferSize, "[]");
         }
+        b += l; bufferSize -=l;
       }
       break;
   case TR_FUNCTION: {
       FunctionTypeDescriptor *desc = &type->functionTypeDesc;
-      result += fprintf(output, "{");
-      result += dumpTypeRefImpl(output, 0, desc->returnType);
-      result += fprintf(output, " (");
+      l = snprintf(b, bufferSize, "{"); b += l; bufferSize -= l;
+      if (bufferSize <= 0) goto done;
+      l = renderTypeRef(desc->returnType, b, bufferSize); b += l; bufferSize -= l;
+      if (bufferSize <= 0) goto done;
+      l = snprintf(b, bufferSize, " ("); b += l; bufferSize -= l;
+      if (bufferSize <= 0) goto done;
 
       int i;
       for (i = 0; i < desc->parameterCount; ++i) {
-          if (i != 0) result += fprintf(output, ", ");
+          if (i != 0)  {
+              l += snprintf(b, bufferSize, ", "); b += l; bufferSize -= l;
+              if (bufferSize <= 0) goto done;
+          }
           TypeRef *paramType = desc->parameters[i];
-          result += dumpTypeRefImpl(output, 0, paramType);
+          l = renderTypeRef(paramType, b, bufferSize); b += l; bufferSize -= l;
+          if (bufferSize <= 0) goto done;
       }
 
       if (desc->isVariadic) {
-          result += fprintf(output, ", ...");
+          l = snprintf(b, bufferSize, ", ..."); b += l; bufferSize -= l;
+          if (bufferSize <= 0) goto done;
       }
 
-      result += fprintf(output, ")}");
+      l = snprintf(b, bufferSize, ")}"); b += l; bufferSize -= l;
       break;
     }
   }
+
+  done:
+
+  return b - s;
+}
+
+static int dumpTypeRefImpl(FILE *output, int indent, TypeRef *type) {
+  int result = putIndent(output, indent);
+  char b[1024] = { 0 };
+
+  renderTypeRef(type, b, sizeof b);
+  result += fprintf(output, "%s", b);
+  return result;
 }
 
 static int dumpAstFuntionDeclarationImpl(FILE *output, int indent, AstFunctionDeclaration *decl) {
