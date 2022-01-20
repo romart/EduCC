@@ -31,6 +31,22 @@ EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset
     return result;
 }
 
+AstStructMember* createStructMember(ParserContext *ctx, AstDeclaration *declaration, AstStructDeclarator *declarator) {
+    AstStructMember* result = (AstStructMember*)areanAllocate(ctx->astArena, sizeof(AstStructMember));
+
+    if (declaration) {
+        assert(declarator == NULL);
+        result->kind = SM_DECLARATION;
+        result->declaration = declaration;
+    } else {
+        result->kind = SM_DECLARATOR;
+        result->declarator = declarator;
+    }
+
+    return result;
+}
+
+
 AstStructDeclarator* createStructDeclarator(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, int width) {
     AstStructDeclarator* result = (AstStructDeclarator*)areanAllocate(ctx->astArena, sizeof(AstStructDeclarator));
 
