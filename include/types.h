@@ -26,6 +26,8 @@ enum TypeId {
   T_UNION,
 
   T_ENUM,
+
+  T_ERROR
 };
 
 typedef union {
