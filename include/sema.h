@@ -54,7 +54,7 @@ Symbol *declareValueSymbol(ParserContext *ctx, const char *name, AstValueDeclara
 Symbol *declareFunctionSymbol(ParserContext *ctx, const char *name, AstFunctionDeclaration *declaration);
 Symbol *declareSUESymbol(ParserContext *ctx, int symbolKind, int typeId, const char *name, AstSUEDeclaration *declaration, Symbol **ss);
 
-
+Scope *newScope(ParserContext *ctx, Scope *parent);
 
 
 #endif // __SEMA_H__

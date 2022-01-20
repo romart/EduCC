@@ -171,11 +171,12 @@ AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, int startO
   return result;
 }
 
-AstFunctionDefinition *createFunctionDefinition(ParserContext *ctx, AstFunctionDeclaration *declaration, AstStatement *body) {
+AstFunctionDefinition *createFunctionDefinition(ParserContext *ctx, AstFunctionDeclaration *declaration, struct _Scope *scope, AstStatement *body) {
     AstFunctionDefinition *result = (AstFunctionDefinition *)areanAllocate(ctx->astArena, sizeof(AstFunctionDefinition));
 
     result->declaration = declaration;
     result->body = body;
+    result->scope = scope;
 
     return result;
 }
@@ -272,11 +273,12 @@ AstExpression *createFieldExpression(ParserContext *ctx, int startOffset, int en
 
 // statements
 
-AstStatement *createBlockStatement(ParserContext *ctx, int startOffset, int endOffset, Vector *stmts) {
+AstStatement *createBlockStatement(ParserContext *ctx, int startOffset, int endOffset, struct _Scope *scope, Vector *stmts) {
     AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
 
     result->statementKind = SK_BLOCK;
     result->block.stmts = stmts;
+    result->block.scope = scope;
 
     return result;
 }

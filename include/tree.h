@@ -187,7 +187,8 @@ enum StatementKind {
 };
 
 typedef struct _AstBlock {
-  Vector* stmts; // Vector<AstStatement*>
+  struct _Scope *scope;
+  Vector * stmts; // Vector<AstStatement*>
 } AstBlock;
 
 typedef struct _AstExpressionStatement {
@@ -461,7 +462,7 @@ AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, int startO
 AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, int startOffset, int endOffset, int kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer);
 
 AstDeclaration *createAstDeclaration(ParserContext *ctx, int kind, const char *name);
-AstFunctionDefinition *createFunctionDefinition(ParserContext *ctx, AstFunctionDeclaration *declaration, AstStatement *body);
+AstFunctionDefinition *createFunctionDefinition(ParserContext *ctx, AstFunctionDeclaration *declaration, struct _Scope *scope, AstStatement *body);
 
 AstTranslationUnit *createTranslationUnit(ParserContext *ctx, AstDeclaration *declaration, AstFunctionDefinition *definition);
 
@@ -481,7 +482,7 @@ AstExpression *createFieldExpression(ParserContext *ctx, int startOffset, int en
 
 // statemetns
 
-AstStatement *createBlockStatement(ParserContext *ctx, int startOffset, int endOffset, Vector *stmts);
+AstStatement *createBlockStatement(ParserContext *ctx, int startOffset, int endOffset, struct _Scope *scope, Vector *stmts);
 AstStatement *createExprStatement(ParserContext *ctx, AstExpression* expression);
 AstStatement *createLabelStatement(ParserContext *ctx, int startOffset, int endOffset, int labelKind, AstStatement *body, const char *label, int c);
 AstStatement *createDeclStatement(ParserContext *ctx, int startOffset, int endOffset, AstDeclaration *decl);
