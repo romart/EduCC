@@ -291,6 +291,7 @@ enum DeclaratorPartKind {
 
 typedef struct _FunctionParams {
     Vector *parameters;
+    struct _Scope *scope;
     unsigned isVariadic : 1; // (int, int, ...)
 } FunctionParams;
 
