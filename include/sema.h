@@ -53,6 +53,7 @@ Symbol *declareTypeDef(ParserContext *ctx, const char *name, TypeRef *type);
 Symbol *declareValueSymbol(ParserContext *ctx, const char *name, AstValueDeclaration *declaration);
 Symbol *declareFunctionSymbol(ParserContext *ctx, const char *name, AstFunctionDeclaration *declaration);
 Symbol *declareSUESymbol(ParserContext *ctx, int symbolKind, int typeId, const char *name, AstSUEDeclaration *declaration, Symbol **ss);
+Symbol *declareEnumConstantSymbol(ParserContext *ctx, EnumConstant *enumerator);
 
 Scope *newScope(ParserContext *ctx, Scope *parent);
 

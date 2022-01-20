@@ -55,9 +55,8 @@ Scope *newScope(ParserContext *ctx, Scope *parent) {
   return result;
 }
 
-static Symbol *findSymbolInScope(ParserContext *ctx, const char *name) {
-  Scope* s = ctx->currentScope;
-  return (Symbol *)getFromHashMap(s->symbols, name);
+static Symbol *findSymbolInScope(Scope *scope, const char *name) {
+  return (Symbol *)getFromHashMap(scope->symbols, name);
 }
 
 Symbol* findSymbol(ParserContext *ctx, const char *name) {
@@ -105,7 +104,7 @@ typedef int (*symbolProcessor)(ParserContext *, Symbol *, void *);
 
 static Symbol *declareGenericSymbol(ParserContext *ctx, int kind, const char *name, void *value, symbolProcessor existed, symbolProcessor new) {
 
-  Symbol *s = findSymbolInScope(ctx, name);
+  Symbol *s = findSymbolInScope(ctx->currentScope, name);
   if (s) {
       if (s->kind == kind) {
           existed(ctx, s, value);
@@ -194,7 +193,7 @@ Symbol *declareValueSymbol(ParserContext *ctx, const char *name, AstValueDeclara
 }
 
 Symbol *declareSUESymbol(ParserContext *ctx, int symbolKind, int typeId, const char *symbolName, AstSUEDeclaration *declaration, Symbol **ss) {
-  Symbol *s = findSymbolInScope(ctx, symbolName);
+  Symbol *s = findSymbolInScope(ctx->currentScope, symbolName);
   Symbol *old = s;
   const char *name = declaration->name;
 
@@ -225,4 +224,18 @@ Symbol *declareSUESymbol(ParserContext *ctx, int symbolKind, int typeId, const c
   }
   *ss = s;
   return old;
+}
+
+
+Symbol *declareEnumConstantSymbol(ParserContext *ctx, EnumConstant *enumerator) {
+  Symbol *s = findSymbolInScope(ctx->currentScope, enumerator->name);
+  if (s) {
+      const char *suffix = s->kind == EnumConstSymbol ? "of enumerator " : "";
+      parseError(ctx, "redefinition %s'%s'", suffix, enumerator->name);
+      return NULL; // or 's'?
+  }
+
+  s = declareSymbol(ctx, EnumConstSymbol, enumerator->name);
+  s->enumerator = enumerator;
+  return s;
 }
