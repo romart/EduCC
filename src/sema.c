@@ -55,6 +55,11 @@ Scope *newScope(ParserContext *ctx, Scope *parent) {
   return result;
 }
 
+static Symbol *findSymbolInScope(ParserContext *ctx, const char *name) {
+  Scope* s = ctx->currentScope;
+  return (Symbol *)getFromHashMap(s->symbols, name);
+}
+
 Symbol* findSymbol(ParserContext *ctx, const char *name) {
     Scope* s = ctx->currentScope;
     while (s != NULL) {
@@ -100,7 +105,7 @@ typedef int (*symbolProcessor)(ParserContext *, Symbol *, void *);
 
 static Symbol *declareGenericSymbol(ParserContext *ctx, int kind, const char *name, void *value, symbolProcessor existed, symbolProcessor new) {
 
-  Symbol *s = findSymbol(ctx, name);
+  Symbol *s = findSymbolInScope(ctx, name);
   if (s) {
       if (s->kind == kind) {
           existed(ctx, s, value);
@@ -189,7 +194,7 @@ Symbol *declareValueSymbol(ParserContext *ctx, const char *name, AstValueDeclara
 }
 
 Symbol *declareSUESymbol(ParserContext *ctx, int symbolKind, int typeId, const char *symbolName, AstSUEDeclaration *declaration, Symbol **ss) {
-  Symbol *s = findSymbol(ctx, symbolName);
+  Symbol *s = findSymbolInScope(ctx, symbolName);
   Symbol *old = s;
   const char *name = declaration->name;
 
