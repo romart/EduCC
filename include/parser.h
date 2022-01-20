@@ -9,6 +9,9 @@
 
 AstConst* eval(ParserContext *ctx, AstExpression* expression);
 
+void parseError(ParserContext *ctx, const char* fmt, ...);
+void parseWarning(ParserContext *ctx, const char* fmt, ...);
+
 enum SymbolKind {
     FunctionSymbol = 1,
     UnionSymbol,

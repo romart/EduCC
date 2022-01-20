@@ -451,7 +451,7 @@ int renderTypeRef(TypeRef *type, char *b, int bufferSize) {
       int i;
       for (i = 0; i < desc->parameterCount; ++i) {
           if (i != 0)  {
-              l += snprintf(b, bufferSize, ", "); b += l; bufferSize -= l;
+              l = snprintf(b, bufferSize, ", "); b += l; bufferSize -= l;
               if (bufferSize <= 0) goto done;
           }
           TypeRef *paramType = desc->parameters[i];
