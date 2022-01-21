@@ -22,10 +22,10 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
     case E_CONST: {
         AstConst *cnts = &expr->constExpr;
         switch (cnts->op) {
-        case EC_INT_CONST: result += fprintf(output, "%lld", cnts->i); break;
-        case EC_FLOAT_CONST: result += fprintf(output, "%f", cnts->f); break;
-        case EC_STRING_LITERAL: result += fprintf(output, "\"%s\"", cnts->l); break;
-        case EC_SIZEOF:
+        case CK_INT_CONST: result += fprintf(output, "%lld", cnts->i); break;
+        case CK_FLOAT_CONST: result += fprintf(output, "%f", cnts->f); break;
+        case CK_STRING_LITERAL: result += fprintf(output, "\"%s\"", cnts->l); break;
+        case CK_SIZEOF:
             result += fprintf(output, "SIZEOF( ");
             result += dumpTypeDescImpl(output, 0, cnts->t);
             result += fprintf(output, ")");
@@ -146,6 +146,8 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
       result += dumpAstExpressionImpl(output, 0, expr->binaryExpr.right);
       result += fprintf(output, "]");
       break;
+    default:
+      break;
   }
 
   return result;
@@ -159,7 +161,7 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
       AstBlock *block = &stmt->block;
       int i;
       AstStatementList *stmts = block->stmts;
-      int first = TRUE;
+      Boolean first = TRUE;
       while (stmts) {
           if (first) {
               first = FALSE;
@@ -295,6 +297,10 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
           result += dumpAstExpressionImpl(output, 0, stmt->jumpStmt.expression);
       }
       break;
+    case SK_ERROR:
+      result += putIndent(output, indent);
+      result += fprintf(output, "ERROR_STATEMENT");
+      break;
    }
 
   return result;
@@ -310,7 +316,7 @@ static int dumpAstInitializerImpl(FILE *output, int indent, AstInitializer *init
       assert(init->kind == IK_LIST);
       int i;
       AstInitializer *nested = init->initializers;
-      int first = TRUE;
+      Boolean first = TRUE;
       while (nested) {
           if (first) {
               first = FALSE;
@@ -327,7 +333,7 @@ static int dumpAstInitializerImpl(FILE *output, int indent, AstInitializer *init
 static int dumpAstValueDeclarationImpl(FILE *output, int indent, AstValueDeclaration *value) {
   int result = putIndent(output, indent);
 
-  int hasBits = FALSE;
+  Boolean hasBits = FALSE;
   if (value->flags.bits.isStatic) {
       result += fprintf(output, "S");
       hasBits = TRUE;
@@ -398,7 +404,7 @@ static int dumpTypeDescImpl(FILE *output, int indent, TypeDesc *desc) {
 }
 
 int renderTypeRef(TypeRef *type, char *b, int bufferSize) {
-  int hasBits = FALSE;
+  Boolean hasBits = FALSE;
   char *s = b;
   int l = 0;
   if (type->flags.bits.isConst) {
@@ -511,7 +517,7 @@ static int dumpTypeRefImpl(FILE *output, int indent, TypeRef *type) {
 static int dumpAstFuntionDeclarationImpl(FILE *output, int indent, AstFunctionDeclaration *decl) {
   int result = putIndent(output, indent);
 
-  int hasBits = FALSE;
+  Boolean hasBits = FALSE;
   if (decl->flags.bits.isStatic) {
       result += fprintf(output, "S");
       hasBits = TRUE;
@@ -551,9 +557,9 @@ static int dumpAstFuntionDeclarationImpl(FILE *output, int indent, AstFunctionDe
 static int dumpAstSUEDeclarationImpl(FILE *output, int indent, AstSUEDeclaration *structDeclaration) {
   int result = putIndent(output, indent);
 
-  int kind = structDeclaration->kind;
-  int isEnum = kind == DKX_ENUM;
-  const char *prefix = kind == DKX_STRUCT ? "STRUCT" : isEnum ? "ENUM" : "UNION";
+  DeclarationKind kind = structDeclaration->kind;
+  int isEnum = kind == DK_ENUM;
+  const char *prefix = kind == DK_STRUCT ? "STRUCT" : isEnum ? "ENUM" : "UNION";
   result += fprintf(output, "%s", prefix);
 
   if (structDeclaration->name) {
@@ -598,18 +604,18 @@ static int dumpAstDeclarationImpl(FILE *output, int indent, AstDeclaration *decl
   int result = 0;
 
   switch (decl->kind) {
-  case DKX_ENUM:
-  case DKX_STRUCT:
-  case DKX_UNION:
+  case DK_ENUM:
+  case DK_STRUCT:
+  case DK_UNION:
       result += dumpAstSUEDeclarationImpl(output, indent, decl->structDeclaration);
       return result;
-  case DKX_PROTOTYPE:
+  case DK_PROTOTYPE:
       result += dumpAstFuntionDeclarationImpl(output, indent, decl->functionProrotype);
       return result;
-  case DKX_VAR:
+  case DK_VAR:
       result += dumpAstValueDeclarationImpl(output, indent, decl->variableDeclaration);
       return result;
-  case DKX_TYPEDEF:
+  case DK_TYPEDEF:
       result += putIndent(output, indent);
       result += fprintf(output, "TYPEDF %s = ", decl->name);
       result += dumpTypeRefImpl(output, 0, decl->typeDefinition.definedType);
@@ -647,7 +653,7 @@ static int dumpTranslationUnitImpl(FILE *output, int indent, AstTranslationUnit 
 int dumpAstFile(FILE *output, AstFile *file) {
   int r = 0;
   r += fprintf(output, "FILE %s\n", file->fileName);
-  int i;
+  int i = 0;
   AstTranslationUnit *unit = file->units;
   while (unit) {
       if (i++) r += fprintf(output, "\n----\n");

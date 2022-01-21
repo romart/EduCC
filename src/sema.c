@@ -23,7 +23,7 @@ size_t computeTypeSize(TypeRef *type) {
   return POINTER_TYPE_SIZE;
 }
 
-static enum TypeEqualityKind structualTypesEquality(TypeDesc *d1, TypeDesc *d2, enum TypeId kind) {
+static TypeEqualityKind structualTypesEquality(TypeDesc *d1, TypeDesc *d2, TypeId kind) {
   if (d1->typeId == kind && d2->typeId == kind) {
       if (d1->structInfo == d2->structInfo) {
         return TEK_EQUAL;
@@ -39,7 +39,7 @@ static enum TypeEqualityKind structualTypesEquality(TypeDesc *d1, TypeDesc *d2, 
   return TEK_UNKNOWN;
 }
 
-static enum TypeEqualityKind primitiveTypesEquality(enum TypeId t1, enum TypeId t2) {
+static TypeEqualityKind primitiveTypesEquality(TypeId t1, TypeId t2) {
   if (t1 == T_VOID && t2 == T_VOID) return TEK_EQUAL;
 
   if (t1 == T_VOID || t2 == T_VOID) return TEK_NOT_EQUAL;
@@ -49,13 +49,13 @@ static enum TypeEqualityKind primitiveTypesEquality(enum TypeId t1, enum TypeId 
   return TEK_NOT_EQUAL;
 }
 
-static enum TypeEqualityKind typeDescriprorEquals(TypeDesc *d1, TypeDesc *d2) {
+static TypeEqualityKind typeDescriprorEquals(TypeDesc *d1, TypeDesc *d2) {
 
   if (d1->typeId == T_ERROR || d2->typeId == T_ERROR) return TEK_NOT_EQUAL;
 
-  enum TypeEqualityKind structCheck = structualTypesEquality(d1, d2, T_STRUCT);
+  TypeEqualityKind structCheck = structualTypesEquality(d1, d2, T_STRUCT);
   if (structCheck != TEK_UNKNOWN) return structCheck;
-  enum TypeEqualityKind unionCheck = structualTypesEquality(d1, d2, T_UNION);
+  TypeEqualityKind unionCheck = structualTypesEquality(d1, d2, T_UNION);
   if (unionCheck != TEK_UNKNOWN) return unionCheck;
 
   if (d1->typeId == T_ENUM && d2->typeId == T_ENUM) {
@@ -71,9 +71,9 @@ static enum TypeEqualityKind typeDescriprorEquals(TypeDesc *d1, TypeDesc *d2) {
   return TEK_NOT_EQUAL;
 }
 
-static enum TypeEqualityKind valueTypeEquality(TypeRef *t1, TypeRef *t2) {
+static TypeEqualityKind valueTypeEquality(TypeRef *t1, TypeRef *t2) {
   if (t1->kind == TR_VALUE && t2->kind == TR_VALUE) {
-    enum TypeEqualityKind equality = typeDescriprorEquals(t1->descriptorDesc, t2->descriptorDesc);
+    TypeEqualityKind equality = typeDescriprorEquals(t1->descriptorDesc, t2->descriptorDesc);
     if (equality == TEK_EQUAL) {
       if (t1->flags.storage == t2->flags.storage) {
         return TEK_EQUAL;
@@ -93,8 +93,8 @@ static enum TypeEqualityKind valueTypeEquality(TypeRef *t1, TypeRef *t2) {
   return TEK_UNKNOWN;
 }
 
-enum TypeEqualityKind typeEquality(TypeRef *t1, TypeRef *t2) {
-  enum TypeEqualityKind equality = valueTypeEquality(t1, t2);
+TypeEqualityKind typeEquality(TypeRef *t1, TypeRef *t2) {
+  TypeEqualityKind equality = valueTypeEquality(t1, t2);
 
   if (equality != TEK_UNKNOWN) return equality;
 
@@ -160,13 +160,13 @@ enum TypeEqualityKind typeEquality(TypeRef *t1, TypeRef *t2) {
 }
 
 
-enum TypeCastabilityKind typeCastability(TypeRef *to, TypeRef *from) {
+TypeCastabilityKind typeCastability(TypeRef *to, TypeRef *from) {
   return TCK_UNKNOWN;
 }
 
 
-enum Boolean typesEquals(TypeRef *t1, TypeRef *t2) {
-  enum TypeEqualityKind equality = typeEquality(t1, t2);
+Boolean typesEquals(TypeRef *t1, TypeRef *t2) {
+  TypeEqualityKind equality = typeEquality(t1, t2);
   return equality == TEK_EQUAL ? TRUE : FALSE;
 }
 
@@ -220,7 +220,7 @@ int isTypeName(ParserContext *ctx, const char* name, struct _Scope* scope) {
 }
 
 
-Symbol* declareSymbol(ParserContext *ctx, int kind, const char *name) {
+Symbol* declareSymbol(ParserContext *ctx, SymbolKind kind, const char *name) {
     int symbolSize = sizeof(Symbol);
     Symbol *s = (Symbol *)areanAllocate(ctx->memory.typeArena, symbolSize);
     s->kind = kind;
@@ -232,7 +232,7 @@ Symbol* declareSymbol(ParserContext *ctx, int kind, const char *name) {
     return s;
 }
 
-Symbol* findOrDeclareSymbol(ParserContext* ctx, int kind, const char* name) {
+Symbol* findOrDeclareSymbol(ParserContext* ctx, SymbolKind kind, const char* name) {
     Symbol *existed = findSymbol(ctx, name);
     if (existed) return existed;
     return declareSymbol(ctx, kind, name);
@@ -245,7 +245,7 @@ static int functionsEqual(AstFunctionDeclaration *f1, AstFunctionDeclaration *f2
 
 typedef int (*symbolProcessor)(ParserContext *, Symbol *, void *);
 
-static Symbol *declareGenericSymbol(ParserContext *ctx, int kind, const char *name, void *value, symbolProcessor existed, symbolProcessor new) {
+static Symbol *declareGenericSymbol(ParserContext *ctx, SymbolKind kind, const char *name, void *value, symbolProcessor existed, symbolProcessor new) {
 
   Symbol *s = findSymbolInScope(ctx->currentScope, name);
   if (s) {
@@ -335,7 +335,7 @@ Symbol *declareValueSymbol(ParserContext *ctx, const char *name, AstValueDeclara
   return declareGenericSymbol(ctx, ValueSymbol, name, declaration, existedValueProcessor, newValueProcessor);
 }
 
-Symbol *declareSUESymbol(ParserContext *ctx, int symbolKind, int typeId, const char *symbolName, AstSUEDeclaration *declaration, Symbol **ss) {
+Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeId, const char *symbolName, AstSUEDeclaration *declaration, Symbol **ss) {
   Symbol *s = findSymbolInScope(ctx->currentScope, symbolName);
   Symbol *old = s;
   const char *name = declaration->name;

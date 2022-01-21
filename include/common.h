@@ -9,10 +9,10 @@ enum {
   ERR_MMAP = 4,
 };
 
-enum Boolean {
+typedef enum _Boolean {
     FALSE = 0,
     TRUE = !FALSE
-};
+} Boolean;
 
 #define BIT(n) (1U << (n))
 

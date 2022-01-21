@@ -182,16 +182,16 @@ static Token* nextToken(ParserContext *ctx) {
     return cur;
 }
 
-enum DeclaratorKind {
+typedef enum _DeclaratorKind {
     DK_ABSTRACT = BIT(0),
     DK_NON_ABSTRACT = BIT(1),
     DK_ANY = DK_ABSTRACT | DK_NON_ABSTRACT
-};
+} DeclaratorKind;
 
 
-static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, int isDeclaration, struct _Scope* scope);
+static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, Boolean isDeclaration, struct _Scope* scope);
 
-static void parseDeclarator(ParserContext *ctx, Declarator *declarator, int kind);
+static void parseDeclarator(ParserContext *ctx, Declarator *declarator, DeclaratorKind kind);
 
 /**
 assignment_operator
@@ -207,13 +207,13 @@ assignment_operator
     | XOR_ASSIGN
     | OR_ASSIGN
  */
-static int isAssignmentOperator(int token) {
+static Boolean isAssignmentOperator(int token) {
     return token == '=' || token == MUL_ASSIGN || token == DIV_ASSIGN || token == MOD_ASSIGN || token == ADD_ASSIGN ||
             token == SUB_ASSIGN || token == LEFT_ASSIGN || token == RIGHT_ASSIGN || token == AND_ASSIGN ||
-            token == XOR_ASSIGN || token == OR_ASSIGN;
+            token == XOR_ASSIGN || token == OR_ASSIGN ? TRUE : FALSE;
 }
 
-static int assignOpTokenToEB(int token) {
+static ExpressionType assignOpTokenToEB(int token) {
     switch (token) {
         case '=': return EB_ASSIGN;
         case MUL_ASSIGN: return EB_MUL_ASSIGN;
@@ -228,8 +228,8 @@ static int assignOpTokenToEB(int token) {
         case OR_ASSIGN: return EB_OR_ASSIGN;
     }
 
-    assert(0);
-    return -1;
+    unreachable("Unepxected token");
+    return (ExpressionType)-1;
 }
 
 /**
@@ -322,7 +322,7 @@ static AstConst* parseConstExpression(ParserContext *ctx, struct _Scope* scope) 
 static int parseAsIntConst(ParserContext *ctx, struct _Scope* scope) {
     AstConst* expr = parseConstExpression(ctx, scope);
     if (!expr) return 42;
-    if (expr->op != EC_INT_CONST) {
+    if (expr->op != CK_INT_CONST) {
         parseError(ctx, "Expected integer const, not %d", expr->op);
     }
     return (int)expr->i;
@@ -347,17 +347,17 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
         case ENUM_CONST:
         case I_CONSTANT: {
             int64_const_t l = ctx->token->value.iv;
-            result = createAstConst(ctx, so, eo, EC_INT_CONST, &l);
+            result = createAstConst(ctx, so, eo, CK_INT_CONST, &l);
             break;
         }
         case F_CONSTANT: {
             float64_const_t f = ctx->token->value.dv;
-            result = createAstConst(ctx, so, eo, EC_FLOAT_CONST, &f);
+            result = createAstConst(ctx, so, eo, CK_FLOAT_CONST, &f);
             break;
         }
         case STRING_LITERAL: {
             const char* s = ctx->token->text;
-            result = createAstConst(ctx, so, eo, EC_STRING_LITERAL, &s);
+            result = createAstConst(ctx, so, eo, CK_STRING_LITERAL, &s);
             break;
         }
         case 0:
@@ -426,7 +426,9 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
     AstExpression *left = parsePrimaryExpression(ctx, scope);
     AstExpression *right = NULL;
 
-    int op, so, eo;
+    int so, eo;
+
+    ExpressionType op;
 
     for (;;) {
         AstExpressionList *arguments = NULL;
@@ -479,7 +481,7 @@ unary_expression
     ;
  */
 static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* scope) {
-    int op;
+    ExpressionType op;
     AstExpression* argument;
     int so = ctx->token->coordinates.startOffset, eo = -1;
     switch (ctx->token->code) {
@@ -510,7 +512,7 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
                     eo = ctx->token->coordinates.endOffset;
                     consume(ctx, ')');
                     unsigned long long c = 42; // TODO: compute size of type
-                    return createAstConst(ctx, so, eo, T_U4, &c);
+                    return createAstConst(ctx, so, eo, CK_INT_CONST, &c);
                 } else {
                     // TODO: should be const too
                     argument = parseExpression(ctx, scope);
@@ -610,7 +612,7 @@ static AstExpression* parseShiftExpression(ParserContext *ctx, struct _Scope* sc
     int tokenCode = ctx->token->code;
 
     while (tokenCode == LEFT_OP || tokenCode == RIGHT_OP) {
-        int op = tokenCode == LEFT_OP ? EB_LHS : EB_RHS;
+        ExpressionType op = tokenCode == LEFT_OP ? EB_LHS : EB_RHS;
         nextToken(ctx);
         AstExpression* tmp = parseAdditiveExpression(ctx, scope);
         result = createBinaryExpression(ctx, op, result, tmp);
@@ -626,11 +628,11 @@ relational_expression
     ;
  */
 
-static int isRelationalOperator(int token) {
-    return token == '>' || token == '<' || token == LE_OP || token == GE_OP;
+static Boolean isRelationalOperator(int token) {
+    return token == '>' || token == '<' || token == LE_OP || token == GE_OP ? TRUE : FALSE;
 }
 
-static int relationalTokenToOp(int token) {
+static ExpressionType relationalTokenToOp(int token) {
     switch (token) {
         case '>': return EB_GT;
         case '<': return EB_LT;
@@ -645,7 +647,7 @@ static AstExpression* parseRelationalExpression(ParserContext *ctx, struct _Scop
     AstExpression* result = parseShiftExpression(ctx, scope);
 
     while (isRelationalOperator(ctx->token->code)) {
-        int op = relationalTokenToOp(ctx->token->code);
+        ExpressionType op = relationalTokenToOp(ctx->token->code);
         nextToken(ctx);
         AstExpression* tmp = parseShiftExpression(ctx, scope);
         result = createBinaryExpression(ctx, op, result, tmp);
@@ -661,11 +663,11 @@ equality_expression
     | equality_expression NE_OP relational_expression
     ;
  */
-static int isEqualityOperator(int token) {
-    return token == EQ_OP || token == NE_OP;
+static Boolean isEqualityOperator(int token) {
+    return token == EQ_OP || token == NE_OP ? TRUE : FALSE;
 }
 
-static int equalityTokenToOp(int token) {
+static ExpressionType equalityTokenToOp(int token) {
     switch (token) {
         case EQ_OP: return EB_EQ;
         case NE_OP: return EB_NE;
@@ -799,7 +801,7 @@ assignment_expression
 static AstExpression* parseAssignmentExpression(ParserContext *ctx, struct _Scope* scope) {
     AstExpression* left = parseConditionalExpression(ctx, scope);
     if (isAssignmentOperator(ctx->token->code)) {
-        int op = assignOpTokenToEB(ctx->token->code);
+        ExpressionType op = assignOpTokenToEB(ctx->token->code);
         // check if left is valid
         nextToken(ctx);
         AstExpression* right = parseAssignmentExpression(ctx, scope);
@@ -907,7 +909,7 @@ static AstSUEDeclaration* parseEnumDeclaration(ParserContext *ctx, struct _Scope
       consume(ctx, '}');
     }
 
-    return createSUEDeclaration(ctx, so, eo, DKX_ENUM, TRUE, name, members);
+    return createSUEDeclaration(ctx, so, eo, DK_ENUM, TRUE, name, members);
 }
 
 
@@ -977,7 +979,7 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _S
             AstStructDeclarator *structDeclarator = NULL;
             if (specifiers.flags.bits.isTypedef) {
               declareTypeDef(ctx, name, type);
-              declaration = createAstDeclaration(ctx, DKX_TYPEDEF, name);
+              declaration = createAstDeclaration(ctx, DK_TYPEDEF, name);
               declaration->typeDefinition.definedType = type;
               declaration->typeDefinition.coordinates.startOffset = so;
               declaration->typeDefinition.coordinates.endOffset = eo;
@@ -1014,10 +1016,10 @@ struct_or_union
     | UNION
     ;
  */
-static AstSUEDeclaration* parseStructOrUnionDeclaration(ParserContext *ctx, int kind, struct _Scope* scope) {
+static AstSUEDeclaration* parseStructOrUnionDeclaration(ParserContext *ctx, DeclarationKind kind, struct _Scope* scope) {
     const char *name = NULL;
     AstStructMember *members = NULL;
-    unsigned isDefinition = FALSE;
+    Boolean isDefinition = FALSE;
 
     int so = ctx->token->coordinates.startOffset;
     int token = nextToken(ctx)->rawCode;
@@ -1088,31 +1090,31 @@ storage_class_specifier
     ;
 */
 
-enum {
+typedef enum _SCS {
   SCS_NONE,
   SCS_REGISTER,
   SCS_STATIC,
   SCS_EXTERN,
   SCS_TYPEDEF,
   SCS_ERROR
-};
+} SCS;
 
-enum {
+typedef enum _TSW {
   TSW_NONE,
   TSW_LONG,
   TSW_LONGLONG,
   TSW_SHORT,
   TSW_ERROR
-};
+} TSW;
 
-enum {
+typedef enum _TSS {
   TSS_NONE,
   TSS_SIGNED,
   TSS_UNSIGNED,
   TSS_ERROR
-};
+} TSS;
 
-enum {
+typedef enum _TST {
   TST_NONE,
   TST_VOID,
   TST_CHAR,
@@ -1120,16 +1122,16 @@ enum {
   TST_FLOAT,
   TST_DOUBLE,
   TST_ERROR
-};
+} TST;
 
-enum {
+typedef enum _TQT {
   TQT_NONE,
   TQT_CONST,
   TQT_VOLATILE,
   TQT_ERROR
-};
+} TQT;
 
-static TypeDesc *computePrimitiveTypeDescriptor(ParserContext *ctx, unsigned tsw, const char *tsw_s, unsigned tss, const char *tss_s, unsigned tst, const char *tst_s) {
+static TypeDesc *computePrimitiveTypeDescriptor(ParserContext *ctx, TSW tsw, const char *tsw_s, TSS tss, const char *tss_s, TST tst, const char *tst_s) {
   if (tsw == TST_ERROR || tss == TSS_ERROR || tst == TST_ERROR) {
       return errorTypeDescriptor; // TODO: return special errorType
   }
@@ -1210,19 +1212,22 @@ static TypeDesc *computePrimitiveTypeDescriptor(ParserContext *ctx, unsigned tsw
 static const char *duplicateMsgFormater = "duplicate '%s' declaration specifier";
 static const char *nonCombineMsgFormater = "cannot combine with previous '%s' declaration specifier";
 
-static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, int isDeclaration, struct _Scope* scope) {
-    unsigned scs = SCS_NONE;
+static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, Boolean isDeclaration, struct _Scope* scope) {
+    SCS scs = SCS_NONE;
     const char *scs_s = NULL;
-    unsigned tsw = TSW_NONE, tss = TSS_NONE, tst = TST_NONE;
+    TSW tsw = TSW_NONE;
+    TSS tss = TSS_NONE;
+    TST tst = TST_NONE;
     const char *tsw_s = NULL, *tss_s = NULL, *tst_s = NULL;
 
     unsigned tmp = 0;
     const char *tmp_s = NULL;
 
     const char *prefix;
-    int typeId, symbolId;
+    TypeId typeId;
+    SymbolKind symbolId;
 
-    int seenTypeSpecifier = FALSE;
+    Boolean seenTypeSpecifier = FALSE;
 
     do {
         switch (ctx->token->code) {
@@ -1322,7 +1327,7 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
             }
             AstSUEDeclaration *declaration = typeId == T_ENUM
                 ? parseEnumDeclaration(ctx, scope)
-                : parseStructOrUnionDeclaration(ctx, typeId == T_STRUCT ? DKX_STRUCT : DKX_UNION, scope);
+                : parseStructOrUnionDeclaration(ctx, typeId == T_STRUCT ? DK_STRUCT : DK_UNION, scope);
 
             if (typeId != T_ENUM) {
               ctx->currentScope = ctx->currentScope->parent;
@@ -1417,7 +1422,7 @@ type_qualifier_list
  */
 static SpecifierFlags parseTypeQualifierList(ParserContext *ctx) {
     SpecifierFlags result = { 0 };
-    unsigned tmp;
+    TQT tmp = TQT_NONE;
     do {
 
         switch (ctx->token->code) {
@@ -1449,7 +1454,7 @@ initializer
  */
 static AstInitializer* parseInitializer(ParserContext *ctx, struct _Scope* scope) {
     AstExpression *expr = NULL;
-    int kind = -1;
+    InitializerKind kind;
     int so = ctx->token->coordinates.startOffset, eo = -1;
 
     AstInitializer *head = NULL, *tail = NULL;
@@ -1502,10 +1507,10 @@ direct_declarator
 
 */
 
-static void parseDirectDeclarator(ParserContext *ctx, Declarator *declarator, int kind);
+static void parseDirectDeclarator(ParserContext *ctx, Declarator *declarator, DeclaratorKind kind);
 
 
-static int isFunctionDeclarator(Declarator *declarator) {
+static Boolean isFunctionDeclarator(Declarator *declarator) {
   if (declarator->partsCounter) {
       return declarator->declaratorParts[0].kind == DPK_FUNCTION;
   }
@@ -1614,7 +1619,7 @@ static AstIdentifierList* parseIdentifierList(ParserContext *ctx, struct _Scope*
 //    return result;
 }
 
-static void parseFunctionDeclaratorPart(ParserContext *ctx, Declarator *declarator, int kind) {
+static void parseFunctionDeclaratorPart(ParserContext *ctx, Declarator *declarator, DeclaratorKind kind) {
   if (isFunctionDeclarator(declarator)) {
       parseError(ctx, "function cannot return function type");
   }
@@ -1646,7 +1651,7 @@ direct_abstract_declarator
       ( '[' constant_expression? ']' | '(' parameter_type_list? ')' )*
     ;
  */
-static void parseDirectDeclarator(ParserContext *ctx, Declarator *declarator, int kind) {
+static void parseDirectDeclarator(ParserContext *ctx, Declarator *declarator, DeclaratorKind kind) {
 
     if (ctx->token->rawCode == IDENTIFIER) {
         if (declarator->identificator) {
@@ -1698,7 +1703,7 @@ declarator
     : pointer? direct_declarator
     ;
  */
-static void parseDeclarator(ParserContext *ctx, Declarator *declarator, int kind) {
+static void parseDeclarator(ParserContext *ctx, Declarator *declarator, DeclaratorKind kind) {
 
     if (nextTokenIf(ctx, '*')) {
         SpecifierFlags qualifiers = parseTypeQualifierList(ctx);
@@ -1740,7 +1745,6 @@ static AstStatement *parseIfStatement(ParserContext *ctx, struct _Scope* scope) 
 static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
     AstExpression *expr, *expr2, *expr3;
     AstStatement *stmt;
-    int op;
     int c = 0;
     int so = ctx->token->coordinates.startOffset;
     int eo = ctx->token->coordinates.endOffset;
@@ -1911,12 +1915,12 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                             parseError(ctx, "illegal initializer (only variables can be initialized)");
                         }
                         declareTypeDef(ctx, name, type);
-                        declaration = createAstDeclaration(ctx, DKX_TYPEDEF, name);
+                        declaration = createAstDeclaration(ctx, DK_TYPEDEF, name);
                         declaration->typeDefinition.coordinates.startOffset = sod;
                         declaration->typeDefinition.coordinates.endOffset = eod;
                         declaration->typeDefinition.definedType = type;
                     } else {
-                        declaration = createAstDeclaration(ctx, DKX_VAR, name);
+                        declaration = createAstDeclaration(ctx, DK_VAR, name);
                         AstValueDeclaration *valueDeclaration =
                             createAstValueDeclaration(ctx, sod, eod, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
                         declaration->variableDeclaration = valueDeclaration;
@@ -1962,7 +1966,7 @@ static AstStatement *parseFunctionBody(ParserContext *ctx) {
   return parseCompoundStatementImpl(ctx);
 }
 
-static int isDeclaratorCorrect(Declarator *declarator, int kind) {
+static int isDeclaratorCorrect(Declarator *declarator, DeclaratorKind kind) {
   if (!(kind & DK_ABSTRACT) && declarator->identificator == NULL) return FALSE;
 
   return TRUE;
@@ -2023,7 +2027,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
   int so = ctx->token->coordinates.startOffset;
   parseDeclarationSpecifiers(ctx, &specifiers, TRUE, NULL);
 
-  unsigned isTypeDefDeclaration = specifiers.flags.bits.isTypedef;
+  Boolean isTypeDefDeclaration = specifiers.flags.bits.isTypedef != 0;
 
   if (specifiers.defined) {
     AstSUEDeclaration *defined = specifiers.defined;
@@ -2041,7 +2045,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
       return;
   }
 
-  int hasErrors = FALSE;
+  Boolean hasErrors = FALSE;
   int id_idx = 0;
   const char *funName = NULL;
   AstFunctionDeclaration *functionDeclaration = NULL;
@@ -2078,7 +2082,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
         if (declarator.identificator != NULL) {
             TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
             declareTypeDef(ctx, name, type);
-            declaration = createAstDeclaration(ctx, DKX_TYPEDEF, name);
+            declaration = createAstDeclaration(ctx, DK_TYPEDEF, name);
             declaration->typeDefinition.definedType = type;
             declaration->typeDefinition.coordinates.startOffset = so;
             declaration->typeDefinition.coordinates.endOffset = ctx->token->coordinates.startOffset;
@@ -2109,14 +2113,14 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
               parseError(ctx, "expected ';' after top level declarator");
           }
       } else {
-          declaration = createAstDeclaration(ctx, DKX_PROTOTYPE, name);
+          declaration = createAstDeclaration(ctx, DK_PROTOTYPE, name);
           declaration->functionProrotype = functionDeclaration;
       }
     } else {
         TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
         AstValueDeclaration *valueDeclaration = createAstValueDeclaration(ctx, so, eo, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
         Symbol *s = declareValueSymbol(ctx, name, valueDeclaration);
-        declaration = createAstDeclaration(ctx, DKX_VAR, name);
+        declaration = createAstDeclaration(ctx, DK_VAR, name);
         declaration->variableDeclaration = valueDeclaration;
     }
     addToFile(file, createTranslationUnit(ctx, declaration, NULL));
@@ -2216,7 +2220,7 @@ AstFile* parseFile(FILE* file, const char* fileName) {
   ParserContext context = { 0 };
   initializeContext(&context, lineNum);
 
-  AstFile *astFile = createAstFile(&context, INITIAL_FILE_CAPACITY);
+  AstFile *astFile = createAstFile(&context);
   astFile->fileName = fileName;
   context.parsedFile = astFile;
 

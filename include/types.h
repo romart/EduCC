@@ -4,7 +4,7 @@
 
 #include "common.h"
 
-enum TypeId {
+typedef enum _TypeId {
   T_VOID,
 
   T_S1,
@@ -29,7 +29,7 @@ enum TypeId {
   T_ENUM,
 
   T_ERROR
-};
+} TypeId;
 
 typedef union {
     unsigned storage;
@@ -61,21 +61,21 @@ typedef struct _ArrayTypeDescriptor {
 } ArrayTypeDescriptor;
 
 typedef struct _TypeDesc {
-  enum TypeId typeId;
+  TypeId typeId;
   const char *name;
   int size;
   struct _AstSUEDeclaration *structInfo;
 } TypeDesc;
 
-enum TypeRefKind {
+typedef enum _TypeRefKind {
     TR_VALUE,
     TR_POINTED,
     TR_ARRAY,
     TR_FUNCTION
-};
+} TypeRefKind;
 
 typedef struct _TypeRef {
-    enum TypeRefKind kind;
+    TypeRefKind kind;
     SpecifierFlags flags;
     union {
         TypeDesc *descriptorDesc; // aka TypeConstructor
