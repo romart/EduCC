@@ -12,13 +12,14 @@ enum TypeId {
   T_S4,
   T_S8,
 
-  T_F4,
-  T_F8,
 
   T_U1,
   T_U2,
   T_U4,
   T_U8,
+
+  T_F4,
+  T_F8,
 
   T_BUILT_IN_TYPES,
 
@@ -60,7 +61,7 @@ typedef struct _ArrayTypeDescriptor {
 } ArrayTypeDescriptor;
 
 typedef struct _TypeDesc {
-  int typeId;
+  enum TypeId typeId;
   const char *name;
   int size;
   struct _AstSUEDeclaration *structInfo;
@@ -74,7 +75,7 @@ enum TypeRefKind {
 };
 
 typedef struct _TypeRef {
-    int kind; /** VALUE | POINTED | TR_ARRAY | TR_FUNCTION */
+    enum TypeRefKind kind;
     SpecifierFlags flags;
     union {
         TypeDesc *descriptorDesc; // aka TypeConstructor

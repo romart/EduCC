@@ -13,9 +13,26 @@ enum {
 
 size_t computeTypeSize(TypeRef *type);
 
-int typesEquals(TypeRef *t1, TypeRef *t2);
+enum TypeEqualityKind {
+  TEK_UNKNOWN,
+  TEK_EQUAL,
+  TEK_ALMOST_EQUAL, // could be casted implicitly
+  TEK_NOT_EXATCLY_EQUAL, // in case of two different enums, warning
+  TEK_NOT_EQUAL
+};
+
+enum Boolean typesEquals(TypeRef *t1, TypeRef *t2);
+enum TypeEqualityKind typeEquality(TypeRef *t1, TypeRef *t2);
 int isTypeName(ParserContext *ctx, const char* name, struct _Scope* scope);
 
+enum TypeCastabilityKind {
+  TCK_UNKNOWN,
+  TCK_NO_CAST, // int -> int
+  TCK_IMPLICIT_CAST, // char -> int, could be casted implicitly
+  TCK_EXPLICIT_CAST // struct S -> struct D
+};
+
+enum TypeCastabilityKind typeCastability(TypeRef *to, TypeRef *from);
 
 enum SymbolKind {
     FunctionSymbol = 1,
