@@ -23,6 +23,7 @@ SOURCES=\
     $(SRCDIR)/tree.c \
     $(SRCDIR)/flex_defs.c \
     $(SRCDIR)/memory.c \
+    $(SRCDIR)/diagnostics.c \
     $(SRCDIR)/evaluate.c \
     $(GENERATED_SRC_DIR)/lex.yy.c
 
