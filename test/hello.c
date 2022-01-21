@@ -32,7 +32,10 @@ f_t fax(int a, int b) {
   }
 }
 
-static x;
+typedef int af;
+//typedef float af;
+
+static x3;
 int foo1(void) {
   int xx = 42;
   long double xxx = 10;
@@ -57,14 +60,10 @@ struct S;
 struct SS {
     int a;
     int b, d;
-    typedef struct {
+    struct {
         double x;
         struct XXX ****xx;
     } ss1, *ss2, **ss3;
-
-    ss1 v1, *pv1, **pv1;
-    ss2 v2, *pv2, **pv2;
-    ss3 v3, *pv3, **pv3;
 };
 
 struct {
