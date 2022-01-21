@@ -4,13 +4,13 @@
 #include "tree.h"
 #include "sema.h"
 
-static int derefIntConst(AstConst *astConst, int64_const_t *result) {
-  if (astConst->op == EC_INT_CONST) {
+static Boolean derefIntConst(AstConst *astConst, int64_const_t *result) {
+  if (astConst->op == CK_INT_CONST) {
       *result = astConst->i;
       return TRUE;
   }
 
-  if (astConst->op == EC_SIZEOF) {
+  if (astConst->op == CK_SIZEOF) {
       *result = astConst->t->size;
       return TRUE;
   }
@@ -18,8 +18,8 @@ static int derefIntConst(AstConst *astConst, int64_const_t *result) {
   return FALSE;
 }
 
-static int derefFloatConst(AstConst *astConst, float64_const_t *result) {
-  if (astConst->op == EC_FLOAT_CONST) {
+static Boolean derefFloatConst(AstConst *astConst, float64_const_t *result) {
+  if (astConst->op == CK_FLOAT_CONST) {
       *result = astConst->f;
       return TRUE;
   }
@@ -213,7 +213,7 @@ typedef int64_const_t (*int_binary_evaluate)(int64_const_t, int64_const_t);
 typedef int (*evaluateChecker)(int64_const_t, int64_const_t);
 
 static AstConst *evaluateUnaryConst(ParserContext *ctx, AstConst *expr, int_unary_evaluate eInt, float_unary_evaluate eFloat) {
-  if (expr->op == EC_FLOAT_CONST) {
+  if (expr->op == CK_FLOAT_CONST) {
       if (eFloat == NULL) return NULL; // cannot evaluate
       float64_const_t v = eFloat(expr->f);
       return &createAstConst(ctx, -1, -1, expr->op, &v)->constExpr;
@@ -226,14 +226,14 @@ static AstConst *evaluateUnaryConst(ParserContext *ctx, AstConst *expr, int_unar
 }
 
 static AstConst *evaluateBinaryConst(ParserContext *ctx, AstConst *left, AstConst *right, evaluateChecker checker, int_binary_evaluate eInt, float_binary_evaluate eFloat) {
-  if (left->op == EC_FLOAT_CONST || right->op == EC_FLOAT_CONST) {
+  if (left->op == CK_FLOAT_CONST || right->op == CK_FLOAT_CONST) {
       if (eFloat == NULL) return NULL; // cannot evaluate
       float64_const_t lv, rv;
       sint64_const_t iv = 0;
-      if (left->op == EC_FLOAT_CONST && right->op == EC_FLOAT_CONST) {
+      if (left->op == CK_FLOAT_CONST && right->op == CK_FLOAT_CONST) {
           lv = left->f;
           rv = right->f;
-      } else if (left->op != EC_FLOAT_CONST) {
+      } else if (left->op != CK_FLOAT_CONST) {
           derefIntConst(left, (int64_const_t *)&iv);
           lv = (float64_const_t)iv;
           rv = right->f;
@@ -243,14 +243,14 @@ static AstConst *evaluateBinaryConst(ParserContext *ctx, AstConst *left, AstCons
           rv = (float64_const_t)iv;
       }
       float64_const_t v = eFloat(lv, rv);
-      return &createAstConst(ctx, -1, -1, EC_FLOAT_CONST, &v)->constExpr;
+      return &createAstConst(ctx, -1, -1, CK_FLOAT_CONST, &v)->constExpr;
   } else {
       int64_const_t lv = 0, rv = 0;
       derefIntConst(left, &lv);
       derefIntConst(right, &rv);
       if (checker(lv, rv)) {
         int64_const_t v = eInt(lv, rv);
-        return &createAstConst(ctx, -1, -1, EC_INT_CONST, &v)->constExpr;
+        return &createAstConst(ctx, -1, -1, CK_INT_CONST, &v)->constExpr;
       }
       return NULL;
   }
@@ -262,7 +262,7 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
   float f = 4.2f;
   float f2;
   int ii;
-  int op = expression->op;
+  ExpressionType op = expression->op;
 
 
   int_unary_evaluate un_i_eval = NULL;
@@ -305,10 +305,10 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
         if (cond) {
             int cond_v;
             switch (cond->op) {
-              case EC_INT_CONST: cond_v = (int)cond->i; break;
-              case EC_FLOAT_CONST: cond_v = (int)cond->f; break;
-              case EC_STRING_LITERAL: cond_v = TRUE; break;
-              case EC_SIZEOF: cond_v = (int)cond->t->size; break;
+              case CK_INT_CONST: cond_v = (int)cond->i; break;
+              case CK_FLOAT_CONST: cond_v = (int)cond->f; break;
+              case CK_STRING_LITERAL: cond_v = TRUE; break;
+              case CK_SIZEOF: cond_v = (int)cond->t->size; break;
               default: unreachable("Const evaluation error"); return NULL;
             }
             return eval(ctx, cond_v ? expression->ternaryExpr.ifTrue : expression->ternaryExpr.ifFalse);
@@ -339,7 +339,7 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
     }
     case EU_SIZEOF:
       ic = computeTypeSize(expression->unaryExpr.argument->type);
-      return &createAstConst(ctx, -1, -1, EC_INT_CONST, &ic)->constExpr;
+      return &createAstConst(ctx, -1, -1, CK_INT_CONST, &ic)->constExpr;
     case EB_ASSIGN:
     case EB_RIGHT_ASSIGN:
     case EB_LEFT_ASSIGN:
@@ -361,5 +361,7 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
     case EU_DEREF:
     case EU_REF:
       return NULL; // ref/deref is not supported yet;
+    case E_ERROR:
+      return NULL; // error cannot be evaluated
   }
 }

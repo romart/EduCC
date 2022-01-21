@@ -8,7 +8,7 @@
 #include "sema.h"
 // types
 
-TypeDesc *createTypeDescriptor(ParserContext *ctx, int typeId, const char *name, int size) {
+TypeDesc *createTypeDescriptor(ParserContext *ctx, TypeId typeId, const char *name, int size) {
   TypeDesc *result = (TypeDesc*)areanAllocate(ctx->memory.typeArena, sizeof(TypeDesc));
 
   result->typeId = typeId;
@@ -65,7 +65,7 @@ AstStructDeclarator* createStructDeclarator(ParserContext *ctx, int startOffset,
     return result;
 }
 
-AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, int startOffset, int endOffset, int kind, unsigned isDefinition, const char *name, AstStructMember *members) {
+AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, int startOffset, int endOffset, DeclarationKind kind, Boolean isDefinition, const char *name, AstStructMember *members) {
     AstSUEDeclaration *result = (AstSUEDeclaration*)areanAllocate(ctx->memory.astArena, sizeof(AstSUEDeclaration));
 
     result->coordinates.startOffset = startOffset;
@@ -79,7 +79,7 @@ AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, int startOffset, int
     return result;
 }
 
-AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, int startOffset, int endOffset, int kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer) {
+AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, int startOffset, int endOffset, ValueKind kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer) {
     AstValueDeclaration *result = (AstValueDeclaration *)areanAllocate(ctx->memory.astArena, sizeof (AstValueDeclaration));
 
     result->coordinates.startOffset = startOffset;
@@ -98,7 +98,7 @@ AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, int startOffs
     return result;
 }
 
-AstDeclaration *createAstDeclaration(ParserContext *ctx, int kind, const char *name) {
+AstDeclaration *createAstDeclaration(ParserContext *ctx, DeclarationKind kind, const char *name) {
     AstDeclaration* result = (AstDeclaration*)areanAllocate(ctx->memory.astArena, sizeof(AstDeclaration));
 
     result->name = name;
@@ -120,7 +120,7 @@ AstTranslationUnit *createTranslationUnit(ParserContext *ctx, AstDeclaration *de
    }
 }
 
-AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, int kind, AstExpression *expr, AstInitializer *initializers) {
+AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, InitializerKind kind, AstExpression *expr, AstInitializer *initializers) {
     AstInitializer* result = (AstInitializer*)areanAllocate(ctx->memory.astArena, sizeof(AstInitializer));
 
     result->coordinates.startOffset = startOffset;
@@ -133,7 +133,7 @@ AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int en
     return result;
 }
 
-AstFile *createAstFile(ParserContext *ctx, int capacity) {
+AstFile *createAstFile(ParserContext *ctx) {
     AstFile* astFile = (AstFile*)areanAllocate(ctx->memory.astArena, sizeof(AstFile));
 
     astFile->fileName = NULL;
@@ -141,7 +141,7 @@ AstFile *createAstFile(ParserContext *ctx, int capacity) {
     return astFile;
 }
 
-AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, int isVariadic) {
+AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, Boolean isVariadic) {
   AstFunctionDeclaration *result = (AstFunctionDeclaration *)areanAllocate(ctx->memory.astArena, sizeof(AstFunctionDeclaration));
 
   result->coordinates.startOffset = startOffset;
@@ -152,7 +152,7 @@ AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, int startO
 
   result->returnType = returnType;
   result->parameters = parameters;
-  result->isVariadic = isVariadic != 0;
+  result->isVariadic = isVariadic != FALSE;
 
   return result;
 }
@@ -186,15 +186,15 @@ static AstStatement *allocAstStatement(ParserContext *ctx, int startOffset, int 
   return result;
 }
 
-AstExpression* createAstConst(ParserContext *ctx, int startOffset, int endOffset, int type, void* value) {
+AstExpression* createAstConst(ParserContext *ctx, int startOffset, int endOffset, ConstKind type, void* value) {
     AstExpression* result = allocAstExpression(ctx, startOffset, endOffset);
     result->op = E_CONST;
     result->constExpr.op = type;
     switch (type) {
-        case EC_INT_CONST: result->constExpr.i = *(int64_const_t*)value; break;
-        case EC_FLOAT_CONST: result->constExpr.f = *(float64_const_t*)value; break;
-        case EC_STRING_LITERAL: result->constExpr.l = *(literal_const_t*)value; break;
-    default: assert(0);
+        case CK_INT_CONST: result->constExpr.i = *(int64_const_t*)value; break;
+        case CK_FLOAT_CONST: result->constExpr.f = *(float64_const_t*)value; break;
+        case CK_STRING_LITERAL: result->constExpr.l = *(literal_const_t*)value; break;
+      default: unreachable("sizeof is not for here");
     }
 
     return result;
@@ -226,7 +226,7 @@ AstExpression *createTernaryExpression(ParserContext *ctx, AstExpression *cond, 
     return result;
 }
 
-AstExpression *createBinaryExpression(ParserContext *ctx, int op, AstExpression *left, AstExpression *right) {
+AstExpression *createBinaryExpression(ParserContext *ctx, ExpressionType op, AstExpression *left, AstExpression *right) {
     AstExpression *result = allocAstExpression(ctx, left->coordinates.startOffset, right->coordinates.endOffset);
     result->op = op;
     result->binaryExpr.left = left;
@@ -234,7 +234,7 @@ AstExpression *createBinaryExpression(ParserContext *ctx, int op, AstExpression 
     return result;
 }
 
-AstExpression *createUnaryExpression(ParserContext *ctx, int startOffset, int endOffset, int op, AstExpression *argument) {
+AstExpression *createUnaryExpression(ParserContext *ctx, int startOffset, int endOffset, ExpressionType op, AstExpression *argument) {
     AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
     result->op = op;
     result->unaryExpr.argument = argument;
@@ -256,7 +256,7 @@ AstExpression *createCallExpression(ParserContext *ctx, int startOffset, int end
     return result;
 }
 
-AstExpression *createFieldExpression(ParserContext *ctx, int startOffset, int endOffset, int op, AstExpression *receiver, const char *member) {
+AstExpression *createFieldExpression(ParserContext *ctx, int startOffset, int endOffset, ExpressionType op, AstExpression *receiver, const char *member) {
     AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
     result->op = op;
     result->fieldExpr.recevier = receiver;
@@ -285,7 +285,7 @@ AstStatement *createExprStatement(ParserContext *ctx, AstExpression* expression)
     return result;
 }
 
-AstStatement *createLabelStatement(ParserContext *ctx, int startOffset, int endOffset, int labelKind, AstStatement *body, const char *label, int c) {
+AstStatement *createLabelStatement(ParserContext *ctx, int startOffset, int endOffset, LabelKind labelKind, AstStatement *body, const char *label, int c) {
     AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
 
     result->statementKind = SK_LABEL;
@@ -330,7 +330,7 @@ AstStatement *createSwitchStatement(ParserContext *ctx, int startOffset, int end
     return result;
 }
 
-AstStatement *createLoopStatement(ParserContext *ctx, int startOffset, int endOffset, int kind, AstExpression *cond, AstStatement *body) {
+AstStatement *createLoopStatement(ParserContext *ctx, int startOffset, int endOffset, StatementKind kind, AstExpression *cond, AstStatement *body) {
     AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
 
     result->statementKind = kind;
@@ -352,7 +352,7 @@ AstStatement *createForStatement(ParserContext *ctx, int startOffset, int endOff
     return result;
 }
 
-AstStatement *createJumpStatement(ParserContext *ctx, int startOffset, int endOffset, int jumpKind) {
+AstStatement *createJumpStatement(ParserContext *ctx, int startOffset, int endOffset, StatementKind jumpKind) {
     AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
 
     result->statementKind = jumpKind;

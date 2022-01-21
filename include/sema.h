@@ -13,28 +13,28 @@ enum {
 
 size_t computeTypeSize(TypeRef *type);
 
-enum TypeEqualityKind {
+typedef enum _TypeEqualityKind {
   TEK_UNKNOWN,
   TEK_EQUAL,
   TEK_ALMOST_EQUAL, // could be casted implicitly
   TEK_NOT_EXATCLY_EQUAL, // in case of two different enums, warning
   TEK_NOT_EQUAL
-};
+} TypeEqualityKind;
 
-enum Boolean typesEquals(TypeRef *t1, TypeRef *t2);
-enum TypeEqualityKind typeEquality(TypeRef *t1, TypeRef *t2);
+Boolean typesEquals(TypeRef *t1, TypeRef *t2);
+TypeEqualityKind typeEquality(TypeRef *t1, TypeRef *t2);
 int isTypeName(ParserContext *ctx, const char* name, struct _Scope* scope);
 
-enum TypeCastabilityKind {
+typedef enum _TypeCastabilityKind {
   TCK_UNKNOWN,
   TCK_NO_CAST, // int -> int
   TCK_IMPLICIT_CAST, // char -> int, could be casted implicitly
   TCK_EXPLICIT_CAST // struct S -> struct D
-};
+} TypeCastabilityKind;
 
-enum TypeCastabilityKind typeCastability(TypeRef *to, TypeRef *from);
+TypeCastabilityKind typeCastability(TypeRef *to, TypeRef *from);
 
-enum SymbolKind {
+typedef enum _SymbolKind {
     FunctionSymbol = 1,
     UnionSymbol,
     StructSymbol,
@@ -42,10 +42,10 @@ enum SymbolKind {
     ValueSymbol,
     EnumSymbol, /** TODO: not sure about it */
     EnumConstSymbol
-};
+} SymbolKind;
 
 typedef struct _Symbol {
-    int kind;
+    SymbolKind kind;
     const char* name; /** struct/union/enum is referenced via "$$name" or "|$name" or "#$enum"*/
     union {
         struct _AstFunctionDeclaration *function; // FunctionSymbol
@@ -63,13 +63,13 @@ typedef struct _Scope {
 
 
 Symbol* findSymbol(ParserContext *ctx, const char *name);
-Symbol* declareSymbol(ParserContext *ctx, int kind, const char *name);
-Symbol* findOrDeclareSymbol(ParserContext* ctx, int kind, const char* name);
+Symbol* declareSymbol(ParserContext *ctx, SymbolKind kind, const char *name);
+Symbol* findOrDeclareSymbol(ParserContext* ctx, SymbolKind kind, const char* name);
 
 Symbol *declareTypeDef(ParserContext *ctx, const char *name, TypeRef *type);
 Symbol *declareValueSymbol(ParserContext *ctx, const char *name, AstValueDeclaration *declaration);
 Symbol *declareFunctionSymbol(ParserContext *ctx, const char *name, AstFunctionDeclaration *declaration);
-Symbol *declareSUESymbol(ParserContext *ctx, int symbolKind, int typeId, const char *name, AstSUEDeclaration *declaration, Symbol **ss);
+Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeId, const char *name, AstSUEDeclaration *declaration, Symbol **ss);
 Symbol *declareEnumConstantSymbol(ParserContext *ctx, EnumConstant *enumerator);
 
 Scope *newScope(ParserContext *ctx, Scope *parent);
