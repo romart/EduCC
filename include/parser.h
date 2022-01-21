@@ -30,6 +30,8 @@ typedef struct _Token {
 
 struct _Scope;
 
+
+
 typedef struct _ParserContext {
     AstFile* parsedFile;
 
@@ -41,10 +43,12 @@ typedef struct _ParserContext {
     Token *firstToken;
     Token *token;
 
-    Arena *tokenArena;
-    Arena *astArena;
-    Arena *typeArena;
-    Arena *stringArena;
+    struct {
+      Arena *tokenArena;
+      Arena *astArena;
+      Arena *typeArena;
+      Arena *stringArena;
+    } memory;
 
     int anonSymbolsCounter;
 

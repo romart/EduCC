@@ -103,7 +103,7 @@ static void consumeRaw(ParserContext *ctx, int expected) {
 }
 
 static char *allocateString(ParserContext *ctx, size_t size) {
-  return (char *)areanAllocate(ctx->stringArena, size);
+  return (char *)areanAllocate(ctx->memory.stringArena, size);
 }
 
 static const char* copyLiteralString(ParserContext *ctx) {
@@ -118,7 +118,7 @@ static const char* copyLiteralString(ParserContext *ctx) {
 }
 
 static Token *allocToken(ParserContext *ctx) {
-  return (Token *)areanAllocate(ctx->tokenArena, sizeof(Token));
+  return (Token *)areanAllocate(ctx->memory.tokenArena, sizeof(Token));
 }
 
 static EnumConstant *enumConstant(ParserContext *ctx, const char* name) {
@@ -427,7 +427,7 @@ static AstExpressionList *parseArgumentExpressionList(ParserContext *ctx, struct
 
     do {
       AstExpression *expr = parseAssignmentExpression(ctx, scope);
-      AstExpressionList *node = (AstExpressionList*)areanAllocate(ctx->astArena, sizeof(AstExpressionList));
+      AstExpressionList *node = (AstExpressionList*)areanAllocate(ctx->memory.astArena, sizeof(AstExpressionList));
       node->expression = expr;
       if (tail) {
           tail->next = node;
@@ -1418,6 +1418,7 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
               nextToken(ctx);
               goto almost_done;
             } else {
+              // IDENTIFICATOR in declarator position should be treaten as an ID
               ctx->token->code = IDENTIFIER;
             }
         }
@@ -1891,7 +1892,7 @@ static unsigned processDeclarationPart(ParserContext *ctx, DeclarationSpecifiers
 }
 
 static AstStatementList *allocateStmtList(ParserContext *ctx, AstStatement *stmt) {
-  AstStatementList* result = (AstStatementList*)areanAllocate(ctx->astArena, sizeof(AstStatementList));
+  AstStatementList* result = (AstStatementList*)areanAllocate(ctx->memory.astArena, sizeof(AstStatementList));
   result->stmt = stmt;
   return result;
 }
@@ -2215,10 +2216,10 @@ static void initializeContext(ParserContext *ctx, unsigned lineNum) {
 
   yylex_init(&ctx->scanner);
 
-  ctx->tokenArena = createArena("Tokens Arena", DEFAULT_CHUNCK_SIZE);
-  ctx->astArena = createArena("AST Arena", DEFAULT_CHUNCK_SIZE);
-  ctx->typeArena = createArena("Types Arena", DEFAULT_CHUNCK_SIZE);
-  ctx->stringArena = createArena("String Arena", DEFAULT_CHUNCK_SIZE);
+  ctx->memory.tokenArena = createArena("Tokens Arena", DEFAULT_CHUNCK_SIZE);
+  ctx->memory.astArena = createArena("AST Arena", DEFAULT_CHUNCK_SIZE);
+  ctx->memory.typeArena = createArena("Types Arena", DEFAULT_CHUNCK_SIZE);
+  ctx->memory.stringArena = createArena("String Arena", DEFAULT_CHUNCK_SIZE);
 
   ctx->rootScope = ctx->currentScope = newScope(ctx, NULL);
 }
@@ -2227,9 +2228,10 @@ static void releaseContext(ParserContext *ctx) {
 
   yylex_destroy(ctx->scanner);
 
-  releaseArena(ctx->tokenArena);
-//  releaseArena(ctx->typeArena);
-//  releaseArena(ctx->astArena);
+  releaseArena(ctx->memory.tokenArena);
+//  releaseArena(ctx->memory.typeArena);
+//  releaseArena(ctx->memory.astArena);
+//  releaseArena(ctx->memory.stringArena);
 //  free(ctx->locationInfo.linesPos);
 }
 
