@@ -309,10 +309,20 @@ typedef struct _DeclaratorPart {
     };
 } DeclaratorPart;
 
+typedef enum _DeclaratorScope {
+  DS_FILE,
+  DS_PARAMETERS,
+  DS_STRUCT,
+  DS_STATEMENT,
+  DS_CAST
+} DeclaratorScope;
+
 typedef struct _Declarator {
+    Coordinates coordinates;
     const char* identificator;
     unsigned partsCounter;
     DeclaratorPart declaratorParts[256];
+    unsigned identificatorCounter;
 } Declarator;
 
 typedef struct _EnumConstant {
@@ -363,13 +373,10 @@ typedef struct _AstSUEDeclaration { // Struct | Union | Enum declaration
 } AstSUEDeclaration;
 
 typedef struct _DeclarationSpecifiers {
+  Coordinates coordinates;
   SpecifierFlags flags;
   TypeRef *basicType;
-
-  int kind; // DKX_UNION | DKX_STRUCT | DKX_ENUM
-
   AstSUEDeclaration *defined;
-
 } DeclarationSpecifiers;
 
 typedef enum _ValueKind {
