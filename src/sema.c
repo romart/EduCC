@@ -49,7 +49,7 @@ static int stringCmp(const void *v1, const void *v2) {
 }
 
 Scope *newScope(ParserContext *ctx, Scope *parent) {
-  Scope *result = (Scope *)areanAllocate(ctx->typeArena, sizeof (Scope));
+  Scope *result = (Scope *)areanAllocate(ctx->memory.typeArena, sizeof (Scope));
   result->parent = parent;
   result->symbols = createHashMap(DEFAULT_MAP_CAPACITY, stringHashCode, stringCmp);
   return result;
@@ -79,7 +79,7 @@ int isTypeName(ParserContext *ctx, const char* name, struct _Scope* scope) {
 
 Symbol* declareSymbol(ParserContext *ctx, int kind, const char *name) {
     int symbolSize = sizeof(Symbol);
-    Symbol *s = (Symbol *)areanAllocate(ctx->typeArena, symbolSize);
+    Symbol *s = (Symbol *)areanAllocate(ctx->memory.typeArena, symbolSize);
     s->kind = kind;
     s->name = name;
 
@@ -263,7 +263,7 @@ TypeDesc builtInTypeDescriptors[] = {
 };
 
 TypeRef *makeBasicType(ParserContext *ctx, TypeDesc *descriptor, unsigned flags) {
-  TypeRef *ref = (TypeRef *)areanAllocate(ctx->typeArena, sizeof(TypeRef));
+  TypeRef *ref = (TypeRef *)areanAllocate(ctx->memory.typeArena, sizeof(TypeRef));
 
   ref->kind = TR_VALUE;
   ref->flags.storage = flags;
@@ -271,7 +271,7 @@ TypeRef *makeBasicType(ParserContext *ctx, TypeDesc *descriptor, unsigned flags)
 }
 
 TypeRef* makePointedType(ParserContext *ctx, SpecifierFlags flags, TypeRef *pointedTo) {
-    TypeRef *result = (TypeRef *)areanAllocate(ctx->typeArena, sizeof(TypeRef));
+    TypeRef *result = (TypeRef *)areanAllocate(ctx->memory.typeArena, sizeof(TypeRef));
     result->kind = TR_POINTED;
     result->flags.storage = flags.storage;
     result->pointedTo = pointedTo;
@@ -279,7 +279,7 @@ TypeRef* makePointedType(ParserContext *ctx, SpecifierFlags flags, TypeRef *poin
 }
 
 TypeRef *makeArrayType(ParserContext *ctx, int size, TypeRef *elementType) {
-    TypeRef *result = (TypeRef *)areanAllocate(ctx->typeArena, sizeof(TypeRef));
+    TypeRef *result = (TypeRef *)areanAllocate(ctx->memory.typeArena, sizeof(TypeRef));
     result->kind = TR_ARRAY;
     result->arrayTypeDesc.size = size;
     result->arrayTypeDesc.elementType = elementType;
@@ -287,7 +287,7 @@ TypeRef *makeArrayType(ParserContext *ctx, int size, TypeRef *elementType) {
 }
 
 TypeRef *makeFunctionType(ParserContext *ctx, TypeRef *returnType, FunctionParams *params) {
-    TypeRef *result = (TypeRef *)areanAllocate(ctx->typeArena, sizeof(TypeRef));
+    TypeRef *result = (TypeRef *)areanAllocate(ctx->memory.typeArena, sizeof(TypeRef));
     result->kind = TR_FUNCTION;
     result->functionTypeDesc.isVariadic = params->isVariadic;
     result->functionTypeDesc.returnType = returnType;
@@ -297,7 +297,7 @@ TypeRef *makeFunctionType(ParserContext *ctx, TypeRef *returnType, FunctionParam
     TypeList *tail = NULL;
 
     while (parameter) {
-      TypeList *cur = (TypeList*)areanAllocate(ctx->typeArena, sizeof (TypeList));
+      TypeList *cur = (TypeList*)areanAllocate(ctx->memory.typeArena, sizeof (TypeList));
       cur->type = parameter->type;
       parameter = parameter->next;
       if (tail) {
