@@ -1,10 +1,6 @@
 
 
-#include <stdio.h>
 #include <assert.h>
-#include <stdarg.h>
-
-#include <signal.h>
 
 #include "tokens.h"
 #include "lex.h"
@@ -14,6 +10,7 @@
 #include "sema.h"
 
 #include "treeDump.h"
+#include "diagnostics.h"
 
 #define INITIAL_FILE_CAPACITY 30
 
@@ -28,45 +25,6 @@ static int nextTokenIf(ParserContext *ctx, int nextIf) {
         return 1;
     }
     return 0;
-}
-
-void parseError(ParserContext *ctx, const char* fmt, ...) {
-
-    char buffer[1024] = {0};
-
-    unsigned ln = ctx->locationInfo.lineno;
-    unsigned cn = ctx->locationInfo.position;
-    if (ln) {
-      cn -= ctx->locationInfo.linesPos[ln - 1];
-    }
-
-    va_list myargs;
-    va_start(myargs, fmt);
-    vsprintf(buffer, fmt, myargs);
-    va_end(myargs);
-
-    fprintf(stderr, "%s:%d:%d: error: %s\n", ctx->parsedFile->fileName, cn + 1, ln + 1, buffer);
-    fflush(stdout);
-    fflush(stderr);
-}
-
-void parseWarning(ParserContext *ctx, const char* fmt, ...) {
-
-    char buffer[1024] = {0};
-
-    unsigned ln = ctx->locationInfo.lineno;
-    unsigned cn = ctx->locationInfo.position;
-    if (ln) {
-      cn -= ctx->locationInfo.linesPos[ln - 1];
-    }
-
-    va_list myargs;
-    va_start(myargs, fmt);
-    vsprintf(buffer, fmt, myargs);
-    va_end(myargs);
-
-    fprintf(stdout, "%s:%d:%d: warning: %s\n", ctx->parsedFile->fileName, cn + 1, ln + 1, buffer);
-    fflush(stdout);
 }
 
 static void reportUnexpectedToken(ParserContext *ctx, int expected) {
@@ -2220,6 +2178,7 @@ static void initializeContext(ParserContext *ctx, unsigned lineNum) {
   ctx->memory.astArena = createArena("AST Arena", DEFAULT_CHUNCK_SIZE);
   ctx->memory.typeArena = createArena("Types Arena", DEFAULT_CHUNCK_SIZE);
   ctx->memory.stringArena = createArena("String Arena", DEFAULT_CHUNCK_SIZE);
+  ctx->memory.diagnosticsArena = createArena("Diagnostic Arena", DEFAULT_CHUNCK_SIZE);
 
   ctx->rootScope = ctx->currentScope = newScope(ctx, NULL);
 }
@@ -2232,7 +2191,19 @@ static void releaseContext(ParserContext *ctx) {
 //  releaseArena(ctx->memory.typeArena);
 //  releaseArena(ctx->memory.astArena);
 //  releaseArena(ctx->memory.stringArena);
+  releaseArena(ctx->memory.diagnosticsArena);
 //  free(ctx->locationInfo.linesPos);
+}
+
+static void printDiagnostics(Diagnostics *diagnostics) {
+  Diagnostic *diagnostic = diagnostics->head;
+
+  while (diagnostic) {
+      FILE *output = diagnostic->severity->isError ? stderr : stdout;
+      printDiagnostic(output, diagnostic);
+      fputc('\n', output);
+      diagnostic = diagnostic->next;
+  }
 }
 
 /**
@@ -2255,6 +2226,8 @@ AstFile* parseFile(FILE* file, const char* fileName) {
   while (context.token->code) {
       parseExternalDeclaration(&context, astFile);
   }
+
+  printDiagnostics(&context.diagnostics);
 
   yylex_destroy(context.scanner);
   releaseContext(&context);

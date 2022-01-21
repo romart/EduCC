@@ -6,13 +6,11 @@
 #include "lex.h"
 #include "tree.h"
 #include "mem.h"
+#include "diagnostics.h"
 
 AstFile* parseFile(FILE* file, const char* fileName);
 
 AstConst* eval(ParserContext *ctx, AstExpression* expression);
-
-void parseError(ParserContext *ctx, const char* fmt, ...);
-void parseWarning(ParserContext *ctx, const char* fmt, ...);
 
 #define TokenTextCacheSize 1024
 
@@ -30,8 +28,6 @@ typedef struct _Token {
 
 struct _Scope;
 
-
-
 typedef struct _ParserContext {
     AstFile* parsedFile;
 
@@ -48,9 +44,12 @@ typedef struct _ParserContext {
       Arena *astArena;
       Arena *typeArena;
       Arena *stringArena;
+      Arena *diagnosticsArena;
     } memory;
 
     int anonSymbolsCounter;
+
+    Diagnostics diagnostics;
 
     struct {
       YYLTYPE position;
