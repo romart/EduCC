@@ -23,8 +23,151 @@ size_t computeTypeSize(TypeRef *type) {
   return POINTER_TYPE_SIZE;
 }
 
-int typesEquals(TypeRef *t1, TypeRef *t2) {
-  return TRUE;
+static enum TypeEqualityKind structualTypesEquality(TypeDesc *d1, TypeDesc *d2, enum TypeId kind) {
+  if (d1->typeId == kind && d2->typeId == kind) {
+      if (d1->structInfo == d2->structInfo) {
+        return TEK_EQUAL;
+      } else {
+        return TEK_NOT_EQUAL;
+      }
+  }
+
+  if (d1->typeId == kind || d2->typeId == kind) {
+      return TEK_NOT_EQUAL;
+  }
+
+  return TEK_UNKNOWN;
+}
+
+static enum TypeEqualityKind primitiveTypesEquality(enum TypeId t1, enum TypeId t2) {
+  if (t1 == T_VOID && t2 == T_VOID) return TEK_EQUAL;
+
+  if (t1 == T_VOID || t2 == T_VOID) return TEK_NOT_EQUAL;
+
+  if (t1 == t2) return TEK_EQUAL;
+
+  return TEK_NOT_EQUAL;
+}
+
+static enum TypeEqualityKind typeDescriprorEquals(TypeDesc *d1, TypeDesc *d2) {
+
+  if (d1->typeId == T_ERROR || d2->typeId == T_ERROR) return TEK_NOT_EQUAL;
+
+  enum TypeEqualityKind structCheck = structualTypesEquality(d1, d2, T_STRUCT);
+  if (structCheck != TEK_UNKNOWN) return structCheck;
+  enum TypeEqualityKind unionCheck = structualTypesEquality(d1, d2, T_UNION);
+  if (unionCheck != TEK_UNKNOWN) return unionCheck;
+
+  if (d1->typeId == T_ENUM && d2->typeId == T_ENUM) {
+    if (d1->structInfo == d2->structInfo) {
+        return TEK_EQUAL;
+    } else {
+        return TEK_NOT_EQUAL;
+    }
+  }
+
+  if (d1->typeId == d2->typeId) return TEK_EQUAL;
+
+  return TEK_NOT_EQUAL;
+}
+
+static enum TypeEqualityKind valueTypeEquality(TypeRef *t1, TypeRef *t2) {
+  if (t1->kind == TR_VALUE && t2->kind == TR_VALUE) {
+    enum TypeEqualityKind equality = typeDescriprorEquals(t1->descriptorDesc, t2->descriptorDesc);
+    if (equality == TEK_EQUAL) {
+      if (t1->flags.storage == t2->flags.storage) {
+        return TEK_EQUAL;
+      } else {
+        // 'int' vs 'const int'
+        return TEK_ALMOST_EQUAL;
+      }
+    }
+    return equality;
+  }
+
+  if (t1->kind == TR_VALUE || t2->kind == TR_VALUE) {
+      // 'VALUE type' vs 'non-value type'
+      return TEK_NOT_EQUAL;
+  }
+
+  return TEK_UNKNOWN;
+}
+
+enum TypeEqualityKind typeEquality(TypeRef *t1, TypeRef *t2) {
+  enum TypeEqualityKind equality = valueTypeEquality(t1, t2);
+
+  if (equality != TEK_UNKNOWN) return equality;
+
+  if (t1->kind == TR_POINTED && t2->kind == TR_POINTED) {
+      equality = typeEquality(t1->pointedTo, t2->pointedTo);
+      if (t1->flags.bits.isConst == t2->flags.bits.isConst) {
+        if (equality == TEK_EQUAL) {
+            return TEK_EQUAL;
+          } else {
+            // 'int *' is not equal to 'int *const'
+            return equality;
+          }
+      }
+  }
+
+
+  if (t1->kind == TR_POINTED || t2->kind == TR_POINTED) {
+    return TEK_NOT_EQUAL;
+  }
+
+  if (t1->kind == TR_ARRAY && t2->kind == TR_ARRAY) {
+      if (t1->arrayTypeDesc.size != t2->arrayTypeDesc.size) {
+          return TEK_NOT_EQUAL;
+      }
+      return typeEquality(t1->arrayTypeDesc.elementType, t2->arrayTypeDesc.elementType);
+  }
+
+
+  if (t1->kind == TR_ARRAY || t2->kind == TR_ARRAY) {
+    return TEK_NOT_EQUAL;
+  }
+
+  assert(t1->kind == TR_FUNCTION);
+  assert(t2->kind == TR_FUNCTION);
+
+
+  FunctionTypeDescriptor *fd1 = &t1->functionTypeDesc;
+  FunctionTypeDescriptor *fd2 = &t2->functionTypeDesc;
+
+  if (fd1->isVariadic != fd2->isVariadic) return TEK_EQUAL;
+
+  equality = typeEquality(fd1->returnType, fd2->returnType);
+
+  if (equality != TEK_EQUAL) return equality;
+
+  TypeList *p1 = fd1->parameters;
+  TypeList *p2 = fd2->parameters;
+
+  for (;;) {
+      if (p1 && p2) {
+        equality = typeEquality(p1->type, p2->type);
+        if (equality != TEK_EQUAL) return equality;
+        p1 = p1->next;
+        p2 = p2->next;
+      } else if (p1 || p2) {
+        return TEK_NOT_EQUAL;
+      } else {
+        return TEK_EQUAL;
+      }
+  }
+
+  unreachable("infinite loop");
+}
+
+
+enum TypeCastabilityKind typeCastability(TypeRef *to, TypeRef *from) {
+  return TCK_UNKNOWN;
+}
+
+
+enum Boolean typesEquals(TypeRef *t1, TypeRef *t2) {
+  enum TypeEqualityKind equality = typeEquality(t1, t2);
+  return equality == TEK_EQUAL ? TRUE : FALSE;
 }
 
 static int stringHashCode(const void *v) {
@@ -124,7 +267,7 @@ static int existedTypeDefProcessor(ParserContext *ctx, Symbol *s, void *value) {
   TypeRef *oldType = s->typeref;
   TypeRef *newType = (TypeRef *)value;
   if (typesEquals(oldType, newType)) {
-      // parseWarning(ctx, "redefinition")
+     parseWarning(ctx, "redefinition of typedef '%s' is a C11 feature", s->name);
   } else {
     char t1[128] = { 0 }, t2[128] = { 0 };
 
