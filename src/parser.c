@@ -988,15 +988,13 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _S
               TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
               AstStructDeclarator *structDeclarator = NULL;
               structDeclarator = createStructDeclarator(ctx, so, eo, type, name, width);
-              if (structDeclarator) {
-                AstStructMember *member = createStructMember(ctx, NULL, structDeclarator, NULL);
-                if (tail) {
-                    tail->next = member;
-                } else {
-                    head = member;
-                }
-                tail = member;
+              AstStructMember *member = createStructMember(ctx, NULL, structDeclarator, NULL);
+              if (tail) {
+                  tail->next = member;
+              } else {
+                  head = member;
               }
+              tail = member;
             }
             if (!nextTokenIf(ctx, ',')) break;
         }
@@ -1325,16 +1323,10 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
         sue:
         seenTypeSpecifier = TRUE;
         {
-            if (typeId != T_ENUM) {
-              ctx->currentScope = newScope(ctx, ctx->currentScope);
-            }
             AstSUEDeclaration *declaration = typeId == T_ENUM
                 ? parseEnumDeclaration(ctx, scope)
                 : parseStructOrUnionDeclaration(ctx, typeId == T_STRUCT ? DK_STRUCT : DK_UNION, scope);
 
-            if (typeId != T_ENUM) {
-              ctx->currentScope = ctx->currentScope->parent;
-            }
             if (declaration->isDefinition)
               specifiers->defined = declaration;
 
