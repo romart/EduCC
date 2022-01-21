@@ -44,6 +44,7 @@ typedef struct _ParserContext {
     Arena *tokenArena;
     Arena *astArena;
     Arena *typeArena;
+    Arena *stringArena;
 
     int anonSymbolsCounter;
 

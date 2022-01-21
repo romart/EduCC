@@ -102,13 +102,16 @@ static void consumeRaw(ParserContext *ctx, int expected) {
     nextToken(ctx);
 }
 
+static char *allocateString(ParserContext *ctx, size_t size) {
+  return (char *)areanAllocate(ctx->stringArena, size);
+}
 
 static const char* copyLiteralString(ParserContext *ctx) {
 
     int yyleng = yyget_leng(ctx->scanner);
     const char* yytext = yyget_text(ctx->scanner);
 
-    char* r = (char*)heapAllocate(yyleng + 1);
+    char* r = (char*)allocateString(ctx, yyleng + 1);
     strncpy(r, yytext, yyleng + 1);
 
     return r;
@@ -1376,20 +1379,18 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
             TypeDesc *typeDescriptor = NULL;
             if (name) {
                 int len = strlen(name);
-                char *symbolName = (char *)heapAllocate(len + 1 + 1);
+                char *symbolName = allocateString(ctx, len + 1 + 1);
                 size = sprintf(symbolName, "%s%s", prefix, name);
                 Symbol *s;
 
-                if (declareSUESymbol(ctx, symbolId, typeId, symbolName, declaration, &s)) {
-                    releaseHeap(symbolName);
-                    symbolName = NULL;
-                }
+                declareSUESymbol(ctx, symbolId, typeId, symbolName, declaration, &s);
+
 
                 typeDescriptor = s->typeDescriptor;
             } else {
                 if (declaration->isDefinition) {
                   size = sprintf(tmpBuf, "<anon$%d>", ctx->anonSymbolsCounter++);
-                  name = (char *)heapAllocate(size + 1);
+                  name = allocateString(ctx, size + 1);
                   memcpy((char *)name, tmpBuf, size + 1);
                   declaration->name = name;
                   typeDescriptor = createTypeDescriptor(ctx, typeId, name, -1);
@@ -2217,6 +2218,7 @@ static void initializeContext(ParserContext *ctx, unsigned lineNum) {
   ctx->tokenArena = createArena("Tokens Arena", DEFAULT_CHUNCK_SIZE);
   ctx->astArena = createArena("AST Arena", DEFAULT_CHUNCK_SIZE);
   ctx->typeArena = createArena("Types Arena", DEFAULT_CHUNCK_SIZE);
+  ctx->stringArena = createArena("String Arena", DEFAULT_CHUNCK_SIZE);
 
   ctx->rootScope = ctx->currentScope = newScope(ctx, NULL);
 }
