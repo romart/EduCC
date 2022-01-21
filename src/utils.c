@@ -52,16 +52,16 @@ struct LinkedNode {
     const void* value;
 };
 
-typedef struct _HashMap {
+struct _HashMap {
     int capacity;
     struct LinkedNode** storage;
 
     hashCode_fun hashCode;
     compare_fun compare;
-} HashMap;
+};
 
 
-HashMap* createHashMap(int capacity, hashCode_fun hc, compare_fun cmp) {
+struct _HashMap* createHashMap(int capacity, hashCode_fun hc, compare_fun cmp) {
     HashMap* map = (HashMap*)heapAllocate(sizeof(HashMap));
     map->hashCode = hc;
     map->compare = cmp;
