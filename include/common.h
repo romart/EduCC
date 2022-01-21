@@ -9,7 +9,7 @@ enum {
   ERR_MMAP = 4,
 };
 
-enum {
+enum Boolean {
     FALSE = 0,
     TRUE = !FALSE
 };
