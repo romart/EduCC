@@ -61,6 +61,8 @@ typedef struct _Scope {
     HashMap* symbols;
 } Scope;
 
+void verifyFunctionReturnType(ParserContext *ctx, Declarator *declarator, TypeRef *returnType);
+
 
 Symbol* findSymbol(ParserContext *ctx, const char *name);
 Symbol* declareSymbol(ParserContext *ctx, SymbolKind kind, const char *name);
