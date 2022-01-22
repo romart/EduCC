@@ -9,9 +9,11 @@
 
 enum {
   POINTER_TYPE_SIZE = 8,
+  BYTE_BIT_SIZE = 8
 };
 
-size_t computeTypeSize(TypeRef *type);
+int computeTypeSize(ParserContext *ctx, TypeRef *type);
+int computeSUETypeSize(ParserContext *ctx, AstSUEDeclaration *declaration);
 
 typedef enum _TypeEqualityKind {
   TEK_UNKNOWN,

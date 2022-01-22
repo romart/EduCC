@@ -338,7 +338,7 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
       return NULL;
     }
     case EU_SIZEOF:
-      ic = computeTypeSize(expression->unaryExpr.argument->type);
+      ic = computeTypeSize(ctx, expression->unaryExpr.argument->type);
       return &createAstConst(ctx, -1, -1, CK_INT_CONST, &ic)->constExpr;
     case EB_ASSIGN:
     case EB_RIGHT_ASSIGN:
