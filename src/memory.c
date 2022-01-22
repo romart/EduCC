@@ -22,6 +22,8 @@ void *heapAllocate(size_t size) {
       exit(ERR_MALLOC);
   }
 
+  memset(result, 0, size);
+
   return result;
 }
 
