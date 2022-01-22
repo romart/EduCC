@@ -2210,11 +2210,11 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
 
   ctx->currentScope = functionScope;
   AstStatement *body = parseFunctionBody(ctx);
+  ctx->currentScope = functionScope->parent;
 
   if (functionDeclaration) {
     AstFunctionDefinition *definition = createFunctionDefinition(ctx, functionDeclaration, functionScope, body);
     definition->scope = functionScope;
-    ctx->currentScope = functionScope->parent;
 
     AstTranslationUnit *newUnit = createTranslationUnit(ctx, NULL, definition);
     addToFile(file, newUnit);
