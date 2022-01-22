@@ -16,6 +16,11 @@ typedef enum _Boolean {
 
 #define BIT(n) (1U << (n))
 
+#define ALIGN_SIZE(len, align) ((((align)-1) & (len)) ? (((len)+(align)) & ~((align)-1)) : (len))
+
+#define max(a, b) ((a) < (b)) ? (b) : (a)
+#define min(a, b) ((a) < (b)) ? (a) : (b)
+
 void unreachable(const char *msg);
 
 #endif // __COMMON_H__
