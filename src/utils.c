@@ -3,6 +3,7 @@
 #include <memory.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "mem.h"
 #include "utils.h"
@@ -62,18 +63,18 @@ struct _HashMap {
 
 
 struct _HashMap* createHashMap(int capacity, hashCode_fun hc, compare_fun cmp) {
-    HashMap* map = (HashMap*)heapAllocate(sizeof(HashMap));
+    struct _HashMap* map = (struct _HashMap*)heapAllocate(sizeof(struct _HashMap));
     map->hashCode = hc;
     map->compare = cmp;
     map->capacity = capacity;
-    map->storage = (struct LinkedNode**)heapAllocate(sizeof(struct LinkedNode*) *  capacity);
+    map->storage = (struct LinkedNode**)heapAllocate(sizeof(struct LinkedNode*) * capacity);;
 
     return map;
 }
 
 const void* putToHashMap(HashMap* map, const void* key, const void* value) {
-    int hc = map->hashCode(key);
-    int idx = hc % map->capacity;
+    unsigned hc = map->hashCode(key);
+    unsigned idx = hc % map->capacity;
     struct LinkedNode* list = map->storage[idx];
 
     while (list != NULL) {
@@ -96,8 +97,8 @@ const void* putToHashMap(HashMap* map, const void* key, const void* value) {
 
 
 const void* getFromHashMap(HashMap* map, const void* key) {
-    int hc = map->hashCode(key);
-    int idx = hc % map->capacity;
+    unsigned hc = map->hashCode(key);
+    unsigned idx = hc % map->capacity;
     struct LinkedNode* list = map->storage[idx];
 
     while (list != NULL) {
@@ -112,8 +113,8 @@ const void* getFromHashMap(HashMap* map, const void* key) {
 
 
 const void* removeFromHashMap(HashMap* map, const void* key) {
-    int hc = map->hashCode(key);
-    int idx = hc % map->capacity;
+    unsigned hc = map->hashCode(key);
+    unsigned idx = hc % map->capacity;
     struct LinkedNode** prev = &(map->storage[idx]);
     struct LinkedNode* list = *prev;
 
@@ -132,8 +133,8 @@ const void* removeFromHashMap(HashMap* map, const void* key) {
 }
 
 int isInHashMap(HashMap* map, const void* key) {
-    int hc = map->hashCode(key);
-    int idx = hc % map->capacity;
+    unsigned hc = map->hashCode(key);
+    unsigned idx = hc % map->capacity;
     struct LinkedNode* list = map->storage[idx];
 
     while (list != NULL) {
