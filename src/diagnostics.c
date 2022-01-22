@@ -39,21 +39,23 @@ static void computeLineAndCollumn(ParserContext *ctx, int _pos, int *line, int *
 
   unsigned pos = (unsigned)_pos;
 
-  if (pos < lineMap[0]) { // the first line
-    *line = 1;
-    *col = pos + 1;
-    return;
-  }
-
   unsigned lineMax = ctx->locationInfo.lineno;
-  unsigned lineNum = 0;
+  unsigned lineNum = lineMax / 2;
   unsigned lineOffset = 0;
 
   for (;;) {
      lineOffset = lineMap[lineNum];
 
      if (pos < lineOffset) {
-       lineNum = lineNum / 2;
+       if (lineNum > 0) {
+           unsigned prevLineOffset = lineMap[lineNum - 1];
+           if (pos < prevLineOffset) {
+               lineNum = lineNum / 2;
+               continue;
+           }
+           lineOffset = prevLineOffset;
+           break;
+       }
      } else {
        if (lineNum + 1 < lineMax) {
          unsigned nextLineOffset = lineMap[lineNum + 1];
@@ -66,7 +68,7 @@ static void computeLineAndCollumn(ParserContext *ctx, int _pos, int *line, int *
      }
   }
 
-  *line = lineNum + 1 + 1;
+  *line = lineNum + 1;
   *col = pos - lineOffset + 1;
 }
 

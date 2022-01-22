@@ -132,9 +132,8 @@ static Token* nextToken(ParserContext *ctx) {
       rawToken = yylex(&dummy, &ctx->locationInfo.position, ctx->scanner);
       endOffset = ctx->locationInfo.position;
       if (rawToken == DANGLING_NEWLINE || rawToken == NEWLINE) {
-          unsigned thisLine = ctx->locationInfo.lineno++;
-          assert(thisLine < ctx->locationInfo.lineCount);
-          ctx->locationInfo.linesPos[thisLine] = endOffset;
+          assert(ctx->locationInfo.lineno < ctx->locationInfo.lineCount);
+          ctx->locationInfo.linesPos[ctx->locationInfo.lineno++] = endOffset;
       } else break;
     }
 
@@ -1004,6 +1003,7 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _S
 
     return head;
 }
+
 
 /**
 struct_or_union_specifier
@@ -2273,6 +2273,7 @@ static void initializeContext(ParserContext *ctx, unsigned lineNum) {
   unsigned *linePos = (unsigned *)heapAllocate(as);
 
   memset(linePos, 0, as);
+  linePos[ctx->locationInfo.lineno++] = 0; // the first line starts with 0's character
   ctx->locationInfo.linesPos = linePos;
   ctx->locationInfo.lineCount = lineNum;
   ctx->anonSymbolsCounter = 0;
@@ -2319,7 +2320,7 @@ AstFile* parseFile(FILE* file, const char* fileName) {
   unsigned lineNum = countLines(file);
 
   ParserContext context = { 0 };
-  initializeContext(&context, lineNum);
+  initializeContext(&context, lineNum + 1);
 
   AstFile *astFile = createAstFile(&context);
   astFile->fileName = fileName;
