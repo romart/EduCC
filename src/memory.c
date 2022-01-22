@@ -11,8 +11,6 @@
 
 #define PAGE_SIZE 0x1000
 
-#define ALIGN_SIZE(len, align) ((((align)-1) & (len)) ? (((len)+(align)) & ~((align)-1)) : (len))
-
 #define ALIGN_SIZE_TO_PAGE(len) ALIGN_SIZE(len, PAGE_SIZE)
 #define ALIGN_SIZE_TO_WORD(len) ALIGN_SIZE(len, 0x8)
 
