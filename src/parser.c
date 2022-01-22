@@ -1361,7 +1361,11 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
                   name = allocateString(ctx, size + 1);
                   memcpy((char *)name, tmpBuf, size + 1);
                   declaration->name = name;
-                  typeDescriptor = createTypeDescriptor(ctx, typeId, name, -1);
+                  int typeSize = computeSUETypeSize(ctx, declaration);
+                  if (typeSize < 0) {
+                      reportError(ctx, declaration->coordinates.startOffset, eo, "Cannot compute size of declaration");
+                  }
+                  typeDescriptor = createTypeDescriptor(ctx, typeId, name, typeSize);
                   typeDescriptor->structInfo = declaration;
                 } else {
                   parseError(ctx, "declaration of anonymous struct must be a definition");

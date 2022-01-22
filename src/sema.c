@@ -6,23 +6,6 @@
 #include "parser.h"
 
 
-size_t computeTypeSize(TypeRef *type) {
-  if (type->kind == TR_VALUE) {
-      return type->descriptorDesc->size;
-  }
-
-  if (type->kind == TR_POINTED) {
-      return POINTER_TYPE_SIZE;
-  }
-
-  if (type->kind == TR_ARRAY) {
-      ArrayTypeDescriptor *atype = &type->arrayTypeDesc;
-      return atype->size * computeTypeSize(atype->elementType);
-  }
-
-  return POINTER_TYPE_SIZE;
-}
-
 static TypeEqualityKind structualTypesEquality(TypeDesc *d1, TypeDesc *d2, TypeId kind) {
   if (d1->typeId == kind && d2->typeId == kind) {
       if (d1->structInfo == d2->structInfo) {
@@ -348,8 +331,11 @@ Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeI
   TypeDesc *typeDescriptor;
   if (!s) {
       s = declareSymbol(ctx, symbolKind, symbolName);
-      // TODO: compute size
-      typeDescriptor = s->typeDescriptor = createTypeDescriptor(ctx, typeId, name, -1);
+      int typeSize = -1;
+      if (declaration->isDefinition) {
+        typeSize = computeSUETypeSize(ctx, declaration);
+      }
+      typeDescriptor = s->typeDescriptor = createTypeDescriptor(ctx, typeId, name, typeSize);
       typeDescriptor->structInfo = declaration;
   } else {
       if (s->kind != symbolKind) {
@@ -409,6 +395,120 @@ TypeDesc builtInTypeDescriptors[] = {
     { T_F4, "float", 4, NULL },
     { T_F8, "double", 8, NULL }
 };
+
+
+int computeTypeSize(ParserContext *ctx, TypeRef *type) {
+  if (type->kind == TR_VALUE) {
+      return type->descriptorDesc->size;
+  }
+
+  if (type->kind == TR_POINTED) {
+      return POINTER_TYPE_SIZE;
+  }
+
+  if (type->kind == TR_ARRAY) {
+      ArrayTypeDescriptor *atype = &type->arrayTypeDesc;
+      return atype->size * computeTypeSize(ctx, atype->elementType);
+  }
+
+  return POINTER_TYPE_SIZE;
+}
+
+static void reportIncompleteType(ParserContext *ctx, AstStructDeclarator *declarator) {
+  int so = declarator->coordinates.startOffset;
+  int eo = declarator->coordinates.endOffset;
+  TypeRef *type = declarator->typeRef;
+  char buffer[1024];
+  renderTypeRef(type, buffer, sizeof buffer);
+  reportError(ctx, so, eo, "field '%s' has incomplete type '%s'", declarator->name, buffer);
+}
+
+static int computeUnionTypeSize(ParserContext *ctx, AstSUEDeclaration *declaration) {
+  assert(declaration->kind == DK_UNION);
+  assert(declaration->isDefinition);
+
+  int result = 0;
+
+  AstStructMember *member = declaration->members;
+
+  while (member) {
+      assert(member->kind != SM_ENUMERATOR);
+      if (member->kind == SM_DECLARATOR) {
+         AstStructDeclarator *declarator = member->declarator;
+
+         if (declarator->f_width >= 0) {
+            unsigned aligned = ALIGN_SIZE(declarator->f_width, BYTE_BIT_SIZE);
+            result = max(result, aligned / BYTE_BIT_SIZE);
+         } else {
+            int tmp = computeTypeSize(ctx, declarator->typeRef);
+            if (tmp < 0) {
+                reportIncompleteType(ctx, declarator);
+                return -1;
+            }
+            result = max(result, tmp);
+         }
+      }
+
+      member = member->next;
+  }
+
+  return ALIGN_SIZE(result, POINTER_TYPE_SIZE);
+}
+
+static int computeStructTypeSize(ParserContext *ctx, AstSUEDeclaration *declaration) {
+  assert(declaration->kind == DK_STRUCT);
+  assert(declaration->isDefinition);
+
+  int result = 0;
+  unsigned bitCount = 0;
+
+
+  AstStructMember *member = declaration->members;
+
+  while (member) {
+      assert(member->kind != SM_ENUMERATOR);
+      if (member->kind == SM_DECLARATOR) {
+         AstStructDeclarator *declarator = member->declarator;
+         if (declarator->f_width >= 0) {
+            bitCount += declarator->f_width;
+         } else {
+            int tmp = computeTypeSize(ctx, declarator->typeRef);
+            if (tmp < 0) {
+                reportIncompleteType(ctx, declarator);
+                return -1;
+            }
+            result += tmp;
+         }
+      }
+
+      member = member->next;
+  }
+
+
+  bitCount = ALIGN_SIZE(bitCount, BYTE_BIT_SIZE); // align to byte (8 bits)
+  result += bitCount / BYTE_BIT_SIZE;
+  result = ALIGN_SIZE(result, POINTER_TYPE_SIZE); // align to word (8 bytes)
+
+  return result;
+}
+
+int computeSUETypeSize(ParserContext *ctx, AstSUEDeclaration *declaration) {
+  if (!declaration->isDefinition) {
+      // report diagnostic
+      return -1;
+  }
+
+  if (declaration->kind == DK_UNION) {
+    return computeUnionTypeSize(ctx, declaration);
+  }
+
+  if (declaration->kind == DK_STRUCT) {
+    return computeStructTypeSize(ctx, declaration);
+  }
+
+  assert(declaration->kind == DK_ENUM);
+  return builtInTypeDescriptors[T_S4].size;
+}
 
 TypeRef *makeBasicType(ParserContext *ctx, TypeDesc *descriptor, unsigned flags) {
   TypeRef *ref = (TypeRef *)areanAllocate(ctx->memory.typeArena, sizeof(TypeRef));
