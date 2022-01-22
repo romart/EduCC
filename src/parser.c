@@ -324,6 +324,21 @@ static int parseAsIntConst(ParserContext *ctx, struct _Scope* scope) {
     return (int)expr->i;
 }
 
+static AstExpression *resolveNameRef(ParserContext *ctx) {
+  int so = ctx->token->coordinates.startOffset;
+  int eo = ctx->token->coordinates.endOffset;
+  const char *name = ctx->token->text;
+  Symbol *s = findSymbol(ctx, name);
+
+  if (s) {
+    assert(s->kind == FunctionSymbol || s->kind == ValueSymbol);
+    return createNameRef(ctx, so, eo, ctx->token->text, s);
+  } else {
+    parseError(ctx, "use of undeclared identifier '%s'", name);
+  }
+  return createErrorExpression(ctx, so, eo);
+}
+
 /**
 primary_expression
     : IDENTIFIER
@@ -338,7 +353,11 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
     int eo = ctx->token->coordinates.endOffset;
     switch (ctx->token->code) {
         case IDENTIFIER:
-            result = createNameRef(ctx, so, eo, ctx->token->text);
+            result = resolveNameRef(ctx);
+            break;
+        case TYPE_NAME:
+            parseError(ctx, "unexpected type name '%s': expected expression", ctx->token->text);
+            result = createErrorExpression(ctx, so, eo);
             break;
         case ENUM_CONST:
         case I_CONSTANT: {
@@ -1931,7 +1950,7 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                     }
                 } while (nextTokenIf(ctx, ','));
             } else {
-                // TODO: warning: declaration does not declare anything
+                parseWarning(ctx, "declaration does not declare anything");
             }
 
             consume(ctx, ';');
