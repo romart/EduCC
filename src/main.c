@@ -7,9 +7,8 @@
 #include "parser.h"
 #include "treeDump.h"
 
-static void dumpFile(AstFile *file) {
+static void dumpFile(AstFile *file, const char* dumpFile) {
 //  char tmpb[1024] = { 0 };
-  const char *dumpFile = "ast.dump";
 //  sprintf(tmpb, "ast.dump", file->fileName);
   printf("dump ast into %s\n", dumpFile);
   remove(dumpFile);
@@ -18,14 +17,16 @@ static void dumpFile(AstFile *file) {
   fclose(toDump);
 }
 
-static void processInputFile(const char* inputFile) {
+static void processInputFile(const char* inputFile, const char *dumpFileName) {
 
     FILE* opened = fopen(inputFile, "r");
     AstFile* firstFile = NULL;
     if (opened != NULL) {
       printf("Scanning file %s...\n", inputFile);
       AstFile *f = parseFile(opened, inputFile);
-      dumpFile(f);
+      if (dumpFileName) {
+        dumpFile(f, dumpFileName);
+      }
       f->next = firstFile;
       firstFile = f;
       fclose(opened);
@@ -39,9 +40,15 @@ int main(int argc, char** argv) {
   if (argc < 2) return -1;
   argc--; argv++;
   int i;
+  const char *dumpFileName = NULL;
   for (i = 0; i < argc; ++i) {
-    const char* inputFile = argv[i];
-    processInputFile(inputFile);
+    const char *arg = argv[i];
+    if (strcmp("-astDump", arg) == 0) {
+      dumpFileName = argv[++i];
+    } else{
+      const char* inputFile = argv[i];
+      processInputFile(inputFile, dumpFileName);
+    }
   }
   return 0;
 }
