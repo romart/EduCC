@@ -1563,9 +1563,7 @@ static void parseParameterList(ParserContext *ctx, FunctionParams *params, struc
           type = makeTypeRef(ctx, &specifiers, &declarator);
           AstValueDeclaration *parameter =
               createAstValueDeclaration(ctx, so, eo, VD_PARAMETER, type, name, idx++, specifiers.flags.storage, NULL);
-          if (name) {
-              declareValueSymbol(ctx, name, parameter);
-          }
+          declareValueSymbol(ctx, name, parameter);
 
           if (tail) {
             tail->next = parameter;
@@ -1911,21 +1909,17 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                         if (initializer != NULL) {
                             reportError(ctx, eqPos, eod, "illegal initializer (only variables can be initialized)");
                         }
-                        if (name) {
-                          declareTypeDef(ctx, name, type);
-                          declaration = createAstDeclaration(ctx, DK_TYPEDEF, name);
-                          declaration->typeDefinition.coordinates.startOffset = sod;
-                          declaration->typeDefinition.coordinates.endOffset = eod;
-                          declaration->typeDefinition.definedType = type;
-                        }
+                        declareTypeDef(ctx, name, type);
+                        declaration = createAstDeclaration(ctx, DK_TYPEDEF, name);
+                        declaration->typeDefinition.coordinates.startOffset = sod;
+                        declaration->typeDefinition.coordinates.endOffset = eod;
+                        declaration->typeDefinition.definedType = type;
                     } else {
                         declaration = createAstDeclaration(ctx, DK_VAR, name);
                         AstValueDeclaration *valueDeclaration =
                             createAstValueDeclaration(ctx, sod, eod, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
                         declaration->variableDeclaration = valueDeclaration;
-                        if (name) {
-                          declareValueSymbol(ctx, name, valueDeclaration);
-                        }
+                        declareValueSymbol(ctx, name, valueDeclaration);
                     }
 
                     if (declaration) {
@@ -2134,14 +2128,12 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
     AstDeclaration *declaration = NULL;
 
     if (isTypeDefDeclaration) {
-        if (name) {
-            TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
-            declareTypeDef(ctx, name, type);
-            declaration = createAstDeclaration(ctx, DK_TYPEDEF, name);
-            declaration->typeDefinition.definedType = type;
-            declaration->typeDefinition.coordinates.startOffset = so;
-            declaration->typeDefinition.coordinates.endOffset = eo;
-        }
+      TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
+      declareTypeDef(ctx, name, type);
+      declaration = createAstDeclaration(ctx, DK_TYPEDEF, name);
+      declaration->typeDefinition.definedType = type;
+      declaration->typeDefinition.coordinates.startOffset = so;
+      declaration->typeDefinition.coordinates.endOffset = eo;
     } else if (isFunDeclarator) {
       TypeRef *returnType = makeFunctionReturnType(ctx, &specifiers, &declarator);
       verifyFunctionReturnType(ctx, &declarator, returnType);
@@ -2160,21 +2152,15 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
       // TODO: what if name == NULL
       assert(params_dpk != NULL);
       AstValueDeclaration *params = params_dpk->parameters;
-      if (funName == NULL) {
-        funName = "<not specified>";
-      }
       functionDeclaration = createFunctionDeclaration(ctx, so, eo, returnType, funName, specifiers.flags.storage, params, params_dpk->isVariadic);
-      if (name) {
-        declareFunctionSymbol(ctx, name, functionDeclaration);
-      }
+      declareFunctionSymbol(ctx, name, functionDeclaration);
 
       if (ctx->token->code == '{') {
-          if (id_idx == 0) {
-              functionScope = params_dpk->scope;
-              break;
-          } else {
+          if (id_idx != 0) {
               parseError(ctx, "expected ';' after top level declarator");
           }
+          functionScope = params_dpk->scope;
+          break;
       } else {
           declaration = createAstDeclaration(ctx, DK_PROTOTYPE, name);
           declaration->functionProrotype = functionDeclaration;
@@ -2182,9 +2168,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
     } else {
         TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
         AstValueDeclaration *valueDeclaration = createAstValueDeclaration(ctx, so, eo, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
-        if (name) {
-          declareValueSymbol(ctx, name, valueDeclaration);
-        }
+        declareValueSymbol(ctx, name, valueDeclaration);
         declaration = createAstDeclaration(ctx, DK_VAR, name);
         declaration->variableDeclaration = valueDeclaration;
     }
@@ -2198,8 +2182,6 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
   // it's function definition
 
   // K&R param syntax is not supported yet
-
-  // TODO: check types
 
   if (nextTokenIf(ctx, ';')) return;
 
