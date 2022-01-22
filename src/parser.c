@@ -183,7 +183,7 @@ static Token* nextToken(ParserContext *ctx) {
     return cur;
 }
 
-static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, struct _Scope* scope);
+static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, DeclaratorScope scope);
 static void parseDeclarator(ParserContext *ctx, Declarator *declarator);
 
 static Boolean verifyDeclarator(ParserContext *ctx, Declarator *declarator, DeclaratorScope scope);
@@ -405,19 +405,14 @@ static TypeRef* parseTypeName(ParserContext *ctx, struct _Scope *scope) {
     DeclarationSpecifiers specifiers = { 0 };
     Declarator declarator= { 0 };
     specifiers.coordinates.startOffset = ctx->token->coordinates.startOffset;
-    parseDeclarationSpecifiers(ctx, &specifiers, scope);
-
-    Boolean hasErrors = verifyDeclarationSpecifiers(ctx, &specifiers, DS_CAST);
+    parseDeclarationSpecifiers(ctx, &specifiers, DS_CAST);
 
     if (ctx->token->code != ')') {
         declarator.coordinates.startOffset = ctx->token->coordinates.startOffset;
         parseDeclarator(ctx, &declarator);
-        hasErrors |= verifyDeclarator(ctx, &declarator, DS_CAST);
+        verifyDeclarator(ctx, &declarator, DS_CAST);
     }
 
-    if (hasErrors) {
-        return makeErrorRef(ctx);
-    }
     return makeTypeRef(ctx, &specifiers, &declarator);
 }
 
@@ -949,9 +944,7 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _S
     do {
         DeclarationSpecifiers specifiers = { 0 };
         int so = specifiers.coordinates.startOffset = ctx->token->coordinates.startOffset;
-        parseDeclarationSpecifiers(ctx, &specifiers, scope);
-
-        Boolean erroredSpecifier = verifyDeclarationSpecifiers(ctx, &specifiers, DS_STRUCT);
+        parseDeclarationSpecifiers(ctx, &specifiers, DS_STRUCT);
 
         if (specifiers.defined) {
             AstSUEDeclaration *definition = specifiers.defined;
@@ -968,11 +961,10 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _S
 
         for (;;) {
             Declarator declarator = { 0 };
-            Boolean hasErrors = erroredSpecifier;
             if (ctx->token->code != ':') {
                 declarator.coordinates.startOffset = ctx->token->coordinates.startOffset;
                 parseDeclarator(ctx, &declarator);
-                hasErrors |= verifyDeclarator(ctx, &declarator, DS_STRUCT);
+                verifyDeclarator(ctx, &declarator, DS_STRUCT);
             }
             int width = -1;
             if (ctx->token->code == ':') {
@@ -981,20 +973,18 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _S
                 // check width (size and sign)
             }
 
-            if (hasErrors == FALSE) {
-              const char *name = declarator.identificator;
-              int eo = declarator.coordinates.endOffset;
-              TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
-              AstStructDeclarator *structDeclarator = NULL;
-              structDeclarator = createStructDeclarator(ctx, so, eo, type, name, width);
-              AstStructMember *member = createStructMember(ctx, NULL, structDeclarator, NULL);
-              if (tail) {
-                  tail->next = member;
-              } else {
-                  head = member;
-              }
-              tail = member;
+            const char *name = declarator.identificator;
+            int eo = declarator.coordinates.endOffset;
+            TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
+            AstStructDeclarator *structDeclarator = NULL;
+            structDeclarator = createStructDeclarator(ctx, so, eo, type, name, width);
+            AstStructMember *member = createStructMember(ctx, NULL, structDeclarator, NULL);
+            if (tail) {
+                tail->next = member;
+            } else {
+                head = member;
             }
+            tail = member;
             if (!nextTokenIf(ctx, ',')) break;
         }
 
@@ -1213,7 +1203,7 @@ static TypeDesc *computePrimitiveTypeDescriptor(ParserContext *ctx, TSW tsw, con
 static const char *duplicateMsgFormater = "duplicate '%s' declaration specifier";
 static const char *nonCombineMsgFormater = "cannot combine with previous '%s' declaration specifier";
 
-static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, struct _Scope* scope) {
+static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, DeclaratorScope scope) {
     SCS scs = SCS_NONE;
     const char *scs_s = NULL;
     TSW tsw = TSW_NONE;
@@ -1324,8 +1314,8 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
         seenTypeSpecifier = TRUE;
         {
             AstSUEDeclaration *declaration = typeId == T_ENUM
-                ? parseEnumDeclaration(ctx, scope)
-                : parseStructOrUnionDeclaration(ctx, typeId == T_STRUCT ? DK_STRUCT : DK_UNION, scope);
+                ? parseEnumDeclaration(ctx, NULL)
+                : parseStructOrUnionDeclaration(ctx, typeId == T_STRUCT ? DK_STRUCT : DK_UNION, NULL);
 
             if (declaration->isDefinition)
               specifiers->defined = declaration;
@@ -1397,6 +1387,7 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
             specifiers->flags.bits.isTypedef = scs == SCS_TYPEDEF;
             specifiers->coordinates.endOffset = eo;
 
+            verifyDeclarationSpecifiers(ctx, specifiers, scope);
             return;
         }
         }
@@ -1543,9 +1534,7 @@ static void parseParameterList(ParserContext *ctx, FunctionParams *params, struc
           DeclarationSpecifiers specifiers = { 0 };
           int so = specifiers.coordinates.startOffset = ctx->token->coordinates.startOffset;
 
-          parseDeclarationSpecifiers(ctx, &specifiers, scope);
-          Boolean hasError = verifyDeclarationSpecifiers(ctx, &specifiers, DS_PARAMETERS);
-          // TODO: handle foo(void) case
+          parseDeclarationSpecifiers(ctx, &specifiers, DS_PARAMETERS);
 
           TypeRef *type = specifiers.basicType;
           TypeDesc *typeDesc = type->kind == TR_VALUE ? type->descriptorDesc : NULL;
@@ -1566,26 +1555,24 @@ static void parseParameterList(ParserContext *ctx, FunctionParams *params, struc
           Declarator declarator = { 0 };
           declarator.coordinates.startOffset = ctx->token->coordinates.startOffset;
           parseDeclarator(ctx, &declarator);
-          hasError |= verifyDeclarator(ctx, &declarator, DS_PARAMETERS);
+          verifyDeclarator(ctx, &declarator, DS_PARAMETERS);
 
-          if (hasError == FALSE) {
-            int eo = declarator.coordinates.endOffset;
-            const char *name = declarator.identificator;
+          int eo = declarator.coordinates.endOffset;
+          const char *name = declarator.identificator;
 
-            type = makeTypeRef(ctx, &specifiers, &declarator);
-            AstValueDeclaration *parameter =
-                createAstValueDeclaration(ctx, so, eo, VD_PARAMETER, type, name, idx++, specifiers.flags.storage, NULL);
-            if (name) {
-                declareValueSymbol(ctx, name, parameter);
-            }
-
-            if (tail) {
-              tail->next = parameter;
-            } else {
-              head = parameter;
-            }
-            tail = parameter;
+          type = makeTypeRef(ctx, &specifiers, &declarator);
+          AstValueDeclaration *parameter =
+              createAstValueDeclaration(ctx, so, eo, VD_PARAMETER, type, name, idx++, specifiers.flags.storage, NULL);
+          if (name) {
+              declareValueSymbol(ctx, name, parameter);
           }
+
+          if (tail) {
+            tail->next = parameter;
+          } else {
+            head = parameter;
+          }
+          tail = parameter;
         }
     } while (nextTokenIf(ctx, ','));
 
@@ -1623,6 +1610,7 @@ static AstIdentifierList* parseIdentifierList(ParserContext *ctx, struct _Scope*
 }
 
 static void parseFunctionDeclaratorPart(ParserContext *ctx, Declarator *declarator) {
+  consume(ctx, '(');
   Scope *paramScope = newScope(ctx, ctx->currentScope);
   ctx->currentScope = paramScope;
   FunctionParams params = { 0 };
@@ -1635,7 +1623,23 @@ static void parseFunctionDeclaratorPart(ParserContext *ctx, Declarator *declarat
   part->parameters.parameters = params.parameters;
   part->parameters.scope = paramScope;
 
+  declarator->coordinates.endOffset = ctx->token->coordinates.endOffset;
+
   ctx->currentScope = paramScope->parent;
+  consume(ctx, ')');
+}
+
+static void parseArrayDeclaratorPart(ParserContext *ctx, Declarator *declarator) {
+  consume(ctx, '[');
+  int size = 0;
+  if (ctx->token->code != ']') {
+      size = parseAsIntConst(ctx, NULL);
+  }
+  declarator->coordinates.endOffset = ctx->token->coordinates.endOffset;
+  DeclaratorPart *part = &declarator->declaratorParts[declarator->partsCounter++];
+  part->kind = DPK_ARRAY;
+  part->arraySize = size;
+  consume(ctx, ']');
 }
 
 /**
@@ -1653,28 +1657,25 @@ direct_abstract_declarator
 static void parseDirectDeclarator(ParserContext *ctx, Declarator *declarator) {
 
     if (ctx->token->rawCode == IDENTIFIER) {
-        if (!declarator->identificatorCounter) {
-          declarator->identificator= ctx->token->text;
+        if (declarator->identificator) {
+            parseError(ctx, "Identificator is already specified");
+        } else {
+            declarator->identificator = ctx->token->text;
         }
-        declarator->identificatorCounter += 1;
         declarator->coordinates.endOffset = ctx->token->coordinates.endOffset;
         nextToken(ctx);
-    } else if (nextTokenIf(ctx, '[')) {
-        int size = ctx->token->code != ']' ? parseAsIntConst(ctx, NULL) : 0;
-        declarator->coordinates.endOffset = ctx->token->coordinates.endOffset;
-        consume(ctx, ']');
-        DeclaratorPart *part = &declarator->declaratorParts[declarator->partsCounter++];
-        part->kind = DPK_ARRAY;
-        part->arraySize = size;
-    } else if (nextTokenIf(ctx, '(')) {
-        if (ctx->token->code != '(') {
+    } else if (ctx->token->code == '[') {
+        parseArrayDeclaratorPart(ctx, declarator);
+    } else if (ctx->token->code == '(') {
+        if (ctx->token->code != ')') {
             if (isDeclarationSpecifierToken(ctx->token->code)) {
                 parseFunctionDeclaratorPart(ctx, declarator);
             } else {
+                consume(ctx, '(');
                 parseDeclarator(ctx, declarator);
+                declarator->coordinates.endOffset = ctx->token->coordinates.endOffset;
+                consume(ctx, ')');
             }
-            declarator->coordinates.endOffset = ctx->token->coordinates.endOffset;
-            consume(ctx, ')');
         }
     } else {
         return;
@@ -1682,20 +1683,10 @@ static void parseDirectDeclarator(ParserContext *ctx, Declarator *declarator) {
 
 
     while (ctx->token) {
-        if (nextTokenIf(ctx, '[')) {
-            int size = 0;
-            if (ctx->token->code != ']') {
-                size = parseAsIntConst(ctx, NULL);
-            }
-            declarator->coordinates.endOffset = ctx->token->coordinates.endOffset;
-            consume(ctx, ']');
-            DeclaratorPart *part = &declarator->declaratorParts[declarator->partsCounter++];
-            part->kind = DPK_ARRAY;
-            part->arraySize = size;
-        } else if (nextTokenIf(ctx, '(')) {
+        if (ctx->token->code == '[') {
+            parseArrayDeclaratorPart(ctx, declarator);
+        } else if (ctx->token->code == '(') {
             parseFunctionDeclaratorPart(ctx, declarator);
-            declarator->coordinates.endOffset = ctx->token->coordinates.endOffset;
-            consume(ctx, ')');
         } else {
             return;
         }
@@ -1885,11 +1876,10 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
             int sod = ctx->token->coordinates.startOffset;
             DeclarationSpecifiers specifiers = { 0 };
             int so = specifiers.coordinates.startOffset = ctx->token->coordinates.startOffset;
-            parseDeclarationSpecifiers(ctx, &specifiers, NULL);
-            Boolean hasError = verifyDeclarationSpecifiers(ctx, &specifiers, DS_STATEMENT);
+            parseDeclarationSpecifiers(ctx, &specifiers, DS_STATEMENT);
             int eod = specifiers.coordinates.startOffset;
 
-            if (!hasError && specifiers.defined) {
+            if (specifiers.defined) {
                 AstDeclaration *declaration = createAstDeclaration(ctx, specifiers.defined->kind, specifiers.defined->name);
                 declaration->structDeclaration = specifiers.defined;
                 AstStatement *declStmt = createDeclStatement(ctx, sod, eod, declaration);
@@ -1904,46 +1894,46 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                     Declarator declarator = { 0 };
                     declarator.coordinates.startOffset = ctx->token->coordinates.startOffset;
                     parseDeclarator(ctx, &declarator);
-                    Boolean hasDeclaratorErrors = verifyDeclarator(ctx, &declarator, DS_STATEMENT);
+                    verifyDeclarator(ctx, &declarator, DS_STATEMENT);
 
-                    if (!(hasDeclaratorErrors || hasError)) {
-                      const char *name = declarator.identificator;
-                      int eod = declarator.coordinates.endOffset;
-                      TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
-                      AstInitializer* initializer = NULL;
-                      int eqPos = ctx->token->coordinates.startOffset;
-                      if (nextTokenIf(ctx, '=')) {
-                          initializer = parseInitializer(ctx, NULL);
-                          eod = initializer->coordinates.endOffset;
-                      }
+                    const char *name = declarator.identificator;
+                    int eod = declarator.coordinates.endOffset;
+                    TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
+                    AstInitializer* initializer = NULL;
+                    int eqPos = ctx->token->coordinates.startOffset;
+                    if (nextTokenIf(ctx, '=')) {
+                        initializer = parseInitializer(ctx, NULL);
+                        eod = initializer->coordinates.endOffset;
+                    }
 
-                      AstDeclaration *declaration = NULL;
-                      if (specifiers.flags.bits.isTypedef) {
-                          if (initializer != NULL) {
-                              reportError(ctx, eqPos, eod, "illegal initializer (only variables can be initialized)");
-                          }
-                          if (name) {
-                            declareTypeDef(ctx, name, type);
-                            declaration = createAstDeclaration(ctx, DK_TYPEDEF, name);
-                            declaration->typeDefinition.coordinates.startOffset = sod;
-                            declaration->typeDefinition.coordinates.endOffset = eod;
-                            declaration->typeDefinition.definedType = type;
-                          }
-                      } else {
-                          declaration = createAstDeclaration(ctx, DK_VAR, name);
-                          AstValueDeclaration *valueDeclaration =
-                              createAstValueDeclaration(ctx, sod, eod, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
-                          declaration->variableDeclaration = valueDeclaration;
+                    AstDeclaration *declaration = NULL;
+                    if (specifiers.flags.bits.isTypedef) {
+                        if (initializer != NULL) {
+                            reportError(ctx, eqPos, eod, "illegal initializer (only variables can be initialized)");
+                        }
+                        if (name) {
+                          declareTypeDef(ctx, name, type);
+                          declaration = createAstDeclaration(ctx, DK_TYPEDEF, name);
+                          declaration->typeDefinition.coordinates.startOffset = sod;
+                          declaration->typeDefinition.coordinates.endOffset = eod;
+                          declaration->typeDefinition.definedType = type;
+                        }
+                    } else {
+                        declaration = createAstDeclaration(ctx, DK_VAR, name);
+                        AstValueDeclaration *valueDeclaration =
+                            createAstValueDeclaration(ctx, sod, eod, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
+                        declaration->variableDeclaration = valueDeclaration;
+                        if (name) {
                           declareValueSymbol(ctx, name, valueDeclaration);
-                      }
+                        }
+                    }
 
-                      if (declaration) {
-                        AstStatement *declStmt = createDeclStatement(ctx, sod, eod, declaration);
-                        AstStatementList *node = allocateStmtList(ctx, declStmt);
-                        if (tail) tail->next = node;
-                        else head = node;
-                        tail = node;
-                      }
+                    if (declaration) {
+                      AstStatement *declStmt = createDeclStatement(ctx, sod, eod, declaration);
+                      AstStatementList *node = allocateStmtList(ctx, declStmt);
+                      if (tail) tail->next = node;
+                      else head = node;
+                      tail = node;
                     }
                 } while (nextTokenIf(ctx, ','));
             } else {
@@ -2019,11 +2009,6 @@ static Boolean verifyDeclarator(ParserContext *ctx, Declarator *declarator, Decl
   int spos = declarator->coordinates.startOffset;
   int epos = declarator->coordinates.endOffset;
 
-  if (declarator->identificatorCounter > 1) {
-      reportError(ctx, spos, epos, "Identificator is already specified");
-      result = TRUE;
-  }
-
   switch (scope) {
   case DS_FILE:
   case DS_STATEMENT:
@@ -2040,19 +2025,6 @@ static Boolean verifyDeclarator(ParserContext *ctx, Declarator *declarator, Decl
       break;
   default:
       break;
-  }
-
-  unsigned i = 0;
-  Boolean seenFunctionPart = FALSE;
-  for (; i < declarator->partsCounter; ++i) {
-      DeclaratorPart *p = &declarator->declaratorParts[i];
-      if (p->kind == DPK_FUNCTION) {
-          if (seenFunctionPart) {
-              reportError(ctx, spos, epos, "function cannot return function type");
-              result = TRUE;
-          }
-          seenFunctionPart = TRUE;
-      }
   }
 
   return result;
@@ -2111,12 +2083,11 @@ init_declarator
 static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
   DeclarationSpecifiers specifiers = { 0 };
   int so = specifiers.coordinates.startOffset = ctx->token->coordinates.startOffset;
-  parseDeclarationSpecifiers(ctx, &specifiers, NULL);
-  Boolean hasSpecErrors = verifyDeclarationSpecifiers(ctx, &specifiers, DS_FILE);
+  parseDeclarationSpecifiers(ctx, &specifiers, DS_FILE);
 
   Boolean isTypeDefDeclaration = specifiers.flags.bits.isTypedef != 0 ? TRUE : FALSE;
 
-  if (!hasSpecErrors && specifiers.defined) {
+  if (specifiers.defined) {
     AstSUEDeclaration *defined = specifiers.defined;
     AstDeclaration *declaration = createAstDeclaration(ctx, defined->kind, defined->name);
     declaration->structDeclaration = defined;
@@ -2136,7 +2107,6 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
   const char *funName = NULL;
   AstFunctionDeclaration *functionDeclaration = NULL;
   Scope *functionScope = NULL;
-  Boolean hasErrors = hasSpecErrors;
   do {
     Declarator declarator = { 0 };
     AstInitializer *initializer = NULL;
@@ -2156,77 +2126,72 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
         }
     }
 
-    Boolean hasDeclaratorErrors = verifyDeclarator(ctx, &declarator, DS_FILE);
+    verifyDeclarator(ctx, &declarator, DS_FILE);
 
-    hasErrors |= hasDeclaratorErrors;
+    const char *name = declarator.identificator;
+    int eo = declarator.coordinates.endOffset;
 
-    hasDeclaratorErrors |= hasSpecErrors;
+    AstDeclaration *declaration = NULL;
 
-      const char *name = declarator.identificator;
-      int eo = declarator.coordinates.endOffset;
-
-      AstDeclaration *declaration = NULL;
-
-      if (isTypeDefDeclaration) {
-          if (!hasDeclaratorErrors && name) {
-              TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
-              declareTypeDef(ctx, name, type);
-              declaration = createAstDeclaration(ctx, DK_TYPEDEF, name);
-              declaration->typeDefinition.definedType = type;
-              declaration->typeDefinition.coordinates.startOffset = so;
-              declaration->typeDefinition.coordinates.endOffset = eo;
-          }
-      } else if (isFunDeclarator) {
-        TypeRef *returnType = makeFunctionReturnType(ctx, &specifiers, &declarator);
-        FunctionParams *params_dpk = NULL;
-        unsigned i;
-        funName = name;
-
-        for (i = 0; i < declarator.partsCounter; ++i) {
-            DeclaratorPart *dp = &declarator.declaratorParts[i];
-            if (dp->kind == DPK_FUNCTION) {
-                params_dpk = &dp->parameters;
-                break;
-            }
-        }
-
-        // TODO: what if name == NULL
-        assert(params_dpk != NULL);
-        AstValueDeclaration *params = params_dpk->parameters;
-        if (funName == NULL) {
-          funName = "<not specified>";
-        }
-        functionDeclaration = createFunctionDeclaration(ctx, so, eo, returnType, funName, specifiers.flags.storage, params, params_dpk->isVariadic);
+    if (isTypeDefDeclaration) {
         if (name) {
-          declareFunctionSymbol(ctx, name, functionDeclaration);
-        }
-
-        if (ctx->token->code == '{') {
-            if (id_idx == 0) {
-                functionScope = params_dpk->scope;
-                break;
-            } else {
-                parseError(ctx, "expected ';' after top level declarator");
-            }
-        } else {
-            declaration = createAstDeclaration(ctx, DK_PROTOTYPE, name);
-            declaration->functionProrotype = functionDeclaration;
-        }
-      } else {
-          if (!hasDeclaratorErrors) {
             TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
-            AstValueDeclaration *valueDeclaration = createAstValueDeclaration(ctx, so, eo, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
-            if (name) {
-              declareValueSymbol(ctx, name, valueDeclaration);
-            }
-            declaration = createAstDeclaration(ctx, DK_VAR, name);
-            declaration->variableDeclaration = valueDeclaration;
+            declareTypeDef(ctx, name, type);
+            declaration = createAstDeclaration(ctx, DK_TYPEDEF, name);
+            declaration->typeDefinition.definedType = type;
+            declaration->typeDefinition.coordinates.startOffset = so;
+            declaration->typeDefinition.coordinates.endOffset = eo;
+        }
+    } else if (isFunDeclarator) {
+      TypeRef *returnType = makeFunctionReturnType(ctx, &specifiers, &declarator);
+      verifyFunctionReturnType(ctx, &declarator, returnType);
+      FunctionParams *params_dpk = NULL;
+      unsigned i;
+      funName = name;
+
+      for (i = 0; i < declarator.partsCounter; ++i) {
+          DeclaratorPart *dp = &declarator.declaratorParts[i];
+          if (dp->kind == DPK_FUNCTION) {
+              params_dpk = &dp->parameters;
+              break;
           }
       }
-      if (declaration) {
-        addToFile(file, createTranslationUnit(ctx, declaration, NULL));
+
+      // TODO: what if name == NULL
+      assert(params_dpk != NULL);
+      AstValueDeclaration *params = params_dpk->parameters;
+      if (funName == NULL) {
+        funName = "<not specified>";
       }
-      ++id_idx;
+      functionDeclaration = createFunctionDeclaration(ctx, so, eo, returnType, funName, specifiers.flags.storage, params, params_dpk->isVariadic);
+      if (name) {
+        declareFunctionSymbol(ctx, name, functionDeclaration);
+      }
+
+      if (ctx->token->code == '{') {
+          if (id_idx == 0) {
+              functionScope = params_dpk->scope;
+              break;
+          } else {
+              parseError(ctx, "expected ';' after top level declarator");
+          }
+      } else {
+          declaration = createAstDeclaration(ctx, DK_PROTOTYPE, name);
+          declaration->functionProrotype = functionDeclaration;
+      }
+    } else {
+        TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
+        AstValueDeclaration *valueDeclaration = createAstValueDeclaration(ctx, so, eo, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
+        if (name) {
+          declareValueSymbol(ctx, name, valueDeclaration);
+        }
+        declaration = createAstDeclaration(ctx, DK_VAR, name);
+        declaration->variableDeclaration = valueDeclaration;
+    }
+    if (declaration) {
+      addToFile(file, createTranslationUnit(ctx, declaration, NULL));
+    }
+    ++id_idx;
   } while (nextTokenIf(ctx, ','));
 
 
@@ -2238,26 +2203,22 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
 
   if (nextTokenIf(ctx, ';')) return;
 
-//  if (hasErrors) {
-//    nextToken(ctx); // avoid infinite loops in parser
-//    return;
-//  }
-
-  if (functionDeclaration == NULL) {
-      parseError(ctx, "Expected function type");
-      return;
+  if (functionScope == NULL) {
+      // some error ocured
+      functionScope = newScope(ctx, ctx->currentScope);
   }
-
-  assert(functionScope != NULL);
 
   ctx->currentScope = functionScope;
   AstStatement *body = parseFunctionBody(ctx);
-  AstFunctionDefinition *definition = createFunctionDefinition(ctx, functionDeclaration, functionScope, body);
-  definition->scope = functionScope;
-  ctx->currentScope = functionScope->parent;
 
-  AstTranslationUnit *newUnit = createTranslationUnit(ctx, NULL, definition);
-  addToFile(file, newUnit);
+  if (functionDeclaration) {
+    AstFunctionDefinition *definition = createFunctionDefinition(ctx, functionDeclaration, functionScope, body);
+    definition->scope = functionScope;
+    ctx->currentScope = functionScope->parent;
+
+    AstTranslationUnit *newUnit = createTranslationUnit(ctx, NULL, definition);
+    addToFile(file, newUnit);
+  }
 }
 
 /**
