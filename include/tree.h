@@ -484,7 +484,7 @@ AstExpression *createCastExpression(ParserContext *ctx, int startOffset, int end
 AstExpression *createTernaryExpression(ParserContext *ctx, AstExpression *cond, AstExpression *t, AstExpression* f);
 AstExpression *createBinaryExpression(ParserContext *ctx, ExpressionType op, AstExpression *left, AstExpression *right);
 AstExpression *createUnaryExpression(ParserContext *ctx, int startOffset, int endOffset, ExpressionType op, AstExpression *argument);
-AstExpression *createNameRef(ParserContext *ctx, int startOffset, int endOffset, const char *name);
+AstExpression *createNameRef(ParserContext *ctx, int startOffset, int endOffset, const char *name, struct _Symbol *s);
 AstExpression *createCallExpression(ParserContext *ctx, int startOffset, int endOffset, AstExpression *callee, AstExpressionList *arguments);
 AstExpression *createFieldExpression(ParserContext *ctx, int startOffset, int endOffset, ExpressionType op, AstExpression *receiver, const char *member);
 

@@ -327,7 +327,7 @@ static int existedValueProcessor(ParserContext *ctx, Symbol *s, void *value) {
 
     renderTypeRef(oldType, t1, sizeof t1);
     renderTypeRef(newType, t2, sizeof t2);
-    parseError(ctx, "typedef redefinition with different types ('%s' vs '%s')", t1, t2);
+    parseError(ctx, "redefinition of '%s' with a different type: '%s' vs '%s'", s->name, t2, t1);
   }
 }
 

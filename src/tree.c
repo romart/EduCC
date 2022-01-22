@@ -241,10 +241,11 @@ AstExpression *createUnaryExpression(ParserContext *ctx, int startOffset, int en
     return result;
 }
 
-AstExpression *createNameRef(ParserContext *ctx, int startOffset, int endOffset, const char *name) {
+AstExpression *createNameRef(ParserContext *ctx, int startOffset, int endOffset, const char *name, Symbol* s) {
     AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
     result->op = E_NAMEREF;
     result->nameRefExpr.name = name;
+    result->nameRefExpr.s = s;
     return result;
 }
 
