@@ -1,0 +1,32 @@
+FILE test/testData/parser/positive/structs.c
+  FUN signed int foo2 
+  BEGIN
+    STRUCT SL
+      signed int a
+    STRUCT_END
+    STRUCT SL a = \
+      INIT_BEGIN
+        0
+      INIT_END
+    STRUCT SL b = \
+      INIT_BEGIN
+        0
+      INIT_END
+    *STRUCT SL c = (*void)0
+    STRUCT SL d    
+  END
+----
+  STRUCT SS
+    signed int a
+    signed int b
+    signed int d
+    STRUCT <anon$0>
+      double x
+      ****STRUCT XXX xx
+    STRUCT_END
+    STRUCT <anon$0> ss1
+    *STRUCT <anon$0> ss2
+    **STRUCT <anon$0> ss3
+  STRUCT_END
+----
+  STRUCT <anon$1>

@@ -1,0 +1,2 @@
+FILE test/testData/parser/negative/incorrectDeclaration2.c
+  signed int

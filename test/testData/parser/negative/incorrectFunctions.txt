@@ -1,0 +1,27 @@
+FILE test/testData/parser/negative/incorrectFunctions.c
+  FUN signed int[20] fas 
+----
+  TYPEDF ft = {signed int (signed int)}
+----
+  FUN {signed int (signed int)} fas 
+----
+  ({signed int ()})[20] fas
+----
+  FUN signed int qux 
+    #0: signed int x
+    #1: signed int x
+  BEGIN
+    
+  END
+----
+  FUN signed int bar 
+    #0: signed int
+    #1: signed int
+  BEGIN
+    
+  END
+----
+  FUN signed int[200] foo 
+  BEGIN
+    
+  END
