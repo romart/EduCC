@@ -1,0 +1,19 @@
+FILE test/testData/parser/positive/enums.c
+  ENUM E1
+    EC_1 = -1
+    EC_2 = 14
+    EC_3 = 15
+  ENUM_END
+----
+  FUN signed int foo1 
+  BEGIN
+    signed int xx = -1
+    double xxx = 14 + 15
+    unsigned char xxxx = xx + xxx    
+  END
+----
+  ENUM E2
+    EC_4 = 30
+    EC_5 = 31
+    EC_6 = 32
+  ENUM_END

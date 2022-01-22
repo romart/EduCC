@@ -1,0 +1,4 @@
+FILE test/testData/parser/negative/incorrectDeclaration1.c
+  ENUM <anon$0>
+----
+  ENUM <anon$0>

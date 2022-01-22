@@ -1,0 +1,8 @@
+FILE test/testData/parser/negative/incorrectTypes.c
+  signed int x
+----
+  TYPEDF x = signed int
+----
+  ERROR TYPE y
+----
+  *ERROR TYPE z
