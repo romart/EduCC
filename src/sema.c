@@ -172,6 +172,7 @@ Boolean typesEquals(TypeRef *t1, TypeRef *t2) {
 
 static int stringHashCode(const void *v) {
     const char *s = (const char *)v;
+    assert(s != NULL && "hashMap key is NULL");
     int result = 0;
 
     int i = 0;
