@@ -204,11 +204,13 @@ static Symbol *findSymbolInScope(Scope *scope, const char *name) {
 }
 
 Symbol* findSymbol(ParserContext *ctx, const char *name) {
-    Scope* s = ctx->currentScope;
-    while (s != NULL) {
-        Symbol *sb = (Symbol *)getFromHashMap(s->symbols, name);
-        if (sb != NULL) return sb;
-        s = s->parent;
+    if (name) {
+      Scope* s = ctx->currentScope;
+      while (s != NULL) {
+          Symbol *sb = (Symbol *)getFromHashMap(s->symbols, name);
+          if (sb != NULL) return sb;
+          s = s->parent;
+      }
     }
 
     return NULL;
@@ -247,6 +249,8 @@ static int functionsEqual(AstFunctionDeclaration *f1, AstFunctionDeclaration *f2
 typedef int (*symbolProcessor)(ParserContext *, Symbol *, void *);
 
 static Symbol *declareGenericSymbol(ParserContext *ctx, SymbolKind kind, const char *name, void *value, symbolProcessor existed, symbolProcessor new) {
+
+  if (name == NULL) return NULL;
 
   Symbol *s = findSymbolInScope(ctx->currentScope, name);
   if (s) {
