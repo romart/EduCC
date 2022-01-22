@@ -481,6 +481,38 @@ TypeRef *makeFunctionReturnType(ParserContext *ctx, DeclarationSpecifiers *speci
     return NULL; // return error type
 }
 
+void verifyFunctionReturnType(ParserContext *ctx, Declarator *declarator, TypeRef *returnType) {
+  TypeRefKind returnRefKind = returnType->kind;
+  int so = declarator->coordinates.startOffset;
+  int eo = declarator->coordinates.endOffset;
+
+  if (returnRefKind == TR_FUNCTION || returnRefKind == TR_ARRAY) {
+      char buffer[1024] = { 0 };
+      const char *type = returnRefKind == TR_FUNCTION ? "function" : "array";
+      renderTypeRef(returnType, buffer, sizeof buffer);
+      reportError(ctx, so, eo, "function cannot return %s type '%s'", type, buffer);
+  }
+}
+
+static void verifyFunctionType(ParserContext *ctx, Declarator *declarator, TypeRef *type) {
+  assert(type->kind == TR_FUNCTION);
+
+  verifyFunctionReturnType(ctx, declarator, type->functionTypeDesc.returnType);
+}
+
+static void verifyArrayType(ParserContext *ctx, Declarator *declarator, TypeRef *type) {
+  assert(type->kind == TR_ARRAY);
+  int so = declarator->coordinates.startOffset;
+  int eo = declarator->coordinates.endOffset;
+  TypeRef *elementType = type->arrayTypeDesc.elementType;
+
+  if (elementType->kind == TR_FUNCTION) {
+      char buffer[1024] = { 0 };
+      renderTypeRef(type, buffer, sizeof buffer);
+      reportError(ctx, so, eo, "Array of functions is illegal type '%s'", buffer);
+  }
+
+}
 
 TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator) {
 
@@ -495,9 +527,11 @@ TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Decl
             break;
         case DPK_ARRAY:
             type = makeArrayType(ctx, part->arraySize, type);
+            verifyArrayType(ctx, declarator, type);
             break;
         case DPK_FUNCTION:
             type = makeFunctionType(ctx, type, &part->parameters);
+            verifyFunctionType(ctx, declarator, type);
             break;
         case DPK_NONE:
         default:
