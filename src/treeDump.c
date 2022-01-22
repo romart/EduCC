@@ -547,7 +547,8 @@ static int dumpAstFuntionDeclarationImpl(FILE *output, int indent, AstFunctionDe
   }
 
   if (decl->isVariadic) {
-      result += putIndent(output, indent);
+      result += fprintf(output, "\n");
+      result += putIndent(output, indent + 2);
       result += fprintf(output, "## ...");
   }
 
