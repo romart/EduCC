@@ -212,7 +212,7 @@ AstExpression *createErrorExpression(ParserContext *ctx, int startOffset, int en
 AstExpression *createCastExpression(ParserContext *ctx, int startOffset, int endOffset, TypeRef *typeRef, AstExpression *argument) {
     AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
     result->op = E_CAST;
-    result->castExpr.type= typeRef;
+    result->type = result->castExpr.type = typeRef;
     result->castExpr.argument = argument;
     return result;
 }
