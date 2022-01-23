@@ -8,9 +8,6 @@
 #include "treeDump.h"
 
 static void dumpFile(AstFile *file, const char* dumpFile) {
-//  char tmpb[1024] = { 0 };
-//  sprintf(tmpb, "ast.dump", file->fileName);
-  printf("dump ast into %s\n", dumpFile);
   remove(dumpFile);
   FILE* toDump = fopen(dumpFile, "w");
   dumpAstFile(toDump, file);
@@ -22,7 +19,6 @@ static void processInputFile(const char* inputFile, const char *dumpFileName) {
     FILE* opened = fopen(inputFile, "r");
     AstFile* firstFile = NULL;
     if (opened != NULL) {
-      printf("Scanning file %s...\n", inputFile);
       AstFile *f = parseFile(opened, inputFile);
       if (dumpFileName) {
         dumpFile(f, dumpFileName);
