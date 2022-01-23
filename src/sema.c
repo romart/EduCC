@@ -343,6 +343,14 @@ TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, T
   if (isErrorType(ifTrue)) return ifTrue;
   if (isErrorType(ifFalse)) return ifFalse;
 
+//  int i;
+//  int *pi;
+//  float f;
+//  float *fp;
+//  int arr[20];
+
+//  so ? f : arr;
+
   if (isStructualType(ifTrue) || isStructualType(ifFalse)) {
       if (typesEquals(ifTrue, ifFalse)) {
           return ifTrue;
@@ -394,7 +402,7 @@ TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, T
 
   if (isPointerLikeType(ifFalse)) {
       TypeRef *pointedF = ifFalse->kind == TR_POINTED ? ifFalse->pointedTo : ifFalse->arrayTypeDesc.elementType;
-      if (isIntegerType(ifFalse)) {
+      if (isIntegerType(ifTrue)) {
           char b1[1024] = { 0 };
           char b2[1024] = { 0 };
           renderTypeRef(ifTrue, b1, sizeof b1);
