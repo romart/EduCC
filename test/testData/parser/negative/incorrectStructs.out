@@ -1,0 +1,9 @@
+test/testData/parser/negative/incorrectStructs.c:5:9: warning: type specifier missing, defaults to 'int'
+test/testData/parser/negative/incorrectStructs.c:11:9: warning: type specifier missing, defaults to 'int'
+test/testData/parser/negative/incorrectStructs.c:11:9: warning: declaration does not declare anything
+test/testData/parser/negative/incorrectStructs.c:5:10: warning: type specifier missing, defaults to 'int'
+test/testData/parser/negative/incorrectStructs.c:11:10: warning: type specifier missing, defaults to 'int'
+test/testData/parser/negative/incorrectStructs.c:11:10: warning: declaration does not declare anything
+test/testData/parser/negative/incorrectStructs.c:5:11: warning: type specifier missing, defaults to 'int'
+test/testData/parser/negative/incorrectStructs.c:11:11: warning: type specifier missing, defaults to 'int'
+test/testData/parser/negative/incorrectStructs.c:11:11: warning: declaration does not declare anything

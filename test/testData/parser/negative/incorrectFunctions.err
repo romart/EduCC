@@ -1,0 +1,5 @@
+test/testData/parser/negative/incorrectFunctions.c:5:1: error: function cannot return array type 'signed int[20]'
+test/testData/parser/negative/incorrectFunctions.c:4:4: error: function cannot return function type '{signed int (signed int)}'
+test/testData/parser/negative/incorrectFunctions.c:5:6: error: Array of functions is illegal type '({signed int ()})[20]'
+test/testData/parser/negative/incorrectFunctions.c:14:6: error: redefinition of 'fas' as different kind of symbol
+test/testData/parser/negative/incorrectFunctions.c:5:17: error: function cannot return array type 'signed int[200]'

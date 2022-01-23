@@ -16,6 +16,40 @@ CBOLD     = '\33[1m'
 
 numOfFailedTests=0
 
+
+def compareFilesLineByLine(marker, testFile, actualFile, expectedFile):
+    global numOfFailedTests
+    with open(expectedFile) as expected, open(actualFile) as actual:
+        expt = expected.readlines()
+        actl = actual.readlines()
+
+        if len(expt) != len(actl):
+            print(CBOLD + CRED + f"Test {testFile} -- FAIL" + RESET)
+            print(f" {marker}: actual output len ({len(actl)}) differs from expected len ({len(expt)})")
+            numOfFailedTests = numOfFailedTests + 1
+            return False
+        else:
+            i = 0
+            
+            while (i < len(expt)):
+                e = expt[i].rstrip()
+                a = actl[i].rstrip()
+                if (e != a):
+                    print(CBOLD + CRED + f"Test {testFile} -- FAIL" + RESET)
+                    print(f" {marker}: actual output differs from expected in line {i + 1}")
+                    print(f"  ACTUAL:   {a}")
+                    print(f"  EXPECTED: {e}")
+                    numOfFailedTests = numOfFailedTests + 1
+                    return False
+                i = i + 1
+    return True
+
+def updateExpectedFromActualIfNeed(marker, actualFile, expectedFile):
+    if (not path.exists(expectedFile)):
+        print(f"  info: no {marker} expected file, create it")
+        result = open(actualFile).read()
+        open(expectedFile, 'w+').write(result)
+
 def runTestForData(filePath, compiler, workingDir):
     global numOfFailedTests
     # print(f"processing {filePath}")
@@ -27,52 +61,45 @@ def runTestForData(filePath, compiler, workingDir):
     name = basename[:index_of_dot]
     if (suffix == "c"):
         testFilePath = dirname + '/' + name + '.c'
-        expectedFilePath = dirname + '/' + name + '.txt'
+        expectedAstFilePath = dirname + '/' + name + '.txt'
+        expectedOutFilePath = dirname + '/' + name + '.out'
+        expectedErrFilePath = dirname + '/' + name + '.err'
         outputDir = workingDir + '/' + dirname
 
         if (not path.exists(outputDir)):
             os.makedirs(outputDir)
 
-        actualFilePath = workingDir + '/' + expectedFilePath
+        actualAstFilePath = workingDir + '/' + expectedAstFilePath
+        actualOutFilePath = workingDir + '/' + expectedOutFilePath
+        actualErrFilePath = workingDir + '/' + expectedErrFilePath
+
+        out = open(actualOutFilePath, 'w+')
+        err = open(actualErrFilePath, 'w+')
+
         # print(f"Run process: {compiler} -astDump {actualFilePath} {testFilePath}")
-        process = Popen([compiler, "-astDump", actualFilePath, testFilePath], stdout=PIPE, stderr=DEVNULL)
+        process = Popen([compiler, "-astDump", actualAstFilePath, testFilePath], stdout=out, stderr=err)
         exit_code = process.wait()
         if exit_code != 0:
             print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
             print(f"  Process crashed (exit code {exit_code})")
             numOfFailedTests = numOfFailedTests + 1
         else:
-            if (path.exists(expectedFilePath)):
-                with open(expectedFilePath) as expected, open(actualFilePath) as actual:
-                    expt = expected.readlines()
-                    actl = actual.readlines()
+            testOk = True
+            if (path.exists(expectedAstFilePath)):
+                testOk = compareFilesLineByLine("AstDump", testFilePath, actualAstFilePath, expectedAstFilePath)
+            
+            if (testOk and path.exists(expectedOutFilePath)):
+                testOk = compareFilesLineByLine("Stdout", testFilePath, actualOutFilePath, expectedOutFilePath)
 
-                    if len(expt) != len(actl):
-                        print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-                        print(f"  actual output len ({len(actl)}) differs from expected len ({len(expt)})")
-                        numOfFailedTests = numOfFailedTests + 1
-                        return
-                    else:
-                        i = 0
-                        
-                        while (i < len(expt)):
-                            e = expt[i].rstrip()
-                            a = actl[i].rstrip()
-                            if (e != a):
-                                print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-                                print(f"  actual output differs from expected in line {i + 1}")
-                                print(f"  ACTUAL:   {a}")
-                                print(f"  EXPECTED: {e}")
-                                numOfFailedTests = numOfFailedTests + 1
-                                return
-                            i = i + 1
+            if (testOk and path.exists(expectedErrFilePath)):
+                testOk = compareFilesLineByLine("Stderr", testFilePath, actualErrFilePath, expectedErrFilePath)
 
-            print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
+            if (testOk):
+                print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
 
-            if (not path.exists(expectedFilePath)):
-                print("  info: no expected file, create it")
-                result = open(actualFilePath).read()
-                open(expectedFilePath, 'w+').write(result)
+            updateExpectedFromActualIfNeed("AstDump", actualAstFilePath, expectedAstFilePath)
+            updateExpectedFromActualIfNeed("Stdout", actualOutFilePath, expectedOutFilePath)
+            updateExpectedFromActualIfNeed("Stderr", actualErrFilePath, expectedErrFilePath)
 
 
 
