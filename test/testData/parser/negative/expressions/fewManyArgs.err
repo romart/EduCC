@@ -1,0 +1,2 @@
+test/testData/parser/negative/expressions/fewManyArgs.c:3:7: error: too many arguments to function call
+test/testData/parser/negative/expressions/fewManyArgs.c:3:11: error: too few arguments to function call
