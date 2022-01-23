@@ -16,6 +16,20 @@ enum {
 int computeTypeSize(ParserContext *ctx, TypeRef *type);
 int computeSUETypeSize(ParserContext *ctx, AstSUEDeclaration *declaration);
 
+
+TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, int so, int eo, TypeRef *arrayType, TypeRef *indexType);
+TypeRef *computeMemberAccessType(ParserContext *ctx, int so, int eo, TypeRef *receiverType, const char *memberName, ExpressionType op);
+TypeRef *computeFunctionReturnType(ParserContext *ctx, int so, int eo, TypeRef *calleeType);
+TypeRef *computeIncDecType(ParserContext *ctx, int so, int eo, TypeRef *argumentType, ExpressionType op);
+TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, int so, int eo, TypeRef *argumentType, ExpressionType op);
+TypeRef *computeBinaryType(ParserContext *ctx, int so, int eo, TypeRef* left, TypeRef *right, ExpressionType op);
+TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op);
+TypeRef *computeAssignmentTypes(ParserContext *ctx, int so, int eo, TypeRef *left, TypeRef *right);
+TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op);
+TypeRef *computeFunctionType(ParserContext *ctx, int so, int eo, AstFunctionDeclaration *declaration);
+
+void verifyCallAruments(ParserContext *ctx, int so, int eo, TypeRef *functionType, AstExpressionList *aruments);
+
 typedef enum _TypeEqualityKind {
   TEK_UNKNOWN,
   TEK_EQUAL,
