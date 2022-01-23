@@ -331,7 +331,7 @@ Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeI
   TypeDesc *typeDescriptor;
   if (!s) {
       s = declareSymbol(ctx, symbolKind, symbolName);
-      int typeSize = -1;
+      int typeSize = UNKNOWN_SIZE;
       if (declaration->isDefinition) {
         typeSize = computeSUETypeSize(ctx, declaration);
       }
@@ -375,7 +375,7 @@ Symbol *declareEnumConstantSymbol(ParserContext *ctx, EnumConstant *enumerator) 
 
 // Types
 
-static TypeDesc errorTypeImpl = { T_ERROR, "<error>", -1, NULL };
+static TypeDesc errorTypeImpl = { T_ERROR, "<error>", UNKNOWN_SIZE, NULL };
 
 TypeDesc *errorTypeDescriptor = &errorTypeImpl;
 
@@ -443,7 +443,7 @@ static int computeUnionTypeSize(ParserContext *ctx, AstSUEDeclaration *declarati
             int tmp = computeTypeSize(ctx, declarator->typeRef);
             if (tmp < 0) {
                 reportIncompleteType(ctx, declarator);
-                return -1;
+                return UNKNOWN_SIZE;
             }
             result = max(result, tmp);
          }
@@ -475,7 +475,7 @@ static int computeStructTypeSize(ParserContext *ctx, AstSUEDeclaration *declarat
             int tmp = computeTypeSize(ctx, declarator->typeRef);
             if (tmp < 0) {
                 reportIncompleteType(ctx, declarator);
-                return -1;
+                return UNKNOWN_SIZE;
             }
             result += tmp;
          }
@@ -495,7 +495,7 @@ static int computeStructTypeSize(ParserContext *ctx, AstSUEDeclaration *declarat
 int computeSUETypeSize(ParserContext *ctx, AstSUEDeclaration *declaration) {
   if (!declaration->isDefinition) {
       // report diagnostic
-      return -1;
+      return UNKNOWN_SIZE;
   }
 
   if (declaration->kind == DK_UNION) {
