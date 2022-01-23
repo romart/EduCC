@@ -592,6 +592,7 @@ static Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to
               renderTypeRef(to, b1, sizeof b1);
               renderTypeRef(from, b2, sizeof b2);
               reportWarning(ctx, so, eo, "incompatible pointer types assigning to '%s' from '%s'", b1, b2);
+              return TRUE;
           }
       } else if (isIntegerType(from)) {
           char b1[1024] = { 0 };
@@ -599,6 +600,7 @@ static Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to
           renderTypeRef(to, b1, sizeof b1);
           renderTypeRef(from, b2, sizeof b2);
           reportWarning(ctx, so, eo, "incompatible integer to pointer conversion assigning to '%s' from '%s'", b1, b2);
+          return TRUE;
       } else {
           reportInvalidAssignTypes(ctx, so, eo, to, from);
           return FALSE;
@@ -613,6 +615,7 @@ static Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to
           renderTypeRef(to, b1, sizeof b1);
           renderTypeRef(from, b2, sizeof b2);
           reportWarning(ctx, so, eo, "incompatible integer to pointer conversion assigning to '%s' from '%s'", b1, b2);
+          return TRUE;
       } else {
           reportInvalidAssignTypes(ctx, so, eo, to, from);
           return FALSE;
