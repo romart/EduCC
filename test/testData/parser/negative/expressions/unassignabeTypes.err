@@ -1,0 +1,46 @@
+test/testData/parser/negative/expressions/unassignabeTypes.c:5:25: error: assigning to 'signed int' from incompatible type 'STRUCT S1'
+test/testData/parser/negative/expressions/unassignabeTypes.c:5:26: error: assigning to 'signed int' from incompatible type 'STRUCT S2'
+test/testData/parser/negative/expressions/unassignabeTypes.c:5:34: error: assigning to 'float' from incompatible type 'signed int[20]'
+test/testData/parser/negative/expressions/unassignabeTypes.c:5:35: error: assigning to 'float' from incompatible type 'STRUCT S1'
+test/testData/parser/negative/expressions/unassignabeTypes.c:5:36: error: assigning to 'float' from incompatible type 'STRUCT S2'
+test/testData/parser/negative/expressions/unassignabeTypes.c:5:37: error: assigning to 'float' from incompatible type '*signed int'
+test/testData/parser/negative/expressions/unassignabeTypes.c:5:38: error: assigning to 'float' from incompatible type '*float'
+test/testData/parser/negative/expressions/unassignabeTypes.c:5:39: error: assigning to 'float' from incompatible type '*STRUCT S1'
+test/testData/parser/negative/expressions/unassignabeTypes.c:5:40: error: assigning to 'float' from incompatible type '*STRUCT S2'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:42: error: assigning to 'STRUCT S1' from incompatible type 'signed int'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:43: error: assigning to 'STRUCT S1' from incompatible type 'float'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:44: error: assigning to 'STRUCT S1' from incompatible type 'signed int[20]'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:46: error: assigning to 'STRUCT S1' from incompatible type 'STRUCT S2'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:47: error: assigning to 'STRUCT S1' from incompatible type '*signed int'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:48: error: assigning to 'STRUCT S1' from incompatible type '*float'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:49: error: assigning to 'STRUCT S1' from incompatible type '*STRUCT S1'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:50: error: assigning to 'STRUCT S1' from incompatible type '*STRUCT S2'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:52: error: assigning to 'STRUCT S2' from incompatible type 'signed int'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:53: error: assigning to 'STRUCT S2' from incompatible type 'float'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:54: error: assigning to 'STRUCT S2' from incompatible type 'signed int[20]'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:55: error: assigning to 'STRUCT S2' from incompatible type 'STRUCT S1'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:57: error: assigning to 'STRUCT S2' from incompatible type '*signed int'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:58: error: assigning to 'STRUCT S2' from incompatible type '*float'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:59: error: assigning to 'STRUCT S2' from incompatible type '*STRUCT S1'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:60: error: assigning to 'STRUCT S2' from incompatible type '*STRUCT S2'
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:62: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:63: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:64: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:65: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:66: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:67: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:68: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:69: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:70: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:73: error: assigning to '*signed int' from incompatible type 'float'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:75: error: assigning to '*signed int' from incompatible type 'STRUCT S1'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:76: error: assigning to '*signed int' from incompatible type 'STRUCT S2'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:83: error: assigning to '*float' from incompatible type 'float'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:85: error: assigning to '*float' from incompatible type 'STRUCT S1'
+test/testData/parser/negative/expressions/unassignabeTypes.c:6:86: error: assigning to '*float' from incompatible type 'STRUCT S2'
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:93: error: assigning to '*STRUCT S1' from incompatible type 'float'
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:95: error: assigning to '*STRUCT S1' from incompatible type 'STRUCT S1'
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:96: error: assigning to '*STRUCT S1' from incompatible type 'STRUCT S2'
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:103: error: assigning to '*STRUCT S2' from incompatible type 'float'
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:105: error: assigning to '*STRUCT S2' from incompatible type 'STRUCT S1'
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:106: error: assigning to '*STRUCT S2' from incompatible type 'STRUCT S2'

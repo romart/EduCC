@@ -1,0 +1,16 @@
+FILE test/testData/parser/negative/expressions/fewManyArgs.c
+  FUN signed int foo 
+    #0: signed int a
+    #1: signed int b
+----
+  FUN signed int many 
+    #0: signed int a
+  BEGIN
+    foo(a, a, a)    
+  END
+----
+  FUN signed int few 
+    #0: signed int a
+  BEGIN
+    foo(a)    
+  END
