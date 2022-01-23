@@ -454,12 +454,16 @@ static TypeRef *computeFunctionReturnType(ParserContext *ctx, TypeRef *calleeTyp
 
 }
 
-static TypeRef *computeMemberAccessType(ParserContext *ctx, TypeRef *calleeType, ExpressionType op) {
+static TypeRef *computeMemberAccessType(ParserContext *ctx, TypeRef *receiverType, const char *memberName, ExpressionType op) {
 
 }
 
-static TypeRef *computeBinaryType(ParserContext* ctx, TypeRef* left, TypeRef *right, ExpressionType op) {
+static TypeRef *computeBinaryType(ParserContext *ctx, TypeRef* left, TypeRef *right, ExpressionType op) {
   return left; // TODO
+}
+
+static TypeRef *computeIncDecType(ParserContext *ctx, TypeRef *argumentType) {
+  return argumentType; // TODO
 }
 
 /**
@@ -507,8 +511,9 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
             expect(ctx, IDENTIFIER);
             eo = ctx->token->coordinates.endOffset;
             TypeRef *receiverType = left->type;
-            left = createFieldExpression(ctx, so, eo, op, left, ctx->token->text);
-            left->type = computeMemberAccessType(ctx, receiverType, op);
+            const char *memberName = ctx->token->text;
+            left = createFieldExpression(ctx, so, eo, op, left, memberName);
+            left->type = computeMemberAccessType(ctx, receiverType, memberName, op);
             nextToken(ctx);
             break;
         case INC_OP: op = EU_POST_INC; goto incdec;
@@ -517,12 +522,16 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
             eo = ctx->token->coordinates.endOffset;
             TypeRef *argType = left->type;
             left = createUnaryExpression(ctx, so, eo, op, left);
-            left->type = argType;
+            left->type = computeIncDecType(ctx, argType);
             nextToken(ctx);
             break;
         default: return left;
         }
     }
+}
+
+TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, TypeRef *argumentType, ExpressionType op) {
+  return argumentType;
 }
 
 /**
@@ -549,20 +558,20 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
             argument = parseUnaryExpression(ctx, scope);
             eo = argument->coordinates.endOffset;
             result = createUnaryExpression(ctx, so, eo, op, argument);
-            result->type = argument->type;
+            result->type = computeTypeForUnaryOperator(ctx, argument->type, op);
             return result;
         case '&': op = EU_REF; goto ue2;
         case '*': op = EU_DEREF; goto ue2;
         case '+': op = EU_PLUS; goto ue2;
         case '-': op = EU_MINUS; goto ue2;
-        case '~': op = EU_TILDA; goto ue2;
+        case '~': op = EU_TILDA; goto ue2; // TODO: check type is not float
         case '!': op = EU_EXL;
         ue2:
             nextToken(ctx);
             argument = parseCastExpression(ctx, scope);
             eo = argument->coordinates.endOffset;
             result = createUnaryExpression(ctx, so, eo, op, argument);
-            result->type = argument->type;
+            result->type = computeTypeForUnaryOperator(ctx, argument->type, op);
             return result;
         case SIZEOF: {
             int token = nextToken(ctx)->code;
