@@ -529,7 +529,7 @@ TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, int so, int eo, TypeRef
     case EU_TILDA: // ~a
       if (op == EU_TILDA && isIntegerType(argumentType)) {
           return argumentType;
-      } else if (isPrimitiveType(argumentType)) {
+      } else if (op != EU_TILDA && isPrimitiveType(argumentType)) {
           return argumentType;
       } else {
           char buffer[1024] = { 0 };
