@@ -178,8 +178,8 @@ TypeRef *commonPrimitiveType(ParserContext *ctx, TypeRef *a, TypeRef *b) {
   TypeId uId = aId == sId ? bId : aId;
   TypeRef *uT = aId == sId ? b : a;
 
-  int sOff = sId - T_S8;
-  int uOff = uId - T_U8;
+  int sOff = sId - T_S1;
+  int uOff = uId - T_U1;
 
   return uOff > sOff ? uT : sT;
 }
