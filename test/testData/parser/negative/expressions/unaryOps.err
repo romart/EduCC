@@ -1,0 +1,29 @@
+test/testData/parser/negative/expressions/unaryOps.c:6:15: error: address of register variable requested
+test/testData/parser/negative/expressions/unaryOps.c:3:27: error: indirection requires pointer operand ('signed int' invalid)
+test/testData/parser/negative/expressions/unaryOps.c:3:28: error: indirection requires pointer operand ('float' invalid)
+test/testData/parser/negative/expressions/unaryOps.c:3:32: error: indirection requires pointer operand ('STRUCT S' invalid)
+test/testData/parser/negative/expressions/unaryOps.c:3:40: error: invalid argument type '*signed int' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:41: error: invalid argument type '*float' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:42: error: invalid argument type 'signed int[20]' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:43: error: invalid argument type 'STRUCT S' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:44: error: invalid argument type '*STRUCT S' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:51: error: invalid argument type '*signed int' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:52: error: invalid argument type '*float' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:53: error: invalid argument type 'signed int[20]' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:54: error: invalid argument type 'STRUCT S' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:55: error: invalid argument type '*STRUCT S' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:62: error: invalid argument type '*signed int' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:63: error: invalid argument type '*float' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:64: error: invalid argument type 'signed int[20]' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:65: error: invalid argument type 'STRUCT S' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:66: error: invalid argument type '*STRUCT S' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:72: error: invalid argument type 'float' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:73: error: invalid argument type '*signed int' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:74: error: invalid argument type '*float' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:75: error: invalid argument type 'signed int[20]' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:76: error: invalid argument type 'STRUCT S' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:77: error: invalid argument type '*STRUCT S' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:3:86: error: cannot increment value of type 'signed int[20]'
+test/testData/parser/negative/expressions/unaryOps.c:3:87: error: cannot increment value of type 'STRUCT S'
+test/testData/parser/negative/expressions/unaryOps.c:3:97: error: cannot decrement value of type 'signed int[20]'
+test/testData/parser/negative/expressions/unaryOps.c:3:98: error: cannot decrement value of type 'STRUCT S'
