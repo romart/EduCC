@@ -510,6 +510,14 @@ int computeSUETypeSize(ParserContext *ctx, AstSUEDeclaration *declaration) {
   return builtInTypeDescriptors[T_S4].size;
 }
 
+TypeRef *makePrimitiveType(ParserContext *ctx, TypeId id, unsigned flags) {
+  assert(T_VOID <= id && id < T_BUILT_IN_TYPES);
+
+  TypeDesc *desc = &builtInTypeDescriptors[id];
+
+  return makeBasicType(ctx, desc, flags);
+}
+
 TypeRef *makeBasicType(ParserContext *ctx, TypeDesc *descriptor, unsigned flags) {
   TypeRef *ref = (TypeRef *)areanAllocate(ctx->memory.typeArena, sizeof(TypeRef));
 
