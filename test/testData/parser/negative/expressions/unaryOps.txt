@@ -1,0 +1,106 @@
+FILE test/testData/parser/negative/expressions/unaryOps.c
+  signed int i
+----
+  float f
+----
+  *signed int pi
+----
+  *float pf
+----
+  signed int[20] arr
+----
+  STRUCT S
+----
+  STRUCT S s
+----
+  *STRUCT S ps
+----
+  FUN void testAmp 
+  BEGIN
+    R signed int ri
+    &ri
+    &i
+    &f
+    &pi
+    &pf
+    &arr
+    &s
+    &ps    
+  END
+----
+  FUN void testStar 
+  BEGIN
+    *i
+    *f
+    *pi
+    *pf
+    *arr
+    *s
+    *ps    
+  END
+----
+  FUN void testPlus 
+  BEGIN
+    +i
+    +f
+    +pi
+    +pf
+    +arr
+    +s
+    +ps    
+  END
+----
+  FUN void testMinus 
+  BEGIN
+    -i
+    -f
+    -pi
+    -pf
+    -arr
+    -s
+    -ps    
+  END
+----
+  FUN void testExl 
+  BEGIN
+    !i
+    !f
+    !pi
+    !pf
+    !arr
+    !s
+    !ps    
+  END
+----
+  FUN void testTilda 
+  BEGIN
+    ~i
+    ~f
+    ~pi
+    ~pf
+    ~arr
+    ~s
+    ~ps    
+  END
+----
+  FUN void testInc 
+  BEGIN
+    ++i
+    ++f
+    ++pi
+    ++pf
+    ++arr
+    ++s
+    ++ps    
+  END
+----
+  FUN void testDec 
+  BEGIN
+    --i
+    --f
+    --pi
+    --pf
+    --arr
+    --s
+    --ps    
+  END
