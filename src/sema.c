@@ -142,6 +142,47 @@ TypeEqualityKind typeEquality(TypeRef *t1, TypeRef *t2) {
   unreachable("infinite loop");
 }
 
+TypeRef *commonPrimitiveType(ParserContext *ctx, TypeRef *a, TypeRef *b) {
+
+  // TODO: should const qualifier be taken into account?
+
+  assert(a->kind == TR_VALUE);
+  assert(b->kind == TR_VALUE);
+
+  TypeId aId = a->descriptorDesc->typeId;
+  TypeId bId = b->descriptorDesc->typeId;
+
+  if (aId == T_ENUM) { aId = T_S4; a = makePrimitiveType(ctx, T_S4, 0); }
+  if (bId == T_ENUM) { bId = T_S4; b = makePrimitiveType(ctx, T_S4, 0); }
+
+  assert(T_VOID < aId && aId < T_BUILT_IN_TYPES);
+  assert(T_VOID < bId && bId < T_BUILT_IN_TYPES);
+
+  if (aId == T_F8) return a;
+  if (bId == T_F8) return b;
+
+  if (aId == T_F4) return a;
+  if (bId == T_F4) return b;
+
+  if (aId > T_S8 && bId > T_S8) { // both unsigned
+      return aId > bId ? a : b;
+  }
+
+  if (aId <= T_S8 && bId <= T_S8) { // both signed
+      return aId > bId ? a : b;
+  }
+
+  TypeId sId = aId < bId ? aId : bId;
+  TypeRef *sT = aId == sId ? a : b;
+
+  TypeId uId = aId == sId ? bId : aId;
+  TypeRef *uT = aId == sId ? b : a;
+
+  int sOff = sId - T_S8;
+  int uOff = uId - T_U8;
+
+  return uOff > sOff ? uT : sT;
+}
 
 TypeCastabilityKind typeCastability(TypeRef *to, TypeRef *from) {
   return TCK_UNKNOWN;
@@ -150,7 +191,512 @@ TypeCastabilityKind typeCastability(TypeRef *to, TypeRef *from) {
 
 Boolean typesEquals(TypeRef *t1, TypeRef *t2) {
   TypeEqualityKind equality = typeEquality(t1, t2);
-  return equality == TEK_EQUAL ? TRUE : FALSE;
+  return equality == TEK_EQUAL || equality == TEK_ALMOST_EQUAL ? TRUE : FALSE;
+}
+
+static Boolean isErrorType(TypeRef *type) {
+  if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_ERROR)
+    return TRUE;
+  return FALSE;
+}
+
+static Boolean isEnumType(TypeRef *type) {
+  if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_ENUM)
+    return TRUE;
+  return FALSE;
+}
+
+static Boolean isStructualType(TypeRef *type) {
+  if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_STRUCT || type->descriptorDesc->typeId == T_STRUCT)
+    return TRUE;
+  return FALSE;
+}
+
+static Boolean isVoidType(TypeRef *type) {
+  if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_VOID)
+    return TRUE;
+  return FALSE;
+}
+
+static Boolean isIntegerType(TypeRef *type) {
+  if (type->kind == TR_VALUE) {
+    TypeId typeId = type->descriptorDesc->typeId;
+    if (T_VOID < typeId && typeId < T_F4 || typeId == T_ENUM)
+      return TRUE;
+  }
+  return FALSE;
+}
+
+static Boolean isPrimitiveType(TypeRef *type) {
+  if (type->kind == TR_VALUE) {
+    TypeId typeId = type->descriptorDesc->typeId;
+    if (T_VOID < typeId && typeId < T_BUILT_IN_TYPES || typeId == T_ENUM)
+      return TRUE;
+  }
+  return FALSE;
+}
+
+static Boolean isPointerLikeType(TypeRef *type) {
+  return type->kind == TR_POINTED || type->kind == TR_ARRAY;
+}
+
+TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, int so, int eo, TypeRef *arrayType, TypeRef *indexType) {
+  if (isErrorType(arrayType)) return arrayType;
+  if (isErrorType(indexType)) return indexType;
+
+  if (!isIntegerType(indexType)) {
+      reportError(ctx, so, eo, "array subscript is not an integer");
+      return makeErrorRef(ctx);
+  }
+
+  if (arrayType->kind == TR_POINTED) {
+      return arrayType->pointedTo;
+  }
+
+  if (arrayType->kind == TR_ARRAY) {
+      return arrayType->arrayTypeDesc.elementType;
+  }
+
+  reportError(ctx, so, eo, "subscripted value is not an array or pointer");
+  return makeErrorRef(ctx);
+}
+
+
+TypeRef *computeFunctionReturnType(ParserContext *ctx, int so, int eo, TypeRef *_calleeType) {
+    if (isErrorType(_calleeType)) return _calleeType;
+
+    TypeRef *calleType = _calleeType;
+    if (_calleeType->kind == TR_POINTED) {
+        calleType = _calleeType->pointedTo;
+    }
+
+    if (calleType->kind != TR_FUNCTION) {
+        char buffer[1024] = { 0 };
+        renderTypeRef(_calleeType, buffer, sizeof buffer);
+        reportError(ctx, so, eo, "called object type '%s' is not a function or function pointer", buffer);
+        return makeErrorRef(ctx);
+    }
+
+    return calleType->functionTypeDesc.returnType;
+}
+
+
+
+TypeRef *computeMemberAccessType(ParserContext *ctx, int so, int eo, TypeRef *_receiverType, const char *memberName, ExpressionType op) {
+  assert(op == EF_DOT || op == EF_ARROW);
+  if (isErrorType(_receiverType)) return _receiverType;
+
+  TypeRef *receiverType = _receiverType;
+
+  if (op == EF_ARROW) {
+    if (_receiverType->kind == TR_POINTED) {
+        receiverType = _receiverType->pointedTo;
+    } else if (_receiverType->kind == TR_ARRAY) {
+        receiverType = _receiverType->arrayTypeDesc.elementType;
+    } else {
+        char buffer[1024] = { 0 };
+        renderTypeRef(_receiverType, buffer, sizeof buffer);
+        reportError(ctx, so, eo, "member reference type '%s' is not a pointer", buffer);
+        return makeErrorRef(ctx);
+    }
+  }
+
+
+  if (!isStructualType(receiverType)) {
+      char buffer[1024] = { 0 };
+      renderTypeRef(receiverType, buffer, sizeof buffer);
+      reportError(ctx, so, eo, "member reference base type '%s' is not a structure or union", buffer);
+      return makeErrorRef(ctx);
+  }
+
+  AstSUEDeclaration *declaration = receiverType->descriptorDesc->structInfo;
+
+  AstStructDeclarator *memberDeclarator = NULL;
+
+  AstStructMember *member = declaration->members;
+
+  while (member) {
+      if (member->kind == SM_DECLARATOR) {
+        AstStructDeclarator *declarator = member->declarator;
+        if (strcmp(declarator->name, memberName) == 0) {
+            memberDeclarator = declarator;
+            break;
+        }
+      }
+      member = member->next;
+  }
+
+
+  if (memberDeclarator == NULL) {
+      char buffer[1024] = { 0 };
+      renderTypeRef(receiverType, buffer, sizeof buffer);
+      reportError(ctx, so, eo, "no member named '%s' in '%s'", memberName, buffer);
+      return makeErrorRef(ctx);
+  }
+
+
+  return memberDeclarator->typeRef;
+}
+
+TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op) {
+  if (isErrorType(cond)) return cond;
+  if (isErrorType(ifTrue)) return ifTrue;
+  if (isErrorType(ifFalse)) return ifFalse;
+
+  if (isStructualType(ifTrue) || isStructualType(ifFalse)) {
+      if (typesEquals(ifTrue, ifFalse)) {
+          return ifTrue;
+      } else {
+        char b1[1024] = { 0 };
+        char b2[1024] = { 0 };
+        renderTypeRef(ifTrue, b1, sizeof b1);
+        renderTypeRef(ifFalse, b2, sizeof b2);
+        reportError(ctx, so, eo, "incompatible operand types ('%s' and '%s')", b1, b2);
+        return makeErrorRef(ctx);
+      }
+  }
+
+  TypeRefKind tKind = ifTrue->kind;
+  TypeRefKind fKind = ifFalse->kind;
+
+  if (isPrimitiveType(ifTrue) && isPrimitiveType(ifFalse)) {
+      return commonPrimitiveType(ctx, ifTrue, ifFalse);
+  }
+
+  if (isPointerLikeType(ifTrue)) {
+      TypeRef *pointedT = ifTrue->kind == TR_POINTED ? ifTrue->pointedTo : ifTrue->arrayTypeDesc.elementType;
+      if (isPointerLikeType(ifFalse)) {
+          TypeRef *pointedF = ifFalse->kind == TR_POINTED ? ifFalse->pointedTo : ifFalse->arrayTypeDesc.elementType;
+          if (!typesEquals(pointedT, pointedF)) { // TODO: could fail with array vs ponter
+              char b1[1024] = { 0 };
+              char b2[1024] = { 0 };
+              renderTypeRef(ifTrue, b1, sizeof b1);
+              renderTypeRef(ifFalse, b2, sizeof b2);
+              reportWarning(ctx, so, eo, "pointer type mismatch ('%s' and '%s')", b1, b2);
+          }
+          return makePointedType(ctx, ifTrue->flags, pointedT);
+      } else if (isIntegerType(ifFalse)) {
+          char b1[1024] = { 0 };
+          char b2[1024] = { 0 };
+          renderTypeRef(ifTrue, b1, sizeof b1);
+          renderTypeRef(ifFalse, b2, sizeof b2);
+          reportWarning(ctx, so, eo, "pointer/integer type mismatch in conditional expression ('%s' and '%s')", b1, b2);
+          return makePointedType(ctx, ifTrue->flags, pointedT);
+      } else {
+          char b1[1024] = { 0 };
+          char b2[1024] = { 0 };
+          renderTypeRef(ifTrue, b1, sizeof b1);
+          renderTypeRef(ifFalse, b2, sizeof b2);
+          reportError(ctx, so, eo, "incompatible operand types ('%s' and '%s')", b1, b2);
+          return makeErrorRef(ctx);
+      }
+  }
+
+  if (isPointerLikeType(ifFalse)) {
+      TypeRef *pointedF = ifFalse->kind == TR_POINTED ? ifFalse->pointedTo : ifFalse->arrayTypeDesc.elementType;
+      if (isIntegerType(ifFalse)) {
+          char b1[1024] = { 0 };
+          char b2[1024] = { 0 };
+          renderTypeRef(ifTrue, b1, sizeof b1);
+          renderTypeRef(ifFalse, b2, sizeof b2);
+          reportWarning(ctx, so, eo, "pointer/integer type mismatch in conditional expression ('%s' and '%s')", b1, b2);
+          return makePointedType(ctx, ifFalse->flags, pointedF);
+      } else {
+          char b1[1024] = { 0 };
+          char b2[1024] = { 0 };
+          renderTypeRef(ifTrue, b1, sizeof b1);
+          renderTypeRef(ifFalse, b2, sizeof b2);
+          reportError(ctx, so, eo, "incompatible operand types ('%s' and '%s')", b1, b2);
+          return makeErrorRef(ctx);
+      }
+  }
+
+  return makeErrorRef(ctx); // Unknown situation
+}
+
+static TypeRef *reportInvalidBinaryOperand(ParserContext *ctx, int so, int eo, TypeRef *left, TypeRef *right) {
+  char b1[1024] = { 0 };
+  char b2[1024] = { 0 };
+  renderTypeRef(left, b1, sizeof b1);
+  renderTypeRef(right, b2, sizeof b2);
+  reportError(ctx, so, eo, "invalid operands to binary expression ('%s' and '%s')", b1, b2);
+  return makeErrorRef(ctx); // binary ops are not applicabe to structual types
+}
+
+TypeRef *computeBinaryType(ParserContext *ctx, int so, int eo, TypeRef* left, TypeRef *right, ExpressionType op) {
+  if (isErrorType(left)) return left;
+  if (isErrorType(right)) return right;
+
+  if (isStructualType(left) || isStructualType(right)){
+      return reportInvalidBinaryOperand(ctx, so, eo, left, right);  // binary ops are not applicabe to structual types
+  }
+
+  if (EB_ANDAND <= op && op <= EB_GE) {
+      return makePrimitiveType(ctx, T_S4, 0);
+  }
+
+  if (EB_LHS <= op && op <= EB_XOR) {
+      if (isIntegerType(left) && isIntegerType(right)) {
+          return commonPrimitiveType(ctx, left, right);
+      }
+      return reportInvalidBinaryOperand(ctx, so, eo, left, right);
+  }
+
+
+  if (EB_MUL <= op && op <= EB_MOD) {
+    if (isPrimitiveType(left) && isPrimitiveType(right)) {
+        return commonPrimitiveType(ctx, left, right);
+    }
+    return reportInvalidBinaryOperand(ctx, so, eo, left, right);
+  }
+
+
+  if (op == EB_ADD) {
+      if (isPointerLikeType(left) && isPointerLikeType(right)) {
+          return reportInvalidBinaryOperand(ctx, so, eo, left, right);
+      }
+  }
+
+  if (isPointerLikeType(left) && isPointerLikeType(right)) {
+      assert(op == EB_SUB);
+      return makePrimitiveType(ctx, T_S8, 0);
+  }
+
+  if (isPointerLikeType(left)) {
+      if (isIntegerType(right)) {
+        TypeRef *pointedL = left->kind == TR_POINTED ? left->pointedTo : left->arrayTypeDesc.elementType;
+        return makePointedType(ctx, left->flags, pointedL);
+      }
+      return reportInvalidBinaryOperand(ctx, so, eo, left, right);
+  }
+
+  if (isPointerLikeType(right)) {
+      if (isIntegerType(left)) {
+        TypeRef *pointedR = right->kind == TR_POINTED ? right->pointedTo : right->arrayTypeDesc.elementType;
+        return makePointedType(ctx, right->flags, pointedR);
+      }
+      return reportInvalidBinaryOperand(ctx, so, eo, left, right);
+  }
+
+  return commonPrimitiveType(ctx, left, right);
+}
+
+
+TypeRef *computeIncDecType(ParserContext *ctx, int so, int eo, TypeRef *argumentType, ExpressionType op) {
+  assert(op == EU_PRE_INC || op == EU_PRE_DEC || op == EU_POST_INC || op == EU_POST_DEC);
+
+  if (isErrorType(argumentType)) return argumentType;
+
+  if (argumentType->kind == TR_FUNCTION || argumentType->kind == TR_ARRAY || isStructualType(argumentType)) {
+    const char *opName = op == EU_POST_DEC || op == EU_PRE_DEC ? "decrement" : "increment";
+    char buffer[1024] = { 0 };
+    renderTypeRef(argumentType, buffer, sizeof buffer);
+    reportError(ctx, so, eo, "cannot %s value of type '%s'", opName, buffer);
+    return makeErrorRef(ctx);
+  }
+
+  return argumentType;
+}
+
+static TypeRef *computeTypeForDerefOperator(ParserContext *ctx, int so, int eo, TypeRef *argumentType) {
+  if (argumentType->kind == TR_POINTED) {
+      return argumentType->pointedTo;
+  }
+
+  if (argumentType->kind == TR_ARRAY) {
+      return argumentType->arrayTypeDesc.elementType;
+  }
+
+  char buffer[1024] = { 0 };
+  renderTypeRef(argumentType, buffer, sizeof buffer);
+  reportError(ctx, so, eo, "indirection requires pointer operand ('%s' invalid)", buffer);
+  return makeErrorRef(ctx);
+}
+
+TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, int so, int eo, TypeRef *argumentType, ExpressionType op) {
+  if (isErrorType(argumentType)) return argumentType;
+
+  SpecifierFlags flags = { 0 };
+
+  switch (op) {
+    case EU_REF:   // &a
+      return makePointedType(ctx, flags, argumentType);
+    case EU_DEREF: // *a
+      return computeTypeForDerefOperator(ctx, so, eo, argumentType);
+    case EU_PLUS:  // +a
+    case EU_MINUS: // -a
+    case EU_EXL:   // !a
+    case EU_TILDA: // ~a
+      if (op == EU_TILDA && isIntegerType(argumentType)) {
+          return argumentType;
+      } else if (isPrimitiveType(argumentType)) {
+          return argumentType;
+      } else {
+          char buffer[1024] = { 0 };
+          renderTypeRef(argumentType, buffer, sizeof buffer);
+          reportError(ctx, so, eo, "invalid argument type '%s' to unary expression", buffer);
+          return makeErrorRef(ctx);
+      }
+    default:
+      unreachable("Unexpected Unary operator type");
+      return NULL;
+    }
+
+  return argumentType;
+}
+
+static void reportInvalidAssignTypes(ParserContext *ctx, int so, int eo, TypeRef *left, TypeRef *right) {
+  char b1[1024] = { 0 };
+  char b2[1024] = { 0 };
+  renderTypeRef(left, b1, sizeof b1);
+  renderTypeRef(right, b2, sizeof b2);
+  reportError(ctx, so, eo, "assigning to '%s' from incompatible type '%s'", b1, b2);
+}
+
+static Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeRef *from) {
+  if (isErrorType(to)) return TRUE;
+  if (isErrorType(from)) return TRUE;
+
+  if (to->flags.bits.isConst) {
+      char b[1024] = { 0 };
+      renderTypeRef(to, b, sizeof b);
+      reportError(ctx, so, eo, "cannot assign to lvalue with const-qualified type '%s'", b);
+      return FALSE;
+  }
+
+  if (to->kind == TR_ARRAY) {
+      char b[1024] = { 0 };
+      renderTypeRef(to, b, sizeof b);
+      reportError(ctx, so, eo, "array type '%s' is not assignable", b);
+      return FALSE;
+  }
+
+  if (isStructualType(to) || isStructualType(from)) {
+      if (typesEquals(to, from)) {
+          return TRUE;
+      } else {
+          reportInvalidAssignTypes(ctx, so, eo, to, from);
+          return FALSE;
+      }
+  }
+
+  if (to->kind == TR_POINTED) {
+      TypeRef *pLeft = to->pointedTo;
+      if (isPointerLikeType(from)) {
+          TypeRef *pointed = from->kind == TR_POINTED ? from->pointedTo : from->arrayTypeDesc.elementType;
+          if (typesEquals(pLeft, pointed)) {
+              return TRUE;
+          } else {
+              char b1[1024] = { 0 };
+              char b2[1024] = { 0 };
+              renderTypeRef(to, b1, sizeof b1);
+              renderTypeRef(from, b2, sizeof b2);
+              reportWarning(ctx, so, eo, "incompatible pointer types assigning to '%s' from '%s'", b1, b2);
+          }
+      } else if (isIntegerType(from)) {
+          char b1[1024] = { 0 };
+          char b2[1024] = { 0 };
+          renderTypeRef(to, b1, sizeof b1);
+          renderTypeRef(from, b2, sizeof b2);
+          reportWarning(ctx, so, eo, "incompatible integer to pointer conversion assigning to '%s' from '%s'", b1, b2);
+      } else {
+          reportInvalidAssignTypes(ctx, so, eo, to, from);
+          return FALSE;
+      }
+  }
+
+
+  if (isPointerLikeType(from)) {
+      if (isIntegerType(to)) {
+          char b1[1024] = { 0 };
+          char b2[1024] = { 0 };
+          renderTypeRef(to, b1, sizeof b1);
+          renderTypeRef(from, b2, sizeof b2);
+          reportWarning(ctx, so, eo, "incompatible integer to pointer conversion assigning to '%s' from '%s'", b1, b2);
+      } else {
+          reportInvalidAssignTypes(ctx, so, eo, to, from);
+          return FALSE;
+      }
+  }
+
+  return TRUE;
+}
+
+TypeRef *computeAssignmentTypes(ParserContext *ctx, int so, int eo, TypeRef *left, TypeRef *right) {
+  if (isErrorType(left)) return left;
+  if (isErrorType(right)) return right;
+
+  if (isAssignableTypes(ctx, so, eo, left, right)) {
+    return left;
+  }
+
+  return makeErrorRef(ctx);
+}
+
+TypeRef *computeFunctionType(ParserContext *ctx, int so, int eo, AstFunctionDeclaration *declaration) {
+  TypeRef *result = (TypeRef *)areanAllocate(ctx->memory.typeArena, sizeof(TypeRef));
+
+  result->kind = TR_FUNCTION;
+  result->functionTypeDesc.returnType = declaration->returnType;
+  result->functionTypeDesc.isVariadic = declaration->isVariadic;
+
+  AstValueDeclaration *param = declaration->parameters;
+  TypeList *head = NULL, *tail = NULL;
+  while (param) {
+      TypeList *next = (TypeList *)areanAllocate(ctx->memory.typeArena, sizeof(TypeList));
+      next->type = param->type;
+      if (tail) {
+          tail->next = next;
+      } else {
+          head = next;
+      }
+      tail = next;
+      param = param->next;
+  }
+
+  result->functionTypeDesc.parameters = head;
+
+  return result;
+}
+
+int foo(int *a, int *b) {}
+
+
+
+void verifyCallAruments(ParserContext *ctx, int so, int eo, TypeRef *functionType, AstExpressionList *aruments) {
+  if (isErrorType(functionType)) return;
+
+  if (functionType->kind == TR_POINTED)
+    functionType = functionType->pointedTo;
+
+  assert(functionType->kind == TR_FUNCTION);
+
+  AstExpressionList *argument = aruments;
+  TypeList *param = functionType->functionTypeDesc.parameters;
+
+  while (argument && param) {
+      AstExpression *arg = argument->expression;
+      int so = arg->coordinates.startOffset;
+      int eo = arg->coordinates.endOffset;
+      TypeRef *aType = arg->type;
+      TypeRef *pType = param->type;
+      if (isAssignableTypes(ctx, so, eo, pType, aType)) {
+          argument = argument->next;
+          param = param->next;
+      } else {
+          break;
+      }
+  }
+
+  if (argument == NULL && param != NULL) { // fewer
+      reportError(ctx, so, eo, "too few arguments to function call");
+  }
+
+  if (argument != NULL && param == NULL) {
+      if (!functionType->functionTypeDesc.isVariadic) {
+          reportError(ctx, so, eo, "too many arguments to function call");
+      }
+  }
 }
 
 static int stringHashCode(const void *v) {
