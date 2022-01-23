@@ -9,7 +9,8 @@
 
 enum {
   POINTER_TYPE_SIZE = 8,
-  BYTE_BIT_SIZE = 8
+  BYTE_BIT_SIZE = 8,
+  UNKNOWN_SIZE = -1
 };
 
 int computeTypeSize(ParserContext *ctx, TypeRef *type);

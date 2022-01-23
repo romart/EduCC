@@ -1722,7 +1722,7 @@ static void parseFunctionDeclaratorPart(ParserContext *ctx, Declarator *declarat
 
 static void parseArrayDeclaratorPart(ParserContext *ctx, Declarator *declarator) {
   consume(ctx, '[');
-  int size = -1;
+  int size = UNKNOWN_SIZE;
   if (ctx->token->code != ']') {
       size = parseAsIntConst(ctx, NULL);
   }
