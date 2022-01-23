@@ -1,0 +1,601 @@
+FILE test/testData/parser/negative/expressions/assignOp.c
+  signed int i
+----
+  float f
+----
+  *signed int pi
+----
+  *float pf
+----
+  signed int[20] arr
+----
+  STRUCT S
+    signed int good
+  STRUCT_END
+----
+  STRUCT S s
+----
+  *STRUCT S ps
+----
+  FUN void testAsg 
+  BEGIN
+    i = i
+    i = f
+    i = pi
+    i = pf
+    i = arr
+    i = s
+    i = ps
+    f = i
+    f = f
+    f = pi
+    f = pf
+    f = arr
+    f = s
+    f = ps
+    pi = i
+    pi = f
+    pi = pi
+    pi = pf
+    pi = arr
+    pi = s
+    pi = ps
+    pf = i
+    pf = f
+    pf = pi
+    pf = pf
+    pf = arr
+    pf = s
+    pf = ps
+    arr = i
+    arr = f
+    arr = pi
+    arr = pf
+    arr = arr
+    arr = s
+    arr = ps
+    s = i
+    s = f
+    s = pi
+    s = pf
+    s = arr
+    s = s
+    s = ps
+    ps = i
+    ps = f
+    ps = pi
+    ps = pf
+    ps = arr
+    ps = s
+    ps = ps    
+  END
+----
+  FUN void testPlusAsg 
+  BEGIN
+    i = i + i
+    i = i + f
+    i = i + pi
+    i = i + pf
+    i = i + arr
+    i = i + s
+    i = i + ps
+    f = f + i
+    f = f + f
+    f = f + pi
+    f = f + pf
+    f = f + arr
+    f = f + s
+    f = f + ps
+    pi = pi + i
+    pi = pi + f
+    pi = pi + pi
+    pi = pi + pf
+    pi = pi + arr
+    pi = pi + s
+    pi = pi + ps
+    pf = pf + i
+    pf = pf + f
+    pf = pf + pi
+    pf = pf + pf
+    pf = pf + arr
+    pf = pf + s
+    pf = pf + ps
+    arr = arr + i
+    arr = arr + f
+    arr = arr + pi
+    arr = arr + pf
+    arr = arr + arr
+    arr = arr + s
+    arr = arr + ps
+    s = s + i
+    s = s + f
+    s = s + pi
+    s = s + pf
+    s = s + arr
+    s = s + s
+    s = s + ps
+    ps = ps + i
+    ps = ps + f
+    ps = ps + pi
+    ps = ps + pf
+    ps = ps + arr
+    ps = ps + s
+    ps = ps + ps    
+  END
+----
+  FUN void testMinusAsg 
+  BEGIN
+    i = i - i
+    i = i - f
+    i = i - pi
+    i = i - pf
+    i = i - arr
+    i = i - s
+    i = i - ps
+    f = f - i
+    f = f - f
+    f = f - pi
+    f = f - pf
+    f = f - arr
+    f = f - s
+    f = f - ps
+    pi = pi - i
+    pi = pi - f
+    pi = pi - pi
+    pi = pi - pf
+    pi = pi - arr
+    pi = pi - s
+    pi = pi - ps
+    pf = pf - i
+    pf = pf - f
+    pf = pf - pi
+    pf = pf - pf
+    pf = pf - arr
+    pf = pf - s
+    pf = pf - ps
+    arr = arr - i
+    arr = arr - f
+    arr = arr - pi
+    arr = arr - pf
+    arr = arr - arr
+    arr = arr - s
+    arr = arr - ps
+    s = s - i
+    s = s - f
+    s = s - pi
+    s = s - pf
+    s = s - arr
+    s = s - s
+    s = s - ps
+    ps = ps - i
+    ps = ps - f
+    ps = ps - pi
+    ps = ps - pf
+    ps = ps - arr
+    ps = ps - s
+    ps = ps - ps    
+  END
+----
+  FUN void testMulAsg 
+  BEGIN
+    i = i * i
+    i = i * f
+    i = i * pi
+    i = i * pf
+    i = i * arr
+    i = i * s
+    i = i * ps
+    f = f * i
+    f = f * f
+    f = f * pi
+    f = f * pf
+    f = f * arr
+    f = f * s
+    f = f * ps
+    pi = pi * i
+    pi = pi * f
+    pi = pi * pi
+    pi = pi * pf
+    pi = pi * arr
+    pi = pi * s
+    pi = pi * ps
+    pf = pf * i
+    pf = pf * f
+    pf = pf * pi
+    pf = pf * pf
+    pf = pf * arr
+    pf = pf * s
+    pf = pf * ps
+    arr = arr * i
+    arr = arr * f
+    arr = arr * pi
+    arr = arr * pf
+    arr = arr * arr
+    arr = arr * s
+    arr = arr * ps
+    s = s * i
+    s = s * f
+    s = s * pi
+    s = s * pf
+    s = s * arr
+    s = s * s
+    s = s * ps
+    ps = ps * i
+    ps = ps * f
+    ps = ps * pi
+    ps = ps * pf
+    ps = ps * arr
+    ps = ps * s
+    ps = ps * ps    
+  END
+----
+  FUN void testDivAsg 
+  BEGIN
+    i = i / i
+    i = i / f
+    i = i / pi
+    i = i / pf
+    i = i / arr
+    i = i / s
+    i = i / ps
+    f = f / i
+    f = f / f
+    f = f / pi
+    f = f / pf
+    f = f / arr
+    f = f / s
+    f = f / ps
+    pi = pi / i
+    pi = pi / f
+    pi = pi / pi
+    pi = pi / pf
+    pi = pi / arr
+    pi = pi / s
+    pi = pi / ps
+    pf = pf / i
+    pf = pf / f
+    pf = pf / pi
+    pf = pf / pf
+    pf = pf / arr
+    pf = pf / s
+    pf = pf / ps
+    arr = arr / i
+    arr = arr / f
+    arr = arr / pi
+    arr = arr / pf
+    arr = arr / arr
+    arr = arr / s
+    arr = arr / ps
+    s = s / i
+    s = s / f
+    s = s / pi
+    s = s / pf
+    s = s / arr
+    s = s / s
+    s = s / ps
+    ps = ps / i
+    ps = ps / f
+    ps = ps / pi
+    ps = ps / pf
+    ps = ps / arr
+    ps = ps / s
+    ps = ps / ps    
+  END
+----
+  FUN void testModAsg 
+  BEGIN
+    i = i % i
+    i = i % f
+    i = i % pi
+    i = i % pf
+    i = i % arr
+    i = i % s
+    i = i % ps
+    f = f % i
+    f = f % f
+    f = f % pi
+    f = f % pf
+    f = f % arr
+    f = f % s
+    f = f % ps
+    pi = pi % i
+    pi = pi % f
+    pi = pi % pi
+    pi = pi % pf
+    pi = pi % arr
+    pi = pi % s
+    pi = pi % ps
+    pf = pf % i
+    pf = pf % f
+    pf = pf % pi
+    pf = pf % pf
+    pf = pf % arr
+    pf = pf % s
+    pf = pf % ps
+    arr = arr % i
+    arr = arr % f
+    arr = arr % pi
+    arr = arr % pf
+    arr = arr % arr
+    arr = arr % s
+    arr = arr % ps
+    s = s % i
+    s = s % f
+    s = s % pi
+    s = s % pf
+    s = s % arr
+    s = s % s
+    s = s % ps
+    ps = ps % i
+    ps = ps % f
+    ps = ps % pi
+    ps = ps % pf
+    ps = ps % arr
+    ps = ps % s
+    ps = ps % ps    
+  END
+----
+  FUN void testLhsAsg 
+  BEGIN
+    i = i << i
+    i = i << f
+    i = i << pi
+    i = i << pf
+    i = i << arr
+    i = i << s
+    i = i << ps
+    f = f << i
+    f = f << f
+    f = f << pi
+    f = f << pf
+    f = f << arr
+    f = f << s
+    f = f << ps
+    pi = pi << i
+    pi = pi << f
+    pi = pi << pi
+    pi = pi << pf
+    pi = pi << arr
+    pi = pi << s
+    pi = pi << ps
+    pf = pf << i
+    pf = pf << f
+    pf = pf << pi
+    pf = pf << pf
+    pf = pf << arr
+    pf = pf << s
+    pf = pf << ps
+    arr = arr << i
+    arr = arr << f
+    arr = arr << pi
+    arr = arr << pf
+    arr = arr << arr
+    arr = arr << s
+    arr = arr << ps
+    s = s << i
+    s = s << f
+    s = s << pi
+    s = s << pf
+    s = s << arr
+    s = s << s
+    s = s << ps
+    ps = ps << i
+    ps = ps << f
+    ps = ps << pi
+    ps = ps << pf
+    ps = ps << arr
+    ps = ps << s
+    ps = ps << ps    
+  END
+----
+  FUN void testRhsAsg 
+  BEGIN
+    i = i >> i
+    i = i >> f
+    i = i >> pi
+    i = i >> pf
+    i = i >> arr
+    i = i >> s
+    i = i >> ps
+    f = f >> i
+    f = f >> f
+    f = f >> pi
+    f = f >> pf
+    f = f >> arr
+    f = f >> s
+    f = f >> ps
+    pi = pi >> i
+    pi = pi >> f
+    pi = pi >> pi
+    pi = pi >> pf
+    pi = pi >> arr
+    pi = pi >> s
+    pi = pi >> ps
+    pf = pf >> i
+    pf = pf >> f
+    pf = pf >> pi
+    pf = pf >> pf
+    pf = pf >> arr
+    pf = pf >> s
+    pf = pf >> ps
+    arr = arr >> i
+    arr = arr >> f
+    arr = arr >> pi
+    arr = arr >> pf
+    arr = arr >> arr
+    arr = arr >> s
+    arr = arr >> ps
+    s = s >> i
+    s = s >> f
+    s = s >> pi
+    s = s >> pf
+    s = s >> arr
+    s = s >> s
+    s = s >> ps
+    ps = ps >> i
+    ps = ps >> f
+    ps = ps >> pi
+    ps = ps >> pf
+    ps = ps >> arr
+    ps = ps >> s
+    ps = ps >> ps    
+  END
+----
+  FUN void testAndAsg 
+  BEGIN
+    i = i & i
+    i = i & f
+    i = i & pi
+    i = i & pf
+    i = i & arr
+    i = i & s
+    i = i & ps
+    f = f & i
+    f = f & f
+    f = f & pi
+    f = f & pf
+    f = f & arr
+    f = f & s
+    f = f & ps
+    pi = pi & i
+    pi = pi & f
+    pi = pi & pi
+    pi = pi & pf
+    pi = pi & arr
+    pi = pi & s
+    pi = pi & ps
+    pf = pf & i
+    pf = pf & f
+    pf = pf & pi
+    pf = pf & pf
+    pf = pf & arr
+    pf = pf & s
+    pf = pf & ps
+    arr = arr & i
+    arr = arr & f
+    arr = arr & pi
+    arr = arr & pf
+    arr = arr & arr
+    arr = arr & s
+    arr = arr & ps
+    s = s & i
+    s = s & f
+    s = s & pi
+    s = s & pf
+    s = s & arr
+    s = s & s
+    s = s & ps
+    ps = ps & i
+    ps = ps & f
+    ps = ps & pi
+    ps = ps & pf
+    ps = ps & arr
+    ps = ps & s
+    ps = ps & ps    
+  END
+----
+  FUN void testOrAsg 
+  BEGIN
+    i = i | i
+    i = i | f
+    i = i | pi
+    i = i | pf
+    i = i | arr
+    i = i | s
+    i = i | ps
+    f = f | i
+    f = f | f
+    f = f | pi
+    f = f | pf
+    f = f | arr
+    f = f | s
+    f = f | ps
+    pi = pi | i
+    pi = pi | f
+    pi = pi | pi
+    pi = pi | pf
+    pi = pi | arr
+    pi = pi | s
+    pi = pi | ps
+    pf = pf | i
+    pf = pf | f
+    pf = pf | pi
+    pf = pf | pf
+    pf = pf | arr
+    pf = pf | s
+    pf = pf | ps
+    arr = arr | i
+    arr = arr | f
+    arr = arr | pi
+    arr = arr | pf
+    arr = arr | arr
+    arr = arr | s
+    arr = arr | ps
+    s = s | i
+    s = s | f
+    s = s | pi
+    s = s | pf
+    s = s | arr
+    s = s | s
+    s = s | ps
+    ps = ps | i
+    ps = ps | f
+    ps = ps | pi
+    ps = ps | pf
+    ps = ps | arr
+    ps = ps | s
+    ps = ps | ps    
+  END
+----
+  FUN void testXorAsg 
+  BEGIN
+    i = i ^ i
+    i = i ^ f
+    i = i ^ pi
+    i = i ^ pf
+    i = i ^ arr
+    i = i ^ s
+    i = i ^ ps
+    f = f ^ i
+    f = f ^ f
+    f = f ^ pi
+    f = f ^ pf
+    f = f ^ arr
+    f = f ^ s
+    f = f ^ ps
+    pi = pi ^ i
+    pi = pi ^ f
+    pi = pi ^ pi
+    pi = pi ^ pf
+    pi = pi ^ arr
+    pi = pi ^ s
+    pi = pi ^ ps
+    pf = pf ^ i
+    pf = pf ^ f
+    pf = pf ^ pi
+    pf = pf ^ pf
+    pf = pf ^ arr
+    pf = pf ^ s
+    pf = pf ^ ps
+    arr = arr ^ i
+    arr = arr ^ f
+    arr = arr ^ pi
+    arr = arr ^ pf
+    arr = arr ^ arr
+    arr = arr ^ s
+    arr = arr ^ ps
+    s = s ^ i
+    s = s ^ f
+    s = s ^ pi
+    s = s ^ pf
+    s = s ^ arr
+    s = s ^ s
+    s = s ^ ps
+    ps = ps ^ i
+    ps = ps ^ f
+    ps = ps ^ pi
+    ps = ps ^ pf
+    ps = ps ^ arr
+    ps = ps ^ s
+    ps = ps ^ ps    
+  END

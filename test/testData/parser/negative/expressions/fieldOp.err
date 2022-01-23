@@ -1,0 +1,26 @@
+test/testData/parser/negative/expressions/fieldOp.c:3:13: error: member reference base type 'signed int' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:14: error: member reference base type 'signed int' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:15: error: member reference base type 'float' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:16: error: member reference base type 'float' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:17: error: member reference base type '*signed int' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:18: error: member reference base type '*signed int' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:19: error: member reference base type '*float' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:20: error: member reference base type '*float' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:21: error: member reference base type 'signed int[20]' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:22: error: member reference base type 'signed int[20]' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:24: error: no member named 'bad' in 'STRUCT S'
+test/testData/parser/negative/expressions/fieldOp.c:3:25: error: member reference base type '*STRUCT S' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:26: error: member reference base type '*STRUCT S' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:31: error: member reference type 'signed int' is not a pointer
+test/testData/parser/negative/expressions/fieldOp.c:3:32: error: member reference type 'signed int' is not a pointer
+test/testData/parser/negative/expressions/fieldOp.c:3:33: error: member reference type 'float' is not a pointer
+test/testData/parser/negative/expressions/fieldOp.c:3:34: error: member reference type 'float' is not a pointer
+test/testData/parser/negative/expressions/fieldOp.c:3:35: error: member reference base type 'signed int' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:36: error: member reference base type 'signed int' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:37: error: member reference base type 'float' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:38: error: member reference base type 'float' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:39: error: member reference base type 'signed int' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:40: error: member reference base type 'signed int' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:41: error: member reference type 'STRUCT S' is not a pointer
+test/testData/parser/negative/expressions/fieldOp.c:3:42: error: member reference type 'STRUCT S' is not a pointer
+test/testData/parser/negative/expressions/fieldOp.c:3:44: error: no member named 'bad' in 'STRUCT S'
