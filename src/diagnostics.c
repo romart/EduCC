@@ -30,7 +30,7 @@ static char *allocMessageString(ParserContext *ctx, size_t size) {
 static void computeLineAndCollumn(ParserContext *ctx, int _pos, int *line, int *col) {
   if (_pos < 0) {
       *line = NO_LOC;
-      *line = NO_LOC;
+      *col = NO_LOC;
       return;
   }
 
