@@ -1,0 +1,4 @@
+test/testData/parser/negative/incorrectStructs.c:5:4: error: type name does not allow storage class to be specified
+test/testData/parser/negative/incorrectStructs.c:9:9: error: unexpected token IDENTIFIER 'v1' instead of ;
+test/testData/parser/negative/incorrectStructs.c:9:10: error: unexpected token IDENTIFIER 'v2' instead of ;
+test/testData/parser/negative/incorrectStructs.c:9:11: error: unexpected token IDENTIFIER 'v3' instead of ;

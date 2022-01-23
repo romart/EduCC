@@ -1,0 +1,14 @@
+test/testData/parser/negative/incorrectDeclaration2.c:1:2: error: unexpected token / '(null)' instead of {
+test/testData/parser/negative/incorrectDeclaration2.c:3:2: error: use of undeclared identifier 'TODO'
+test/testData/parser/negative/incorrectDeclaration2.c:1:6: error: unexpected token INT '(null)' instead of ;
+test/testData/parser/negative/incorrectDeclaration2.c:5:6: error: unexpected token [ '(null)' instead of (
+test/testData/parser/negative/incorrectDeclaration2.c:6:6: error: unexpected token ] '(null)' instead of (
+test/testData/parser/negative/incorrectDeclaration2.c:7:6: error: use of undeclared identifier 'ff'
+test/testData/parser/negative/incorrectDeclaration2.c:10:6: error: unexpected token { '(null)' instead of )
+test/testData/parser/negative/incorrectDeclaration2.c:1:8: error: unexpected token } '(null)' instead of )
+test/testData/parser/negative/incorrectDeclaration2.c:1:10: error: unexpected token INT '(null)' instead of ;
+test/testData/parser/negative/incorrectDeclaration2.c:5:10: error: use of undeclared identifier 'foo'
+test/testData/parser/negative/incorrectDeclaration2.c:8:10: error: unexpected token , '(null)' instead of (
+test/testData/parser/negative/incorrectDeclaration2.c:10:10: error: unexpected token ) '(null)' instead of (
+test/testData/parser/negative/incorrectDeclaration2.c:12:10: error: unexpected token { '(null)' instead of (
+test/testData/parser/negative/incorrectDeclaration2.c:1:12: error: unexpected token } '(null)' instead of (
