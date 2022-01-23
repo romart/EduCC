@@ -78,6 +78,7 @@ Symbol *declareEnumConstantSymbol(ParserContext *ctx, EnumConstant *enumerator);
 
 Scope *newScope(ParserContext *ctx, Scope *parent);
 
+TypeRef *makePrimitiveType(ParserContext *ctx, TypeId id, unsigned flags);
 TypeRef *makeBasicType(ParserContext *ctx, TypeDesc *descriptor, unsigned flags);
 TypeRef* makePointedType(ParserContext *ctx, SpecifierFlags flags, TypeRef *pointedTo);
 TypeRef *makeArrayType(ParserContext *ctx, int size, TypeRef *elementType);
