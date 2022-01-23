@@ -936,7 +936,7 @@ static AstExpression* parseAssignmentExpression(ParserContext *ctx, struct _Scop
         int eo = right->coordinates.endOffset;
 
         if (tokenCode != '=') {
-            ExpressionType op = assignOpTokenToEB(ctx->token->code);
+            ExpressionType op = assignOpTokenToEB(tokenCode);
             TypeRef *rightType = right->type;
             right = createBinaryExpression(ctx, op, left, right);
             right->type = computeBinaryType(ctx, so, eo, left->type, rightType, op);
