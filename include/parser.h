@@ -8,7 +8,7 @@
 #include "mem.h"
 #include "diagnostics.h"
 
-AstFile* parseFile(FILE* file, const char* fileName);
+AstFile* parseFile(FILE* file, const char* fileName, Boolean verbose);
 
 AstConst* eval(ParserContext *ctx, AstExpression* expression);
 

@@ -2470,11 +2470,11 @@ static void releaseContext(ParserContext *ctx) {
 //  free(ctx->locationInfo.linesPos);
 }
 
-static void printDiagnostics(Diagnostics *diagnostics) {
+static void printDiagnostics(Diagnostics *diagnostics, Boolean verbose) {
   Diagnostic *diagnostic = diagnostics->head;
 
   while (diagnostic) {
-      FILE *output = diagnostic->severity->isError ? stderr : stdout;
+      FILE *output = stderr;
       printDiagnostic(output, diagnostic);
       fputc('\n', output);
       diagnostic = diagnostic->next;
@@ -2485,7 +2485,7 @@ static void printDiagnostics(Diagnostics *diagnostics) {
 translation_unit
     : external_declaration+
  */
-AstFile* parseFile(FILE* file, const char* fileName) {
+AstFile* parseFile(FILE* file, const char* fileName, Boolean verbose) {
   unsigned lineNum = countLines(file);
 
   ParserContext context = { 0 };
@@ -2502,7 +2502,7 @@ AstFile* parseFile(FILE* file, const char* fileName) {
       parseExternalDeclaration(&context, astFile);
   }
 
-  printDiagnostics(&context.diagnostics);
+  printDiagnostics(&context.diagnostics, verbose);
 
   yylex_destroy(context.scanner);
   releaseContext(&context);
