@@ -27,7 +27,7 @@ static char *allocMessageString(ParserContext *ctx, size_t size) {
   return (char *)areanAllocate(ctx->memory.diagnosticsArena, sizeof(char) * size);
 }
 
-static void computeLineAndCollumn(ParserContext *ctx, int _pos, int *line, int *col) {
+static void computeLineAndCollumn(ParserContext *ctx, int _pos, int *line, int *col, int *lineStartOffset) {
   if (_pos < 0) {
       *line = NO_LOC;
       *col = NO_LOC;
@@ -70,6 +70,7 @@ static void computeLineAndCollumn(ParserContext *ctx, int _pos, int *line, int *
 
   *line = lineNum + 1;
   *col = pos - lineOffset + 1;
+  *lineStartOffset = lineOffset;
 }
 
 static void reportDiagnostic(ParserContext *ctx, Severity *severity, int start, int end, const char *format, va_list args) {
@@ -91,8 +92,8 @@ static void reportDiagnostic(ParserContext *ctx, Severity *severity, int start, 
 
   newDiagnostic->location.file = ctx->parsedFile->fileName;
 
-  computeLineAndCollumn(ctx, start, &newDiagnostic->location.lineStart, &newDiagnostic->location.colStart);
-  computeLineAndCollumn(ctx, end, &newDiagnostic->location.lineEnd, &newDiagnostic->location.colEnd);
+  computeLineAndCollumn(ctx, start, &newDiagnostic->location.lineStart, &newDiagnostic->location.colStart, &newDiagnostic->location.lineStartOffset);
+  computeLineAndCollumn(ctx, end, &newDiagnostic->location.lineEnd, &newDiagnostic->location.colEnd, &newDiagnostic->location.lineEndOffset);
 
   if (ctx->diagnostics.tail) {
       ctx->diagnostics.tail->next = newDiagnostic;
@@ -104,14 +105,116 @@ static void reportDiagnostic(ParserContext *ctx, Severity *severity, int start, 
   ctx->diagnostics.count += 1;
 }
 
-void printDiagnostic(FILE *output, Diagnostic *diagnostic) {
+#define ANSI_COLOR_RESET   "\x1b[0m"
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_PURPLE  "\x1b[95m"
+#define ANSI_COLOR_BOLD    "\x1b[1m"
+
+static void printVerboseDiagnostic(FILE *output, Diagnostic *diagnostic) {
+  int toTerminal = isTerminal(output);
+  const char *typeColor = diagnostic->severity->isError ? ANSI_COLOR_RED : ANSI_COLOR_PURPLE;
+  int lineStart = diagnostic->location.lineStart;
+
+  if (lineStart >= 0 && lineStart == diagnostic->location.lineEnd) {
+    fprintf(output, "\n%5d | ", lineStart);
+
+    FILE *file = fopen(diagnostic->location.file, "r");
+    fseek(file, diagnostic->location.lineStartOffset, SEEK_SET);
+
+    int outputCount = 0;
+
+    int startHightLight = diagnostic->location.colStart - 1;
+    int endHightLight = diagnostic->location.colEnd - 1;
+
+    while (!feof(file)) {
+        int c = fgetc(file);
+        if (c && c != '\n') {
+            if (outputCount == startHightLight) {
+              if (toTerminal) {
+                  fprintf(output, "%s%s", ANSI_COLOR_BOLD, typeColor);
+              }
+            }
+
+            if (outputCount == endHightLight) {
+                if (toTerminal) {
+                    fprintf(output, ANSI_COLOR_RESET);
+                }
+            }
+
+            outputCount++;
+            fputc(c, output);
+        } else {
+            if (toTerminal) {
+                fprintf(output, ANSI_COLOR_RESET);
+            }
+            break;
+        }
+    }
+
+    fclose(file);
+
+    int underlineCount = 0;
+    fprintf(output, "\n      | ");
+
+    Boolean underLine = FALSE;
+    int printedUnderLine = 0;
+
+    while (underlineCount < endHightLight) {
+        if (underlineCount == startHightLight) {
+          if (toTerminal) {
+              fprintf(output, "%s%s", ANSI_COLOR_BOLD, typeColor);
+          }
+          underLine = TRUE;
+        }
+
+        if (underLine) {
+          if (printedUnderLine == 0) {
+              fputc('^', output);
+          } else {
+              fputc('~', output);
+          }
+          ++printedUnderLine;
+        } else {
+            fputc(' ', output);
+        }
+        ++underlineCount;
+    }
+    if (toTerminal) {
+        fprintf(output, ANSI_COLOR_RESET);
+    }
+  }
+}
+
+void printDiagnostic(FILE *output, Diagnostic *diagnostic, Boolean verbose) {
+  int toTerminal = isTerminal(output);
+
+  if (toTerminal) {
+      fprintf(output, ANSI_COLOR_BOLD);
+  }
+
   fprintf(output, "%s:", diagnostic->location.file);
 
   if (diagnostic->location.lineStart >= 0) {
       fprintf(output, "%d:%d:", diagnostic->location.colStart, diagnostic->location.lineStart);
   }
 
-  fprintf(output, " %s: %s", diagnostic->severity->name, diagnostic->message);
+  const char *typeColor = diagnostic->severity->isError ? ANSI_COLOR_RED : ANSI_COLOR_PURPLE;
+
+  if (toTerminal) {
+      fprintf(output, "%s", typeColor);
+  }
+
+  fprintf(output, " %s: ", diagnostic->severity->name);
+
+  if (toTerminal) {
+      fprintf(output, ANSI_COLOR_RESET);
+  }
+
+  fprintf(output, "%s", diagnostic->message);
+
+  if (verbose) {
+    printVerboseDiagnostic(output, diagnostic);
+  }
 }
 
 void reportInfo(ParserContext *ctx, int start, int end, const char* fmt, ...) {

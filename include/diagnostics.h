@@ -23,8 +23,10 @@ typedef struct _Diagnostic {
   Severity *severity;
   struct {
     const char *file;
+    int lineStartOffset;
     int lineStart;
     int colStart;
+    int lineEndOffset;
     int lineEnd;
     int colEnd;
   } location;
@@ -50,6 +52,6 @@ void parseInfo(struct _ParserContext *ctx, const char* fmt, ...);
 void parseWarning(struct _ParserContext *ctx, const char* fmt, ...);
 void parseError(struct _ParserContext *ctx, const char* fmt, ...);
 
-void printDiagnostic(FILE *output, Diagnostic *diagnostic);
+void printDiagnostic(FILE *output, Diagnostic *diagnostic, Boolean verbose);
 
 #endif // __DIAGNOSTICS_H__

@@ -19,7 +19,7 @@ static void processInputFile(const char* inputFile, const char *dumpFileName, Bo
     FILE* opened = fopen(inputFile, "r");
     AstFile* firstFile = NULL;
     if (opened != NULL) {
-      AstFile *f = parseFile(opened, inputFile);
+      AstFile *f = parseFile(opened, inputFile, verbose);
       if (dumpFileName) {
         dumpFile(f, dumpFileName);
       }

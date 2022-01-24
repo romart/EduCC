@@ -2475,7 +2475,7 @@ static void printDiagnostics(Diagnostics *diagnostics, Boolean verbose) {
 
   while (diagnostic) {
       FILE *output = stderr;
-      printDiagnostic(output, diagnostic);
+      printDiagnostic(output, diagnostic, verbose);
       fputc('\n', output);
       diagnostic = diagnostic->next;
   }
