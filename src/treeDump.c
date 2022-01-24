@@ -309,22 +309,26 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
 
 static int dumpAstInitializerImpl(FILE *output, int indent, AstInitializer *init) {
   int result = 0;
+  result += putIndent(output, indent);
   if (init->kind == IK_EXPRESSION) {
-    result += putIndent(output, indent);
-    result += dumpAstExpressionImpl(output, 0, init->expression);
+      result += dumpAstExpressionImpl(output, 0, init->expression);
   } else {
       assert(init->kind == IK_LIST);
       AstInitializerList *nested = init->initializerList;
       Boolean first = TRUE;
+      result += fprintf(output, "INIT_BEGIN\n");
       while (nested) {
           if (first) {
               first = FALSE;
           } else {
               result += fprintf(output, "\n");
           }
-          result += dumpAstInitializerImpl(output, indent, nested->initializer);
+          result += dumpAstInitializerImpl(output, indent + 2, nested->initializer);
           nested = nested->next;
       }
+      result += fprintf(output, "\n");
+      result += putIndent(output, indent);
+      result += fprintf(output, "INIT_END");
   }
   return result;
 }
@@ -360,18 +364,8 @@ static int dumpAstValueDeclarationImpl(FILE *output, int indent, AstValueDeclara
 
   if (value->kind == VD_VARIABLE) {
       if (value->initializer) {
-          result += fprintf(output, " = ");
-          if (value->initializer->kind == IK_EXPRESSION)
-            result += dumpAstInitializerImpl(output, 0, value->initializer);
-          else {
-            result += fprintf(output, "\\\n");
-            result += putIndent(output, indent + 2);
-            result += fprintf(output, "INIT_BEGIN\n");
-            result += dumpAstInitializerImpl(output, indent + 4, value->initializer);
-            result += fprintf(output, "\n");
-            result += putIndent(output, indent + 2);
-            result += fprintf(output, "INIT_END");
-          }
+          result += fprintf(output, " = \\\n");
+          result += dumpAstInitializerImpl(output, indent + 2, value->initializer);
       }
   }
 
