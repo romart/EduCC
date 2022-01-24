@@ -194,7 +194,7 @@ Boolean typesEquals(TypeRef *t1, TypeRef *t2) {
   return equality == TEK_EQUAL || equality == TEK_ALMOST_EQUAL ? TRUE : FALSE;
 }
 
-static Boolean isErrorType(TypeRef *type) {
+Boolean isErrorType(TypeRef *type) {
   if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_ERROR)
     return TRUE;
   return FALSE;
@@ -218,7 +218,7 @@ static Boolean isVoidType(TypeRef *type) {
   return FALSE;
 }
 
-static Boolean isIntegerType(TypeRef *type) {
+Boolean isIntegerType(TypeRef *type) {
   if (type->kind == TR_VALUE) {
     TypeId typeId = type->descriptorDesc->typeId;
     if (T_VOID < typeId && typeId < T_F4 || typeId == T_ENUM)
