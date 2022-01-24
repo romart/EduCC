@@ -41,4 +41,6 @@ int isInHashMap(HashMap* map, const void* key);
 
 unsigned countLines(FILE* file);
 
+int isTerminal(FILE *stream);
+
 #endif // __UTILS_H__
