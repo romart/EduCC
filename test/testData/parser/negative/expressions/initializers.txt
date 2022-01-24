@@ -1,0 +1,62 @@
+FILE test/testData/parser/negative/expressions/initializers.c
+  STRUCT S
+    float x
+    *signed int ptr
+    *signed int ptr2
+  STRUCT_END
+----
+  STRUCT S s1 = \
+    INIT_BEGIN
+      (*void)0
+      1.000000
+      5
+      0
+      0
+      0.100000
+      "ccc"
+      0
+    INIT_END
+----
+  signed int[20] a1
+----
+  signed int[-1] a2 = a1
+----
+  *signed int pa = a1
+----
+  signed int[-1] a3
+----
+  signed int[20] a4 = 0
+----
+  (signed int[20])[] b = \
+    INIT_BEGIN
+
+    INIT_END
+----
+  STRUCT S s2 = \
+    INIT_BEGIN
+      0
+    INIT_END
+----
+  signed int i = 10
+----
+  float f = pa
+----
+  float f2 = 1.000000
+----
+  signed int i2 = f2
+----
+  signed int i3 = s2
+----
+  ERROR TYPE x
+----
+  signed int[3] a5 = \
+    INIT_BEGIN
+      0
+      0
+      0
+      0
+      0
+      0
+      0
+
+    INIT_END

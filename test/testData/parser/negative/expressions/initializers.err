@@ -1,0 +1,7 @@
+test/testData/parser/negative/expressions/initializers.c:21:3: error: assigning to 'float' from incompatible type '*void'
+test/testData/parser/negative/expressions/initializers.c:12:5: error: invalid initializer
+test/testData/parser/negative/expressions/initializers.c:1:7: error: definition of variable with array type needs an explicit size or an initializer
+test/testData/parser/negative/expressions/initializers.c:14:8: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/initializers.c:11:12: error: assigning to 'float' from incompatible type '*signed int'
+test/testData/parser/negative/expressions/initializers.c:10:15: error: assigning to 'signed int' from incompatible type 'STRUCT S'
+test/testData/parser/negative/expressions/initializers.c:1:16: error: variable has incomplete type 'void'

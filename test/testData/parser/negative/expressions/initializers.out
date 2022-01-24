@@ -1,0 +1,8 @@
+test/testData/parser/negative/expressions/initializers.c:31:3: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:43:3: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:50:3: warning: incompatible integer to pointer conversion assigning to '*signed int' from 'C signed long'
+test/testData/parser/negative/expressions/initializers.c:53:3: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:69:3: warning: incompatible integer to pointer conversion assigning to '*signed int' from 'C signed long'
+test/testData/parser/negative/expressions/initializers.c:19:17: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:23:17: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:46:17: warning: excess elements in scalar initializer
