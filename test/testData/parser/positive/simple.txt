@@ -1,12 +1,12 @@
 FILE test/testData/parser/positive/simple.c
-  FUN signed int printf
+  FUN signed int printf 
     #0: *C signed char __format
     ## ...
 ----
-  FUN signed int main
+  FUN signed int main 
     #0: signed int argc
     #1: **signed char argv
   BEGIN
     printf("Hello world!")
-    RETURN 0
+    RETURN 0    
   END

@@ -21,8 +21,10 @@ FILE test/testData/parser/positive/typedef.c
     #6: ***signed int pa
     #7: ****signed int ppa
   BEGIN
-    signed int yyin = fopen("test.txt", "r")
+    signed int yyin = \
+      fopen("test.txt", "r")
     yylex()
-    signed int t_t = x + yyin
+    signed int t_t = \
+      x + yyin
     RETURN 0    
   END

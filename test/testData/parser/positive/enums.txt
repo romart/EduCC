@@ -7,9 +7,12 @@ FILE test/testData/parser/positive/enums.c
 ----
   FUN signed int foo1 
   BEGIN
-    signed int xx = -1
-    double xxx = 14 + 15
-    unsigned char xxxx = xx + xxx    
+    signed int xx = \
+      -1
+    double xxx = \
+      14 + 15
+    unsigned char xxxx = \
+      xx + xxx    
   END
 ----
   ENUM E2

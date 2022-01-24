@@ -12,7 +12,8 @@ FILE test/testData/parser/positive/structs.c
       INIT_BEGIN
         0
       INIT_END
-    *STRUCT SL c = (*void)0
+    *STRUCT SL c = \
+      (*void)0
     STRUCT SL d    
   END
 ----
