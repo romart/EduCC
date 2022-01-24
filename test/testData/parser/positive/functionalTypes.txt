@@ -22,7 +22,8 @@ FILE test/testData/parser/positive/functionalTypes.c
     #0: signed int a
     #1: signed int b
   BEGIN
-    signed int c = 15
+    signed int c = \
+      15
     FOR (c = a; c < b; ++c)
       foo("%d %d %d", a, b, c)      
     END_FOR    

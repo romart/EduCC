@@ -7,25 +7,34 @@ FILE test/testData/parser/negative/expressions/initializers.c
 ----
   STRUCT S s1 = \
     INIT_BEGIN
-      (*void)0
-      1.000000
-      5
-      0
-      0
-      0.100000
-      "ccc"
+      INIT_BEGIN
+        INIT_BEGIN
+          (*void)0
+          1.000000
+          5
+        INIT_END
+        0
+      INIT_END
+      INIT_BEGIN
+        0
+        0.100000
+        "ccc"
+      INIT_END
       0
     INIT_END
 ----
   signed int[20] a1
 ----
-  signed int[-1] a2 = a1
+  signed int[-1] a2 = \
+    a1
 ----
-  *signed int pa = a1
+  *signed int pa = \
+    a1
 ----
   signed int[-1] a3
 ----
-  signed int[20] a4 = 0
+  signed int[20] a4 = \
+    0
 ----
   (signed int[20])[] b = \
     INIT_BEGIN
@@ -37,26 +46,43 @@ FILE test/testData/parser/negative/expressions/initializers.c
       0
     INIT_END
 ----
-  signed int i = 10
+  signed int i = \
+    10
 ----
-  float f = pa
+  float f = \
+    pa
 ----
-  float f2 = 1.000000
+  float f2 = \
+    1.000000
 ----
-  signed int i2 = f2
+  signed int i2 = \
+    f2
 ----
-  signed int i3 = s2
+  signed int i3 = \
+    s2
 ----
   ERROR TYPE x
 ----
   signed int[3] a5 = \
     INIT_BEGIN
-      0
-      0
-      0
-      0
-      0
-      0
-      0
+      INIT_BEGIN
+        INIT_BEGIN
+          0
+          0
+        INIT_END
+        0
+        INIT_BEGIN
+          0
+          0
+        INIT_END
+      INIT_END
+      INIT_BEGIN
+        0
+      INIT_END
+      INIT_BEGIN
+        0
+        INIT_BEGIN
 
+        INIT_END
+      INIT_END
     INIT_END

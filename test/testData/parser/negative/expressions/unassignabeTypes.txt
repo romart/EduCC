@@ -3,9 +3,11 @@ FILE test/testData/parser/negative/expressions/unassignabeTypes.c
 ----
   STRUCT S2
 ----
-  signed int g = 10
+  signed int g = \
+    10
 ----
-  float gf = 20.000000
+  float gf = \
+    20.000000
 ----
   signed int[20] garr
 ----
