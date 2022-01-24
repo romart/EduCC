@@ -280,11 +280,21 @@ typedef enum _InitializerKind {
   IK_LIST
 } InitializerKind;
 
+typedef struct _AstInitializerList {
+  struct _AstInitializer *initializer;
+  struct _AstInitializerList *next;
+} AstInitializerList;
+
 typedef struct _AstInitializer {
     Coordinates coordinates;
     InitializerKind kind; // expression | list of initializers
-    AstExpression *expression;
-    struct _AstInitializer *initializers; // Next initializers | Head of initializer list
+    union {
+      AstExpression *expression;
+      struct {
+        AstInitializerList *initializerList;
+        int numOfInitializers;
+      };
+    };
 } AstInitializer;
 
 typedef enum _DeclaratorPartKind {
@@ -463,7 +473,8 @@ TypeDesc *createTypeDescriptor(ParserContext *ctx, TypeId typeId, const char *na
 
 EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset, const char* name, int64_const_t value);
 
-AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, InitializerKind kind, AstExpression *expr, AstInitializer *initializers);
+AstInitializerList *createAstInitializerList(ParserContext *ctx);
+AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, InitializerKind kind);
 AstStructDeclarator *createStructDeclarator(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, int width);
 AstStructMember* createStructMember(ParserContext *ctx, AstDeclaration *declaration, AstStructDeclarator *declarator, EnumConstant *enumerator);
 AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, int startOffset, int endOffset, DeclarationKind kind, unsigned isDefinition, const char *name, AstStructMember *members);
