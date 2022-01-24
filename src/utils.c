@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "mem.h"
 #include "utils.h"
@@ -164,5 +165,9 @@ unsigned countLines(FILE* file) {
 void unreachable(const char *msg) {
   fprintf(stderr, "Unreachable execition: %s\n", msg);
   abort();
+}
+
+int isTerminal(FILE *stream) {
+  return isatty(fileno(stream));
 }
 
