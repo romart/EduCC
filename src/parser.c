@@ -319,13 +319,18 @@ static AstConst* parseConstExpression(ParserContext *ctx, struct _Scope* scope) 
     return constExpr;
 }
 
-static int parseAsIntConst(ParserContext *ctx, struct _Scope* scope) {
-    AstConst* expr = parseConstExpression(ctx, scope);
-    if (!expr) return 42;
+static Boolean parseAsIntConst(ParserContext *ctx, int64_const_t *result) {
+    int so = ctx->token->coordinates.startOffset;
+    AstConst* expr = parseConstExpression(ctx, NULL);
+    int eo = ctx->token->coordinates.endOffset;
+    if (expr == NULL) return FALSE;
     if (expr->op != CK_INT_CONST) {
-        parseError(ctx, "expression is not an integer constant expression", expr->op);
+        reportError(ctx, so, eo, "expression is not an integer constant expression");
+        return FALSE;
     }
-    return (int)expr->i;
+
+    *result = (int)expr->i;
+    return TRUE;
 }
 
 static AstExpression *resolveNameRef(ParserContext *ctx) {
@@ -522,8 +527,6 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
     }
 }
 
-
-
 /**
 unary_expression
     : postfix_expression
@@ -537,8 +540,6 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
     ExpressionType op;
     AstExpression* argument = NULL;
     AstExpression* result = NULL;
-    SpecifierFlags constFlags = { 0 };
-    constFlags.bits.isConst = 1;
     int so = ctx->token->coordinates.startOffset, eo = -1;
     switch (ctx->token->code) {
         case INC_OP: op = EU_PRE_INC; goto ue1;
@@ -587,29 +588,47 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
             return result;
         case SIZEOF: {
             int token = nextToken(ctx)->code;
+            TypeRef *sizeType = NULL;
             if (token == '(') {
                 token = nextToken(ctx)->code;
                 if (isSpecifierQualifierList(token)) {
-                    TypeRef* typeRef = parseTypeName(ctx, scope);
-                    eo = ctx->token->coordinates.endOffset;
-                    consume(ctx, ')');
-                    unsigned long long c = 42; // TODO: compute size of type
-                    result = createAstConst(ctx, so, eo, CK_INT_CONST, &c);
+                    argument = NULL;
+                    sizeType = parseTypeName(ctx, scope);
                 } else {
-                    // TODO: should be const too
                     argument = parseExpression(ctx, scope);
-                    eo = ctx->token->coordinates.endOffset;
-                    consume(ctx, ')');
-                    result = createUnaryExpression(ctx, so, eo, EU_SIZEOF, argument);
+                    sizeType = argument->type;
                 }
+                eo = ctx->token->coordinates.endOffset;
+                consume(ctx, ')');
             } else {
-                // TODO: should be const too
                 argument = parseUnaryExpression(ctx, scope);
                 eo = argument->coordinates.endOffset;
-                result = createUnaryExpression(ctx, so, eo, EU_SIZEOF, argument);
+                sizeType = argument->type;
             }
-            result->type = makePrimitiveType(ctx, T_U4, constFlags.storage);
-            return result;
+
+            if (isErrorType(sizeType)) {
+                return argument;
+            } else {
+                long long c = computeTypeSize(ctx, sizeType);
+                AstExpression *constVal = NULL;
+                if (c >= 0) {
+                    constVal = createAstConst(ctx, so, eo, CK_INT_CONST, &c);
+                    constVal->type = makePrimitiveType(ctx, T_U4, 0);
+                } else {
+                    char buffer[1024] = { 0 };
+                    renderTypeRef(sizeType, buffer, sizeof buffer);
+                    reportError(ctx, so, eo, "invalid application of 'sizeof' to an incomplete type '%s'", buffer);
+                    constVal = createErrorExpression(ctx, so, eo);
+                }
+
+                if (argument) {
+                  result = createBinaryExpression(ctx, EB_COMMA, argument, constVal);
+                  result->type = constVal->type;
+                  return result;
+                } else {
+                  return constVal;
+                }
+            }
         }
         default:
             return parsePostfixExpression(ctx, scope);
@@ -995,10 +1014,10 @@ static AstStructMember *parseEnumeratorList(ParserContext *ctx, struct _Scope* s
            parseError(ctx, "Expecting IDENTIFIER in enum list but found %s", tokenName(token));
         }
 
-        int64_const_t v;
+        int64_const_t v = idx;
         if (nextTokenIf(ctx, '=')) {
             eo = ctx->token->coordinates.endOffset; // TODO: fix
-            v = parseAsIntConst(ctx, scope);
+            parseAsIntConst(ctx, &v);
             idx = v + 1;
         } else {
             v = idx++;
@@ -1106,16 +1125,57 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _S
                 parseDeclarator(ctx, &declarator);
                 verifyDeclarator(ctx, &declarator, DS_STRUCT);
             }
-            int width = -1;
+            int64_const_t width = -1;
+            Boolean hasWidth = FALSE;
             if (ctx->token->code == ':') {
                 nextToken(ctx);
-                width = parseAsIntConst(ctx, scope);
-                // check width (size and sign)
+                hasWidth = parseAsIntConst(ctx, &width);
             }
 
             const char *name = declarator.identificator;
             int eo = declarator.coordinates.endOffset;
             TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
+            if (hasWidth) {
+                if (isIntegerType(type)) {
+                  if (width < 0) {
+                      if (name) {
+                        int rso = declarator.coordinates.startOffset;
+                        int reo = declarator.coordinates.endOffset;
+                        reportError(ctx, rso, reo, "bit-field '%s' has negative width (%d)", name, width);
+                      } else {
+                        int rso = specifiers.coordinates.startOffset;
+                        int reo = specifiers.coordinates.endOffset;
+                        reportError(ctx, rso, reo, "anonymous bit-field has negative width (%d)", width);
+                      }
+                  } else {
+                      int typeSize = type->descriptorDesc->size;
+                      int typeWidth = typeSize * BYTE_BIT_SIZE;
+                      if (width > typeWidth) {
+                        if (name) {
+                          int rso = declarator.coordinates.startOffset;
+                          int reo = declarator.coordinates.endOffset;
+                          reportError(ctx, rso, reo, "width of bit-field '%s' (%d bits) exceeds the width of its type (%d)", name, width, typeWidth);
+                        } else {
+                          int rso = specifiers.coordinates.startOffset;
+                          int reo = specifiers.coordinates.endOffset;
+                          reportError(ctx, rso, reo, "width of anonymous bit-field (%d bits) exceeds the width of its type (%d)", width, typeWidth);
+                        }
+                      }
+                  }
+                } else {
+                    char b[1024];
+                    renderTypeRef(type, b, sizeof b);
+                    if (name) {
+                      int rso = declarator.coordinates.startOffset;
+                      int reo = declarator.coordinates.endOffset;
+                      reportError(ctx, rso, reo, "bit-field '%s' has non-integral type '%s'", name, b);
+                    } else {
+                      int rso = specifiers.coordinates.startOffset;
+                      int reo = specifiers.coordinates.endOffset;
+                      reportError(ctx, rso, reo, "anonymous bit-field has non-integral type 'float'", b);
+                    }
+                }
+            }
             AstStructDeclarator *structDeclarator = NULL;
             structDeclarator = createStructDeclarator(ctx, so, eo, type, name, width);
             AstStructMember *member = createStructMember(ctx, NULL, structDeclarator, NULL);
@@ -1466,7 +1526,7 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
             int size = 0;
 
             TypeDesc *typeDescriptor = NULL;
-            if (name) {
+            if (name) { // TODO: should not be done here
                 int len = strlen(name);
                 char *symbolName = allocateString(ctx, len + 1 + 1);
                 size = sprintf(symbolName, "%s%s", prefix, name);
@@ -1780,9 +1840,9 @@ static void parseFunctionDeclaratorPart(ParserContext *ctx, Declarator *declarat
 
 static void parseArrayDeclaratorPart(ParserContext *ctx, Declarator *declarator) {
   consume(ctx, '[');
-  int size = UNKNOWN_SIZE;
+  int64_const_t size = UNKNOWN_SIZE;
   if (ctx->token->code != ']') {
-      size = parseAsIntConst(ctx, NULL);
+      parseAsIntConst(ctx, &size);
   }
   declarator->coordinates.endOffset = ctx->token->coordinates.endOffset;
   DeclaratorPart *part = &declarator->declaratorParts[declarator->partsCounter++];
@@ -1885,13 +1945,13 @@ static AstStatement *parseIfStatement(ParserContext *ctx, struct _Scope* scope) 
 static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
     AstExpression *expr, *expr2, *expr3;
     AstStatement *stmt;
-    int c = 0;
+    int64_const_t c = 0;
     int so = ctx->token->coordinates.startOffset;
     int eo = ctx->token->coordinates.endOffset;
     switch (ctx->token->rawCode) {
     case CASE:
         nextToken(ctx);
-        c = parseAsIntConst(ctx, scope);
+        parseAsIntConst(ctx, &c);
     case DEFAULT:
         expect(ctx, ':');
         nextToken(ctx);
@@ -2249,8 +2309,6 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
 
   if (nextTokenIf(ctx, ';')) {
       if (isTypeDefDeclaration) {
-          // warning
-          // TODO: check other SCS to be off
           parseWarning(ctx, "typedef requires a name");
       }
       return;
