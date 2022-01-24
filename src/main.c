@@ -14,7 +14,7 @@ static void dumpFile(AstFile *file, const char* dumpFile) {
   fclose(toDump);
 }
 
-static void processInputFile(const char* inputFile, const char *dumpFileName) {
+static void processInputFile(const char* inputFile, const char *dumpFileName, Boolean verbose) {
 
     FILE* opened = fopen(inputFile, "r");
     AstFile* firstFile = NULL;
@@ -37,13 +37,16 @@ int main(int argc, char** argv) {
   argc--; argv++;
   int i;
   const char *dumpFileName = NULL;
+  Boolean verbose = TRUE;
   for (i = 0; i < argc; ++i) {
     const char *arg = argv[i];
     if (strcmp("-astDump", arg) == 0) {
       dumpFileName = argv[++i];
-    } else{
+    } else if (strcmp("-oneline", arg) == 0) {
+      verbose = FALSE;
+    } else {
       const char* inputFile = argv[i];
-      processInputFile(inputFile, dumpFileName);
+      processInputFile(arg, dumpFileName, verbose);
     }
   }
   return 0;
