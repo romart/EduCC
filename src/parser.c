@@ -1586,32 +1586,39 @@ initializer
  */
 static AstInitializer* parseInitializer(ParserContext *ctx, struct _Scope* scope) {
     AstExpression *expr = NULL;
-    InitializerKind kind;
     int so = ctx->token->coordinates.startOffset, eo = -1;
 
-    AstInitializer *head = NULL, *tail = NULL;
+    AstInitializer *result;
 
     if (nextTokenIf(ctx, '{')) {
-        kind = IK_LIST;
-        do {
+        AstInitializerList *head = NULL, *tail = NULL;
+        int numOfInits = 0;
+        while (ctx->token->code != '}') {
+            AstInitializerList *next = createAstInitializerList(ctx);
             AstInitializer* initializer = parseInitializer(ctx, scope);
+            next->initializer = initializer;
             nextTokenIf(ctx, ',');
-            eo = ctx->token->coordinates.endOffset;
             if (tail) {
-                tail->initializers = initializer;
+                tail->next = next;
             } else {
-                head = initializer;
+                head = next;
             }
-            tail = initializer;
-        } while (ctx->token->code != '}');
-        nextToken(ctx); // eat '}'
+            tail = next;
+            ++numOfInits;
+        }
+        eo = ctx->token->coordinates.endOffset;
+        consume(ctx, '}');
+        result = createAstInitializer(ctx, so, eo, IK_LIST);
+        result->initializerList = head;
+        result->numOfInitializers = numOfInits;
     } else {
-        kind = IK_EXPRESSION;
         expr = parseAssignmentExpression(ctx, scope);
         eo = expr->coordinates.endOffset;
+        result = createAstInitializer(ctx, so, eo, IK_EXPRESSION);
+        result->expression = expr;
     }
 
-    return createAstInitializer(ctx, so, eo, kind, expr, head);
+    return result;
 }
 
 /**
@@ -2042,12 +2049,18 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                     const char *name = declarator.identificator;
                     int eod = declarator.coordinates.endOffset;
                     TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
+                    Boolean isTypeOk = verifyValueType(ctx, sod, eod, type);
+                    if (!isTypeOk) type = makeErrorRef(ctx);
                     AstInitializer* initializer = NULL;
                     int eqPos = ctx->token->coordinates.startOffset;
                     if (nextTokenIf(ctx, '=')) {
-                        // TODO: compute array size here
                         initializer = parseInitializer(ctx, NULL);
+                        finalizeInitializer(ctx, type, initializer);
                         eod = initializer->coordinates.endOffset;
+                    } else {
+                        if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE) {
+                          reportError(ctx, sod, eod, "definition of variable with array type needs an explicit size or an initializer");
+                        }
                     }
 
                     AstDeclaration *declaration = NULL;
@@ -2313,6 +2326,15 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
       }
     } else {
         TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
+        Boolean isTypeOk = verifyValueType(ctx, so, eo, type);
+        if (!isTypeOk) type = makeErrorRef(ctx);
+        if (initializer) {
+          finalizeInitializer(ctx, type, initializer);
+        } else {
+          if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE) {
+              reportError(ctx, so, eo, "definition of variable with array type needs an explicit size or an initializer");
+          }
+        }
         AstValueDeclaration *valueDeclaration = createAstValueDeclaration(ctx, so, eo, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
         declareValueSymbol(ctx, name, valueDeclaration);
         declaration = createAstDeclaration(ctx, DK_VAR, name);

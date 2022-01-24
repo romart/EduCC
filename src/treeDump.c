@@ -314,8 +314,7 @@ static int dumpAstInitializerImpl(FILE *output, int indent, AstInitializer *init
     result += dumpAstExpressionImpl(output, 0, init->expression);
   } else {
       assert(init->kind == IK_LIST);
-      int i;
-      AstInitializer *nested = init->initializers;
+      AstInitializerList *nested = init->initializerList;
       Boolean first = TRUE;
       while (nested) {
           if (first) {
@@ -323,8 +322,8 @@ static int dumpAstInitializerImpl(FILE *output, int indent, AstInitializer *init
           } else {
               result += fprintf(output, "\n");
           }
-          result += dumpAstInitializerImpl(output, indent, nested);
-          nested = nested->initializers;
+          result += dumpAstInitializerImpl(output, indent, nested->initializer);
+          nested = nested->next;
       }
   }
   return result;

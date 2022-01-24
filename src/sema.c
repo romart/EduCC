@@ -343,14 +343,6 @@ TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, T
   if (isErrorType(ifTrue)) return ifTrue;
   if (isErrorType(ifFalse)) return ifFalse;
 
-//  int i;
-//  int *pi;
-//  float f;
-//  float *fp;
-//  int arr[20];
-
-//  so ? f : arr;
-
   if (isStructualType(ifTrue) || isStructualType(ifFalse)) {
       if (typesEquals(ifTrue, ifFalse)) {
           return ifTrue;
@@ -670,9 +662,108 @@ TypeRef *computeFunctionType(ParserContext *ctx, int so, int eo, AstFunctionDecl
   return result;
 }
 
-int foo(int *a, int *b) {}
+void finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer *initializer) {
+  if (isErrorType(valueType)) return;
 
+  int so = initializer->coordinates.startOffset;
+  int eo = initializer->coordinates.endOffset;
 
+  if (valueType->kind == TR_ARRAY && valueType->arrayTypeDesc.size == UNKNOWN_SIZE) {
+      if (initializer->kind == IK_LIST) {
+          assert(initializer->numOfInitializers >= 0);
+          valueType->arrayTypeDesc.size = initializer->numOfInitializers;
+      } else {
+          reportError(ctx, so, eo, "invalid initializer");
+          return;
+      }
+  }
+
+  if (initializer->kind == IK_EXPRESSION) {
+      AstExpression *expr = initializer->expression;
+      if (expr) {
+        isAssignableTypes(ctx, so, eo, valueType, expr->type);
+      }
+  } else {
+      TypeRefKind kind = valueType->kind;
+      AstInitializerList *inner = initializer->initializerList;
+      if (kind == TR_VALUE) {
+        if (isPrimitiveType(valueType)) {
+//          int i = { { { (void*)0, 01.f, 5 } , 0 }, { 0, 0.1f, "ccc" } , 0 };
+            finalizeInitializer(ctx, valueType, inner->initializer);
+            AstInitializerList *next = inner->next;
+            if (next) {
+                int nso = next->initializer->coordinates.startOffset;
+                int neo = next->initializer->coordinates.endOffset;
+                reportWarning(ctx, nso, neo, "excess elements in scalar initializer");
+            }
+        } else {
+//        struct S s = { { { (void*)0, 01.f, 5 } , 0 }, { 0, 0.1f, "ccc" } , 0 };
+          AstSUEDeclaration *declaration = valueType->descriptorDesc->structInfo;
+          AstStructMember *member = declaration->members;
+          while (member && inner) {
+              if (member->kind != SM_DECLARATOR) {
+                  member = member->next;
+                  continue;
+              }
+              finalizeInitializer(ctx, member->declarator->typeRef, inner->initializer);
+              inner = inner->next;
+              member = member->next;
+          }
+
+          if (inner != NULL) {
+              int nso = inner->initializer->coordinates.startOffset;
+              int neo = inner->initializer->coordinates.endOffset;
+              reportWarning(ctx, nso, neo, "excess elements in scalar initializer");
+          }
+        }
+      } else if (kind == TR_POINTED) {
+          finalizeInitializer(ctx, valueType, inner->initializer);
+          AstInitializerList *next = inner->next;
+//        int *ab = { { 0, 0, "ccc" } , 0.1f };
+//        int *ab = { { 0, 0, "ccc" } , 0.1f };
+//        struct S *s = { (void*)0, 01.f, 5, { 0, 0.1f, "ccc" } , 0 };
+          if (next) {
+              int nso = next->initializer->coordinates.startOffset;
+              int neo = next->initializer->coordinates.endOffset;
+              reportWarning(ctx, nso, neo, "excess elements in scalar initializer");
+          }
+
+      } else if (kind == TR_ARRAY) {
+//          int a[] = { 0, { 0, 0, 0 }, 0};
+//          int a[]={ { { 0, 0}, 0, { 0, 0}}, { 0}, {0, { }}};
+          TypeRef *elementType = valueType->arrayTypeDesc.elementType;
+          while (inner) {
+              finalizeInitializer(ctx, elementType, inner->initializer);
+              inner = inner->next;
+          }
+      } else {
+          // ft fx = { 01.f, 5, { 0, 0.1f, "ccc" } , 0 };
+          reportError(ctx, so, eo, "illegal initializer (only variables can be initialized)");
+      }
+  }
+}
+
+// true if everything is OK
+Boolean verifyValueType(ParserContext *ctx, int so, int eo, TypeRef *valueType) {
+  if (isErrorType(valueType)) return TRUE;
+
+  if (valueType->kind == TR_VALUE) {
+      TypeDesc *desc = valueType->descriptorDesc;
+      if (desc->typeId == T_VOID) {
+          reportError(ctx, so, eo, "variable has incomplete type 'void'");
+          return FALSE;
+      } else if (desc->typeId > T_BUILT_IN_TYPES) {
+          if (desc->size == UNKNOWN_SIZE) {
+              char buffer[1024];
+              renderTypeDesc(desc, buffer, sizeof buffer);
+              reportError(ctx, so, eo, "variable has incomplete type '%s'", buffer);
+              return FALSE;
+          }
+      }
+  }
+
+  return TRUE;
+}
 
 void verifyCallAruments(ParserContext *ctx, int so, int eo, TypeRef *functionType, AstExpressionList *aruments) {
   if (isErrorType(functionType)) return;
@@ -881,7 +972,7 @@ Symbol *declareValueSymbol(ParserContext *ctx, const char *name, AstValueDeclara
 }
 
 Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeId, const char *symbolName, AstSUEDeclaration *declaration, Symbol **ss) {
-  Symbol *s = findSymbolInScope(ctx->currentScope, symbolName);
+  Symbol *s = findSymbol(ctx, symbolName); // TODO: allow local struct redeclaration
   Symbol *old = s;
   const char *name = declaration->name;
 
@@ -897,16 +988,14 @@ Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeI
   } else {
       if (s->kind != symbolKind) {
           parseError(ctx, "use of '%s' with tag type that does not match previous declaration", name);
-          // also point to already defined one
-          // TODO: recovery
+          // TODO: also point to already defined one
       } else {
           typeDescriptor = s->typeDescriptor;
           AstSUEDeclaration *existedDeclaration = typeDescriptor->structInfo;
           if (declaration->members) {
             if (existedDeclaration->members) {
                 parseError(ctx, "redefinition of '%s'", name);
-                // also point to already defined one
-                // TODO recovery
+                // TODO: also point to already defined one
             } else {
                 typeDescriptor->structInfo = declaration;
             }

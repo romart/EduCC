@@ -120,15 +120,17 @@ AstTranslationUnit *createTranslationUnit(ParserContext *ctx, AstDeclaration *de
    }
 }
 
-AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, InitializerKind kind, AstExpression *expr, AstInitializer *initializers) {
+AstInitializerList *createAstInitializerList(ParserContext *ctx) {
+    return (AstInitializerList*)areanAllocate(ctx->memory.astArena, sizeof(AstInitializerList));
+}
+
+AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, InitializerKind kind) {
     AstInitializer* result = (AstInitializer*)areanAllocate(ctx->memory.astArena, sizeof(AstInitializer));
 
     result->coordinates.startOffset = startOffset;
     result->coordinates.endOffset = startOffset;
 
     result->kind = kind;
-    result->expression = expr;
-    result->initializers = initializers;
 
     return result;
 }
