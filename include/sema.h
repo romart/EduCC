@@ -33,6 +33,9 @@ void finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer 
 Boolean verifyValueType(ParserContext *ctx, int so, int eo, TypeRef *valueType);
 void verifyCallAruments(ParserContext *ctx, int so, int eo, TypeRef *functionType, AstExpressionList *aruments);
 
+Boolean isErrorType(TypeRef *type);
+Boolean isIntegerType(TypeRef *type);
+
 typedef enum _TypeEqualityKind {
   TEK_UNKNOWN,
   TEK_EQUAL,
