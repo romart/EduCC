@@ -1,3 +1,5 @@
+test/testData/parser/negative/incorrectDeclaration2.c:1:2: warning: type specifier missing, defaults to 'int'
+test/testData/parser/negative/incorrectDeclaration2.c:1:2: warning: declaration does not declare anything
 test/testData/parser/negative/incorrectDeclaration2.c:1:2: error: unexpected token / '(null)' instead of {
 test/testData/parser/negative/incorrectDeclaration2.c:3:2: error: use of undeclared identifier 'TODO'
 test/testData/parser/negative/incorrectDeclaration2.c:1:6: error: unexpected token INT '(null)' instead of ;

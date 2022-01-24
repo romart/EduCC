@@ -1,13 +1,24 @@
+test/testData/parser/negative/expressions/assignOp.c:5:15: warning: incompatible integer to pointer conversion assigning to 'signed int' from '*signed int'
+test/testData/parser/negative/expressions/assignOp.c:5:16: warning: incompatible integer to pointer conversion assigning to 'signed int' from '*float'
+test/testData/parser/negative/expressions/assignOp.c:5:17: warning: incompatible integer to pointer conversion assigning to 'signed int' from 'signed int[20]'
 test/testData/parser/negative/expressions/assignOp.c:5:18: error: assigning to 'signed int' from incompatible type 'STRUCT S'
+test/testData/parser/negative/expressions/assignOp.c:5:19: warning: incompatible integer to pointer conversion assigning to 'signed int' from '*STRUCT S'
 test/testData/parser/negative/expressions/assignOp.c:5:22: error: assigning to 'float' from incompatible type '*signed int'
 test/testData/parser/negative/expressions/assignOp.c:5:23: error: assigning to 'float' from incompatible type '*float'
 test/testData/parser/negative/expressions/assignOp.c:5:24: error: assigning to 'float' from incompatible type 'signed int[20]'
 test/testData/parser/negative/expressions/assignOp.c:5:25: error: assigning to 'float' from incompatible type 'STRUCT S'
 test/testData/parser/negative/expressions/assignOp.c:5:26: error: assigning to 'float' from incompatible type '*STRUCT S'
+test/testData/parser/negative/expressions/assignOp.c:6:27: warning: incompatible integer to pointer conversion assigning to '*signed int' from 'signed int'
 test/testData/parser/negative/expressions/assignOp.c:6:28: error: assigning to '*signed int' from incompatible type 'float'
+test/testData/parser/negative/expressions/assignOp.c:6:30: warning: incompatible pointer types assigning to '*signed int' from '*float'
 test/testData/parser/negative/expressions/assignOp.c:6:32: error: assigning to '*signed int' from incompatible type 'STRUCT S'
+test/testData/parser/negative/expressions/assignOp.c:6:33: warning: incompatible pointer types assigning to '*signed int' from '*STRUCT S'
+test/testData/parser/negative/expressions/assignOp.c:6:34: warning: incompatible integer to pointer conversion assigning to '*float' from 'signed int'
 test/testData/parser/negative/expressions/assignOp.c:6:35: error: assigning to '*float' from incompatible type 'float'
+test/testData/parser/negative/expressions/assignOp.c:6:36: warning: incompatible pointer types assigning to '*float' from '*signed int'
+test/testData/parser/negative/expressions/assignOp.c:6:38: warning: incompatible pointer types assigning to '*float' from 'signed int[20]'
 test/testData/parser/negative/expressions/assignOp.c:6:39: error: assigning to '*float' from incompatible type 'STRUCT S'
+test/testData/parser/negative/expressions/assignOp.c:6:40: warning: incompatible pointer types assigning to '*float' from '*STRUCT S'
 test/testData/parser/negative/expressions/assignOp.c:7:41: error: array type 'signed int[20]' is not assignable
 test/testData/parser/negative/expressions/assignOp.c:7:42: error: array type 'signed int[20]' is not assignable
 test/testData/parser/negative/expressions/assignOp.c:7:43: error: array type 'signed int[20]' is not assignable
@@ -21,9 +32,17 @@ test/testData/parser/negative/expressions/assignOp.c:5:50: error: assigning to '
 test/testData/parser/negative/expressions/assignOp.c:5:51: error: assigning to 'STRUCT S' from incompatible type '*float'
 test/testData/parser/negative/expressions/assignOp.c:5:52: error: assigning to 'STRUCT S' from incompatible type 'signed int[20]'
 test/testData/parser/negative/expressions/assignOp.c:5:54: error: assigning to 'STRUCT S' from incompatible type '*STRUCT S'
+test/testData/parser/negative/expressions/assignOp.c:6:55: warning: incompatible integer to pointer conversion assigning to '*STRUCT S' from 'signed int'
 test/testData/parser/negative/expressions/assignOp.c:6:56: error: assigning to '*STRUCT S' from incompatible type 'float'
+test/testData/parser/negative/expressions/assignOp.c:6:57: warning: incompatible pointer types assigning to '*STRUCT S' from '*signed int'
+test/testData/parser/negative/expressions/assignOp.c:6:58: warning: incompatible pointer types assigning to '*STRUCT S' from '*float'
+test/testData/parser/negative/expressions/assignOp.c:6:59: warning: incompatible pointer types assigning to '*STRUCT S' from 'signed int[20]'
 test/testData/parser/negative/expressions/assignOp.c:6:60: error: assigning to '*STRUCT S' from incompatible type 'STRUCT S'
+test/testData/parser/negative/expressions/assignOp.c:5:68: warning: incompatible integer to pointer conversion assigning to 'signed int' from '*signed int'
+test/testData/parser/negative/expressions/assignOp.c:5:69: warning: incompatible integer to pointer conversion assigning to 'signed int' from '*float'
+test/testData/parser/negative/expressions/assignOp.c:5:70: warning: incompatible integer to pointer conversion assigning to 'signed int' from '*signed int'
 test/testData/parser/negative/expressions/assignOp.c:5:71: error: invalid operands to binary expression ('signed int' and 'STRUCT S')
+test/testData/parser/negative/expressions/assignOp.c:5:72: warning: incompatible integer to pointer conversion assigning to 'signed int' from '*STRUCT S'
 test/testData/parser/negative/expressions/assignOp.c:5:75: error: invalid operands to binary expression ('float' and '*signed int')
 test/testData/parser/negative/expressions/assignOp.c:5:76: error: invalid operands to binary expression ('float' and '*float')
 test/testData/parser/negative/expressions/assignOp.c:5:77: error: invalid operands to binary expression ('float' and 'signed int[20]')
@@ -61,16 +80,28 @@ test/testData/parser/negative/expressions/assignOp.c:6:111: error: invalid opera
 test/testData/parser/negative/expressions/assignOp.c:6:112: error: invalid operands to binary expression ('*STRUCT S' and 'signed int[20]')
 test/testData/parser/negative/expressions/assignOp.c:6:113: error: invalid operands to binary expression ('*STRUCT S' and 'STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:6:114: error: invalid operands to binary expression ('*STRUCT S' and '*STRUCT S')
+test/testData/parser/negative/expressions/assignOp.c:5:121: warning: incompatible integer to pointer conversion assigning to 'signed int' from '*signed int'
+test/testData/parser/negative/expressions/assignOp.c:5:122: warning: incompatible integer to pointer conversion assigning to 'signed int' from '*float'
+test/testData/parser/negative/expressions/assignOp.c:5:123: warning: incompatible integer to pointer conversion assigning to 'signed int' from '*signed int'
 test/testData/parser/negative/expressions/assignOp.c:5:124: error: invalid operands to binary expression ('signed int' and 'STRUCT S')
+test/testData/parser/negative/expressions/assignOp.c:5:125: warning: incompatible integer to pointer conversion assigning to 'signed int' from '*STRUCT S'
 test/testData/parser/negative/expressions/assignOp.c:5:128: error: invalid operands to binary expression ('float' and '*signed int')
 test/testData/parser/negative/expressions/assignOp.c:5:129: error: invalid operands to binary expression ('float' and '*float')
 test/testData/parser/negative/expressions/assignOp.c:5:130: error: invalid operands to binary expression ('float' and 'signed int[20]')
 test/testData/parser/negative/expressions/assignOp.c:5:131: error: invalid operands to binary expression ('float' and 'STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:5:132: error: invalid operands to binary expression ('float' and '*STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:6:134: error: invalid operands to binary expression ('*signed int' and 'float')
+test/testData/parser/negative/expressions/assignOp.c:6:135: warning: incompatible integer to pointer conversion assigning to '*signed int' from 'signed long'
+test/testData/parser/negative/expressions/assignOp.c:6:136: warning: incompatible integer to pointer conversion assigning to '*signed int' from 'signed long'
+test/testData/parser/negative/expressions/assignOp.c:6:137: warning: incompatible integer to pointer conversion assigning to '*signed int' from 'signed long'
 test/testData/parser/negative/expressions/assignOp.c:6:138: error: invalid operands to binary expression ('*signed int' and 'STRUCT S')
+test/testData/parser/negative/expressions/assignOp.c:6:139: warning: incompatible integer to pointer conversion assigning to '*signed int' from 'signed long'
 test/testData/parser/negative/expressions/assignOp.c:6:141: error: invalid operands to binary expression ('*float' and 'float')
+test/testData/parser/negative/expressions/assignOp.c:6:142: warning: incompatible integer to pointer conversion assigning to '*float' from 'signed long'
+test/testData/parser/negative/expressions/assignOp.c:6:143: warning: incompatible integer to pointer conversion assigning to '*float' from 'signed long'
+test/testData/parser/negative/expressions/assignOp.c:6:144: warning: incompatible integer to pointer conversion assigning to '*float' from 'signed long'
 test/testData/parser/negative/expressions/assignOp.c:6:145: error: invalid operands to binary expression ('*float' and 'STRUCT S')
+test/testData/parser/negative/expressions/assignOp.c:6:146: warning: incompatible integer to pointer conversion assigning to '*float' from 'signed long'
 test/testData/parser/negative/expressions/assignOp.c:7:147: error: array type 'signed int[20]' is not assignable
 test/testData/parser/negative/expressions/assignOp.c:7:148: error: invalid operands to binary expression ('signed int[20]' and 'float')
 test/testData/parser/negative/expressions/assignOp.c:7:149: error: array type 'signed int[20]' is not assignable
@@ -86,7 +117,11 @@ test/testData/parser/negative/expressions/assignOp.c:5:158: error: invalid opera
 test/testData/parser/negative/expressions/assignOp.c:5:159: error: invalid operands to binary expression ('STRUCT S' and 'STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:5:160: error: invalid operands to binary expression ('STRUCT S' and '*STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:6:162: error: invalid operands to binary expression ('*STRUCT S' and 'float')
+test/testData/parser/negative/expressions/assignOp.c:6:163: warning: incompatible integer to pointer conversion assigning to '*STRUCT S' from 'signed long'
+test/testData/parser/negative/expressions/assignOp.c:6:164: warning: incompatible integer to pointer conversion assigning to '*STRUCT S' from 'signed long'
+test/testData/parser/negative/expressions/assignOp.c:6:165: warning: incompatible integer to pointer conversion assigning to '*STRUCT S' from 'signed long'
 test/testData/parser/negative/expressions/assignOp.c:6:166: error: invalid operands to binary expression ('*STRUCT S' and 'STRUCT S')
+test/testData/parser/negative/expressions/assignOp.c:6:167: warning: incompatible integer to pointer conversion assigning to '*STRUCT S' from 'signed long'
 test/testData/parser/negative/expressions/assignOp.c:5:174: error: invalid operands to binary expression ('signed int' and '*signed int')
 test/testData/parser/negative/expressions/assignOp.c:5:175: error: invalid operands to binary expression ('signed int' and '*float')
 test/testData/parser/negative/expressions/assignOp.c:5:176: error: invalid operands to binary expression ('signed int' and 'signed int[20]')
