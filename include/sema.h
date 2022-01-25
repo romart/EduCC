@@ -94,7 +94,7 @@ Symbol* findOrDeclareSymbol(ParserContext* ctx, SymbolKind kind, const char* nam
 Symbol *declareTypeDef(ParserContext *ctx, const char *name, TypeRef *type);
 Symbol *declareValueSymbol(ParserContext *ctx, const char *name, AstValueDeclaration *declaration);
 Symbol *declareFunctionSymbol(ParserContext *ctx, const char *name, AstFunctionDeclaration *declaration);
-Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeId, const char *name, AstSUEDeclaration *declaration, Symbol **ss);
+Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeId, const char *name, AstSUEDeclaration *declaration);
 Symbol *declareEnumConstantSymbol(ParserContext *ctx, EnumConstant *enumerator);
 
 Scope *newScope(ParserContext *ctx, Scope *parent);

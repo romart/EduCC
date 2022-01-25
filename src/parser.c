@@ -1400,6 +1400,48 @@ static TypeDesc *computePrimitiveTypeDescriptor(ParserContext *ctx, TSW tsw, con
   unreachable("Type has to be specicied by this point");
 }
 
+
+enum StructSpecifierKind {
+  SSK_NONE,
+  SSK_DECLARATION,
+  SSK_REFERENCE,
+  SSK_DEFINITION,
+  SSK_ERROR
+};
+
+static enum StructSpecifierKind guessStructualMode(ParserContext *ctx) {
+//   struct S;         -- SSK_DECLARATION
+//   struct S s;       -- SSK_REFERENCE
+//   struct S? { .. }; -- SSK_DEFINITION
+
+  Token *kwToken = ctx->token;
+
+  enum StructSpecifierKind ssk = SSK_NONE;
+
+  Token *nToken = nextToken(ctx);
+
+  if (nToken->code == '{') {
+      ssk = SSK_DEFINITION;
+  } else if (nToken->rawCode == IDENTIFIER) {
+      int nnTokenCode = nextToken(ctx)->rawCode;
+      if (nnTokenCode == ';') {
+          ssk = SSK_DECLARATION;
+      } else if (nnTokenCode == '{') {
+          ssk = SSK_DEFINITION;
+      } else if (nnTokenCode == IDENTIFIER) {
+          ssk = SSK_REFERENCE;
+      } else {
+          ssk = SSK_ERROR;
+      }
+  } else {
+      ssk = SSK_ERROR;
+  }
+
+  ctx->token = kwToken;
+
+  return ssk;
+}
+
 static const char *duplicateMsgFormater = "duplicate '%s' declaration specifier";
 static const char *nonCombineMsgFormater = "cannot combine with previous '%s' declaration specifier";
 
@@ -1513,11 +1555,13 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
         sue:
         seenTypeSpecifier = TRUE;
         {
+            enum StructSpecifierKind ssk = guessStructualMode(ctx);
+
             AstSUEDeclaration *declaration = typeId == T_ENUM
                 ? parseEnumDeclaration(ctx, NULL)
                 : parseStructOrUnionDeclaration(ctx, typeId == T_STRUCT ? DK_STRUCT : DK_UNION, NULL);
 
-            if (declaration->isDefinition)
+            if (ssk == SSK_DEFINITION)
               specifiers->defined = declaration;
 
             eo = declaration->coordinates.endOffset;
@@ -1530,14 +1574,22 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
                 int len = strlen(name);
                 char *symbolName = allocateString(ctx, len + 1 + 1);
                 size = sprintf(symbolName, "%s%s", prefix, name);
-                Symbol *s;
 
-                declareSUESymbol(ctx, symbolId, typeId, symbolName, declaration, &s);
+                Symbol *s = NULL;
+                if (ssk == SSK_REFERENCE) {
+                    s = findSymbol(ctx, symbolName);
+                    if (s && s->kind != symbolId) {
+                      parseError(ctx, "use of '%s' with tag type that does not match previous declaration", name);
+                    }
+                }
 
+                if (s == NULL) {
+                  s = declareSUESymbol(ctx, symbolId, typeId, symbolName, declaration);
+                }
 
                 typeDescriptor = s->typeDescriptor;
             } else {
-                if (declaration->isDefinition) {
+                if (ssk == SSK_DEFINITION) {
                   size = sprintf(tmpBuf, "<anon$%d>", ctx->anonSymbolsCounter++);
                   name = allocateString(ctx, size + 1);
                   memcpy((char *)name, tmpBuf, size + 1);
@@ -1553,7 +1605,7 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
                 }
             }
 
-            specifiers->basicType = makeBasicType(ctx, typeDescriptor, specifiers->flags.storage);
+            specifiers->basicType = typeDescriptor != NULL ? makeBasicType(ctx, typeDescriptor, specifiers->flags.storage) : makeErrorRef(ctx);
 
             goto almost_done;
         }
