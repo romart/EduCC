@@ -24,7 +24,7 @@ EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset
     EnumConstant* result = (EnumConstant*)areanAllocate(ctx->memory.astArena, sizeof(EnumConstant));
 
     result->coordinates.startOffset = startOffset;
-    result->coordinates.endOffset = startOffset;
+    result->coordinates.endOffset = endOffset;
     result->name = name;
     result->value = value;
 
@@ -56,7 +56,7 @@ AstStructDeclarator* createStructDeclarator(ParserContext *ctx, int startOffset,
     AstStructDeclarator* result = (AstStructDeclarator*)areanAllocate(ctx->memory.astArena, sizeof(AstStructDeclarator));
 
     result->coordinates.startOffset = startOffset;
-    result->coordinates.endOffset = startOffset;
+    result->coordinates.endOffset = endOffset;
     result->f_width = width;
 
     result->name = name;
@@ -69,7 +69,7 @@ AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, int startOffset, int
     AstSUEDeclaration *result = (AstSUEDeclaration*)areanAllocate(ctx->memory.astArena, sizeof(AstSUEDeclaration));
 
     result->coordinates.startOffset = startOffset;
-    result->coordinates.endOffset = startOffset;
+    result->coordinates.endOffset = endOffset;
 
     result->kind = kind;
     result->name = name;
@@ -83,7 +83,7 @@ AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, int startOffs
     AstValueDeclaration *result = (AstValueDeclaration *)areanAllocate(ctx->memory.astArena, sizeof (AstValueDeclaration));
 
     result->coordinates.startOffset = startOffset;
-    result->coordinates.endOffset = startOffset;
+    result->coordinates.endOffset = endOffset;
 
     result->kind = kind;
     result->name = name;
@@ -128,7 +128,7 @@ AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int en
     AstInitializer* result = (AstInitializer*)areanAllocate(ctx->memory.astArena, sizeof(AstInitializer));
 
     result->coordinates.startOffset = startOffset;
-    result->coordinates.endOffset = startOffset;
+    result->coordinates.endOffset = endOffset;
 
     result->kind = kind;
 
@@ -174,7 +174,7 @@ static AstExpression *allocAstExpression(ParserContext *ctx, int startOffset, in
   AstExpression *result = (AstExpression *)areanAllocate(ctx->memory.astArena, sizeof(AstExpression));
 
   result->coordinates.startOffset = startOffset;
-  result->coordinates.endOffset = startOffset;
+  result->coordinates.endOffset = endOffset;
 
   return result;
 }
@@ -183,7 +183,7 @@ static AstStatement *allocAstStatement(ParserContext *ctx, int startOffset, int 
   AstStatement *result = (AstStatement *)areanAllocate(ctx->memory.astArena, sizeof(AstStatement));
 
   result->coordinates.startOffset = startOffset;
-  result->coordinates.endOffset = startOffset;
+  result->coordinates.endOffset = endOffset;
 
   return result;
 }
