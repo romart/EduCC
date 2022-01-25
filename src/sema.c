@@ -971,9 +971,9 @@ Symbol *declareValueSymbol(ParserContext *ctx, const char *name, AstValueDeclara
   return declareGenericSymbol(ctx, ValueSymbol, name, declaration, existedValueProcessor, newValueProcessor);
 }
 
-Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeId, const char *symbolName, AstSUEDeclaration *declaration, Symbol **ss) {
-  Symbol *s = findSymbol(ctx, symbolName); // TODO: allow local struct redeclaration
-  Symbol *old = s;
+Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeId, const char *symbolName, AstSUEDeclaration *declaration) {
+  Symbol *s = findSymbolInScope(ctx->currentScope, symbolName); // TODO: allow local struct redeclaration
+
   const char *name = declaration->name;
 
   TypeDesc *typeDescriptor;
@@ -1002,8 +1002,7 @@ Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeI
           }
       }
   }
-  *ss = s;
-  return old;
+  return s;
 }
 
 Symbol *declareEnumConstantSymbol(ParserContext *ctx, EnumConstant *enumerator) {
