@@ -240,6 +240,10 @@ static Boolean isPointerLikeType(TypeRef *type) {
   return type->kind == TR_POINTED || type->kind == TR_ARRAY;
 }
 
+static Boolean isScalarType(TypeRef *type) {
+  return type->kind == TR_POINTED || isPrimitiveType(type);
+}
+
 TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, int so, int eo, TypeRef *arrayType, TypeRef *indexType) {
   if (isErrorType(arrayType)) return arrayType;
   if (isErrorType(indexType)) return indexType;
@@ -662,11 +666,164 @@ TypeRef *computeFunctionType(ParserContext *ctx, int so, int eo, AstFunctionDecl
   return result;
 }
 
-void finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer *initializer) {
-  if (isErrorType(valueType)) return;
+AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer *initializer);
 
+static void unwindInitializer(ParserContext *ctx, AstInitializer *transformed, TypeRef *type, AstInitializerList **head, AstInitializerList **tail, int *count) {
+
+  AstInitializerList *tmp = NULL;
+  if (transformed) {
+    if (transformed->kind == IK_EXPRESSION) {
+        tmp = createAstInitializerList(ctx);
+        tmp->initializer = transformed;
+        ++(*count);
+    } else {
+        assert(transformed->kind == IK_LIST);
+        if (isScalarType(type)) {
+          tmp = transformed->initializerList;
+          *count += transformed->numOfInitializers;
+        } else {
+          tmp = createAstInitializerList(ctx);
+          tmp->initializer = transformed;
+          ++(*count);
+        }
+    }
+  }
+
+  if (*tail) {
+      (*tail)->next = tmp;
+  } else {
+      *head = tmp;
+  }
+
+  while (tmp) {
+      *tail = tmp;
+      tmp = tmp->next;
+  }
+}
+
+static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *elementType, AstInitializer *initializer, unsigned arraySize, unsigned *counter) {
   int so = initializer->coordinates.startOffset;
   int eo = initializer->coordinates.endOffset;
+
+  if (initializer->kind == IK_EXPRESSION) {
+      AstExpression *expr = initializer->expression;
+      if (expr) {
+        if (!(isStructualType(elementType) && isIntegerType(expr->type))) { // array initializer like `struct S as[] = { 0 }` is totally acceptable
+          isAssignableTypes(ctx, so, eo, elementType, expr->type);
+        }
+      } else {
+        initializer->expression = createErrorExpression(ctx, so, eo);
+      }
+      (*counter)++;
+      return initializer;
+  } else {
+      assert(initializer->kind == IK_LIST);
+      AstInitializerList *inner = initializer->initializerList;
+      AstInitializerList *head = NULL, *tail = NULL;
+      if (elementType->kind == TR_POINTED || isPrimitiveType(elementType)) {
+        if (inner) {
+          int count = 0;
+          while (inner) {
+              if (*counter >= arraySize) {
+                  int nso = inner->initializer->coordinates.startOffset;
+                  int neo = inner->initializer->coordinates.endOffset;
+                  reportWarning(ctx, nso, neo, "excess elements in scalar initializer");
+              }
+
+              AstInitializer *transformed = finalizeArrayInitializer(ctx, elementType, inner->initializer, arraySize, counter);
+              unwindInitializer(ctx, transformed, elementType, &head, &tail, &count);
+
+              inner = inner->next;
+          }
+          AstInitializer *result = createAstInitializer(ctx, so, eo, IK_LIST);
+          result->initializerList = head;
+          result->numOfInitializers = count;
+          return result;
+        } else {
+          reportError(ctx, so, eo, "scalar initializer cannot be empty");
+          AstInitializer *result = createAstInitializer(ctx, so, eo, IK_EXPRESSION);
+          result->expression = createErrorExpression(ctx, so, eo);
+          return result;
+        }
+    } else {
+      AstInitializer *result = finalizeInitializer(ctx, elementType, initializer);
+      (*counter)++;
+      return result;
+    }
+  }
+
+  return NULL;
+}
+
+static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember **pmember, AstInitializer *initializer) {
+  int so = initializer->coordinates.startOffset;
+  int eo = initializer->coordinates.endOffset;
+  AstStructMember *member  = *pmember;
+  assert(member->kind == SM_DECLARATOR);
+  TypeRef *memberType = member->declarator->typeRef;
+  if (initializer->kind == IK_EXPRESSION) {
+      AstExpression *expr = initializer->expression;
+      if (expr) {
+        isAssignableTypes(ctx, so, eo, memberType, expr->type);
+      } else {
+        initializer->expression = createErrorExpression(ctx, so, eo);
+      }
+      *pmember = member->next;
+      return initializer;
+  } else {
+      assert(initializer->kind == IK_LIST);
+      AstInitializerList *inner = initializer->initializerList;
+      AstInitializerList *head = NULL, *tail = NULL;
+      if (memberType->kind == TR_POINTED || isPrimitiveType(memberType)) {
+          AstInitializer *result = NULL;
+          if (inner) {
+            int count = 0;
+            while (inner && member) {
+                if (member->kind != SM_DECLARATOR) {
+                    member = member->next;
+                    continue;
+                }
+                TypeRef *memberType = member->declarator->typeRef;
+                AstInitializer *transformed = finalizeStructMember(ctx, &member, inner->initializer);
+                unwindInitializer(ctx, transformed, memberType, &head, &tail, &count);
+
+                inner = inner->next;
+            }
+
+            if (inner != NULL) {
+                int nso = inner->initializer->coordinates.startOffset;
+                int neo = inner->initializer->coordinates.endOffset;
+                reportWarning(ctx, nso, neo, "excess elements in scalar initializer");
+            }
+
+            result = createAstInitializer(ctx, so, eo, IK_LIST);
+            result->initializerList = head;
+            result->numOfInitializers = count;
+          } else {
+            reportError(ctx, so, eo, "scalar initializer cannot be empty");
+            result = createAstInitializer(ctx, so, eo, IK_EXPRESSION);
+            result->expression = createErrorExpression(ctx, so, eo);
+          }
+          *pmember = member;
+          return result;
+      } else {
+          AstInitializer *result = finalizeInitializer(ctx, memberType, initializer);
+          *pmember = member->next;
+          return result;
+      }
+  }
+  return NULL;
+}
+
+AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer *initializer) {
+  int so = initializer->coordinates.startOffset;
+  int eo = initializer->coordinates.endOffset;
+  if (isErrorType(valueType)) {
+      initializer->kind = IK_EXPRESSION;
+      initializer->expression = createErrorExpression(ctx, so, eo);
+      initializer->numOfInitializers = -1;
+      return initializer;
+  }
 
   if (valueType->kind == TR_ARRAY && valueType->arrayTypeDesc.size == UNKNOWN_SIZE) {
       if (initializer->kind == IK_LIST) {
@@ -674,7 +831,7 @@ void finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer 
           valueType->arrayTypeDesc.size = initializer->numOfInitializers;
       } else {
           reportError(ctx, so, eo, "invalid initializer");
-          return;
+          return initializer;
       }
   }
 
@@ -683,64 +840,82 @@ void finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer 
       if (expr) {
         isAssignableTypes(ctx, so, eo, valueType, expr->type);
       }
+      return initializer;
   } else {
       TypeRefKind kind = valueType->kind;
       AstInitializerList *inner = initializer->initializerList;
-      if (kind == TR_VALUE) {
-        if (isPrimitiveType(valueType)) {
-//          int i = { { { (void*)0, 01.f, 5 } , 0 }, { 0, 0.1f, "ccc" } , 0 };
-            finalizeInitializer(ctx, valueType, inner->initializer);
-            AstInitializerList *next = inner->next;
-            if (next) {
-                int nso = next->initializer->coordinates.startOffset;
-                int neo = next->initializer->coordinates.endOffset;
-                reportWarning(ctx, nso, neo, "excess elements in scalar initializer");
+      if (isScalarType(valueType)) {
+            if (inner) {
+              AstInitializer * result = finalizeInitializer(ctx, valueType, inner->initializer);
+              AstInitializerList *next = inner->next;
+              if (next) {
+                  int nso = next->initializer->coordinates.startOffset;
+                  int neo = next->initializer->coordinates.endOffset;
+                  reportWarning(ctx, nso, neo, "excess elements in scalar initializer");
+              }
+              return result;
+            } else {
+              int nso = initializer->coordinates.startOffset;
+              int neo = initializer->coordinates.endOffset;
+              reportError(ctx, nso, neo, "scalar initializer cannot be empty");
+              return initializer;
             }
-        } else {
-//        struct S s = { { { (void*)0, 01.f, 5 } , 0 }, { 0, 0.1f, "ccc" } , 0 };
+      } else if (isStructualType(valueType)) {
           AstSUEDeclaration *declaration = valueType->descriptorDesc->structInfo;
           AstStructMember *member = declaration->members;
-          while (member && inner) {
-              if (member->kind != SM_DECLARATOR) {
+
+          AstInitializerList *head = NULL, *tail = NULL;
+
+          int count = 0;
+
+          while (inner && member) {
+              TypeRef *type = NULL;
+
+              if (member->kind == SM_DECLARATION) {
                   member = member->next;
                   continue;
               }
-              finalizeInitializer(ctx, member->declarator->typeRef, inner->initializer);
+              assert(member->kind == SM_DECLARATOR);
+              type = member->declarator->typeRef;
+
+              AstInitializer *transformed = finalizeStructMember(ctx, &member, inner->initializer);
+
+              unwindInitializer(ctx, transformed, type, &head, &tail, &count);
               inner = inner->next;
-              member = member->next;
           }
 
-          if (inner != NULL) {
-              int nso = inner->initializer->coordinates.startOffset;
-              int neo = inner->initializer->coordinates.endOffset;
-              reportWarning(ctx, nso, neo, "excess elements in scalar initializer");
-          }
-        }
-      } else if (kind == TR_POINTED) {
-          finalizeInitializer(ctx, valueType, inner->initializer);
-          AstInitializerList *next = inner->next;
-//        int *ab = { { 0, 0, "ccc" } , 0.1f };
-//        int *ab = { { 0, 0, "ccc" } , 0.1f };
-//        struct S *s = { (void*)0, 01.f, 5, { 0, 0.1f, "ccc" } , 0 };
-          if (next) {
-              int nso = next->initializer->coordinates.startOffset;
-              int neo = next->initializer->coordinates.endOffset;
-              reportWarning(ctx, nso, neo, "excess elements in scalar initializer");
-          }
-
-      } else if (kind == TR_ARRAY) {
-//          int a[] = { 0, { 0, 0, 0 }, 0};
-//          int a[]={ { { 0, 0}, 0, { 0, 0}}, { 0}, {0, { }}};
+          AstInitializer *result = createAstInitializer(ctx, so, eo, IK_LIST);
+          result->numOfInitializers = count;
+          result->initializerList = head;
+          return result;
+      } else if (valueType->kind == TR_ARRAY) {
           TypeRef *elementType = valueType->arrayTypeDesc.elementType;
+          unsigned arrayCounter = 0, arraySize = valueType->arrayTypeDesc.size;
+          AstInitializerList *head = NULL, *tail = NULL;
+          int count = 0;
+
           while (inner) {
-              finalizeInitializer(ctx, elementType, inner->initializer);
+              if (arrayCounter >= arraySize) {
+                  int nso = inner->initializer->coordinates.startOffset;
+                  int neo = inner->initializer->coordinates.endOffset;
+                  reportWarning(ctx, nso, neo, "excess elements in scalar initializer");
+              }
+
+              AstInitializer *transformed = finalizeArrayInitializer(ctx, elementType, inner->initializer, arraySize, &arrayCounter);
+
+              unwindInitializer(ctx, transformed, elementType, &head, &tail, &count);
               inner = inner->next;
           }
+          AstInitializer *result = createAstInitializer(ctx, so, eo, IK_LIST);
+          result->numOfInitializers = count;
+          result->initializerList = head;
+          return result;
       } else {
           // ft fx = { 01.f, 5, { 0, 0.1f, "ccc" } , 0 };
           reportError(ctx, so, eo, "illegal initializer (only variables can be initialized)");
       }
   }
+  return NULL;
 }
 
 // true if everything is OK
