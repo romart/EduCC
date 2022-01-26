@@ -28,7 +28,7 @@ TypeRef *computeAssignmentTypes(ParserContext *ctx, int so, int eo, TypeRef *lef
 TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op);
 TypeRef *computeFunctionType(ParserContext *ctx, int so, int eo, AstFunctionDeclaration *declaration);
 
-void finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer *initializer);
+AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer *initializer);
 
 Boolean verifyValueType(ParserContext *ctx, int so, int eo, TypeRef *valueType);
 void verifyCallAruments(ParserContext *ctx, int so, int eo, TypeRef *functionType, AstExpressionList *aruments);
