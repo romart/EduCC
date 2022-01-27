@@ -39,6 +39,7 @@ Boolean isIntegerType(TypeRef *type);
 Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeRef *from);
 
 void verifySwitchCases(ParserContext *ctx, AstStatement *switchBody, unsigned caseCount);
+void verifyGotoLabels(ParserContext *ctx, AstStatement *body, HashMap *labelSet);
 
 typedef enum _TypeEqualityKind {
   TEK_UNKNOWN,
@@ -112,5 +113,8 @@ TypeRef *makeFunctionReturnType(ParserContext *ctx, DeclarationSpecifiers *speci
 TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator);
 TypeRef *makeErrorRef(ParserContext *ctx);
 
+
+int stringHashCode(const void *v);
+int stringCmp(const void *v1, const void *v2);
 
 #endif // __SEMA_H__

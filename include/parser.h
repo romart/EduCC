@@ -62,6 +62,7 @@ typedef struct _ParserContext {
       unsigned inLoop: 1;
       unsigned inSwitch: 1;
       unsigned caseCount;
+      HashMap *labelSet;
     } stateFlags;
 
     TypeRef *functionReturnType;

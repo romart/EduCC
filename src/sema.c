@@ -1113,8 +1113,6 @@ static void verifySwtichCasesRec(ParserContext *ctx, AstStatement *stmt, unsigne
   }
 }
 
-
-
 void verifySwitchCases(ParserContext *ctx, AstStatement *switchBody, unsigned caseCount) {
   int *caseSet = heapAllocate(sizeof (int) * caseCount);
   unsigned caseIndex = 0;
@@ -1124,7 +1122,52 @@ void verifySwitchCases(ParserContext *ctx, AstStatement *switchBody, unsigned ca
   releaseHeap(caseSet);
 }
 
-static int stringHashCode(const void *v) {
+void verifyGotoLabels(ParserContext *ctx, AstStatement *stmt, HashMap *labelSet) {
+  switch (stmt->statementKind) {
+    case SK_BLOCK: {
+        AstStatementList *node = stmt->block.stmts;
+        while (node) {
+            verifyGotoLabels(ctx, node->stmt, labelSet);
+            node = node->next;
+        }
+        break;
+    }
+    case SK_LABEL:
+        verifyGotoLabels(ctx, stmt->labelStmt.body, labelSet);
+        break;
+    case SK_IF:
+        verifyGotoLabels(ctx, stmt->ifStmt.thenBranch, labelSet);
+        if (stmt->ifStmt.elseBranch) {
+            verifyGotoLabels(ctx, stmt->ifStmt.elseBranch, labelSet);
+        }
+        break;
+    case SK_WHILE:
+    case SK_DO_WHILE:
+        verifyGotoLabels(ctx, stmt->loopStmt.body, labelSet);;
+        break;
+    case SK_FOR:
+        verifyGotoLabels(ctx, stmt->forStmt.body, labelSet);;
+        break;
+    case SK_SWITCH: // stop
+        verifyGotoLabels(ctx, stmt->switchStmt.body, labelSet);;
+        break;
+    case SK_RETURN:
+    case SK_DECLARATION:
+    case SK_EXPR_STMT:
+    case SK_EMPTY:
+    case SK_ERROR:
+    case SK_BREAK:
+    case SK_CONTINUE:
+      break;
+    case SK_GOTO:
+      if (!isInHashMap(labelSet, stmt->jumpStmt.label)) {
+          reportError(ctx, stmt->coordinates.startOffset, stmt->coordinates.endOffset, "use of undeclared label '%s'", stmt->jumpStmt.label);
+      }
+      break;
+  }
+}
+
+int stringHashCode(const void *v) {
     const char *s = (const char *)v;
     assert(s != NULL && "hashMap key is NULL");
     int result = 0;
@@ -1139,7 +1182,7 @@ static int stringHashCode(const void *v) {
     return result;
 }
 
-static int stringCmp(const void *v1, const void *v2) {
+int stringCmp(const void *v1, const void *v2) {
     const char *s1 = (const char *)v1;
     const char *s2 = (const char *)v2;
 
