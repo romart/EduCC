@@ -1994,17 +1994,46 @@ static AstStatement *parseIfStatement(ParserContext *ctx, struct _Scope* scope) 
     return createIfStatement(ctx, so, eo, cond, thenB, elseB);
 }
 
+int fas(int a) {
+//  continue;
+//  while (1) {
+
+//  }
+//  break;
+
+//  switch (a) {
+//  case 1.0f:
+//  case 2:
+//  }
+
+//  case 11:
+//  default:
+//  int a = 11;
+
+
+}
+
 static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
     AstExpression *expr, *expr2, *expr3;
     AstStatement *stmt;
     int64_const_t c = 0;
+    unsigned oldFlag = 0;
+    unsigned oldCaseCount = 0;
     int so = ctx->token->coordinates.startOffset;
     int eo = ctx->token->coordinates.endOffset;
     switch (ctx->token->rawCode) {
     case CASE:
+        if (!ctx->stateFlags.inSwitch) {
+            reportError(ctx, so, eo, "'case' statement not in switch statement");
+        } else {
+            ctx->stateFlags.caseCount += 1;
+        }
         nextToken(ctx);
         parseAsIntConst(ctx, &c);
     case DEFAULT:
+        if (!ctx->stateFlags.inSwitch) {
+            reportError(ctx, so, eo, "'default' statement not in switch statement");
+        }
         expect(ctx, ':');
         nextToken(ctx);
         stmt = parseStatement(ctx, scope);
@@ -2016,11 +2045,25 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         consume(ctx, SWITCH);
         consume(ctx, '(');
         expr = parseExpression(ctx, scope);
+        if (!isIntegerType(expr->type)) {
+            char b[1024] = { 0 };
+            renderTypeRef(expr->type, b, sizeof b);
+            reportError(ctx, expr->coordinates.startOffset, expr->coordinates.endOffset, "statement requires expression of integer type ('%s' invalid)", b);
+        }
         consume(ctx, ')');
+        oldCaseCount = ctx->stateFlags.caseCount;
+        ctx->stateFlags.caseCount = 0;
+        oldFlag = ctx->stateFlags.inSwitch;
+        ctx->stateFlags.inSwitch = 1;
         stmt = parseStatement(ctx, scope);
+        ctx->stateFlags.inSwitch = oldFlag;
+        verifySwitchCases(ctx, stmt, ctx->stateFlags.caseCount);
+        ctx->stateFlags.caseCount = oldCaseCount;
         eo = stmt->coordinates.endOffset;
         return createSwitchStatement(ctx, so, eo, expr, stmt);
     case WHILE:
+        oldFlag = ctx->stateFlags.inLoop;
+        ctx->stateFlags.inLoop = 1;
         consume(ctx, WHILE);
         consume(ctx, '(');
         expr = parseExpression(ctx, scope);
@@ -2030,12 +2073,14 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         return createLoopStatement(ctx, so, eo, SK_WHILE, expr, stmt);
     case DO:
         consume(ctx, DO);
+        oldFlag = ctx->stateFlags.inLoop;
+        ctx->stateFlags.inLoop = 1;
         stmt = parseStatement(ctx, scope);
+        eo = ctx->token->coordinates.endOffset;
         consume(ctx, WHILE);
         consume(ctx, '(');
         expr = parseExpression(ctx, scope);
         consume(ctx, ')');
-        eo = ctx->token->coordinates.endOffset;
         consume(ctx, ';');
         return createLoopStatement(ctx, so, eo, SK_DO_WHILE, expr, stmt);
     case FOR:
@@ -2051,7 +2096,10 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         expr3 = ctx->token->code != ')' ? parseExpression(ctx, scope) : NULL;
         consume(ctx, ')'); // for( ...; ...; ...)
 
+        oldFlag = ctx->stateFlags.inLoop;
+        ctx->stateFlags.inLoop = 1;
         stmt = parseStatement(ctx, scope); // for( ...; ...; ...) ...
+        ctx->stateFlags.inLoop = oldFlag;
 
         eo = stmt->coordinates.endOffset;
         return createForStatement(ctx, so, eo, expr, expr2, expr3, stmt);
@@ -2061,14 +2109,24 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         consumeRaw(ctx, IDENTIFIER);
         eo = ctx->token->coordinates.endOffset;
         consume(ctx, ';');
-        stmt = createJumpStatement(ctx, so, eo, SK_GOTO);
-        stmt->labelStmt.label = label;
+        if (label) {
+          stmt = createJumpStatement(ctx, so, eo, SK_GOTO);
+          stmt->labelStmt.label = label;
+        } else {
+          stmt = createErrorStatement(ctx, so, eo);
+        }
         return stmt;
     case CONTINUE:
+        if (!ctx->stateFlags.inLoop) {
+            reportError(ctx, so, eo, "'continue' statement not in loop statement");
+        }
         consume(ctx, CONTINUE);
         consume(ctx, ';');
         return createJumpStatement(ctx, so, eo, SK_CONTINUE);
     case BREAK:
+        if (!(ctx->stateFlags.inLoop || ctx->stateFlags.inSwitch)) {
+            reportError(ctx, so, eo, "'break' statement not in loop or switch statement");
+        }
         consume(ctx, BREAK);
         consume(ctx, ';');
         return createJumpStatement(ctx, so, eo, SK_BREAK);
@@ -2077,8 +2135,10 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         expr = ctx->token->code != ';' ? parseExpression(ctx, scope) : NULL;
         eo = ctx->token->coordinates.endOffset;
         consume(ctx, ';');
-        // TODO: check return type and expression type
         stmt = createJumpStatement(ctx, so, eo, SK_RETURN);
+        if (expr) {
+          isAssignableTypes(ctx, so, eo, ctx->functionReturnType, expr->type);
+        }
         stmt->jumpStmt.expression = expr;
         return stmt;
     case ';':
@@ -2166,8 +2226,11 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                     AstInitializer* initializer = NULL;
                     int eqPos = ctx->token->coordinates.startOffset;
                     if (nextTokenIf(ctx, '=')) {
+                        if (specifiers.flags.bits.isExternal) {
+                            reportError(ctx, declarator.coordinates.startOffset, declarator.coordinates.endOffset, "'extern' variable cannot have an initializer");
+                        }
                         initializer = parseInitializer(ctx, NULL);
-                        initializer = finalizeInitializer(ctx, type, initializer);
+                        initializer = finalizeInitializer(ctx, type, initializer, FALSE);
                         eod = initializer->coordinates.endOffset;
                     } else {
                         if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE) {
@@ -2380,6 +2443,9 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
     int isFunDeclarator = isFunctionDeclarator(&declarator);
     int eqPos = ctx->token->coordinates.startOffset;
     if (nextTokenIf(ctx, '=')) {
+        if (specifiers.flags.bits.isExternal) {
+            reportError(ctx, declarator.coordinates.startOffset, declarator.coordinates.endOffset, "'extern' variable cannot have an initializer");
+        }
         initializer = parseInitializer(ctx, NULL);
     };
 
@@ -2439,7 +2505,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
         Boolean isTypeOk = verifyValueType(ctx, so, eo, type);
         if (!isTypeOk) type = makeErrorRef(ctx);
         if (initializer) {
-          initializer = finalizeInitializer(ctx, type, initializer);
+          initializer = finalizeInitializer(ctx, type, initializer, TRUE);
         } else {
           if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE) {
               reportError(ctx, so, eo, "definition of variable with array type needs an explicit size or an initializer");
@@ -2468,8 +2534,11 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
       functionScope = newScope(ctx, ctx->currentScope);
   }
 
+  ctx->functionReturnType = functionDeclaration ? functionDeclaration->returnType : makeErrorRef(ctx);
+
   ctx->currentScope = functionScope;
   AstStatement *body = parseFunctionBody(ctx);
+  ctx->functionReturnType = NULL;
   ctx->currentScope = functionScope->parent;
 
   if (functionDeclaration) {

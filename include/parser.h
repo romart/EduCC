@@ -57,6 +57,15 @@ typedef struct _ParserContext {
       unsigned lineCount;
       unsigned *linesPos;
     } locationInfo;
+
+    struct {
+      unsigned inLoop: 1;
+      unsigned inSwitch: 1;
+      unsigned caseCount;
+    } stateFlags;
+
+    TypeRef *functionReturnType;
+
 } ParserContext;
 
 #endif // __PARSER_H__
