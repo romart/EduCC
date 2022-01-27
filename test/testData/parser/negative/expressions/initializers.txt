@@ -5,15 +5,81 @@ FILE test/testData/parser/negative/expressions/initializers.c
     *signed int ptr2
   STRUCT_END
 ----
+  STRUCT SX
+    signed int a
+    STRUCT S s
+    STRUCT S[2] as
+  STRUCT_END
+----
+  STRUCT S s0
+----
   STRUCT S s1 = \
     INIT_BEGIN
+      1.000000
+      (*signed int)0
+      (*signed int)0
+    INIT_END
+----
+  STRUCT S s2 = \
+    INIT_BEGIN
+      1.000000
+      (*signed int)0
+      (*signed int)0
+    INIT_END
+----
+  STRUCT S s3 = \
+    INIT_BEGIN
+      1.000000
+      (*signed int)0
+      (*signed int)0
+    INIT_END
+----
+  STRUCT S s4 = \
+    INIT_BEGIN
+      1.000000
+      (*signed int)0
+      (*signed int)0
+    INIT_END
+----
+  STRUCT S[3] s5 = \
+    INIT_BEGIN
       INIT_BEGIN
-        INIT_BEGIN
-          (*void)0
-          1.000000
-          5
-        INIT_END
-        0
+        1.000000
+        (*signed int)0
+        (*signed int)0
+      INIT_END
+      INIT_BEGIN
+        1.000000
+        (*signed int)0
+        (*signed int)0
+      INIT_END
+      INIT_BEGIN
+        1.000000
+        (*signed int)0
+        (*signed int)0
+      INIT_END
+    INIT_END
+----
+  STRUCT S s6 = \
+    INIT_BEGIN
+      1.000000
+      (*signed int)0
+      (*signed int)0
+    INIT_END
+----
+  STRUCT S s7 = \
+    INIT_BEGIN
+      (*void)0
+      1.000000
+      ERROR EXPR
+    INIT_END
+----
+  STRUCT S[3] s8 = \
+    INIT_BEGIN
+      INIT_BEGIN
+        (*void)0
+        1.000000
+        5
       INIT_END
       INIT_BEGIN
         0
@@ -21,6 +87,135 @@ FILE test/testData/parser/negative/expressions/initializers.c
         "ccc"
       INIT_END
       0
+    INIT_END
+----
+  STRUCT S[1] sa = \
+    INIT_BEGIN
+      0
+    INIT_END
+----
+  STRUCT SX sx1 = \
+    INIT_BEGIN
+      0
+      s0
+      INIT_BEGIN
+        0
+      INIT_END
+    INIT_END
+----
+  signed int[4] a = \
+    INIT_BEGIN
+      0
+      1
+      2
+      3
+      4
+      5
+      6
+      7
+      ERROR EXPR
+      8
+      9
+    INIT_END
+----
+  (signed int[2])[3] b = \
+    INIT_BEGIN
+      INIT_BEGIN
+        0
+        1
+      INIT_END
+      INIT_BEGIN
+        2
+        3
+        4
+        5
+        6
+        7
+        ERROR EXPR
+        8
+      INIT_END
+      INIT_BEGIN
+        9
+      INIT_END
+    INIT_END
+----
+  signed int[9] c = \
+    INIT_BEGIN
+      0
+      1
+      3
+      4
+      5
+      6
+      7
+      8
+      9
+    INIT_END
+----
+  signed int[9] d = \
+    INIT_BEGIN
+      0
+      1
+      3
+      4
+      5
+      6
+      7
+      8
+      9
+    INIT_END
+----
+  signed int[9] e = \
+    INIT_BEGIN
+      0
+      1
+      3
+      4
+      5
+      6
+      7
+      8
+      9
+    INIT_END
+----
+  signed int[9] f = \
+    INIT_BEGIN
+      0
+      1
+      3
+      4
+      5
+      6
+      7
+      8
+      9
+    INIT_END
+----
+  signed int[4] g = \
+    INIT_BEGIN
+      0
+      1
+      2
+      3
+    INIT_END
+----
+  signed int[4] h = \
+    INIT_BEGIN
+      0
+      1
+      2
+      3
+      4
+    INIT_END
+----
+  signed int[4] i = \
+    INIT_BEGIN
+      0
+      1
+      2
+      3
+      4
+      ERROR EXPR
     INIT_END
 ----
   signed int[20] a1
@@ -65,24 +260,29 @@ FILE test/testData/parser/negative/expressions/initializers.c
 ----
   signed int[3] a5 = \
     INIT_BEGIN
-      INIT_BEGIN
-        INIT_BEGIN
-          0
-          0
-        INIT_END
-        0
-        INIT_BEGIN
-          0
-          0
-        INIT_END
-      INIT_END
-      INIT_BEGIN
-        0
-      INIT_END
-      INIT_BEGIN
-        0
-        INIT_BEGIN
+      0
+      0
+      0
+      0
+      0
+      0
+      0
+      ERROR EXPR
+    INIT_END
+----
+  signed int aa = \
+    INIT_BEGIN
 
-        INIT_END
-      INIT_END
+    INIT_END
+----
+  (*signed int)[2] ap = \
+    INIT_BEGIN
+      1.000000
+      2.000000
+    INIT_END
+----
+  float[2] af = \
+    INIT_BEGIN
+      (*signed int)0
+      (*signed int)1
     INIT_END
