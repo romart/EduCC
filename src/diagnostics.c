@@ -40,33 +40,18 @@ static void computeLineAndCollumn(ParserContext *ctx, int _pos, int *line, int *
   unsigned pos = (unsigned)_pos;
 
   unsigned lineMax = ctx->locationInfo.lineno;
-  unsigned lineNum = lineMax / 2;
+  unsigned lineNum = 0;
   unsigned lineOffset = 0;
+  unsigned previousLine = 0;
 
-  for (;;) {
-     lineOffset = lineMap[lineNum];
 
-     if (pos < lineOffset) {
-       if (lineNum > 0) {
-           unsigned prevLineOffset = lineMap[lineNum - 1];
-           if (pos < prevLineOffset) {
-               lineNum = lineNum / 2;
-               continue;
-           }
-           lineOffset = prevLineOffset;
-           break;
-       }
-     } else {
-       if (lineNum + 1 < lineMax) {
-         unsigned nextLineOffset = lineMap[lineNum + 1];
-         if (pos >= nextLineOffset) {
-             lineNum = (lineNum + lineMax) / 2;
-             continue;
-         }
-       }
-       break;
-     }
+  for (lineNum = 0; lineNum < lineMax; ++lineNum) {
+      lineOffset = lineMap[lineNum];
+      if (pos < lineOffset) break;
   }
+
+  --lineNum;
+  lineOffset = lineMap[lineNum];
 
   *line = lineNum + 1;
   *col = pos - lineOffset + 1;
