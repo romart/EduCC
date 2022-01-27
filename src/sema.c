@@ -557,7 +557,7 @@ static void reportInvalidAssignTypes(ParserContext *ctx, int so, int eo, TypeRef
   reportError(ctx, so, eo, "assigning to '%s' from incompatible type '%s'", b1, b2);
 }
 
-static Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeRef *from) {
+Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeRef *from) {
   if (isErrorType(to)) return TRUE;
   if (isErrorType(from)) return TRUE;
 
@@ -666,8 +666,6 @@ TypeRef *computeFunctionType(ParserContext *ctx, int so, int eo, AstFunctionDecl
   return result;
 }
 
-AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer *initializer);
-
 static void unwindInitializer(ParserContext *ctx, AstInitializer *transformed, TypeRef *type, AstInitializerList **head, AstInitializerList **tail, int *count) {
 
   AstInitializerList *tmp = NULL;
@@ -701,13 +699,64 @@ static void unwindInitializer(ParserContext *ctx, AstInitializer *transformed, T
   }
 }
 
-static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *elementType, AstInitializer *initializer, unsigned arraySize, unsigned *counter) {
+
+static Boolean isCompileTimeConstant(AstExpression *expr) {
+  switch (expr->op) {
+    case EU_PRE_INC:
+    case EU_POST_INC:
+    case EU_PRE_DEC:
+    case EU_POST_DEC:
+    case EU_PLUS:      /** +a */
+    case EU_MINUS:     /** -a */
+    case EU_TILDA:     /** ~a */
+    case EU_EXL:       /** !a */
+      return isCompileTimeConstant(expr->unaryExpr.argument);
+    case E_TERNARY:
+      return isCompileTimeConstant(expr->ternaryExpr.condition)
+          && isCompileTimeConstant(expr->ternaryExpr.ifTrue)
+          && isCompileTimeConstant(expr->ternaryExpr.ifFalse);
+    case E_CONST:
+    case EU_SIZEOF:    /** sizeof a */
+      return TRUE;
+    case E_CAST:
+      return isCompileTimeConstant(expr->castExpr.argument);
+    case EB_ADD:
+    case EB_SUB:
+    case EB_MUL:
+    case EB_DIV:
+    case EB_MOD:
+    case EB_LHS: /** << */
+    case EB_RHS: /** >> */
+    case EB_AND:
+    case EB_OR:
+    case EB_XOR:
+    case EB_ANDAND:
+    case EB_OROR:
+    case EB_EQ:
+    case EB_NE:
+    case EB_LT:
+    case EB_LE:
+    case EB_GT:
+    case EB_GE:
+      return isCompileTimeConstant(expr->binaryExpr.left) && isCompileTimeConstant(expr->binaryExpr.right);
+    case EB_COMMA:
+      return isCompileTimeConstant(expr->binaryExpr.right);
+    default:
+      return FALSE;
+  }
+}
+
+
+static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *elementType, AstInitializer *initializer, unsigned arraySize, unsigned *counter, Boolean isTopLevel) {
   int so = initializer->coordinates.startOffset;
   int eo = initializer->coordinates.endOffset;
 
   if (initializer->kind == IK_EXPRESSION) {
       AstExpression *expr = initializer->expression;
       if (expr) {
+        if (isTopLevel && !isCompileTimeConstant(expr)) {
+            reportError(ctx, so, eo, "initializer element is not a compile-time constant");
+        }
         if (!(isStructualType(elementType) && isIntegerType(expr->type))) { // array initializer like `struct S as[] = { 0 }` is totally acceptable
           isAssignableTypes(ctx, so, eo, elementType, expr->type);
         }
@@ -730,7 +779,7 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *ele
                   reportWarning(ctx, nso, neo, "excess elements in scalar initializer");
               }
 
-              AstInitializer *transformed = finalizeArrayInitializer(ctx, elementType, inner->initializer, arraySize, counter);
+              AstInitializer *transformed = finalizeArrayInitializer(ctx, elementType, inner->initializer, arraySize, counter, isTopLevel);
               unwindInitializer(ctx, transformed, elementType, &head, &tail, &count);
 
               inner = inner->next;
@@ -746,7 +795,7 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *ele
           return result;
         }
     } else {
-      AstInitializer *result = finalizeInitializer(ctx, elementType, initializer);
+      AstInitializer *result = finalizeInitializer(ctx, elementType, initializer, isTopLevel);
       (*counter)++;
       return result;
     }
@@ -755,7 +804,7 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *ele
   return NULL;
 }
 
-static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember **pmember, AstInitializer *initializer) {
+static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember **pmember, AstInitializer *initializer, Boolean isTopLevel) {
   int so = initializer->coordinates.startOffset;
   int eo = initializer->coordinates.endOffset;
   AstStructMember *member  = *pmember;
@@ -764,6 +813,9 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
   if (initializer->kind == IK_EXPRESSION) {
       AstExpression *expr = initializer->expression;
       if (expr) {
+        if (isTopLevel && !isCompileTimeConstant(expr)) {
+            reportError(ctx, so, eo, "initializer element is not a compile-time constant");
+        }
         isAssignableTypes(ctx, so, eo, memberType, expr->type);
       } else {
         initializer->expression = createErrorExpression(ctx, so, eo);
@@ -784,7 +836,7 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
                     continue;
                 }
                 TypeRef *memberType = member->declarator->typeRef;
-                AstInitializer *transformed = finalizeStructMember(ctx, &member, inner->initializer);
+                AstInitializer *transformed = finalizeStructMember(ctx, &member, inner->initializer, isTopLevel);
                 unwindInitializer(ctx, transformed, memberType, &head, &tail, &count);
 
                 inner = inner->next;
@@ -807,7 +859,7 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
           *pmember = member;
           return result;
       } else {
-          AstInitializer *result = finalizeInitializer(ctx, memberType, initializer);
+          AstInitializer *result = finalizeInitializer(ctx, memberType, initializer, isTopLevel);
           *pmember = member->next;
           return result;
       }
@@ -815,7 +867,15 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
   return NULL;
 }
 
-AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer *initializer) {
+//struct S { int a; };
+
+//struct S s1;
+
+//struct S s2 = s1;
+
+//struct S as[] = { {0}, {0}, {0} };
+
+AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer *initializer, Boolean isTopLevel) {
   int so = initializer->coordinates.startOffset;
   int eo = initializer->coordinates.endOffset;
   if (isErrorType(valueType)) {
@@ -824,6 +884,10 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
       initializer->numOfInitializers = -1;
       return initializer;
   }
+
+  struct S { int a; };
+
+  struct S as[] = { {0}, {0}, {0} };
 
   if (valueType->kind == TR_ARRAY && valueType->arrayTypeDesc.size == UNKNOWN_SIZE) {
       if (initializer->kind == IK_LIST) {
@@ -838,6 +902,9 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
   if (initializer->kind == IK_EXPRESSION) {
       AstExpression *expr = initializer->expression;
       if (expr) {
+        if (isTopLevel && !isCompileTimeConstant(expr)) {
+            reportError(ctx, so, eo, "initializer element is not a compile-time constant");
+        }
         isAssignableTypes(ctx, so, eo, valueType, expr->type);
       }
       return initializer;
@@ -846,7 +913,7 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
       AstInitializerList *inner = initializer->initializerList;
       if (isScalarType(valueType)) {
             if (inner) {
-              AstInitializer * result = finalizeInitializer(ctx, valueType, inner->initializer);
+              AstInitializer * result = finalizeInitializer(ctx, valueType, inner->initializer, isTopLevel);
               AstInitializerList *next = inner->next;
               if (next) {
                   int nso = next->initializer->coordinates.startOffset;
@@ -878,7 +945,7 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
               assert(member->kind == SM_DECLARATOR);
               type = member->declarator->typeRef;
 
-              AstInitializer *transformed = finalizeStructMember(ctx, &member, inner->initializer);
+              AstInitializer *transformed = finalizeStructMember(ctx, &member, inner->initializer, isTopLevel);
 
               unwindInitializer(ctx, transformed, type, &head, &tail, &count);
               inner = inner->next;
@@ -901,7 +968,7 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
                   reportWarning(ctx, nso, neo, "excess elements in scalar initializer");
               }
 
-              AstInitializer *transformed = finalizeArrayInitializer(ctx, elementType, inner->initializer, arraySize, &arrayCounter);
+              AstInitializer *transformed = finalizeArrayInitializer(ctx, elementType, inner->initializer, arraySize, &arrayCounter, isTopLevel);
 
               unwindInitializer(ctx, transformed, elementType, &head, &tail, &count);
               inner = inner->next;
@@ -974,6 +1041,87 @@ void verifyCallAruments(ParserContext *ctx, int so, int eo, TypeRef *functionTyp
           reportError(ctx, so, eo, "too many arguments to function call");
       }
   }
+}
+
+static Boolean checkInSet(int v, unsigned caseLimit, int *caseSet) {
+  unsigned i;
+  for (i = 0; i < caseLimit; ++i) {
+      if (caseSet[i] == v) return TRUE;
+  }
+
+  return FALSE;
+}
+
+static void verifySwtichCasesRec(ParserContext *ctx, AstStatement *stmt, unsigned caseCount, unsigned *caseIndex, int *caseSet) {
+  switch (stmt->statementKind) {
+    case SK_BLOCK: {
+        AstStatementList *node = stmt->block.stmts;
+        while (node) {
+            verifySwtichCasesRec(ctx, node->stmt, caseCount, caseIndex, caseSet);
+            node = node->next;
+        }
+        break;
+    }
+
+    case SK_LABEL: {
+        AstLabelStatement *label = &stmt->labelStmt;
+        switch (label->kind) {
+        case LK_LABEL:
+            verifySwtichCasesRec(ctx, label->body, caseCount, caseIndex, caseSet);
+            break;
+        case LK_CASE:
+            if (checkInSet(label->caseConst, *caseIndex, caseSet)) {
+                reportError(ctx, stmt->coordinates.startOffset, stmt->coordinates.endOffset, "duplicate case value '%d'", label->caseConst);
+            } else {
+                assert(*caseIndex < caseCount);
+                caseSet[*caseIndex] = label->caseConst;
+                *caseIndex += 1;
+            }
+            verifySwtichCasesRec(ctx, label->body, caseCount, caseIndex, caseSet);
+            break;
+        case LK_DEFAULT:
+            verifySwtichCasesRec(ctx, label->body, caseCount, caseIndex, caseSet);
+            break;
+        }
+    }
+
+    case SK_IF:
+        verifySwtichCasesRec(ctx, stmt->ifStmt.thenBranch, caseCount, caseIndex, caseSet);
+        if (stmt->ifStmt.elseBranch) {
+            verifySwtichCasesRec(ctx, stmt->ifStmt.elseBranch, caseCount, caseIndex, caseSet);
+        }
+        break;
+    case SK_WHILE:
+        verifySwtichCasesRec(ctx, stmt->loopStmt.body, caseCount, caseIndex, caseSet);
+        break;
+    case SK_DO_WHILE:
+        verifySwtichCasesRec(ctx, stmt->loopStmt.body, caseCount, caseIndex, caseSet);
+        break;
+    case SK_FOR:
+        verifySwtichCasesRec(ctx, stmt->forStmt.body, caseCount, caseIndex, caseSet);
+        break;
+    case SK_SWITCH: // stop
+    case SK_RETURN:
+    case SK_DECLARATION:
+    case SK_EXPR_STMT:
+    case SK_EMPTY:
+    case SK_ERROR:
+    case SK_BREAK:
+    case SK_CONTINUE:
+    case SK_GOTO:
+      break;
+  }
+}
+
+
+
+void verifySwitchCases(ParserContext *ctx, AstStatement *switchBody, unsigned caseCount) {
+  int *caseSet = heapAllocate(sizeof (int) * caseCount);
+  unsigned caseIndex = 0;
+
+  verifySwtichCasesRec(ctx, switchBody, caseCount, &caseIndex, caseSet);
+
+  releaseHeap(caseSet);
 }
 
 static int stringHashCode(const void *v) {
