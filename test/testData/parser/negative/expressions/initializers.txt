@@ -240,41 +240,32 @@ FILE test/testData/parser/negative/expressions/initializers.c
 ----
   signed int[20] a1
 ----
-  signed int[-1] a2 = \
-    a1
-----
   *signed int pa = \
     a1
+----
+  float f = \
+    pa
 ----
   signed int[-1] a3
 ----
   signed int[20] a4 = \
     0
 ----
-  (signed int[20])[] b = \
+  (signed int[20])[] b2 = \
     INIT_BEGIN
 
     INIT_END
 ----
-  STRUCT S s2 = \
+  STRUCT S s22 = \
     INIT_BEGIN
       0
     INIT_END
 ----
-  signed int i = \
+  signed int i2 = \
     10
-----
-  float f = \
-    pa
 ----
   float f2 = \
     1.000000
-----
-  signed int i2 = \
-    f2
-----
-  signed int i3 = \
-    s2
 ----
   ERROR TYPE x
 ----
@@ -306,3 +297,25 @@ FILE test/testData/parser/negative/expressions/initializers.c
       (*signed int)0
       (*signed int)1
     INIT_END
+----
+  FUN signed int func 
+  BEGIN
+    signed int[-1] a2 = \
+      a1
+    *signed int pa = \
+      a1
+    float f = \
+      pa
+    signed int i2 = \
+      f2
+    signed int i3 = \
+      s2
+    STRUCT SX sx2 = \
+      INIT_BEGIN
+        0
+        s0
+        INIT_BEGIN
+          0
+        INIT_END
+      INIT_END    
+  END
