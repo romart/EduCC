@@ -2167,7 +2167,7 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                     int eqPos = ctx->token->coordinates.startOffset;
                     if (nextTokenIf(ctx, '=')) {
                         initializer = parseInitializer(ctx, NULL);
-                        finalizeInitializer(ctx, type, initializer);
+                        initializer = finalizeInitializer(ctx, type, initializer);
                         eod = initializer->coordinates.endOffset;
                     } else {
                         if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE) {
@@ -2439,7 +2439,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
         Boolean isTypeOk = verifyValueType(ctx, so, eo, type);
         if (!isTypeOk) type = makeErrorRef(ctx);
         if (initializer) {
-          finalizeInitializer(ctx, type, initializer);
+          initializer = finalizeInitializer(ctx, type, initializer);
         } else {
           if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE) {
               reportError(ctx, so, eo, "definition of variable with array type needs an explicit size or an initializer");
