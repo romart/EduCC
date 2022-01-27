@@ -513,5 +513,6 @@ AstStatement *createLoopStatement(ParserContext *ctx, int startOffset, int endOf
 AstStatement *createForStatement(ParserContext *ctx, int startOffset, int endOffset, AstExpression* init, AstExpression *cond, AstExpression *modifier, AstStatement *body);
 AstStatement *createJumpStatement(ParserContext *ctx, int startOffset, int endOffset, StatementKind jumpKind);
 AstStatement *createEmptyStatement(ParserContext *ctx, int startOffset, int endOffset);
+AstStatement *createErrorStatement(ParserContext *ctx, int startOffset, int endOffset);
 
 #endif // __TREE_H__
