@@ -103,6 +103,26 @@ FILE test/testData/parser/negative/expressions/initializers.c
       INIT_END
     INIT_END
 ----
+  STRUCT S[3] as1 = \
+    INIT_BEGIN
+      0
+      0
+      0
+    INIT_END
+----
+  STRUCT S[3] as2 = \
+    INIT_BEGIN
+      INIT_BEGIN
+        0
+      INIT_END
+      INIT_BEGIN
+        0
+      INIT_END
+      INIT_BEGIN
+        0
+      INIT_END
+    INIT_END
+----
   signed int[4] a = \
     INIT_BEGIN
       0
