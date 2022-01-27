@@ -371,3 +371,10 @@ AstStatement *createEmptyStatement(ParserContext *ctx, int startOffset, int endO
     return result;
 }
 
+AstStatement *createErrorStatement(ParserContext *ctx, int startOffset, int endOffset) {
+    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
+
+    result->statementKind = SK_ERROR;
+
+    return result;
+}
