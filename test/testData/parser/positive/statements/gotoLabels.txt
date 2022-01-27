@@ -1,0 +1,26 @@
+FILE test/testData/parser/positive/statements/gotoLabels.c
+  FUN signed int bar 
+    #0: *C signed char s
+  BEGIN
+    
+  END
+----
+  FUN signed int foo_ok 
+    #0: signed int a
+    #1: signed int b
+  BEGIN
+    IF (a)
+    THEN
+      bar("ss")
+      GOTO bb      
+    ELSE
+      IF (b)
+      THEN
+        bar("lll")
+        bb: bar("lfff")        
+      ELSE
+        bar("JHHHH")
+        GOTO bb        
+      END_IF
+    END_IF    
+  END
