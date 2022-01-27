@@ -1994,6 +1994,7 @@ static AstStatement *parseIfStatement(ParserContext *ctx, struct _Scope* scope) 
     return createIfStatement(ctx, so, eo, cond, thenB, elseB);
 }
 
+
 int fas(int a) {
 //  continue;
 //  while (1) {
@@ -2111,7 +2112,7 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         consume(ctx, ';');
         if (label) {
           stmt = createJumpStatement(ctx, so, eo, SK_GOTO);
-          stmt->labelStmt.label = label;
+          stmt->jumpStmt.label = label;
         } else {
           stmt = createErrorStatement(ctx, so, eo);
         }
@@ -2150,6 +2151,10 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         if (nextTokenIf(ctx, ':')) {
             stmt = parseStatement(ctx, scope);
             eo = stmt->coordinates.endOffset;
+            const void *oldValue = putToHashMap(ctx->stateFlags.labelSet, savedToken->text, savedToken->text);
+            if (oldValue) {
+                reportError(ctx, so, eo, "redefinition of label '%s'", savedToken->text);
+            }
             return createLabelStatement(ctx, so, eo, LK_LABEL, stmt, savedToken->text, 0);
         } else {
             ctx->token = savedToken;
@@ -2535,10 +2540,14 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
   }
 
   ctx->functionReturnType = functionDeclaration ? functionDeclaration->returnType : makeErrorRef(ctx);
+  ctx->stateFlags.labelSet = createHashMap(DEFAULT_MAP_CAPACITY, stringHashCode, stringCmp);
 
   ctx->currentScope = functionScope;
   AstStatement *body = parseFunctionBody(ctx);
+  verifyGotoLabels(ctx, body, ctx->stateFlags.labelSet);
   ctx->functionReturnType = NULL;
+  // TODO: release labelSet ctx->stateFlags.labelSet
+  ctx->stateFlags.labelSet = NULL;
   ctx->currentScope = functionScope->parent;
 
   if (functionDeclaration) {
