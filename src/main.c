@@ -1,52 +1,25 @@
-#include <stdio.h>
+#include <string.h>
 
-#include "hello.h"
-#include "tokens.h"
-#include "lex.h"
-#include "tree.h"
 #include "parser.h"
-#include "treeDump.h"
-
-static void dumpFile(AstFile *file, const char* dumpFile) {
-  remove(dumpFile);
-  FILE* toDump = fopen(dumpFile, "w");
-  dumpAstFile(toDump, file);
-  fclose(toDump);
-}
-
-static void processInputFile(const char* inputFile, const char *dumpFileName, Boolean verbose) {
-
-    FILE* opened = fopen(inputFile, "r");
-    AstFile* firstFile = NULL;
-    if (opened != NULL) {
-      AstFile *f = parseFile(opened, inputFile, verbose);
-      if (dumpFileName) {
-        dumpFile(f, dumpFileName);
-      }
-      f->next = firstFile;
-      firstFile = f;
-      fclose(opened);
-    } else {
-      printf("Cannot open file %s\n", inputFile);
-    }
-}
 
 
 int main(int argc, char** argv) {
   if (argc < 2) return -1;
   argc--; argv++;
-  int i;
-  const char *dumpFileName = NULL;
-  Boolean verbose = TRUE;
+  unsigned i;
+  Configuration config = { 0 };
+  config.verbose = 1;
   for (i = 0; i < argc; ++i) {
     const char *arg = argv[i];
     if (strcmp("-astDump", arg) == 0) {
-      dumpFileName = argv[++i];
+      config.dumpFileName = argv[++i];
     } else if (strcmp("-oneline", arg) == 0) {
-      verbose = FALSE;
+      config.verbose = 0;
+    } else if (strcmp("-memstat", arg) == 0) {
+      config.memoryStatistics = 1;
     } else {
-      const char* inputFile = argv[i];
-      processInputFile(arg, dumpFileName, verbose);
+      config.fileToCompile = argv[i];
+      compileFile(&config);
     }
   }
   return 0;

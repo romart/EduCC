@@ -2552,7 +2552,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
   AstStatement *body = parseFunctionBody(ctx);
   verifyGotoLabels(ctx, body, ctx->stateFlags.labelSet);
   ctx->functionReturnType = NULL;
-  // TODO: release labelSet ctx->stateFlags.labelSet
+  releaseHashMap(ctx->stateFlags.labelSet);
   ctx->stateFlags.labelSet = NULL;
   ctx->currentScope = functionScope->parent;
 
@@ -2598,12 +2598,20 @@ static void releaseContext(ParserContext *ctx) {
 
   yylex_destroy(ctx->scanner);
 
+  Scope *scope = ctx->scopeList;
+
+  while (scope) {
+      releaseHashMap(scope->symbols);
+      scope = scope->next;
+  }
+
   releaseArena(ctx->memory.tokenArena);
-//  releaseArena(ctx->memory.typeArena);
-//  releaseArena(ctx->memory.astArena);
-//  releaseArena(ctx->memory.stringArena);
+  releaseArena(ctx->memory.typeArena);
+  releaseArena(ctx->memory.astArena);
+  releaseArena(ctx->memory.stringArena);
   releaseArena(ctx->memory.diagnosticsArena);
-//  free(ctx->locationInfo.linesPos);
+
+  releaseHeap(ctx->locationInfo.linesPos);
 }
 
 static void printDiagnostics(Diagnostics *diagnostics, Boolean verbose) {
@@ -2621,27 +2629,67 @@ static void printDiagnostics(Diagnostics *diagnostics, Boolean verbose) {
 translation_unit
     : external_declaration+
  */
-AstFile* parseFile(FILE* file, const char* fileName, Boolean verbose) {
-  unsigned lineNum = countLines(file);
+static AstFile *parseFile(ParserContext *ctx) {
+  AstFile *astFile = createAstFile(ctx);
+  ctx->parsedFile = astFile;
+  astFile->fileName = ctx->config->fileToCompile;
+  nextToken(ctx);
 
-  ParserContext context = { 0 };
-  initializeContext(&context, lineNum + 1);
-
-  AstFile *astFile = createAstFile(&context);
-  astFile->fileName = fileName;
-  context.parsedFile = astFile;
-
-  yyset_in(file, context.scanner);
-  nextToken(&context);
-
-  while (context.token->code) {
-      parseExternalDeclaration(&context, astFile);
+  while (ctx->token->code) {
+      parseExternalDeclaration(ctx, astFile);
   }
 
-  printDiagnostics(&context.diagnostics, verbose);
-
-  yylex_destroy(context.scanner);
-  releaseContext(&context);
-
   return astFile;
+}
+
+static void dumpFile(AstFile *file, const char* dumpFile) {
+  remove(dumpFile);
+  FILE* toDump = fopen(dumpFile, "w");
+  dumpAstFile(toDump, file);
+  fclose(toDump);
+}
+
+static void printMemoryStatistics(ParserContext *ctx) {
+  extern size_t heapBytesAllocated;
+  const size_t kb = 1024;
+
+  printf("Heap bytes allocated: %lu bytes (%lu kb)\n", heapBytesAllocated, heapBytesAllocated / kb);
+  printArenaStatistic(stdout, ctx->memory.tokenArena);
+  printArenaStatistic(stdout, ctx->memory.stringArena);
+  printArenaStatistic(stdout, ctx->memory.astArena);
+  printArenaStatistic(stdout, ctx->memory.typeArena);
+  printArenaStatistic(stdout, ctx->memory.diagnosticsArena);
+  fflush(stdout);
+}
+
+void compileFile(Configuration * config) {
+  FILE* opened = fopen(config->fileToCompile, "r");
+
+  if (opened != NULL) {
+      unsigned lineNum = countLines(opened);
+
+      ParserContext context = { 0 };
+      context.config = config;
+      initializeContext(&context, lineNum);
+
+      yyset_in(opened, context.scanner);
+
+      AstFile *astFile = parseFile(&context);
+
+      printDiagnostics(&context.diagnostics, config->verbose);
+
+      if (config->dumpFileName) {
+          dumpFile(astFile, config->dumpFileName);
+      }
+
+      if (config->memoryStatistics) {
+          printMemoryStatistics(&context);
+      }
+
+      releaseContext(&context);
+
+      fclose(opened);
+  } else {
+      fprintf(stderr, "Cannot open file %s\n", config->fileToCompile);
+  }
 }
