@@ -1051,12 +1051,12 @@ static Boolean checkInSet(int v, unsigned caseLimit, int *caseSet) {
   return FALSE;
 }
 
-static void verifySwtichCasesRec(ParserContext *ctx, AstStatement *stmt, unsigned caseCount, unsigned *caseIndex, int *caseSet) {
+static void verifySwtichCasesRec(ParserContext *ctx, AstStatement *stmt, unsigned caseCount, unsigned *caseIndex, int *caseSet, Boolean *hasDefault) {
   switch (stmt->statementKind) {
     case SK_BLOCK: {
         AstStatementList *node = stmt->block.stmts;
         while (node) {
-            verifySwtichCasesRec(ctx, node->stmt, caseCount, caseIndex, caseSet);
+            verifySwtichCasesRec(ctx, node->stmt, caseCount, caseIndex, caseSet, hasDefault);
             node = node->next;
         }
         break;
@@ -1066,7 +1066,7 @@ static void verifySwtichCasesRec(ParserContext *ctx, AstStatement *stmt, unsigne
         AstLabelStatement *label = &stmt->labelStmt;
         switch (label->kind) {
         case LK_LABEL:
-            verifySwtichCasesRec(ctx, label->body, caseCount, caseIndex, caseSet);
+            verifySwtichCasesRec(ctx, label->body, caseCount, caseIndex, caseSet, hasDefault);
             break;
         case LK_CASE:
             if (checkInSet(label->caseConst, *caseIndex, caseSet)) {
@@ -1076,28 +1076,34 @@ static void verifySwtichCasesRec(ParserContext *ctx, AstStatement *stmt, unsigne
                 caseSet[*caseIndex] = label->caseConst;
                 *caseIndex += 1;
             }
-            verifySwtichCasesRec(ctx, label->body, caseCount, caseIndex, caseSet);
+            verifySwtichCasesRec(ctx, label->body, caseCount, caseIndex, caseSet, hasDefault);
             break;
         case LK_DEFAULT:
-            verifySwtichCasesRec(ctx, label->body, caseCount, caseIndex, caseSet);
+            if (*hasDefault) {
+              reportError(ctx, stmt->coordinates.startOffset, stmt->coordinates.endOffset, "multiple default labels in one switch");
+            }
+            (*hasDefault) = TRUE;
+            verifySwtichCasesRec(ctx, label->body, caseCount, caseIndex, caseSet, hasDefault);
+
             break;
         }
+        break;
     }
 
     case SK_IF:
-        verifySwtichCasesRec(ctx, stmt->ifStmt.thenBranch, caseCount, caseIndex, caseSet);
+        verifySwtichCasesRec(ctx, stmt->ifStmt.thenBranch, caseCount, caseIndex, caseSet, hasDefault);
         if (stmt->ifStmt.elseBranch) {
-            verifySwtichCasesRec(ctx, stmt->ifStmt.elseBranch, caseCount, caseIndex, caseSet);
+            verifySwtichCasesRec(ctx, stmt->ifStmt.elseBranch, caseCount, caseIndex, caseSet, hasDefault);
         }
         break;
     case SK_WHILE:
-        verifySwtichCasesRec(ctx, stmt->loopStmt.body, caseCount, caseIndex, caseSet);
+        verifySwtichCasesRec(ctx, stmt->loopStmt.body, caseCount, caseIndex, caseSet, hasDefault);
         break;
     case SK_DO_WHILE:
-        verifySwtichCasesRec(ctx, stmt->loopStmt.body, caseCount, caseIndex, caseSet);
+        verifySwtichCasesRec(ctx, stmt->loopStmt.body, caseCount, caseIndex, caseSet, hasDefault);
         break;
     case SK_FOR:
-        verifySwtichCasesRec(ctx, stmt->forStmt.body, caseCount, caseIndex, caseSet);
+        verifySwtichCasesRec(ctx, stmt->forStmt.body, caseCount, caseIndex, caseSet, hasDefault);
         break;
     case SK_SWITCH: // stop
     case SK_RETURN:
@@ -1115,8 +1121,9 @@ static void verifySwtichCasesRec(ParserContext *ctx, AstStatement *stmt, unsigne
 void verifySwitchCases(ParserContext *ctx, AstStatement *switchBody, unsigned caseCount) {
   int *caseSet = heapAllocate(sizeof (int) * caseCount);
   unsigned caseIndex = 0;
+  Boolean hasDefault = FALSE;
 
-  verifySwtichCasesRec(ctx, switchBody, caseCount, &caseIndex, caseSet);
+  verifySwtichCasesRec(ctx, switchBody, caseCount, &caseIndex, caseSet, &hasDefault);
 
   releaseHeap(caseSet);
 }
