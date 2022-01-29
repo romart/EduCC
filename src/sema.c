@@ -1199,6 +1199,8 @@ Scope *newScope(ParserContext *ctx, Scope *parent) {
   Scope *result = (Scope *)areanAllocate(ctx->memory.typeArena, sizeof (Scope));
   result->parent = parent;
   result->symbols = createHashMap(DEFAULT_MAP_CAPACITY, stringHashCode, stringCmp);
+  result->next = ctx->scopeList;
+  ctx->scopeList = result;
   return result;
 }
 
