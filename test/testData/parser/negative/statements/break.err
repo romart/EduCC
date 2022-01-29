@@ -1,0 +1,8 @@
+test/testData/parser/negative/statements/break.c:3:5: error: 'break' statement not in loop or switch statement
+test/testData/parser/negative/statements/break.c:3:11: error: 'break' statement not in loop or switch statement
+test/testData/parser/negative/statements/break.c:3:16: error: 'break' statement not in loop or switch statement
+test/testData/parser/negative/statements/break.c:3:22: error: 'break' statement not in loop or switch statement
+test/testData/parser/negative/statements/break.c:3:26: error: 'break' statement not in loop or switch statement
+test/testData/parser/negative/statements/break.c:3:34: error: 'break' statement not in loop or switch statement
+test/testData/parser/negative/statements/break.c:3:38: error: 'break' statement not in loop or switch statement
+test/testData/parser/negative/statements/break.c:3:56: error: 'break' statement not in loop or switch statement

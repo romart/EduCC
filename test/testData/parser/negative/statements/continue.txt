@@ -1,0 +1,36 @@
+FILE test/testData/parser/negative/statements/continue.c
+  FUN signed int foo 
+    #0: signed int b
+----
+  FUN signed int testContinueWhile 
+    #0: signed int a
+  BEGIN
+    CONTINUE
+    WHILE (a)
+      a = foo(a)      
+    END_WHILE
+    CONTINUE    
+  END
+----
+  FUN signed int testContinueDoWhile 
+    #0: signed int a
+  BEGIN
+    CONTINUE
+    DO
+      a = foo(a)      
+    WHILE (a)
+    CONTINUE    
+  END
+----
+  FUN signed int testContinueFor 
+    #0: signed int a
+  BEGIN
+    CONTINUE
+    signed int r = \
+      0
+    signed int i
+    FOR (i = 0; i < a; ++i)
+      r = r + foo(i)      
+    END_FOR
+    CONTINUE    
+  END

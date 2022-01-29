@@ -1,0 +1,1 @@
+test/testData/parser/positive/statements/break.c:11:23: error: 'break' statement not in loop or switch statement
