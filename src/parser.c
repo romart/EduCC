@@ -2029,14 +2029,18 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         } else {
             ctx->stateFlags.caseCount += 1;
         }
-        nextToken(ctx);
+        consume(ctx, CASE);
         parseAsIntConst(ctx, &c);
+        consume(ctx, ':');
+        stmt = parseStatement(ctx, scope);
+        eo = stmt->coordinates.endOffset;
+        return createLabelStatement(ctx, so, eo, LK_CASE,stmt, NULL, c);
     case DEFAULT:
         if (!ctx->stateFlags.inSwitch) {
             reportError(ctx, so, eo, "'default' statement not in switch statement");
         }
-        expect(ctx, ':');
-        nextToken(ctx);
+        consume(ctx, DEFAULT);
+        consume(ctx, ':');
         stmt = parseStatement(ctx, scope);
         eo = stmt->coordinates.endOffset;
         return createLabelStatement(ctx, so, eo, LK_DEFAULT, stmt, NULL, c);
@@ -2063,11 +2067,12 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         eo = stmt->coordinates.endOffset;
         return createSwitchStatement(ctx, so, eo, expr, stmt);
     case WHILE:
-        oldFlag = ctx->stateFlags.inLoop;
-        ctx->stateFlags.inLoop = 1;
         consume(ctx, WHILE);
         consume(ctx, '(');
+        oldFlag = ctx->stateFlags.inLoop;
+        ctx->stateFlags.inLoop = 1;
         expr = parseExpression(ctx, scope);
+        ctx->stateFlags.inLoop = oldFlag;
         consume(ctx, ')');
         stmt = parseStatement(ctx, scope);
         eo = stmt->coordinates.endOffset;
@@ -2077,6 +2082,7 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         oldFlag = ctx->stateFlags.inLoop;
         ctx->stateFlags.inLoop = 1;
         stmt = parseStatement(ctx, scope);
+        ctx->stateFlags.inLoop = oldFlag;
         eo = ctx->token->coordinates.endOffset;
         consume(ctx, WHILE);
         consume(ctx, '(');
