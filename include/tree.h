@@ -13,21 +13,6 @@ typedef struct _Coordinates {
   int endOffset;
 } Coordinates;
 
-typedef enum _NodeType {
-  N_DEFINITION,
-  N_DECLARATION,
-
-  N_EXPRESSION,
-  N_STATEMENT,
-
-  N_NAME_REFERENCE,
-  N_INVOCATION,
-
-  N_BLOCK_STATEMENT,
-
-  N_TYPE_REF
-} NodeType;
-
 typedef enum _ExpressionType {
     E_CONST,
     E_TERNARY,
@@ -46,7 +31,6 @@ typedef enum _ExpressionType {
     EU_MINUS,     /** -a */
     EU_TILDA,     /** ~a */
     EU_EXL,       /** !a */
-    EU_SIZEOF,    /** sizeof a */
 
     EB_ADD,
     EB_SUB,
@@ -69,22 +53,10 @@ typedef enum _ExpressionType {
     EB_A_ACC, /** a[b] */
     EB_COMMA, /** a, b = c, d */
 
-
     EF_DOT, /** a.b */
     EF_ARROW, /** a->b */
 
-
-    EB_ASSIGN,
-    EB_RIGHT_ASSIGN,
-    EB_LEFT_ASSIGN,
-    EB_ADD_ASSIGN,
-    EB_SUB_ASSIGN,
-    EB_MUL_ASSIGN,
-    EB_DIV_ASSIGN,
-    EB_MOD_ASSIGN,
-    EB_AND_ASSIGN,
-    EB_XOR_ASSIGN,
-    EB_OR_ASSIGN
+    EB_ASSIGN
 } ExpressionType;
 
 typedef signed long long sint64_const_t;
@@ -95,8 +67,7 @@ typedef const char *literal_const_t;
 typedef enum _ConstKind {
   CK_INT_CONST,
   CK_FLOAT_CONST,
-  CK_STRING_LITERAL,
-  CK_SIZEOF,
+  CK_STRING_LITERAL
 } ConstKind;
 
 typedef struct ConstOp {

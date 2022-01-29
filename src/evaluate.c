@@ -10,11 +10,6 @@ static Boolean derefIntConst(AstConst *astConst, int64_const_t *result) {
       return TRUE;
   }
 
-  if (astConst->op == CK_SIZEOF) {
-      *result = astConst->t->size;
-      return TRUE;
-  }
-
   return FALSE;
 }
 
@@ -308,7 +303,6 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
               case CK_INT_CONST: cond_v = (int)cond->i; break;
               case CK_FLOAT_CONST: cond_v = (int)cond->f; break;
               case CK_STRING_LITERAL: cond_v = TRUE; break;
-              case CK_SIZEOF: cond_v = (int)cond->t->size; break;
               default: unreachable("Const evaluation error"); return NULL;
             }
             return eval(ctx, cond_v ? expression->ternaryExpr.ifTrue : expression->ternaryExpr.ifFalse);
@@ -337,20 +331,7 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
       }
       return NULL;
     }
-    case EU_SIZEOF:
-      ic = computeTypeSize(ctx, expression->unaryExpr.argument->type);
-      return &createAstConst(ctx, -1, -1, CK_INT_CONST, &ic)->constExpr;
     case EB_ASSIGN:
-    case EB_RIGHT_ASSIGN:
-    case EB_LEFT_ASSIGN:
-    case EB_ADD_ASSIGN:
-    case EB_SUB_ASSIGN:
-    case EB_MUL_ASSIGN:
-    case EB_DIV_ASSIGN:
-    case EB_MOD_ASSIGN:
-    case EB_AND_ASSIGN:
-    case EB_XOR_ASSIGN:
-    case EB_OR_ASSIGN:
       return NULL; // cannot evaluate assignemt
     case EF_DOT:
     case EF_ARROW:
