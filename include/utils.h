@@ -27,6 +27,7 @@ typedef int (*compare_fun)(const void*, const void*);
 typedef struct _HashMap HashMap;
 
 HashMap* createHashMap(int capacity, hashCode_fun hc, compare_fun cmp);
+void releaseHashMap(HashMap *map);
 
 /** returns old value if exixtsed, NULL otherwise */
 const void* putToHashMap(HashMap* map, const void* key, const void* value);

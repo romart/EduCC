@@ -148,6 +148,21 @@ int isInHashMap(HashMap* map, const void* key) {
     return FALSE;
 }
 
+void releaseHashMap(HashMap *map) {
+  unsigned i;
+  for (i = 0; i < map->capacity; ++i) {
+      struct LinkedNode *list = map->storage[i];
+      while (list) {
+          struct LinkedNode *next = list->next;
+          releaseHeap(list);
+          list = next;
+      }
+      map->storage[i] = NULL;
+  }
+  releaseHeap(map->storage);
+  releaseHeap(map);
+}
+
 unsigned countLines(FILE* file) {
   unsigned result = 0;
   while(!feof(file)) {
@@ -163,7 +178,7 @@ unsigned countLines(FILE* file) {
 }
 
 void unreachable(const char *msg) {
-  fprintf(stderr, "Unreachable execition: %s\n", msg);
+  fprintf(stderr, "Unreachable execution: %s\n", msg);
   abort();
 }
 
