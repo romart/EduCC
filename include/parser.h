@@ -8,11 +8,22 @@
 #include "mem.h"
 #include "diagnostics.h"
 
-AstFile* parseFile(FILE* file, const char* fileName, Boolean verbose);
+typedef struct _Configuration {
 
+  const char *fileToCompile;
+  const char *dumpFileName;
+
+
+
+  unsigned errWarns: 1;
+  unsigned logTokens: 1;
+  unsigned verbose: 1;
+  unsigned memoryStatistics: 1;
+} Configuration;
+
+
+void compileFile(Configuration * config);
 AstConst* eval(ParserContext *ctx, AstExpression* expression);
-
-#define TokenTextCacheSize 1024
 
 typedef struct _Token {
     Coordinates coordinates;
@@ -29,6 +40,8 @@ typedef struct _Token {
 struct _Scope;
 
 typedef struct _ParserContext {
+    Configuration *config;
+
     AstFile* parsedFile;
 
     yyscan_t scanner;
