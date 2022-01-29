@@ -87,6 +87,8 @@ typedef struct _Symbol {
 typedef struct _Scope {
     struct _Scope* parent;
     HashMap* symbols;
+
+    struct _Scope *next;
 } Scope;
 
 void verifyFunctionReturnType(ParserContext *ctx, Declarator *declarator, TypeRef *returnType);

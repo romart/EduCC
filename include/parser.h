@@ -36,6 +36,8 @@ typedef struct _ParserContext {
     struct _Scope* rootScope;
     struct _Scope* currentScope;
 
+    struct _Scope* scopeList; // used to release scope memory
+
     Token *firstToken;
     Token *token;
 
