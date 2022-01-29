@@ -319,3 +319,6 @@ FILE test/testData/parser/negative/expressions/initializers.c
         INIT_END
       INIT_END    
   END
+----
+  E signed int eei = \
+    20
