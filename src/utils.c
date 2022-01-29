@@ -164,7 +164,7 @@ void releaseHashMap(HashMap *map) {
 }
 
 unsigned countLines(FILE* file) {
-  unsigned result = 0;
+  unsigned result = 1;
   while(!feof(file)) {
     int ch = fgetc(file);
     if(ch == '\n') {
