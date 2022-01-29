@@ -151,3 +151,28 @@ void releaseArena(Arena *arena) {
 
   releaseHeap(arena);
 }
+
+void printArenaStatistic(FILE *output, Arena *arena) {
+
+  const size_t kb = 1024;
+  size_t allocated = 0, used = 0;
+  unsigned chuncks = 0, heapChunks = 0;
+
+  Chunck *c = arena->chuncks;
+
+  while (c) {
+      allocated += c->size;
+      used += c->pnt - c->start;
+      chuncks++;
+      c = c->next;
+  }
+
+  HeapChunck *hp = arena->bigChuncks;
+
+  while (hp) {
+      ++heapChunks;
+      hp = hp->next;
+  }
+
+  fprintf(output, "Arena '%s': allocated = %lu bytes (%lu kb), used = %lu bytes (%lu kb), chunks = %u, heap chunks = %u\n", arena->name, allocated, allocated / kb, used, used / kb,chuncks, heapChunks);
+}
