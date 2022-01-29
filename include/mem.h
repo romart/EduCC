@@ -3,6 +3,7 @@
 #define __MEM_H__ 1
 
 #include <stddef.h>
+#include <stdio.h>
 
 #define DEFAULT_CHUNCK_SIZE 0x4000
 
@@ -20,5 +21,7 @@ void releaseHeap(void *);
 Arena *createArena(const char *name, size_t chuckSize);
 void *areanAllocate(Arena *arena, size_t size);
 void releaseArena(Arena *arena);
+
+void printArenaStatistic(FILE *output, Arena *arena);
 
 #endif // __MEM_H__
