@@ -14,6 +14,8 @@
 #define ALIGN_SIZE_TO_PAGE(len) ALIGN_SIZE(len, PAGE_SIZE)
 #define ALIGN_SIZE_TO_WORD(len) ALIGN_SIZE(len, 0x8)
 
+size_t heapBytesAllocated = 0;
+
 void *heapAllocate(size_t size) {
   void *result = malloc(size);
 
@@ -21,6 +23,8 @@ void *heapAllocate(size_t size) {
       fprintf(stderr, "Cannot allocate %zu bytes, OutOfMemory, halt\n", size);
       exit(ERR_MALLOC);
   }
+
+  heapBytesAllocated += size;
 
   memset(result, 0, size);
 
