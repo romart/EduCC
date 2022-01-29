@@ -25,11 +25,6 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
         case CK_INT_CONST: result += fprintf(output, "%lld", cnts->i); break;
         case CK_FLOAT_CONST: result += fprintf(output, "%f", cnts->f); break;
         case CK_STRING_LITERAL: result += fprintf(output, "\"%s\"", cnts->l); break;
-        case CK_SIZEOF:
-            result += fprintf(output, "SIZEOF( ");
-            result += dumpTypeDescImpl(output, 0, cnts->t);
-            result += fprintf(output, ")");
-            break;
         }
         break;
     }
@@ -94,7 +89,6 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
     case EU_MINUS: result += fprintf(output, "-"); goto pre;
     case EU_TILDA: result += fprintf(output, "~"); goto pre;
     case EU_EXL: result += fprintf(output, "!"); goto pre;
-    case EU_SIZEOF: result += fprintf(output, "SIZEOF "); goto pre;
     pre:
         result += dumpAstExpressionImpl(output, 0, expr->unaryExpr.argument);
         break;
@@ -125,16 +119,6 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
     case EB_GE:  mnemonic = ">="; goto binary;
     case EB_COMMA: mnemonic = ","; goto binary;
     case EB_ASSIGN: mnemonic = "="; goto binary;
-    case EB_RIGHT_ASSIGN: mnemonic = ">>="; goto binary;
-    case EB_LEFT_ASSIGN: mnemonic = "<<="; goto binary;
-    case EB_ADD_ASSIGN: mnemonic = "+="; goto binary;
-    case EB_SUB_ASSIGN: mnemonic = "-="; goto binary;
-    case EB_MUL_ASSIGN: mnemonic = "*="; goto binary;
-    case EB_DIV_ASSIGN: mnemonic = "/="; goto binary;
-    case EB_MOD_ASSIGN: mnemonic = "%="; goto binary;
-    case EB_AND_ASSIGN: mnemonic = "&="; goto binary;
-    case EB_XOR_ASSIGN: mnemonic = "^="; goto binary;
-    case EB_OR_ASSIGN:  mnemonic = "|="; goto binary;
     binary:
       result += dumpAstExpressionImpl(output, 0, expr->binaryExpr.left);
       result += fprintf(output, " %s ", mnemonic);

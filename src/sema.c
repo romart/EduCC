@@ -716,7 +716,6 @@ static Boolean isCompileTimeConstant(AstExpression *expr) {
           && isCompileTimeConstant(expr->ternaryExpr.ifTrue)
           && isCompileTimeConstant(expr->ternaryExpr.ifFalse);
     case E_CONST:
-    case EU_SIZEOF:    /** sizeof a */
       return TRUE;
     case E_CAST:
       return isCompileTimeConstant(expr->castExpr.argument);
