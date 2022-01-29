@@ -58,3 +58,4 @@ test/testData/parser/negative/expressions/initializers.c:25:50: error: assigning
 test/testData/parser/negative/expressions/initializers.c:14:53: error: invalid initializer
 test/testData/parser/negative/expressions/initializers.c:13:55: error: assigning to 'float' from incompatible type '*signed int'
 test/testData/parser/negative/expressions/initializers.c:12:57: error: assigning to 'signed int' from incompatible type 'STRUCT S'
+test/testData/parser/negative/expressions/initializers.c:12:61: error: 'extern' variable cannot have an initializer

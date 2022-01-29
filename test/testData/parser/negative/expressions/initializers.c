@@ -57,3 +57,5 @@ int func() {
   int i3 = s2;
   struct SX sx2 = { 0, s0, { 0 } };
 }
+
+extern int eei = 20;
