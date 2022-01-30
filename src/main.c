@@ -17,6 +17,8 @@ int main(int argc, char** argv) {
       config.verbose = 0;
     } else if (strcmp("-memstat", arg) == 0) {
       config.memoryStatistics = 1;
+    } else if (strcmp("-logtokens", arg) == 0) {
+      config.logTokens = 1;
     } else {
       config.fileToCompile = argv[i];
       compileFile(&config);

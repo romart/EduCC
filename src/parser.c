@@ -176,9 +176,11 @@ static Token* nextToken(ParserContext *ctx) {
     ctx->token = cur;
 
 
-//    char buffer[1024];
-//    dumpToken(buffer, sizeof buffer, cur);
-//    printf("%s\n", buffer); fflush(stdout);
+    if (ctx->config->logTokens) {
+      char buffer[1024];
+      dumpToken(buffer, sizeof buffer, cur);
+      printf("%s\n", buffer); fflush(stdout);
+    }
 
     return cur;
 }
