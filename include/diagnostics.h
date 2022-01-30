@@ -1,11 +1,11 @@
 #ifndef __DIAGNOSTICS_H__
 #define __DIAGNOSTICS_H__
 
-#include "common.h"
 #include <stdio.h>
+#include "common.h"
 
 enum DiagSeverityKind {
-  DSK_INFO,
+  DSK_INFO = 0,
   DSK_WARNING,
   DSK_ERROR,
   DSK_CRITICAL_ERROR
@@ -18,6 +18,15 @@ typedef struct _Severity {
   const char *name;
   unsigned isError : 1;
 } Severity;
+
+enum DiagnosticId {
+#include "diagnosticList.h"
+#define DIAGNOSTIC_DEF(s, id, fmt) DIAG_##id
+  DIAGNOSTICS
+  DIAG_TOTAL_COUNT
+#undef DIAGNOSTIC_DEF
+};
+
 
 typedef struct _Diagnostic {
   Severity *severity;
@@ -42,7 +51,6 @@ typedef struct _Diagnostics {
 } Diagnostics;
 
 struct _ParserContext;
-
 
 void reportInfo(struct _ParserContext *ctx, int start, int end, const char* fmt, ...);
 void reportWarning(struct _ParserContext *ctx, int start, int end, const char* fmt, ...);

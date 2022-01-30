@@ -6,18 +6,35 @@
 #include "diagnostics.h"
 #include "parser.h"
 #include "mem.h"
+#include "treeDump.h"
 
 
-static Severity infoSeverityImpl = { DSK_INFO, "info", FALSE };
-static Severity warningSeverityImpl = { DSK_WARNING, "warning", FALSE };
-static Severity errorSeverityImpl = { DSK_ERROR, "error", TRUE };
-static Severity criticalErrorSeverityImpl = { DSK_CRITICAL_ERROR, "critical error", TRUE };
+static Severity severities[] = {
+  { DSK_INFO, "info", FALSE },
+  { DSK_WARNING, "warning", FALSE },
+  { DSK_ERROR, "error", TRUE },
+  { DSK_CRITICAL_ERROR, "critical error", TRUE }
+};
 
-static Severity *infoSeverity = &infoSeverityImpl;
-static Severity *warningSeverity = &warningSeverityImpl;
-static Severity *errorSeverity = &errorSeverityImpl;
-static Severity *criticalErrorSeverity = &criticalErrorSeverityImpl;
+static Severity *infoSeverity = &severities[DSK_INFO];
+static Severity *warningSeverity = &severities[DSK_WARNING];
+static Severity *errorSeverity = &severities[DSK_ERROR];
+static Severity *criticalErrorSeverity = &severities[DSK_CRITICAL_ERROR];
 
+
+typedef struct _DiagnosticDescriptor {
+  enum DiagSeverityKind severityKind;
+  enum DiagnosticId id;
+  const char *mnemonic;
+  const char *formatString;
+} DiagnosticDescriptor;
+
+static DiagnosticDescriptor descriptors[] = {
+#define DIAGNOSTIC_DEF(s, id, fmt) { DSK_##s, DIAG_##id, #id, fmt }
+  #include "diagnosticList.h"
+  DIAGNOSTICS
+#undef DIAGNOSTIC_DEF
+};
 
 static Diagnostic *allocDiagnostic(ParserContext *ctx) {
   return (Diagnostic *)areanAllocate(ctx->memory.diagnosticsArena, sizeof (Diagnostic));
@@ -56,6 +73,142 @@ static void computeLineAndCollumn(ParserContext *ctx, int _pos, int *line, int *
   *line = lineNum + 1;
   *col = pos - lineOffset + 1;
   *lineStartOffset = lineOffset;
+}
+
+static void reportDiagnostic2(ParserContext *ctx, enum DiagnosticId diag, Coordinates *location, ...) {
+  Diagnostic *newDiagnostic = allocDiagnostic(ctx);
+  char buffer[1024] = { 0 };
+
+  DiagnosticDescriptor *descriptor = &descriptors[diag];
+
+  int r = 0;
+  unsigned i = 0, j = 0;
+  const char *fmt = descriptor->formatString;
+  size_t bufferSize = sizeof (buffer);
+
+  va_list args;
+  va_start(args, location);
+
+  for (;;) {
+      int fc = fmt[i++];
+
+      if (fc == '\0' || j >= sizeof buffer) break;
+
+      char fmtBuf[10] = { 0 };
+      unsigned k = 0;
+
+      if (fc == '%') {
+        fmtBuf[k++] = fc;
+        int fc2 = fmt[i++];
+        if (fc2 == 't') {
+            int fc3 = fmt[i++];
+            if (fc3 == 'r') {
+                // type ref
+                TypeRef *ref = va_arg(args, TypeRef *);
+                r = renderTypeRef(ref, buffer + j, bufferSize - j);
+            } else if (fc3 == 'd') {
+                // type desc
+                TypeDesc *desc = va_arg(args, TypeDesc *);
+                r = renderTypeDesc(desc, buffer + j, bufferSize - j);
+            } else {
+                buffer[j] = fc;
+                buffer[j + 1] = fc2;
+                buffer[j + 2] = fc3;
+                r = 3;
+            }
+            // types
+        } else {
+            if (fc2 == 'l') {
+                // long numerical formats
+                fmtBuf[k++] = fc2;
+                int fc3 = fmt[i++];
+                fmtBuf[k++] = fc3;
+                if (fc3 == 'd') {
+                    // long decimal
+                    int64_t v = va_arg(args, int64_t);
+                    r = snprintf(buffer + j, bufferSize - j, fmtBuf, v);
+                } else if (fc3 == 'x') {
+                    // long hex
+                    int64_t v = va_arg(args, int64_t);
+                    r = snprintf(buffer + j, bufferSize - j, fmtBuf, v);
+                } else if (fc3 == 'f') {
+                    // double
+                    double v = va_arg(args, double);
+                    r = snprintf(buffer + j, bufferSize - j, fmtBuf, v);
+                } else if (fc3 == 'u') {
+                    // unsigned long decimal
+                    u_int64_t v = va_arg(args, u_int64_t);
+                    r = snprintf(buffer + j, bufferSize - j, fmtBuf, v);
+                } else {
+                    buffer[j] = fc;
+                    buffer[j + 1] = fc2;
+                    buffer[j + 2] = fc3;
+                    r = 3;
+                }
+
+            } else {
+                fmtBuf[k++] = fc2;
+                if (fc2 == 's') {
+                    const char *s = va_arg(args, const char *);
+                    r = snprintf(buffer + j, bufferSize - j, fmtBuf, s);
+                } else if (fc2 == 'd') {
+                    int32_t v = va_arg(args, int32_t);
+                    r = snprintf(buffer + j, bufferSize - j, fmtBuf, v);
+                } if (fc2 == 'x') {
+                    // long hex
+                    int32_t v = va_arg(args, int32_t);
+                    r = snprintf(buffer + j, bufferSize - j, fmtBuf, v);
+                } else if (fc2 == 'f') {
+                    // double
+                    double v = va_arg(args, double);
+                    r = snprintf(buffer + j, bufferSize - j, fmtBuf, v);
+                } else if (fc2 == 'u') {
+                    // unsigned long decimal
+                    u_int32_t v = va_arg(args, u_int32_t);
+                    r = snprintf(buffer + j, bufferSize - j, fmtBuf, v);
+                } else {
+                    buffer[j] = fc;
+                    buffer[j + 1] = fc2;
+                    r = 2;
+                }
+            }
+
+        }
+        if (r < 0) {
+            j = r;
+            break;
+        }
+        j += r;
+      } else {
+        buffer[j++] = fc;
+      }
+  }
+
+  va_end(args);
+
+  Severity *sev = &severities[descriptor->severityKind];
+
+  if (j > 0) {
+    char *message = allocMessageString(ctx, j + 1);
+    strncpy(message, buffer, j);
+    newDiagnostic->message = message;
+  } else {
+    newDiagnostic->message = "<cannot render a diagnostic message>";
+  }
+
+  newDiagnostic->location.file = ctx->parsedFile->fileName;
+
+  computeLineAndCollumn(ctx, location->startOffset, &newDiagnostic->location.lineStart, &newDiagnostic->location.colStart, &newDiagnostic->location.lineStartOffset);
+  computeLineAndCollumn(ctx, location->endOffset, &newDiagnostic->location.lineEnd, &newDiagnostic->location.colEnd, &newDiagnostic->location.lineEndOffset);
+
+  if (ctx->diagnostics.tail) {
+      ctx->diagnostics.tail->next = newDiagnostic;
+  } else {
+      ctx->diagnostics.head = newDiagnostic;
+  }
+
+  ctx->diagnostics.tail = newDiagnostic;
+  ctx->diagnostics.count += 1;
 }
 
 static void reportDiagnostic(ParserContext *ctx, Severity *severity, int start, int end, const char *format, va_list args) {
