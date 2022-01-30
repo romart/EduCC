@@ -62,7 +62,6 @@ def runTestForData(filePath, compiler, workingDir):
     if (suffix == "c"):
         testFilePath = dirname + '/' + name + '.c'
         expectedAstFilePath = dirname + '/' + name + '.txt'
-        expectedOutFilePath = dirname + '/' + name + '.out'
         expectedErrFilePath = dirname + '/' + name + '.err'
         outputDir = workingDir + '/' + dirname
 
@@ -70,14 +69,12 @@ def runTestForData(filePath, compiler, workingDir):
             os.makedirs(outputDir)
 
         actualAstFilePath = workingDir + '/' + expectedAstFilePath
-        actualOutFilePath = workingDir + '/' + expectedOutFilePath
         actualErrFilePath = workingDir + '/' + expectedErrFilePath
 
-        out = open(actualOutFilePath, 'w+')
         err = open(actualErrFilePath, 'w+')
 
         # print(f"Run process: {compiler} -astDump {actualFilePath} {testFilePath}")
-        process = Popen([compiler, "-oneline" , "-astDump", actualAstFilePath, testFilePath], stdout=out, stderr=err)
+        process = Popen([compiler, "-oneline" , "-astDump", actualAstFilePath, testFilePath], stdout=DEVNULL, stderr=err)
         exit_code = process.wait()
         if exit_code != 0:
             print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
@@ -88,9 +85,6 @@ def runTestForData(filePath, compiler, workingDir):
             if (path.exists(expectedAstFilePath)):
                 testOk = compareFilesLineByLine("AstDump", testFilePath, actualAstFilePath, expectedAstFilePath)
             
-            if (testOk and path.exists(expectedOutFilePath)):
-                testOk = compareFilesLineByLine("Stdout", testFilePath, actualOutFilePath, expectedOutFilePath)
-
             if (testOk and path.exists(expectedErrFilePath)):
                 testOk = compareFilesLineByLine("Stderr", testFilePath, actualErrFilePath, expectedErrFilePath)
 
@@ -98,7 +92,6 @@ def runTestForData(filePath, compiler, workingDir):
                 print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
 
             updateExpectedFromActualIfNeed("AstDump", actualAstFilePath, expectedAstFilePath)
-            updateExpectedFromActualIfNeed("Stdout", actualOutFilePath, expectedOutFilePath)
             updateExpectedFromActualIfNeed("Stderr", actualErrFilePath, expectedErrFilePath)
 
 
