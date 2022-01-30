@@ -31,7 +31,7 @@ typedef struct _Token {
     int rawCode;
     const char *text;
     union {
-      long long iv;
+      int64_t iv;
       double dv;
     } value;
     struct _Token *next;
