@@ -1,0 +1,88 @@
+FILE test/testData/parser/negative/expressions/numericalConsts.c
+  FUN void testChar 
+  BEGIN
+    signed char c1 = \
+      97
+    signed char c2 = \
+      97
+    signed char c3 = \
+      7
+    signed char c4 = \
+      7
+    signed char c5 = \
+      365
+    signed char c6 = \
+      128
+    signed char c7 = \
+      0
+    signed char c8 = \
+      ERROR EXPR
+    {void ()} testWchar
+    signed int w1 = \
+      97
+    signed int w2 = \
+      97
+    signed int w3 = \
+      7
+    signed int w4 = \
+      7
+    signed int w5 = \
+      187245
+    signed int w6 = \
+      32768
+    signed int w7 = \
+      0
+    signed int w8 = \
+      ERROR EXPR
+    ERROR EXPR    
+  END
+----
+  FUN signed int testInteger 
+  BEGIN
+    signed int s = \
+      1729447761
+    unsigned int u = \
+      809636952
+    unsigned int u2 = \
+      47073847
+    signed int l = \
+      2114234411646545641
+    signed int l2 = \
+      21142344654564461
+    unsigned int ul1 = \
+      2114235465465441
+    unsigned int ul2 = \
+      2114234456465465641
+    unsigned int ul3 = \
+      9223372036854775807
+    unsigned int ul4 = \
+      9223372036854775807
+    unsigned int ul5 = \
+      4294967295
+    unsigned int ul6 = \
+      4294967295
+    unsigned int ul7 = \
+      4294967295
+    unsigned int ul8 = \
+      4294967295
+    signed long ll = \
+      1232222654546444522
+    signed long ll2 = \
+      12322224546546522
+    unsigned long ull1 = \
+      9223372036854775807
+    unsigned long ull2 = \
+      9223372036854775807
+    unsigned long ull3 = \
+      9223372036854775807
+    unsigned long ull4 = \
+      9223372036854775807
+    unsigned long ull5 = \
+      1653310406
+    unsigned long ull6 = \
+      3543782958
+    unsigned long ull7 = \
+      3168061582
+    unsigned long ull8 = \
+      4294967295    
+  END
