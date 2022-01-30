@@ -11,10 +11,10 @@ H [a-fA-F0-9]
 HP (0[xX])
 E ([Ee][+-]?{D}+)
 P ([Pp][+-]?{D}+)
-BS (b|B)
+BP (b|B)
 FS (f|F|l|L)
 IS (((u|U)(l|L|ll|LL)?)|((l|L|ll|LL)(u|U)?)) 
-CP (u|U|L)
+CP (L)
 SP (u8|u|U|L)
 ES (\\(['"\?\\abfnrtv]|[0-7]{1,3}|x[a-fA-F0-9]+))
 WS [ \t\v\f]
@@ -98,18 +98,18 @@ int fileno(FILE *stream);
 {L}{A}*         { return(IDENTIFIER); }
 
 
-{HP}{H}+{IS}?				{ return I_CONSTANT; }
-{NZ}{D}*{IS}?				{ return I_CONSTANT; }
-"0"{O}*{IS}?				{ return I_CONSTANT; }
-"0"{BS}{B}+         { return I_CONSTANT; }
-{CP}?"'"([^'\\\n]|{ES})+"'"		{ return I_CONSTANT; }
+{HP}{H}+{IS}?				{ return I_CONSTANT_RAW; }
+{NZ}{D}*{IS}?				{ return I_CONSTANT_RAW; }
+"0"{O}*{IS}?				{ return I_CONSTANT_RAW; }
+"0"{BP}{B}+                             { return I_CONSTANT_RAW; }
+{CP}?"'"([^'\\\n]|{ES})+"'"		{ return I_CONSTANT_RAW; }
 
-{D}+{E}{FS}?				{ return F_CONSTANT; }
-{D}*"."{D}+{E}?{FS}?			{ return F_CONSTANT; }
-{D}+"."{E}?{FS}?			{ return F_CONSTANT; }
-{HP}{H}+{P}{FS}?			{ return F_CONSTANT; }
-{HP}{H}*"."{H}+{P}{FS}?			{ return F_CONSTANT; }
-{HP}{H}+"."{P}{FS}?			{ return F_CONSTANT; }
+{D}+{E}{FS}?				{ return F_CONSTANT_RAW; }
+{D}*"."{D}+{E}?{FS}?			{ return F_CONSTANT_RAW; }
+{D}+"."{E}?{FS}?			{ return F_CONSTANT_RAW; }
+{HP}{H}+{P}{FS}?			{ return F_CONSTANT_RAW; }
+{HP}{H}*"."{H}+{P}{FS}?			{ return F_CONSTANT_RAW; }
+{HP}{H}+"."{P}{FS}?			{ return F_CONSTANT_RAW; }
 
 
 "..."					{ return ELLIPSIS; }

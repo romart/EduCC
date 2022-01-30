@@ -104,14 +104,213 @@ static void dumpToken(char *buffer, size_t bsize, Token *token) {
     bf += l; bsize -= l;
   }
 
-  if (token->code == I_CONSTANT) {
-      l = snprintf(bf, bsize, ", integer value '%lld'", token->value.iv);
+  if (token->rawCode == I_CONSTANT_RAW) {
+      l = snprintf(bf, bsize, ", integer value '%ld'", token->value.iv);
       bf += l; bsize -= l;
   }
 
-  if (token->code == F_CONSTANT) {
+  if (token->rawCode == F_CONSTANT_RAW) {
       l = snprintf(bf, bsize, ", float value '%f'", token->value.dv);
       bf += l; bsize -= l;
+  }
+}
+
+static int parseCharSymbol(ParserContext *ctx, int so, int eo, const char *text, size_t length, Boolean isWide) {
+  char buffer[8] = { 0 };
+  buffer[0] = '0';
+
+  Boolean isHex = FALSE;
+  unsigned idx = isWide ? 1 : 0;
+  assert(text[idx++] == '\'');
+
+  if (text[idx] == '\\') {
+    idx++;
+    switch (text[idx]) {
+        case '0':
+          if (text[idx+1] != '\'') reportWarning(ctx, so, eo, "multi-character character constant");
+          return '\0';
+        case 'a':
+          if (text[idx+1] != '\'') reportWarning(ctx, so, eo, "multi-character character constant");
+          return '\a';
+        case 'b':
+          if (text[idx+1] != '\'') reportWarning(ctx, so, eo, "multi-character character constant");
+          return '\b';
+        case 'e':
+          if (text[idx+1] != '\'') reportWarning(ctx, so, eo, "multi-character character constant");
+          return '\e';
+        case 'f':
+          if (text[idx+1] != '\'') reportWarning(ctx, so, eo, "multi-character character constant");
+          return '\f';
+        case 'n':
+          if (text[idx+1] != '\'') reportWarning(ctx, so, eo, "multi-character character constant");
+          return '\n';
+        case 'r':
+          if (text[idx+1] != '\'') reportWarning(ctx, so, eo, "multi-character character constant");
+          return '\r';
+        case 't':
+          if (text[idx+1] != '\'') reportWarning(ctx, so, eo, "multi-character character constant");
+          return '\t';
+        case 'v':
+          if (text[idx+1] != '\'') reportWarning(ctx, so, eo, "multi-character character constant");
+          return '\v';
+        case '\\':
+          if (text[idx+1] != '\'') reportWarning(ctx, so, eo, "multi-character character constant");
+          return '\\';
+        case '\'':
+          if (text[idx+1] != '\'') reportWarning(ctx, so, eo, "multi-character character constant");
+          return '\'';
+        case '\"':
+          if (text[idx+1] != '\'') reportWarning(ctx, so, eo, "multi-character character constant");
+          return '\"';
+        case '?':
+          if (text[idx+1] != '\'') reportWarning(ctx, so, eo, "multi-character character constant");
+          return '\?';
+        case 'x': isHex = TRUE;
+        default: {
+          unsigned i = 1;
+          while (idx < length && text[idx] != '\'') {
+              buffer[i++] = text[idx++];
+              if (i > 6) break; // too large sequence
+          }
+          int32_t v = -1;
+          int r = sscanf(buffer, isHex ? "%x" : "%o", &v);
+          int limit = 0x7f;
+          if (isWide) {
+              limit = 0x7fff;
+          }
+          if (v > limit) {
+            reportError(ctx, so, eo, "%s escape sequence out of range", isHex ? "hex" : "octal");
+          }
+          return v;
+        }
+    }
+  } else {
+    if ((length - idx) > 3) {
+        reportWarning(ctx, so, eo, "multi-character character constant");
+    }
+    return text[idx] - '\0';
+  }
+}
+
+static void parseNumber(ParserContext *ctx, Token *token) {
+  int code = token->rawCode;
+  assert(code == I_CONSTANT_RAW || code == F_CONSTANT_RAW);
+
+  const char *text = yyget_text(ctx->scanner);
+  size_t length = yyget_leng(ctx->scanner);
+
+  assert(length > 0);
+
+  if (text[0] == 'L') {
+      // char16_t
+      assert(code == I_CONSTANT_RAW);
+      assert(length > 1);
+      assert(text[1] == '\'');
+      token->code = C16_CONSTANT;
+      token->value.iv = parseCharSymbol(ctx, token->coordinates.startOffset, token->coordinates.endOffset, text, length, TRUE);
+      return;
+  } else if (text[0] == '\'') {
+      // char
+      assert(code == I_CONSTANT_RAW);
+      token->code = C_CONSTANT;
+      token->value.iv = parseCharSymbol(ctx, token->coordinates.startOffset, token->coordinates.endOffset, text, length, FALSE);
+      return;
+  }
+
+  int suffix = text[length - 1];
+
+  if (code == F_CONSTANT_RAW) {
+    double v = atof(text);
+    if (suffix == 'f' || suffix == 'F') {
+        // float
+        token->code = F_CONSTANT;
+        if ((double)(float) v != v) {
+            // TODO: report float precision violation warning
+        }
+        token->value.dv = (double)(float)v;
+    } else {
+        // double
+        token->code = D_CONSTANT;
+        token->value.dv = v;
+    }
+    return;
+  }
+
+  assert(code == I_CONSTANT_RAW);
+
+  int sign = 0;
+  int wide = 4;
+
+  if (suffix == 'u' || suffix == 'U') {
+      sign = 1;
+      int suffix2 = text[length - 2];
+      if (suffix == 'l' || suffix == 'L') {
+          int suffix3 = text[length - 3];
+          if (suffix == 'l' || suffix == 'L') {
+            wide = 8;
+          }
+      }
+  }
+
+  if (suffix == 'l' || suffix == 'L') {
+      int suffix2 = text[length - 2];
+      if (suffix == 'l' || suffix == 'L') {
+          wide = 8;
+          int suffix3 = text[length - 3];
+          if (suffix == 'u' || suffix == 'U') {
+              sign = 1;
+          }
+      }
+  }
+
+  int prefix = text[0];
+  int64_t c = 0;
+  if (prefix == '0') {
+      if (text[1] == 'x') {
+        sscanf(text, "%lx", &c);
+      } else if (text[1] == 'b' || text[1] == 'B') {
+        u_int64_t r = 0;
+        unsigned i;
+        for (i = 2; i < length; ++i) {
+            u_int64_t old = r;
+            r <<= 1;
+            r += (text[i] - '0');
+            if (old > r) {
+                // integer overflow
+                reportWarning(ctx, token->coordinates.startOffset, token->coordinates.endOffset, "Integer overflow in binary constant");
+            }
+        }
+        c = (int64_t)r;
+      } else {
+        sscanf(text, "%lo", &c);
+      }
+  } else {
+    sscanf(text, "%ld", &c);
+  }
+
+  if (wide == 8) {
+      token->value.iv = c;
+      if (sign == 1) {
+          token->code = UL_CONSTANT;
+      } else {
+          token->code = L_CONSTANT;
+      }
+  } else {
+      if (sign == 1) {
+          u_int32_t uc = (u_int32_t)c;
+          if (c != (int64_t)uc) {
+              reportWarning(ctx, token->coordinates.startOffset, token->coordinates.endOffset, "implicit conversion from 'long' to 'unsigned int' changes value from %ld to %u", c, uc);
+          }
+          token->code = U_CONSTANT;
+          token->value.iv = (int64_t)uc;
+      } else {
+          int32_t ic = (int32_t)c;
+          if (c != (int64_t)ic) {
+              reportWarning(ctx, token->coordinates.startOffset, token->coordinates.endOffset, "implicit conversion from 'long' to 'int' changes value from %ld to %d", c, ic);
+          }
+          token->code = I_CONSTANT;
+          token->value.iv = (int64_t)ic;
+      }
   }
 }
 
@@ -160,13 +359,11 @@ static Token* nextToken(ParserContext *ctx) {
             cur->value.iv = enumerator->value;
           }
         }
-    } else if (rawToken == I_CONSTANT) {
-        cur->value.iv = atoll(yyget_text(ctx->scanner));
-    } else if (rawToken == F_CONSTANT) {
-        cur->value.dv = atof(yyget_text(ctx->scanner));
+    } else if (rawToken == I_CONSTANT_RAW || rawToken == F_CONSTANT_RAW) {
+        parseNumber(ctx, cur);
     } else if (rawToken == STRING_LITERAL) {
-        cur->coordinates.startOffset -= 1; // "
-        cur->coordinates.endOffset += 1; // "
+        cur->coordinates.startOffset -= 1; // "..
+        cur->coordinates.endOffset += 1; // .."
         cur->text = copyLiteralString(ctx);
     }
 
@@ -374,6 +571,7 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
     flags.bits.isConst = 1;
     int so = ctx->token->coordinates.startOffset;
     int eo = ctx->token->coordinates.endOffset;
+    TypeId typeId = T_ERROR;
     switch (ctx->token->code) {
         case IDENTIFIER:
             result = resolveNameRef(ctx);
@@ -382,17 +580,25 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
             parseError(ctx, "unexpected type name '%s': expected expression", ctx->token->text);
             result = createErrorExpression(ctx, so, eo);
             break;
-        case ENUM_CONST:
-        case I_CONSTANT: {
-            int64_const_t l = ctx->token->value.iv;
+        case C_CONSTANT: typeId = T_S1; goto iconst;
+        case C16_CONSTANT: typeId = T_S2; goto iconst;
+        case ENUM_CONST: //enum constant is int32_t aka T_S4
+        case I_CONSTANT: typeId = T_S4; goto iconst;
+        case U_CONSTANT: typeId = T_U4; goto iconst;
+        case L_CONSTANT: typeId = T_S8; goto iconst;
+        case UL_CONSTANT: typeId = T_U8; goto iconst;
+        iconst: {
+            int64_t l = ctx->token->value.iv;
             result = createAstConst(ctx, so, eo, CK_INT_CONST, &l);
-            result->type = makePrimitiveType(ctx, T_S8, flags.storage);
+            result->type = makePrimitiveType(ctx, typeId, flags.storage);
             break;
         }
-        case F_CONSTANT: {
+        case F_CONSTANT: typeId = T_F4; goto fconst;
+        case D_CONSTANT: typeId = T_F8; goto fconst;
+        fconst: {
             float64_const_t f = ctx->token->value.dv;
             result = createAstConst(ctx, so, eo, CK_FLOAT_CONST, &f);
-            result->type = makePrimitiveType(ctx, T_F8, flags.storage);
+            result->type = makePrimitiveType(ctx, typeId, flags.storage);
             break;
         }
         case STRING_LITERAL: {
