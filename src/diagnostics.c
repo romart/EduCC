@@ -75,7 +75,7 @@ static void computeLineAndCollumn(ParserContext *ctx, int _pos, int *line, int *
   *lineStartOffset = lineOffset;
 }
 
-static void reportDiagnostic2(ParserContext *ctx, enum DiagnosticId diag, Coordinates *location, ...) {
+void reportDiagnostic(ParserContext *ctx, enum DiagnosticId diag, Coordinates *location, ...) {
   Diagnostic *newDiagnostic = allocDiagnostic(ctx);
   char buffer[1024] = { 0 };
 
@@ -90,7 +90,7 @@ static void reportDiagnostic2(ParserContext *ctx, enum DiagnosticId diag, Coordi
   va_start(args, location);
 
   for (;;) {
-      int fc = fmt[i++];
+      char fc = fmt[i++];
 
       if (fc == '\0' || j >= sizeof buffer) break;
 
@@ -99,9 +99,9 @@ static void reportDiagnostic2(ParserContext *ctx, enum DiagnosticId diag, Coordi
 
       if (fc == '%') {
         fmtBuf[k++] = fc;
-        int fc2 = fmt[i++];
+        char fc2 = fmt[i++];
         if (fc2 == 't') {
-            int fc3 = fmt[i++];
+            char fc3 = fmt[i++];
             if (fc3 == 'r') {
                 // type ref
                 TypeRef *ref = va_arg(args, TypeRef *);
@@ -110,6 +110,11 @@ static void reportDiagnostic2(ParserContext *ctx, enum DiagnosticId diag, Coordi
                 // type desc
                 TypeDesc *desc = va_arg(args, TypeDesc *);
                 r = renderTypeDesc(desc, buffer + j, bufferSize - j);
+            } else if (fc3 == 'k') {
+                int tokenCode = va_arg(args, int);
+                char tb[2];
+                const char *tokenName = tokenNameInBuffer(tokenCode, tb);
+                r = snprintf(buffer + j, bufferSize - j, "%s", tokenName);
             } else {
                 buffer[j] = fc;
                 buffer[j + 1] = fc2;
@@ -154,7 +159,7 @@ static void reportDiagnostic2(ParserContext *ctx, enum DiagnosticId diag, Coordi
                 } else if (fc2 == 'd') {
                     int32_t v = va_arg(args, int32_t);
                     r = snprintf(buffer + j, bufferSize - j, fmtBuf, v);
-                } if (fc2 == 'x') {
+                } else if (fc2 == 'x') {
                     // long hex
                     int32_t v = va_arg(args, int32_t);
                     r = snprintf(buffer + j, bufferSize - j, fmtBuf, v);
@@ -186,7 +191,7 @@ static void reportDiagnostic2(ParserContext *ctx, enum DiagnosticId diag, Coordi
 
   va_end(args);
 
-  Severity *sev = &severities[descriptor->severityKind];
+  newDiagnostic->severity = &severities[descriptor->severityKind];
 
   if (j > 0) {
     char *message = allocMessageString(ctx, j + 1);
@@ -211,7 +216,7 @@ static void reportDiagnostic2(ParserContext *ctx, enum DiagnosticId diag, Coordi
   ctx->diagnostics.count += 1;
 }
 
-static void reportDiagnostic(ParserContext *ctx, Severity *severity, int start, int end, const char *format, va_list args) {
+static void reportDiagnostic2(ParserContext *ctx, Severity *severity, int start, int end, const char *format, va_list args) {
 
   Diagnostic *newDiagnostic = allocDiagnostic(ctx);
 
@@ -358,35 +363,35 @@ void printDiagnostic(FILE *output, Diagnostic *diagnostic, Boolean verbose) {
 void reportInfo(ParserContext *ctx, int start, int end, const char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  reportDiagnostic(ctx, infoSeverity, start, end, fmt, args);
+  reportDiagnostic2(ctx, infoSeverity, start, end, fmt, args);
   va_end(args);
 }
 
 void reportWarning(ParserContext *ctx, int start, int end, const char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  reportDiagnostic(ctx, warningSeverity, start, end, fmt, args);
+  reportDiagnostic2(ctx, warningSeverity, start, end, fmt, args);
   va_end(args);
 }
 
 void reportError(ParserContext *ctx, int start, int end, const char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  reportDiagnostic(ctx, errorSeverity, start, end, fmt, args);
+  reportDiagnostic2(ctx, errorSeverity, start, end, fmt, args);
   va_end(args);
 }
 
 void parseWarning(ParserContext *ctx, const char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  reportDiagnostic(ctx, warningSeverity, ctx->token->coordinates.startOffset, ctx->token->coordinates.endOffset, fmt, args);
+  reportDiagnostic2(ctx, warningSeverity, ctx->token->coordinates.startOffset, ctx->token->coordinates.endOffset, fmt, args);
   va_end(args);
 }
 
 void parseError(ParserContext *ctx, const char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  reportDiagnostic(ctx, errorSeverity, ctx->token->coordinates.startOffset, ctx->token->coordinates.endOffset, fmt, args);
+  reportDiagnostic2(ctx, errorSeverity, ctx->token->coordinates.startOffset, ctx->token->coordinates.endOffset, fmt, args);
   va_end(args);
 }
 

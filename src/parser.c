@@ -30,11 +30,8 @@ static Boolean nextTokenIf(ParserContext *ctx, int nextIf) {
 static void reportUnexpectedToken(ParserContext *ctx, int expected) {
 
     int actual = ctx->token->code;
-    char eb[2], ab[2];
-    const char* actToken = tokenNameInBuffer(actual, ab);
     const char* yytext = ctx->token->text;
-    const char* expToken = tokenNameInBuffer(expected, eb);
-    parseError(ctx, "unexpected token %s '%s' instead of %s", actToken, yytext, expToken);
+    reportDiagnostic(ctx, DIAG_UNEXPECTED_TOKEN, &ctx->token->coordinates, actual, yytext, expected);
 }
 
 static void expect(ParserContext *ctx, int token) {
