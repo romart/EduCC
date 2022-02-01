@@ -1,4 +1,4 @@
-test/testData/parser/negative/expressions/unaryOps.c:6:15: error: address of register variable requested
+test/testData/parser/negative/expressions/unaryOps.c:3:15: error: address of register variable requested
 test/testData/parser/negative/expressions/unaryOps.c:3:27: error: indirection requires pointer operand ('signed int' invalid)
 test/testData/parser/negative/expressions/unaryOps.c:3:28: error: indirection requires pointer operand ('float' invalid)
 test/testData/parser/negative/expressions/unaryOps.c:3:32: error: indirection requires pointer operand ('STRUCT S' invalid)

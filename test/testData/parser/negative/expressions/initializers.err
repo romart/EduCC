@@ -35,7 +35,7 @@ test/testData/parser/negative/expressions/initializers.c:11:35: error: initializ
 test/testData/parser/negative/expressions/initializers.c:11:36: error: initializer element is not a compile-time constant
 test/testData/parser/negative/expressions/initializers.c:11:36: error: assigning to 'float' from incompatible type '*signed int'
 test/testData/parser/negative/expressions/initializers.c:13:36: error: redefinition of 'f' with a different type: 'float' vs 'signed int[9]'
-test/testData/parser/negative/expressions/initializers.c:1:37: error: definition of variable with array type needs an explicit size or an initializer
+test/testData/parser/negative/expressions/initializers.c:5:37: error: definition of variable with array type needs an explicit size or an initializer
 test/testData/parser/negative/expressions/initializers.c:14:38: error: array type 'signed int[20]' is not assignable
 test/testData/parser/negative/expressions/initializers.c:1:45: error: variable has incomplete type 'void'
 test/testData/parser/negative/expressions/initializers.c:26:46: warning: excess elements in scalar initializer
