@@ -248,8 +248,10 @@ TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, int so, int eo, Ty
   if (isErrorType(arrayType)) return arrayType;
   if (isErrorType(indexType)) return indexType;
 
+  Coordinates coords = { so, eo };
+
   if (!isIntegerType(indexType)) {
-      reportError(ctx, so, eo, "array subscript is not an integer");
+      reportDiagnostic(ctx, DIAG_ARRAY_SUBSCRIPT_NOT_INT, &coords);
       return makeErrorRef(ctx);
   }
 
@@ -261,7 +263,8 @@ TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, int so, int eo, Ty
       return arrayType->arrayTypeDesc.elementType;
   }
 
-  reportError(ctx, so, eo, "subscripted value is not an array or pointer");
+  reportDiagnostic(ctx, DIAG_SUBSCRIPTED_NOT_A_POINTER, &coords);
+
   return makeErrorRef(ctx);
 }
 
@@ -275,9 +278,8 @@ TypeRef *computeFunctionReturnType(ParserContext *ctx, int so, int eo, TypeRef *
     }
 
     if (calleType->kind != TR_FUNCTION) {
-        char buffer[1024] = { 0 };
-        renderTypeRef(_calleeType, buffer, sizeof buffer);
-        reportError(ctx, so, eo, "called object type '%s' is not a function or function pointer", buffer);
+        Coordinates coords = { so, eo };
+        reportDiagnostic(ctx, DIAG_INVOKE_NOT_FUNCTIONAL, &coords, _calleeType);
         return makeErrorRef(ctx);
     }
 
@@ -292,24 +294,22 @@ TypeRef *computeMemberAccessType(ParserContext *ctx, int so, int eo, TypeRef *_r
 
   TypeRef *receiverType = _receiverType;
 
+  Coordinates coords = { so, eo };
+
   if (op == EF_ARROW) {
     if (_receiverType->kind == TR_POINTED) {
         receiverType = _receiverType->pointedTo;
     } else if (_receiverType->kind == TR_ARRAY) {
         receiverType = _receiverType->arrayTypeDesc.elementType;
     } else {
-        char buffer[1024] = { 0 };
-        renderTypeRef(_receiverType, buffer, sizeof buffer);
-        reportError(ctx, so, eo, "member reference type '%s' is not a pointer", buffer);
+        reportDiagnostic(ctx, DIAG_MEMBER_REF_NOT_A_POINTER, &coords, _receiverType);
         return makeErrorRef(ctx);
     }
   }
 
 
   if (!isStructualType(receiverType)) {
-      char buffer[1024] = { 0 };
-      renderTypeRef(receiverType, buffer, sizeof buffer);
-      reportError(ctx, so, eo, "member reference base type '%s' is not a structure or union", buffer);
+      reportDiagnostic(ctx, DIAG_MEMBER_REF_NOT_A_STRUCTUAL, &coords, receiverType);
       return makeErrorRef(ctx);
   }
 
@@ -332,9 +332,7 @@ TypeRef *computeMemberAccessType(ParserContext *ctx, int so, int eo, TypeRef *_r
 
 
   if (memberDeclarator == NULL) {
-      char buffer[1024] = { 0 };
-      renderTypeRef(receiverType, buffer, sizeof buffer);
-      reportError(ctx, so, eo, "no member named '%s' in '%s'", memberName, buffer);
+      reportDiagnostic(ctx, DIAG_NO_MEMBER_NAME, &coords, memberName, receiverType);
       return makeErrorRef(ctx);
   }
 
@@ -347,16 +345,14 @@ TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, T
   if (isErrorType(ifTrue)) return ifTrue;
   if (isErrorType(ifFalse)) return ifFalse;
 
+  Coordinates coords = { so, eo };
+
   if (isStructualType(ifTrue) || isStructualType(ifFalse)) {
       if (typesEquals(ifTrue, ifFalse)) {
           return ifTrue;
       } else {
-        char b1[1024] = { 0 };
-        char b2[1024] = { 0 };
-        renderTypeRef(ifTrue, b1, sizeof b1);
-        renderTypeRef(ifFalse, b2, sizeof b2);
-        reportError(ctx, so, eo, "incompatible operand types ('%s' and '%s')", b1, b2);
-        return makeErrorRef(ctx);
+          reportDiagnostic(ctx, DIAG_INCOMPATIBLE_OPERANDS, &coords, ifTrue, ifFalse);
+          return makeErrorRef(ctx);
       }
   }
 
@@ -372,26 +368,14 @@ TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, T
       if (isPointerLikeType(ifFalse)) {
           TypeRef *pointedF = ifFalse->kind == TR_POINTED ? ifFalse->pointedTo : ifFalse->arrayTypeDesc.elementType;
           if (!typesEquals(pointedT, pointedF)) { // TODO: could fail with array vs ponter
-              char b1[1024] = { 0 };
-              char b2[1024] = { 0 };
-              renderTypeRef(ifTrue, b1, sizeof b1);
-              renderTypeRef(ifFalse, b2, sizeof b2);
-              reportWarning(ctx, so, eo, "pointer type mismatch ('%s' and '%s')", b1, b2);
+              reportDiagnostic(ctx, DIAG_POINTER_TYPE_MISMATCH, &coords, ifTrue, ifFalse);
           }
           return makePointedType(ctx, ifTrue->flags, pointedT);
       } else if (isIntegerType(ifFalse)) {
-          char b1[1024] = { 0 };
-          char b2[1024] = { 0 };
-          renderTypeRef(ifTrue, b1, sizeof b1);
-          renderTypeRef(ifFalse, b2, sizeof b2);
-          reportWarning(ctx, so, eo, "pointer/integer type mismatch in conditional expression ('%s' and '%s')", b1, b2);
+          reportDiagnostic(ctx, DIAG_POINTER_INT_MISMATCH_IN_COND, &coords, ifTrue, ifFalse);
           return makePointedType(ctx, ifTrue->flags, pointedT);
       } else {
-          char b1[1024] = { 0 };
-          char b2[1024] = { 0 };
-          renderTypeRef(ifTrue, b1, sizeof b1);
-          renderTypeRef(ifFalse, b2, sizeof b2);
-          reportError(ctx, so, eo, "incompatible operand types ('%s' and '%s')", b1, b2);
+          reportDiagnostic(ctx, DIAG_INCOMPATIBLE_OPERANDS, &coords, ifTrue, ifFalse);
           return makeErrorRef(ctx);
       }
   }
@@ -399,18 +383,10 @@ TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, T
   if (isPointerLikeType(ifFalse)) {
       TypeRef *pointedF = ifFalse->kind == TR_POINTED ? ifFalse->pointedTo : ifFalse->arrayTypeDesc.elementType;
       if (isIntegerType(ifTrue)) {
-          char b1[1024] = { 0 };
-          char b2[1024] = { 0 };
-          renderTypeRef(ifTrue, b1, sizeof b1);
-          renderTypeRef(ifFalse, b2, sizeof b2);
-          reportWarning(ctx, so, eo, "pointer/integer type mismatch in conditional expression ('%s' and '%s')", b1, b2);
+          reportDiagnostic(ctx, DIAG_POINTER_INT_MISMATCH_IN_COND, &coords, ifTrue, ifFalse);
           return makePointedType(ctx, ifFalse->flags, pointedF);
       } else {
-          char b1[1024] = { 0 };
-          char b2[1024] = { 0 };
-          renderTypeRef(ifTrue, b1, sizeof b1);
-          renderTypeRef(ifFalse, b2, sizeof b2);
-          reportError(ctx, so, eo, "incompatible operand types ('%s' and '%s')", b1, b2);
+          reportDiagnostic(ctx, DIAG_INCOMPATIBLE_OPERANDS, &coords, ifTrue, ifFalse);
           return makeErrorRef(ctx);
       }
   }
@@ -418,21 +394,15 @@ TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, T
   return makeErrorRef(ctx); // Unknown situation
 }
 
-static TypeRef *reportInvalidBinaryOperand(ParserContext *ctx, int so, int eo, TypeRef *left, TypeRef *right) {
-  char b1[1024] = { 0 };
-  char b2[1024] = { 0 };
-  renderTypeRef(left, b1, sizeof b1);
-  renderTypeRef(right, b2, sizeof b2);
-  reportError(ctx, so, eo, "invalid operands to binary expression ('%s' and '%s')", b1, b2);
-  return makeErrorRef(ctx); // binary ops are not applicabe to structual types
-}
-
 TypeRef *computeBinaryType(ParserContext *ctx, int so, int eo, TypeRef* left, TypeRef *right, ExpressionType op) {
   if (isErrorType(left)) return left;
   if (isErrorType(right)) return right;
 
-  if (isStructualType(left) || isStructualType(right)){
-      return reportInvalidBinaryOperand(ctx, so, eo, left, right);  // binary ops are not applicabe to structual types
+  Coordinates coords = { so, eo };
+
+  if (isStructualType(left) || isStructualType(right)) {
+      reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, &coords, left, right);
+      return makeErrorRef(ctx);
   }
 
   if (EB_ANDAND <= op && op <= EB_GE) {
@@ -443,7 +413,8 @@ TypeRef *computeBinaryType(ParserContext *ctx, int so, int eo, TypeRef* left, Ty
       if (isIntegerType(left) && isIntegerType(right)) {
           return commonPrimitiveType(ctx, left, right);
       }
-      return reportInvalidBinaryOperand(ctx, so, eo, left, right);
+      reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, &coords, left, right);
+      return makeErrorRef(ctx);
   }
 
 
@@ -451,13 +422,15 @@ TypeRef *computeBinaryType(ParserContext *ctx, int so, int eo, TypeRef* left, Ty
     if (isPrimitiveType(left) && isPrimitiveType(right)) {
         return commonPrimitiveType(ctx, left, right);
     }
-    return reportInvalidBinaryOperand(ctx, so, eo, left, right);
+    reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, &coords, left, right);
+    return makeErrorRef(ctx);
   }
 
 
   if (op == EB_ADD) {
       if (isPointerLikeType(left) && isPointerLikeType(right)) {
-          return reportInvalidBinaryOperand(ctx, so, eo, left, right);
+          reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, &coords, left, right);
+          return makeErrorRef(ctx);
       }
   }
 
@@ -471,7 +444,8 @@ TypeRef *computeBinaryType(ParserContext *ctx, int so, int eo, TypeRef* left, Ty
         TypeRef *pointedL = left->kind == TR_POINTED ? left->pointedTo : left->arrayTypeDesc.elementType;
         return makePointedType(ctx, left->flags, pointedL);
       }
-      return reportInvalidBinaryOperand(ctx, so, eo, left, right);
+      reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, &coords, left, right);
+      return makeErrorRef(ctx);
   }
 
   if (isPointerLikeType(right)) {
@@ -479,7 +453,8 @@ TypeRef *computeBinaryType(ParserContext *ctx, int so, int eo, TypeRef* left, Ty
         TypeRef *pointedR = right->kind == TR_POINTED ? right->pointedTo : right->arrayTypeDesc.elementType;
         return makePointedType(ctx, right->flags, pointedR);
       }
-      return reportInvalidBinaryOperand(ctx, so, eo, left, right);
+      reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, &coords, left, right);
+      return makeErrorRef(ctx);
   }
 
   return commonPrimitiveType(ctx, left, right);
@@ -492,11 +467,10 @@ TypeRef *computeIncDecType(ParserContext *ctx, int so, int eo, TypeRef *argument
   if (isErrorType(argumentType)) return argumentType;
 
   if (argumentType->kind == TR_FUNCTION || argumentType->kind == TR_ARRAY || isStructualType(argumentType)) {
-    const char *opName = op == EU_POST_DEC || op == EU_PRE_DEC ? "decrement" : "increment";
-    char buffer[1024] = { 0 };
-    renderTypeRef(argumentType, buffer, sizeof buffer);
-    reportError(ctx, so, eo, "cannot %s value of type '%s'", opName, buffer);
-    return makeErrorRef(ctx);
+      enum DiagnosticId diag = op == EU_POST_DEC || op == EU_PRE_DEC ? DIAG_CANNOT_DECREMENT : DIAG_CANNOT_INCREMENT;
+      Coordinates coords = { so, eo };
+      reportDiagnostic(ctx, diag, &coords, argumentType);
+      return makeErrorRef(ctx);
   }
 
   return argumentType;
@@ -511,9 +485,9 @@ static TypeRef *computeTypeForDerefOperator(ParserContext *ctx, int so, int eo, 
       return argumentType->arrayTypeDesc.elementType;
   }
 
-  char buffer[1024] = { 0 };
-  renderTypeRef(argumentType, buffer, sizeof buffer);
-  reportError(ctx, so, eo, "indirection requires pointer operand ('%s' invalid)", buffer);
+  Coordinates coords = { so, eo };
+  reportDiagnostic(ctx, DIAG_INDERECTION_POINTER_OP, &coords, argumentType);
+
   return makeErrorRef(ctx);
 }
 
@@ -536,9 +510,8 @@ TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, int so, int eo, TypeRef
       } else if (op != EU_TILDA && isPrimitiveType(argumentType)) {
           return argumentType;
       } else {
-          char buffer[1024] = { 0 };
-          renderTypeRef(argumentType, buffer, sizeof buffer);
-          reportError(ctx, so, eo, "invalid argument type '%s' to unary expression", buffer);
+          Coordinates coords = { so, eo };
+          reportDiagnostic(ctx, DIAG_INVALID_UNARY_ARGUMENT, &coords, argumentType);
           return makeErrorRef(ctx);
       }
     default:
@@ -549,29 +522,19 @@ TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, int so, int eo, TypeRef
   return argumentType;
 }
 
-static void reportInvalidAssignTypes(ParserContext *ctx, int so, int eo, TypeRef *left, TypeRef *right) {
-  char b1[1024] = { 0 };
-  char b2[1024] = { 0 };
-  renderTypeRef(left, b1, sizeof b1);
-  renderTypeRef(right, b2, sizeof b2);
-  reportError(ctx, so, eo, "assigning to '%s' from incompatible type '%s'", b1, b2);
-}
-
 Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeRef *from) {
   if (isErrorType(to)) return TRUE;
   if (isErrorType(from)) return TRUE;
 
+  Coordinates coords = { so, eo };
+
   if (to->flags.bits.isConst) {
-      char b[1024] = { 0 };
-      renderTypeRef(to, b, sizeof b);
-      reportError(ctx, so, eo, "cannot assign to lvalue with const-qualified type '%s'", b);
+      reportDiagnostic(ctx, DIAG_ASSIGN_IN_CONST, &coords, to);
       return FALSE;
   }
 
   if (to->kind == TR_ARRAY) {
-      char b[1024] = { 0 };
-      renderTypeRef(to, b, sizeof b);
-      reportError(ctx, so, eo, "array type '%s' is not assignable", b);
+      reportDiagnostic(ctx, DIAG_ARRAY_TYPE_IS_NOT_ASSIGNABLE, &coords, to);
       return FALSE;
   }
 
@@ -579,7 +542,7 @@ Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeR
       if (typesEquals(to, from)) {
           return TRUE;
       } else {
-          reportInvalidAssignTypes(ctx, so, eo, to, from);
+          reportDiagnostic(ctx, DIAG_ASSIGN_FROM_INCOMPATIBLE_TYPE, &coords, to, from);
           return FALSE;
       }
   }
@@ -591,22 +554,14 @@ Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeR
           if (typesEquals(pLeft, pointed)) {
               return TRUE;
           } else {
-              char b1[1024] = { 0 };
-              char b2[1024] = { 0 };
-              renderTypeRef(to, b1, sizeof b1);
-              renderTypeRef(from, b2, sizeof b2);
-              reportWarning(ctx, so, eo, "incompatible pointer types assigning to '%s' from '%s'", b1, b2);
+              reportDiagnostic(ctx, DIAG_ASSIGN_INCOMPATIBLE_POINTERS, &coords, to, from);
               return TRUE;
           }
       } else if (isIntegerType(from)) {
-          char b1[1024] = { 0 };
-          char b2[1024] = { 0 };
-          renderTypeRef(to, b1, sizeof b1);
-          renderTypeRef(from, b2, sizeof b2);
-          reportWarning(ctx, so, eo, "incompatible integer to pointer conversion assigning to '%s' from '%s'", b1, b2);
+          reportDiagnostic(ctx, DIAG_ASSIGN_INT_TO_POINTER, &coords, to, from);
           return TRUE;
       } else {
-          reportInvalidAssignTypes(ctx, so, eo, to, from);
+          reportDiagnostic(ctx, DIAG_ASSIGN_FROM_INCOMPATIBLE_TYPE, &coords, to, from);
           return FALSE;
       }
   }
@@ -614,14 +569,10 @@ Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeR
 
   if (isPointerLikeType(from)) {
       if (isIntegerType(to)) {
-          char b1[1024] = { 0 };
-          char b2[1024] = { 0 };
-          renderTypeRef(to, b1, sizeof b1);
-          renderTypeRef(from, b2, sizeof b2);
-          reportWarning(ctx, so, eo, "incompatible integer to pointer conversion assigning to '%s' from '%s'", b1, b2);
+          reportDiagnostic(ctx, DIAG_ASSIGN_INT_TO_POINTER, &coords, to, from);
           return TRUE;
       } else {
-          reportInvalidAssignTypes(ctx, so, eo, to, from);
+          reportDiagnostic(ctx, DIAG_ASSIGN_FROM_INCOMPATIBLE_TYPE, &coords, to, from);
           return FALSE;
       }
   }
@@ -754,7 +705,7 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *ele
       AstExpression *expr = initializer->expression;
       if (expr) {
         if (isTopLevel && !isCompileTimeConstant(expr)) {
-            reportError(ctx, so, eo, "initializer element is not a compile-time constant");
+            reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, &initializer->coordinates);
         }
         if (!(isStructualType(elementType) && isIntegerType(expr->type))) { // array initializer like `struct S as[] = { 0 }` is totally acceptable
           isAssignableTypes(ctx, so, eo, elementType, expr->type);
@@ -773,9 +724,7 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *ele
           int count = 0;
           while (inner) {
               if (*counter >= arraySize) {
-                  int nso = inner->initializer->coordinates.startOffset;
-                  int neo = inner->initializer->coordinates.endOffset;
-                  reportWarning(ctx, nso, neo, "excess elements in scalar initializer");
+                reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &inner->initializer->coordinates);
               }
 
               AstInitializer *transformed = finalizeArrayInitializer(ctx, elementType, inner->initializer, arraySize, counter, isTopLevel);
@@ -788,7 +737,7 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *ele
           result->numOfInitializers = count;
           return result;
         } else {
-          reportError(ctx, so, eo, "scalar initializer cannot be empty");
+          reportDiagnostic(ctx, DIAG_SCALAR_INIT_EMPTY, &initializer->coordinates);
           AstInitializer *result = createAstInitializer(ctx, so, eo, IK_EXPRESSION);
           result->expression = createErrorExpression(ctx, so, eo);
           return result;
@@ -813,7 +762,7 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
       AstExpression *expr = initializer->expression;
       if (expr) {
         if (isTopLevel && !isCompileTimeConstant(expr)) {
-            reportError(ctx, so, eo, "initializer element is not a compile-time constant");
+            reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, &initializer->coordinates);
         }
         isAssignableTypes(ctx, so, eo, memberType, expr->type);
       } else {
@@ -842,16 +791,14 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
             }
 
             if (inner != NULL) {
-                int nso = inner->initializer->coordinates.startOffset;
-                int neo = inner->initializer->coordinates.endOffset;
-                reportWarning(ctx, nso, neo, "excess elements in scalar initializer");
+                reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &inner->initializer->coordinates);
             }
 
             result = createAstInitializer(ctx, so, eo, IK_LIST);
             result->initializerList = head;
             result->numOfInitializers = count;
           } else {
-            reportError(ctx, so, eo, "scalar initializer cannot be empty");
+            reportDiagnostic(ctx, DIAG_SCALAR_INIT_EMPTY, &initializer->coordinates);
             result = createAstInitializer(ctx, so, eo, IK_EXPRESSION);
             result->expression = createErrorExpression(ctx, so, eo);
           }
@@ -866,14 +813,6 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
   return NULL;
 }
 
-//struct S { int a; };
-
-//struct S s1;
-
-//struct S s2 = s1;
-
-//struct S as[] = { {0}, {0}, {0} };
-
 AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer *initializer, Boolean isTopLevel) {
   int so = initializer->coordinates.startOffset;
   int eo = initializer->coordinates.endOffset;
@@ -884,16 +823,12 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
       return initializer;
   }
 
-  struct S { int a; };
-
-  struct S as[] = { {0}, {0}, {0} };
-
   if (valueType->kind == TR_ARRAY && valueType->arrayTypeDesc.size == UNKNOWN_SIZE) {
       if (initializer->kind == IK_LIST) {
           assert(initializer->numOfInitializers >= 0);
           valueType->arrayTypeDesc.size = initializer->numOfInitializers;
       } else {
-          reportError(ctx, so, eo, "invalid initializer");
+          reportDiagnostic(ctx, DIAG_INVALID_INITIALIZER, &initializer->coordinates);
           return initializer;
       }
   }
@@ -902,7 +837,7 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
       AstExpression *expr = initializer->expression;
       if (expr) {
         if (isTopLevel && !isCompileTimeConstant(expr)) {
-            reportError(ctx, so, eo, "initializer element is not a compile-time constant");
+            reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, &initializer->coordinates);
         }
         isAssignableTypes(ctx, so, eo, valueType, expr->type);
       }
@@ -915,16 +850,12 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
               AstInitializer * result = finalizeInitializer(ctx, valueType, inner->initializer, isTopLevel);
               AstInitializerList *next = inner->next;
               if (next) {
-                  int nso = next->initializer->coordinates.startOffset;
-                  int neo = next->initializer->coordinates.endOffset;
-                  reportWarning(ctx, nso, neo, "excess elements in scalar initializer");
+                  reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &next->initializer->coordinates);
               }
               return result;
             } else {
-              int nso = initializer->coordinates.startOffset;
-              int neo = initializer->coordinates.endOffset;
-              reportError(ctx, nso, neo, "scalar initializer cannot be empty");
-              return initializer;
+                reportDiagnostic(ctx, DIAG_SCALAR_INIT_EMPTY, &initializer->coordinates);
+                return initializer;
             }
       } else if (isStructualType(valueType)) {
           AstSUEDeclaration *declaration = valueType->descriptorDesc->structInfo;
@@ -962,9 +893,7 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
 
           while (inner) {
               if (arrayCounter >= arraySize) {
-                  int nso = inner->initializer->coordinates.startOffset;
-                  int neo = inner->initializer->coordinates.endOffset;
-                  reportWarning(ctx, nso, neo, "excess elements in scalar initializer");
+                  reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &inner->initializer->coordinates);
               }
 
               AstInitializer *transformed = finalizeArrayInitializer(ctx, elementType, inner->initializer, arraySize, &arrayCounter, isTopLevel);
@@ -978,7 +907,7 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
           return result;
       } else {
           // ft fx = { 01.f, 5, { 0, 0.1f, "ccc" } , 0 };
-          reportError(ctx, so, eo, "illegal initializer (only variables can be initialized)");
+          reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &initializer->coordinates);
       }
   }
   return NULL;
@@ -988,18 +917,13 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
 Boolean verifyValueType(ParserContext *ctx, int so, int eo, TypeRef *valueType) {
   if (isErrorType(valueType)) return TRUE;
 
+  Coordinates coords = { so, eo };
+
   if (valueType->kind == TR_VALUE) {
       TypeDesc *desc = valueType->descriptorDesc;
-      if (desc->typeId == T_VOID) {
-          reportError(ctx, so, eo, "variable has incomplete type 'void'");
+      if (desc->typeId == T_VOID || desc->size == UNKNOWN_SIZE) {
+          reportDiagnostic(ctx, DIAG_VAR_INCOMPLETE_TYPE, &coords, desc);
           return FALSE;
-      } else if (desc->typeId > T_BUILT_IN_TYPES) {
-          if (desc->size == UNKNOWN_SIZE) {
-              char buffer[1024];
-              renderTypeDesc(desc, buffer, sizeof buffer);
-              reportError(ctx, so, eo, "variable has incomplete type '%s'", buffer);
-              return FALSE;
-          }
       }
   }
 
@@ -1031,13 +955,15 @@ void verifyCallAruments(ParserContext *ctx, int so, int eo, TypeRef *functionTyp
       }
   }
 
+  Coordinates coords = { so, eo };
+
   if (argument == NULL && param != NULL) { // fewer
-      reportError(ctx, so, eo, "too few arguments to function call");
+      reportDiagnostic(ctx, DIAG_TOO_FEW_ARGS, &coords);
   }
 
   if (argument != NULL && param == NULL) {
       if (!functionType->functionTypeDesc.isVariadic) {
-          reportError(ctx, so, eo, "too many arguments to function call");
+          reportDiagnostic(ctx, DIAG_TOO_MANY_ARGS, &coords);
       }
   }
 }
@@ -1070,7 +996,7 @@ static void verifySwtichCasesRec(ParserContext *ctx, AstStatement *stmt, unsigne
             break;
         case LK_CASE:
             if (checkInSet(label->caseConst, *caseIndex, caseSet)) {
-                reportError(ctx, stmt->coordinates.startOffset, stmt->coordinates.endOffset, "duplicate case value '%d'", label->caseConst);
+                reportDiagnostic(ctx, DIAG_DUPLICATE_CASE_VALUE, &stmt->coordinates, label->caseConst);
             } else {
                 assert(*caseIndex < caseCount);
                 caseSet[*caseIndex] = label->caseConst;
@@ -1080,7 +1006,7 @@ static void verifySwtichCasesRec(ParserContext *ctx, AstStatement *stmt, unsigne
             break;
         case LK_DEFAULT:
             if (*hasDefault) {
-              reportError(ctx, stmt->coordinates.startOffset, stmt->coordinates.endOffset, "multiple default labels in one switch");
+                reportDiagnostic(ctx, DIAG_MULTIPLE_DEFAULT_LABELS, &stmt->coordinates);
             }
             (*hasDefault) = TRUE;
             verifySwtichCasesRec(ctx, label->body, caseCount, caseIndex, caseSet, hasDefault);
@@ -1167,7 +1093,7 @@ void verifyGotoLabels(ParserContext *ctx, AstStatement *stmt, HashMap *labelSet)
       break;
     case SK_GOTO:
       if (!isInHashMap(labelSet, stmt->jumpStmt.label)) {
-          reportError(ctx, stmt->coordinates.startOffset, stmt->coordinates.endOffset, "use of undeclared label '%s'", stmt->jumpStmt.label);
+          reportDiagnostic(ctx, DIAG_UNDECLARED_LABEL, &stmt->coordinates, stmt->jumpStmt.label);
       }
       break;
   }
@@ -1262,7 +1188,7 @@ static Symbol *declareGenericSymbol(ParserContext *ctx, SymbolKind kind, const c
       if (s->kind == kind) {
           existed(ctx, s, value);
       } else {
-          parseError(ctx, "redefinition of '%s' as different kind of symbol", name);
+          reportDiagnostic(ctx, DIAG_SYMBOL_REDEFINITION, &ctx->token->coordinates, name);
       }
   } else {
     s = declareSymbol(ctx, kind, name);
@@ -1277,13 +1203,9 @@ static int existedTypeDefProcessor(ParserContext *ctx, Symbol *s, void *value) {
   TypeRef *oldType = s->typeref;
   TypeRef *newType = (TypeRef *)value;
   if (typesEquals(oldType, newType)) {
-     parseWarning(ctx, "redefinition of typedef '%s' is a C11 feature", s->name);
+      reportDiagnostic(ctx, DIAG_TYPEDEF_REDEFINITION_C11, &ctx->token->coordinates);
   } else {
-    char t1[128] = { 0 }, t2[128] = { 0 };
-
-    renderTypeRef(oldType, t1, sizeof t1);
-    renderTypeRef(newType, t2, sizeof t2);
-    parseError(ctx, "typedef redefinition with different types ('%s' vs '%s')", t1, t2);
+      reportDiagnostic(ctx, DIAG_TYPEDEF_REDEFINITION_TYPES, &ctx->token->coordinates, oldType, newType);
   }
 }
 
@@ -1303,7 +1225,7 @@ static int existedFunctionProcessor(ParserContext *ctx, Symbol *s, void *value) 
   if (functionsEqual(oldDeclaration, newDeclaration)) {
       // TODO: link them into list
   } else {
-    parseError(ctx, "conflicting types for '%s'", oldDeclaration->name);
+      reportDiagnostic(ctx, DIAG_FUN_CONFLICTING_TYPES, &ctx->token->coordinates, oldDeclaration->name);
   }
 }
 
@@ -1328,11 +1250,7 @@ static int existedValueProcessor(ParserContext *ctx, Symbol *s, void *value) {
   if (typesEquals(oldType, newType)) {
       // TODO: link declarations to list
   } else {
-    char t1[128] = { 0 }, t2[128] = { 0 };
-
-    renderTypeRef(oldType, t1, sizeof t1);
-    renderTypeRef(newType, t2, sizeof t2);
-    parseError(ctx, "redefinition of '%s' with a different type: '%s' vs '%s'", s->name, t2, t1);
+      reportDiagnostic(ctx, DIAG_VALUE_REDEFINITION_TYPES, &ctx->token->coordinates, s->name, newType, oldType);
   }
 }
 
@@ -1361,14 +1279,14 @@ Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeI
       typeDescriptor->structInfo = declaration;
   } else {
       if (s->kind != symbolKind) {
-          parseError(ctx, "use of '%s' with tag type that does not match previous declaration", name);
+          reportDiagnostic(ctx, DIAG_USE_WITH_DIFFERENT_TAG, &ctx->token->coordinates, name);
           // TODO: also point to already defined one
       } else {
           typeDescriptor = s->typeDescriptor;
           AstSUEDeclaration *existedDeclaration = typeDescriptor->structInfo;
           if (declaration->members) {
             if (existedDeclaration->members) {
-                parseError(ctx, "redefinition of '%s'", name);
+              reportDiagnostic(ctx, DIAG_MEMBER_REDEFINITION, &ctx->token->coordinates, name);
                 // TODO: also point to already defined one
             } else {
                 typeDescriptor->structInfo = declaration;
@@ -1382,8 +1300,8 @@ Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeI
 Symbol *declareEnumConstantSymbol(ParserContext *ctx, EnumConstant *enumerator) {
   Symbol *s = findSymbolInScope(ctx->currentScope, enumerator->name);
   if (s) {
-      const char *suffix = s->kind == EnumConstSymbol ? "of enumerator " : "";
-      parseError(ctx, "redefinition %s'%s'", suffix, enumerator->name);
+      enum DiagnosticId diag = s->kind == EnumConstSymbol ? DIAG_ENUMERATOR_REDEFINITION : DIAG_MEMBER_REDEFINITION;
+      reportDiagnostic(ctx, diag, &ctx->token->coordinates, enumerator->name);
       return NULL; // or 's'?
   }
 
@@ -1433,15 +1351,6 @@ int computeTypeSize(ParserContext *ctx, TypeRef *type) {
   return POINTER_TYPE_SIZE;
 }
 
-static void reportIncompleteType(ParserContext *ctx, AstStructDeclarator *declarator) {
-  int so = declarator->coordinates.startOffset;
-  int eo = declarator->coordinates.endOffset;
-  TypeRef *type = declarator->typeRef;
-  char buffer[1024];
-  renderTypeRef(type, buffer, sizeof buffer);
-  reportError(ctx, so, eo, "field '%s' has incomplete type '%s'", declarator->name, buffer);
-}
-
 static int computeUnionTypeSize(ParserContext *ctx, AstSUEDeclaration *declaration) {
   assert(declaration->kind == DK_UNION);
   assert(declaration->isDefinition);
@@ -1461,7 +1370,7 @@ static int computeUnionTypeSize(ParserContext *ctx, AstSUEDeclaration *declarati
          } else {
             int tmp = computeTypeSize(ctx, declarator->typeRef);
             if (tmp < 0) {
-                reportIncompleteType(ctx, declarator);
+                reportDiagnostic(ctx, DIAG_FIELD_INCOMPLETE_TYPE, &declarator->coordinates, declarator->name, declarator->typeRef);
                 return UNKNOWN_SIZE;
             }
             result = max(result, tmp);
@@ -1493,7 +1402,7 @@ static int computeStructTypeSize(ParserContext *ctx, AstSUEDeclaration *declarat
          } else {
             int tmp = computeTypeSize(ctx, declarator->typeRef);
             if (tmp < 0) {
-                reportIncompleteType(ctx, declarator);
+                reportDiagnostic(ctx, DIAG_FIELD_INCOMPLETE_TYPE, &declarator->coordinates, declarator->name, declarator->typeRef);
                 return UNKNOWN_SIZE;
             }
             result += tmp;
@@ -1609,20 +1518,16 @@ TypeRef *makeFunctionReturnType(ParserContext *ctx, DeclarationSpecifiers *speci
         }
     }
 
-    parseError(ctx, "Expected function declarator here");
+    reportDiagnostic(ctx, DIAG_EXPECTED_FUNCTION_DECLARATOR, &ctx->token->coordinates);
     return NULL; // return error type
 }
 
 void verifyFunctionReturnType(ParserContext *ctx, Declarator *declarator, TypeRef *returnType) {
   TypeRefKind returnRefKind = returnType->kind;
-  int so = declarator->coordinates.startOffset;
-  int eo = declarator->coordinates.endOffset;
 
   if (returnRefKind == TR_FUNCTION || returnRefKind == TR_ARRAY) {
-      char buffer[1024] = { 0 };
-      const char *type = returnRefKind == TR_FUNCTION ? "function" : "array";
-      renderTypeRef(returnType, buffer, sizeof buffer);
-      reportError(ctx, so, eo, "function cannot return %s type '%s'", type, buffer);
+      enum DiagnosticId diag = returnRefKind == TR_FUNCTION ? DIAG_FUNCTION_RETURN_FUNCTION_TYPE : DIAG_FUNCTION_RETURN_ARRAY_TYPE;
+      reportDiagnostic(ctx, diag, &declarator->coordinates, returnType);
   }
 }
 
@@ -1634,16 +1539,11 @@ static void verifyFunctionType(ParserContext *ctx, Declarator *declarator, TypeR
 
 static void verifyArrayType(ParserContext *ctx, Declarator *declarator, TypeRef *type) {
   assert(type->kind == TR_ARRAY);
-  int so = declarator->coordinates.startOffset;
-  int eo = declarator->coordinates.endOffset;
   TypeRef *elementType = type->arrayTypeDesc.elementType;
 
   if (elementType->kind == TR_FUNCTION) {
-      char buffer[1024] = { 0 };
-      renderTypeRef(type, buffer, sizeof buffer);
-      reportError(ctx, so, eo, "Array of functions is illegal type '%s'", buffer);
+      reportDiagnostic(ctx, DIAG_ARRAY_OF_FUNCTIONS_ILLEGAL, &declarator->coordinates, type);
   }
-
 }
 
 TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator) {
