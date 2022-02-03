@@ -1,0 +1,11 @@
+FILE test/testData/parser/negative/incorrectStorageSpec.c
+  R signed int tlReg = \
+    10
+----
+  FUN void testF 
+    #0: float f
+  BEGIN
+    signed int a = \
+      f = f = f = f
+    ERROR EXPR    
+  END

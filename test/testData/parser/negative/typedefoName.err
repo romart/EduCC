@@ -1,0 +1,2 @@
+test/testData/parser/negative/typedefoName.c:1:2: warning: typedef requires a name
+test/testData/parser/negative/typedefoName.c:3:5: warning: declaration does not declare anything

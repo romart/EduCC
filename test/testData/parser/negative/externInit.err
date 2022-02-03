@@ -1,0 +1,2 @@
+test/testData/parser/negative/externInit.c:12:2: error: 'extern' variable cannot have an initializer
+test/testData/parser/negative/externInit.c:14:5: error: 'extern' variable cannot have an initializer

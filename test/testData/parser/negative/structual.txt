@@ -1,0 +1,15 @@
+FILE test/testData/parser/negative/structual.c
+  STRUCT S2
+    STRUCT S1 s1
+  STRUCT_END
+----
+  UNION U2
+    signed int a
+    STRUCT S1 s1
+  UNION_END
+----
+  STRUCT S3
+    *STRUCT S1 s1
+    *STRUCT S1 e1
+    *STRUCT S1 u1
+  STRUCT_END

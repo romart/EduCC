@@ -1,0 +1,24 @@
+FILE test/testData/parser/negative/illegalPrimitveTypes.c
+  ERROR TYPE x1
+----
+  ERROR TYPE x2
+----
+  ERROR TYPE x3
+----
+  ERROR TYPE x4
+----
+  ERROR TYPE x5
+----
+  ERROR TYPE x6
+----
+  ERROR TYPE x7
+----
+  ERROR TYPE x8
+----
+  ERROR TYPE x9
+----
+  ERROR TYPE x10
+----
+  ERROR TYPE x11
+----
+  ERROR TYPE x12

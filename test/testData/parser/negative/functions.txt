@@ -1,0 +1,42 @@
+FILE test/testData/parser/negative/functions.c
+  FUN void test1 
+  BEGIN
+    
+  END
+----
+  FUN void test2 
+    #0: void x
+  BEGIN
+    
+  END
+----
+  FUN void test3 
+    #0: signed int x
+    #1: void
+  BEGIN
+    
+  END
+----
+  FUN void test4 
+    #0: signed int x
+    #2: signed int y
+    ## ...
+  BEGIN
+    
+  END
+----
+  FUN void test5 
+    #0: void
+    ## ...
+  BEGIN
+    
+  END
+----
+  FUN void test6 
+    #0: void
+    #1: void
+  BEGIN
+    
+  END
+----
+  ERROR TYPE
