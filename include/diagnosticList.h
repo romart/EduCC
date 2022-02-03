@@ -72,8 +72,8 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ILL_TYPE_SIGN, "'%s' cannot be signed or unsigned"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, INVALID_TYPE, "'%s%s%s%s%s' is invalid"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, E_DUPLICATE_DECL_SPEC, "duplicate '%s' declaration specifier"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, CANNOT_COMBINE_DECL_SPEC, "cannot combine with previous '%s' declaration specifier"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, W_DUPLICATE_DECL_SPEC, "duplicate '%s' declaration specifier"), \
-  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, NON_COMBINE_DECL_SPEC, "cannot combine with previous '%s' declaration specifier"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, NON_COMPUTE_DECL_SIZE, "cannot compute size of declaration"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ANON_STRUCT_IS_DEFINITION, "declaration of anonymous struct must be a definition"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, UNKNOWN_TYPE_NAME, "unknown type name '%s'"), \
