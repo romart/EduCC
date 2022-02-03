@@ -58,3 +58,27 @@ int testDefaultOutOfSwitch(int v, int b) {
   }
   default: return qux(b);
 }
+
+
+int testSwitchArgFloat(float a, struct SX sa) {
+
+  switch (a) {
+    default : (int)a;
+  }
+}
+
+struct SX { int a; };
+
+int testSwitchArgStruct(struct SX sa) {
+
+  switch (sa) {
+    default : sa.a;
+  }
+}
+
+int testSwitchArgPtr(int *pa) {
+
+  switch (pa) {
+    default : *pa;
+  }
+}

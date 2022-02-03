@@ -1,0 +1,41 @@
+FILE test/testData/parser/negative/declspec.c
+  signed int x1
+----
+  signed int x2
+----
+  signed int x3
+----
+  S signed int x4
+----
+  FUN signed int testSS 
+  BEGIN
+    signed int x5
+    signed int x6
+    signed int x7    
+  END
+----
+  S C signed int c1
+----
+  ERROR TYPE us
+----
+  ERROR TYPE su
+----
+  ERROR TYPE sl
+----
+  ERROR TYPE ls
+----
+  ERROR TYPE lls
+----
+  ERROR TYPE sll
+----
+  ERROR TYPE lsl
+----
+  S V signed int x
+----
+  ERROR TYPE vi
+----
+  ERROR TYPE df
+----
+  ERROR TYPE ic
+----
+  ERROR TYPE vidcf

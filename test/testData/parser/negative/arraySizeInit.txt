@@ -1,0 +1,7 @@
+FILE test/testData/parser/negative/arraySizeInit.c
+  signed int[-1] tla
+----
+  FUN signed int testF 
+  BEGIN
+    signed int[-1] la    
+  END

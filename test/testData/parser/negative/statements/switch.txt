@@ -73,3 +73,32 @@ FILE test/testData/parser/negative/statements/switch.c
     END_SWITCH
     DEFAULT: RETURN qux(b)    
   END
+----
+  FUN signed int testSwitchArgFloat 
+    #0: float a
+    #1: STRUCT SX sa
+  BEGIN
+    SWITCH (a)
+      DEFAULT: (signed int)a      
+    END_SWITCH    
+  END
+----
+  STRUCT SX
+    signed int a
+  STRUCT_END
+----
+  FUN signed int testSwitchArgStruct 
+    #0: STRUCT SX sa
+  BEGIN
+    SWITCH (sa)
+      DEFAULT: sa.a      
+    END_SWITCH    
+  END
+----
+  FUN signed int testSwitchArgPtr 
+    #0: *signed int pa
+  BEGIN
+    SWITCH (pa)
+      DEFAULT: *pa      
+    END_SWITCH    
+  END

@@ -1,3 +1,0 @@
-test/testData/parser/negative/incorrectTypes.c:14:5: error: redefinition of 'x' as different kind of symbol
-test/testData/parser/negative/incorrectTypes.c:5:8: error: cannot combine with previous 'int' declaration specifier
-test/testData/parser/negative/incorrectTypes.c:8:10: error: cannot combine with previous 'double' declaration specifier

@@ -1,0 +1,10 @@
+FILE test/testData/parser/negative/externInit.c
+  E signed int tl = \
+    10
+----
+  FUN void testF 
+    #0: signed int b
+  BEGIN
+    E signed int l = \
+      b    
+  END

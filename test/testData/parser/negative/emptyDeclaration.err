@@ -1,0 +1,1 @@
+test/testData/parser/negative/emptyDeclaration.c:3:6: warning: declaration does not declare anything

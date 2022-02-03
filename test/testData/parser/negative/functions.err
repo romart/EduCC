@@ -1,0 +1,11 @@
+test/testData/parser/negative/functions.c:15:3: error: ISO C requires a named parameter before '...'
+test/testData/parser/negative/functions.c:17:5: error: parameter may not have 'void' type
+test/testData/parser/negative/functions.c:23:7: error: 'void' must be the first and only parameter if specified
+test/testData/parser/negative/functions.c:22:9: error: expected token ')' instead of ','
+test/testData/parser/negative/functions.c:16:11: error: 'void' must be the first and only parameter if specified
+test/testData/parser/negative/functions.c:16:13: error: 'void' must be the first and only parameter if specified
+test/testData/parser/negative/functions.c:22:13: error: 'void' must be the first and only parameter if specified
+test/testData/parser/negative/functions.c:7:15: error: unexpected token INT '(null)' instead of )
+test/testData/parser/negative/functions.c:6:15: warning: declaration does not declare anything
+test/testData/parser/negative/functions.c:1:15: error: variable has incomplete type 'void'
+test/testData/parser/negative/functions.c:10:15: error: unexpected token ) '(null)' instead of {
