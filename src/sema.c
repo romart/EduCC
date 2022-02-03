@@ -1279,14 +1279,14 @@ Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeI
       typeDescriptor->structInfo = declaration;
   } else {
       if (s->kind != symbolKind) {
-          reportDiagnostic(ctx, DIAG_USE_WITH_DIFFERENT_TAG, &ctx->token->coordinates, name);
+          reportDiagnostic(ctx, DIAG_USE_WITH_DIFFERENT_TAG, &declaration->coordinates, name);
           // TODO: also point to already defined one
       } else {
           typeDescriptor = s->typeDescriptor;
           AstSUEDeclaration *existedDeclaration = typeDescriptor->structInfo;
           if (declaration->members) {
             if (existedDeclaration->members) {
-              reportDiagnostic(ctx, DIAG_MEMBER_REDEFINITION, &ctx->token->coordinates, name);
+              reportDiagnostic(ctx, DIAG_MEMBER_REDEFINITION, &declaration->coordinates, name);
                 // TODO: also point to already defined one
             } else {
                 typeDescriptor->structInfo = declaration;
