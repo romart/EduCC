@@ -247,6 +247,28 @@ static Boolean isScalarType(TypeRef *type) {
   return type->kind == TR_POINTED || isPrimitiveType(type);
 }
 
+static Boolean isRealType(TypeRef *type) {
+  if (type->kind == TR_VALUE) {
+      TypeId tid = type->descriptorDesc->typeId;
+      return T_F8 <= tid && tid <= T_F10 ? TRUE : FALSE;
+  }
+  return FALSE;
+}
+
+Boolean isIncompleteType(TypeRef *type) {
+  if (type->kind == TR_VALUE) {
+      TypeId tid = type->descriptorDesc->typeId;
+      if (tid == T_VOID) return TRUE;
+      if (tid == T_STRUCT || tid == T_UNION) {
+          return type->descriptorDesc->size == UNKNOWN_SIZE ? TRUE : FALSE;
+      }
+  }
+  if (type->kind == TR_ARRAY) {
+      return type->arrayTypeDesc.size == UNKNOWN_SIZE ? TRUE : FALSE;
+  }
+  return FALSE;
+}
+
 TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, int so, int eo, TypeRef *arrayType, TypeRef *indexType) {
   if (isErrorType(arrayType)) return arrayType;
   if (isErrorType(indexType)) return indexType;
