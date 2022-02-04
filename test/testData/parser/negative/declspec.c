@@ -12,7 +12,7 @@ int testSS() {
   register extern int x7;
 }
 
-const static const int c1;// = 10;
+const static const int c1 = 10;
 
 unsigned signed int us;
 signed unsigned int su;
