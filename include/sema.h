@@ -36,7 +36,7 @@ void verifyCallAruments(ParserContext *ctx, int so, int eo, TypeRef *functionTyp
 Boolean isErrorType(TypeRef *type);
 Boolean isIntegerType(TypeRef *type);
 
-Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeRef *from);
+Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeRef *from, Boolean init);
 
 void verifySwitchCases(ParserContext *ctx, AstStatement *switchBody, unsigned caseCount);
 void verifyGotoLabels(ParserContext *ctx, AstStatement *body, HashMap *labelSet);
