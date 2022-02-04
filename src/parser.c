@@ -2320,7 +2320,7 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         consume(ctx, ';');
         stmt = createJumpStatement(ctx, so, eo, SK_RETURN);
         if (expr) {
-          isAssignableTypes(ctx, so, eo, ctx->functionReturnType, expr->type);
+          isAssignableTypes(ctx, so, eo, ctx->functionReturnType, expr->type, FALSE);
         }
         stmt->jumpStmt.expression = expr;
         return stmt;
@@ -2418,7 +2418,7 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                         }
 
                         initializer = parseInitializer(ctx, NULL);
-                        initializer = finalizeInitializer(ctx, type, initializer, FALSE);
+                        initializer = finalizeInitializer(ctx, type, initializer, specifiers.flags.bits.isStatic);
                         eod = initializer->coordinates.endOffset;
                     } else {
                         if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE) {

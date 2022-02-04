@@ -547,13 +547,13 @@ TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, int so, int eo, TypeRef
   return argumentType;
 }
 
-Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeRef *from) {
+Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeRef *from, Boolean init) {
   if (isErrorType(to)) return TRUE;
   if (isErrorType(from)) return TRUE;
 
   Coordinates coords = { so, eo };
 
-  if (to->flags.bits.isConst) {
+  if (!init && to->flags.bits.isConst) {
       reportDiagnostic(ctx, DIAG_ASSIGN_IN_CONST, &coords, to);
       return FALSE;
   }
@@ -611,7 +611,7 @@ TypeRef *computeAssignmentTypes(ParserContext *ctx, int so, int eo, TypeRef *lef
   if (isErrorType(left)) return left;
   if (isErrorType(right)) return right;
 
-  if (isAssignableTypes(ctx, so, eo, left, right)) {
+  if (isAssignableTypes(ctx, so, eo, left, right, FALSE)) {
     return left;
   }
 
@@ -735,7 +735,7 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *ele
             reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, &initializer->coordinates);
         }
         if (!(isStructualType(elementType) && isIntegerType(expr->type))) { // array initializer like `struct S as[] = { 0 }` is totally acceptable
-          isAssignableTypes(ctx, so, eo, elementType, expr->type);
+          isAssignableTypes(ctx, so, eo, elementType, expr->type, TRUE);
         }
       } else {
         initializer->expression = createErrorExpression(ctx, so, eo);
@@ -791,7 +791,7 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
         if (isTopLevel && !isCompileTimeConstant(expr)) {
             reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, &initializer->coordinates);
         }
-        isAssignableTypes(ctx, so, eo, memberType, expr->type);
+        isAssignableTypes(ctx, so, eo, memberType, expr->type, TRUE);
       } else {
         initializer->expression = createErrorExpression(ctx, so, eo);
       }
@@ -866,7 +866,7 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
         if (isTopLevel && !isCompileTimeConstant(expr)) {
             reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, &initializer->coordinates);
         }
-        isAssignableTypes(ctx, so, eo, valueType, expr->type);
+        isAssignableTypes(ctx, so, eo, valueType, expr->type, TRUE);
       }
       return initializer;
   } else {
@@ -974,7 +974,7 @@ void verifyCallAruments(ParserContext *ctx, int so, int eo, TypeRef *functionTyp
       int eo = arg->coordinates.endOffset;
       TypeRef *aType = arg->type;
       TypeRef *pType = param->type;
-      if (isAssignableTypes(ctx, so, eo, pType, aType)) {
+      if (isAssignableTypes(ctx, so, eo, pType, aType, FALSE)) {
           argument = argument->next;
           param = param->next;
       } else {
