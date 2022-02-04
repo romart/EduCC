@@ -14,7 +14,8 @@ FILE test/testData/parser/negative/declspec.c
     signed int x7    
   END
 ----
-  S C signed int c1
+  S C signed int c1 = \
+    10
 ----
   ERROR TYPE us
 ----
