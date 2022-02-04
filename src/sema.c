@@ -551,7 +551,9 @@ Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeR
       TypeRef *pLeft = to->pointedTo;
       if (isPointerLikeType(from)) {
           TypeRef *pointed = from->kind == TR_POINTED ? from->pointedTo : from->arrayTypeDesc.elementType;
-          if (typesEquals(pLeft, pointed)) {
+          if (isVoidType(pLeft) || isVoidType(pointed)) {
+              return TRUE;
+          } else if (typesEquals(pLeft, pointed)) {
               return TRUE;
           } else {
               reportDiagnostic(ctx, DIAG_ASSIGN_INCOMPATIBLE_POINTERS, &coords, to, from);
