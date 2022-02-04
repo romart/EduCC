@@ -158,6 +158,9 @@ TypeRef *commonPrimitiveType(ParserContext *ctx, TypeRef *a, TypeRef *b) {
   assert(T_VOID < aId && aId < T_BUILT_IN_TYPES);
   assert(T_VOID < bId && bId < T_BUILT_IN_TYPES);
 
+  if (aId == T_F10) return a;
+  if (bId == T_F10) return b;
+
   if (aId == T_F8) return a;
   if (bId == T_F8) return b;
 
@@ -1332,7 +1335,8 @@ TypeDesc builtInTypeDescriptors[] = {
     { T_U8, "unsigned long", 8, NULL },
 
     { T_F4, "float", 4, NULL },
-    { T_F8, "double", 8, NULL }
+    { T_F8, "double", 8, NULL },
+    { T_F10, "long double", 10, NULL }
 };
 
 

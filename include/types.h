@@ -21,6 +21,8 @@ typedef enum _TypeId {
   T_F4,
   T_F8,
 
+  T_F10,
+
   T_BUILT_IN_TYPES,
 
   T_STRUCT,
