@@ -73,4 +73,6 @@ void printDiagnostic(FILE *output, Diagnostic *diagnostic, Boolean verbose);
 
 void reportDiagnostic(struct _ParserContext *ctx, enum DiagnosticId diag, struct _Coordinates *location, ...);
 
+const Severity *getSeverity(enum DiagSeverityKind id);
+
 #endif // __DIAGNOSTICS_H__
