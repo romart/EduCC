@@ -823,7 +823,7 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
             if (isErrorType(sizeType)) {
                 return argument;
             } else {
-                long long c = computeTypeSize(ctx, sizeType);
+                long long c = computeTypeSize(sizeType);
                 AstExpression *constVal = NULL;
                 if (c >= 0) {
                     constVal = createAstConst(ctx, coords.startOffset, coords.endOffset, CK_INT_CONST, &c);
