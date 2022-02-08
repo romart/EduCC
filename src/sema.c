@@ -1473,7 +1473,7 @@ TypeDesc builtInTypeDescriptors[] = {
 };
 
 
-int computeTypeSize(ParserContext *ctx, TypeRef *type) {
+int computeTypeSize(TypeRef *type) {
   if (type->kind == TR_VALUE) {
       return type->descriptorDesc->size;
   }
@@ -1484,7 +1484,7 @@ int computeTypeSize(ParserContext *ctx, TypeRef *type) {
 
   if (type->kind == TR_ARRAY) {
       ArrayTypeDescriptor *atype = &type->arrayTypeDesc;
-      return atype->size * computeTypeSize(ctx, atype->elementType);
+      return atype->size * computeTypeSize(atype->elementType);
   }
 
   return POINTER_TYPE_SIZE;
@@ -1507,7 +1507,7 @@ static int computeUnionTypeSize(ParserContext *ctx, AstSUEDeclaration *declarati
             unsigned aligned = ALIGN_SIZE(declarator->f_width, BYTE_BIT_SIZE);
             result = max(result, aligned / BYTE_BIT_SIZE);
          } else {
-            int tmp = computeTypeSize(ctx, declarator->typeRef);
+            int tmp = computeTypeSize(declarator->typeRef);
             if (tmp < 0) {
                 reportDiagnostic(ctx, DIAG_FIELD_INCOMPLETE_TYPE, &declarator->coordinates, declarator->name, declarator->typeRef);
                 return UNKNOWN_SIZE;
@@ -1539,7 +1539,7 @@ static int computeStructTypeSize(ParserContext *ctx, AstSUEDeclaration *declarat
          if (declarator->f_width >= 0) {
             bitCount += declarator->f_width;
          } else {
-            int tmp = computeTypeSize(ctx, declarator->typeRef);
+            int tmp = computeTypeSize(declarator->typeRef);
             if (tmp < 0) {
                 reportDiagnostic(ctx, DIAG_FIELD_INCOMPLETE_TYPE, &declarator->coordinates, declarator->name, declarator->typeRef);
                 return UNKNOWN_SIZE;

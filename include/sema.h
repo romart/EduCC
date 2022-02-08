@@ -13,7 +13,7 @@ enum {
   UNKNOWN_SIZE = -1
 };
 
-int computeTypeSize(ParserContext *ctx, TypeRef *type);
+int computeTypeSize(TypeRef *type);
 int computeSUETypeSize(ParserContext *ctx, AstSUEDeclaration *declaration);
 
 
