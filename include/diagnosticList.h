@@ -91,5 +91,10 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ILLEGAL_STORAGE_ON_FILE_SCOPE, "illegal storage class on file-scoped variable"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, STORAGE_NOT_ALLOWED, "type name does not allow storage class to be specified"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, INVALID_STORAGE_ON_PARAM, "invalid storage class specifier in function declarator"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, EXPRESSION_IS_NOT_ASSIGNABLE, "expression is not assignable"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, NON_CASTABLE_TYPE, "used type '%tr' where arithmetic or pointer type is required"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, NON_CASTABLE_OPERAND, "operand of type '%tr' where arithmetic or pointer type is required"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, POINTER_CANNOT_BE_CAST, "pointer cannot be cast to type '%tr'"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, CAST_TO_UNION_NOT_PRESENT, "cast to union type from type '%tr' not present in union"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, TYPEDEF_WITHOUT_NAME, "typedef requires a name")
 

@@ -41,6 +41,9 @@ Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeR
 void verifySwitchCases(ParserContext *ctx, AstStatement *switchBody, unsigned caseCount);
 void verifyGotoLabels(ParserContext *ctx, AstStatement *body, HashMap *labelSet);
 
+Boolean checkExpressionIsAssignable(ParserContext *ctx, Coordinates *coords, AstExpression *expr, Boolean report);
+Boolean checkTypeIsCastable(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, Boolean report);
+
 typedef enum _TypeEqualityKind {
   TEK_UNKNOWN,
   TEK_EQUAL,
