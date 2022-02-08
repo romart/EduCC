@@ -2787,15 +2787,22 @@ static void releaseContext(ParserContext *ctx) {
   releaseHeap(ctx->locationInfo.linesPos);
 }
 
-static void printDiagnostics(Diagnostics *diagnostics, Boolean verbose) {
+static Boolean printDiagnostics(Diagnostics *diagnostics, Boolean verbose) {
   Diagnostic *diagnostic = diagnostics->head;
+
+  Boolean hasError = FALSE;
 
   while (diagnostic) {
       FILE *output = stderr;
       printDiagnostic(output, diagnostic, verbose);
       fputc('\n', output);
+      if (getSeverity(diagnostic->descriptor->severityKind)->isError) {
+          hasError = TRUE;
+      }
       diagnostic = diagnostic->next;
   }
+
+  return hasError;
 }
 
 /**
@@ -2849,7 +2856,7 @@ void compileFile(Configuration * config) {
 
       AstFile *astFile = parseFile(&context);
 
-      printDiagnostics(&context.diagnostics, config->verbose);
+      Boolean hasError = printDiagnostics(&context.diagnostics, config->verbose);
 
       if (config->dumpFileName) {
           dumpFile(astFile, config->dumpFileName);
@@ -2857,6 +2864,11 @@ void compileFile(Configuration * config) {
 
       if (config->memoryStatistics) {
           printMemoryStatistics(&context);
+      }
+
+      if (!hasError) {
+//          GeneratedFile *genFile = generateCodeForFile(&context, astFile);
+          // TODO: emit it
       }
 
       releaseContext(&context);
