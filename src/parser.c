@@ -680,55 +680,59 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
     AstExpression *left = parsePrimaryExpression(ctx, scope);
     AstExpression *right = NULL;
 
-    int so, eo;
+    Coordinates coords = { 0 };
 
     ExpressionType op;
 
     for (;;) {
         AstExpressionList *arguments = NULL;
-        so = left->coordinates.startOffset;
+        coords.startOffset = left->coordinates.startOffset;
         switch (ctx->token->code) {
         case '[': // '[' expression ']'
             nextToken(ctx);
             right = parseExpression(ctx, scope);
-            eo = ctx->token->coordinates.endOffset;
+            coords.endOffset = ctx->token->coordinates.endOffset;
             consume(ctx, ']');
             TypeRef *arrayType = left->type;
             TypeRef *indexType = right->type;
             left = createBinaryExpression(ctx, EB_A_ACC, left, right);
-            left->coordinates.endOffset = eo; // more precise
-            left->type = computeArrayAccessExpressionType(ctx, so, eo, arrayType, indexType);
+            left->coordinates.endOffset = coords.endOffset; // more precise
+            left->type = computeArrayAccessExpressionType(ctx, coords.startOffset, coords.endOffset, arrayType, indexType);
             break;
         case '(': // '(' argument_expression_list? ')'
             nextToken(ctx);
             TypeRef *calleeType = left->type;
-            eo = ctx->token->coordinates.endOffset;
+            coords.endOffset  = ctx->token->coordinates.endOffset;
             if (ctx->token->code != ')') {
                 arguments = parseArgumentExpressionList(ctx, scope);
-                verifyCallAruments(ctx, so, eo, calleeType, arguments);
+                coords.endOffset  = ctx->token->coordinates.endOffset;
+                verifyCallAruments(ctx, coords.startOffset, coords.endOffset, calleeType, arguments);
             }
+            coords.endOffset  = ctx->token->coordinates.endOffset;
             consume(ctx, ')');
-            left = createCallExpression(ctx, so, eo, left, arguments);
-            left->type = computeFunctionReturnType(ctx, so, eo, calleeType);
+            left = createCallExpression(ctx, coords.startOffset, coords.endOffset, left, arguments);
+            left->type = computeFunctionReturnType(ctx, coords.startOffset, coords.endOffset, calleeType);
             break;
         case '.':    op = EF_DOT; goto acc;// '.' IDENTIFIER
         case PTR_OP: op = EF_ARROW; // PTR_OP IDENTIFIER
         acc:
             expect(ctx, IDENTIFIER);
-            eo = ctx->token->coordinates.endOffset;
+            coords.endOffset  = ctx->token->coordinates.endOffset;
             TypeRef *receiverType = left->type;
             const char *memberName = ctx->token->text;
-            left = createFieldExpression(ctx, so, eo, op, left, memberName);
-            left->type = computeMemberAccessType(ctx, so, eo, receiverType, memberName, op);
+            left = createFieldExpression(ctx, coords.startOffset, coords.endOffset, op, left, memberName);
+            left->type = computeMemberAccessType(ctx, coords.startOffset, coords.endOffset, receiverType, memberName, op);
             nextToken(ctx);
             break;
         case INC_OP: op = EU_POST_INC; goto incdec;
         case DEC_OP: op = EU_POST_DEC;
         incdec:
-            eo = ctx->token->coordinates.endOffset;
+            coords.endOffset  = ctx->token->coordinates.endOffset;
             TypeRef *argType = left->type;
-            left = createUnaryExpression(ctx, so, eo, op, left);
-            left->type = computeIncDecType(ctx, so, eo, argType, op);
+            checkExpressionIsAssignable(ctx, &ctx->token->coordinates, left, TRUE);
+            left = createUnaryExpression(ctx, coords.startOffset, coords.endOffset, op, left);
+
+            left->type = computeIncDecType(ctx, coords.startOffset, coords.endOffset, argType, op);
             nextToken(ctx);
             break;
         default: return left;
@@ -749,7 +753,7 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
     ExpressionType op;
     AstExpression* argument = NULL;
     AstExpression* result = NULL;
-    Coordinates coords = { ctx->token->coordinates.startOffset, -1 };
+    Coordinates coords = ctx->token->coordinates;
 
     switch (ctx->token->code) {
         case INC_OP: op = EU_PRE_INC; goto ue1;
@@ -757,7 +761,7 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
         ue1:
             nextToken(ctx);
             argument = parseUnaryExpression(ctx, scope);
-            coords.endOffset = argument->coordinates.endOffset;
+            checkExpressionIsAssignable(ctx, &coords, argument, TRUE);
             result = createUnaryExpression(ctx, coords.startOffset, coords.endOffset, op, argument);
             result->type = computeIncDecType(ctx, coords.startOffset, coords.endOffset, argument->type, op);
             return result;
@@ -853,14 +857,15 @@ cast_expression
 static AstExpression* parseCastExpression(ParserContext *ctx, struct _Scope* scope) {
 
     if (ctx->token->code == '(') {
-        int so = ctx->token->coordinates.startOffset;
+        Coordinates coords = { ctx->token->coordinates.startOffset, -1 };
         nextToken(ctx);
         if (isSpecifierQualifierList(ctx->token->code)) {
             TypeRef* typeRef = parseTypeName(ctx, scope);
+            coords.endOffset = ctx->token->coordinates.endOffset;
             consume(ctx, ')');
             AstExpression* argument = parseCastExpression(ctx, scope);
-            int eo = argument->coordinates.endOffset;
-            return createCastExpression(ctx, so, eo, typeRef, argument);
+            checkTypeIsCastable(ctx, &coords, typeRef, argument->type, TRUE);
+            return createCastExpression(ctx, coords.startOffset, coords.endOffset, typeRef, argument);
         } else {
             AstExpression *result = parseExpression(ctx, scope);
             consume(ctx, ')');

@@ -607,6 +607,117 @@ Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeR
   return TRUE;
 }
 
+Boolean checkTypeAssignable(ParserContext *ctx, Coordinates *coords, TypeRef *type, Boolean report) {
+  if (isErrorType(type)) return TRUE;
+
+  if (type->flags.bits.isConst) {
+      if(report) {
+        reportDiagnostic(ctx, DIAG_ASSIGN_IN_CONST, coords, type);
+      }
+      return FALSE;
+  }
+
+  if (type->kind == TR_ARRAY) {
+      if (report) {
+        reportDiagnostic(ctx, DIAG_ARRAY_TYPE_IS_NOT_ASSIGNABLE, coords, type);
+      }
+      return FALSE;
+  }
+
+  return TRUE;
+}
+
+Boolean checkExpressionIsAssignable(ParserContext *ctx, Coordinates *coords, AstExpression *expr, Boolean report) {
+
+  switch (expr->op) {
+  case E_NAMEREF:
+  case EF_ARROW:
+  case EF_DOT:
+  case EB_A_ACC:
+      if (expr->type->flags.bits.isConst) {
+          if(report) {
+            reportDiagnostic(ctx, DIAG_ASSIGN_IN_CONST, coords, expr->type);
+          }
+          return FALSE;
+      }
+      return TRUE;
+  default:
+      if (report) {
+        reportDiagnostic(ctx, DIAG_EXPRESSION_IS_NOT_ASSIGNABLE, coords);
+      }
+      return FALSE;
+  }
+}
+
+static Boolean checkUnionIsCastableToType(ParserContext *ctx, Coordinates *coords, TypeRef *from, AstSUEDeclaration *unionDecl, Boolean report) {
+  assert(unionDecl->kind == DK_UNION);
+
+  AstStructMember *member = unionDecl->members;
+
+  while (member) {
+      if (member->kind == SM_DECLARATOR) {
+        AstStructDeclarator *declarator = member->declarator;
+        if (typeEquality(declarator->typeRef, from) == TEK_EQUAL) {
+            return TRUE;
+        }
+      }
+      member = member->next;
+  }
+
+  if (report) {
+    reportDiagnostic(ctx, DIAG_CAST_TO_UNION_NOT_PRESENT, coords, from);
+  }
+
+  return FALSE;
+}
+
+Boolean checkTypeIsCastable(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, Boolean report) {
+  if (isErrorType(from)) return TRUE;
+  if (isErrorType(to)) return TRUE;
+
+  if (to->kind == TR_ARRAY) {
+      if (report) {
+        reportDiagnostic(ctx, DIAG_NON_CASTABLE_TYPE, coords, to);
+      }
+      return FALSE;
+  }
+
+  if (to->kind == TR_VALUE) {
+      TypeDesc *desc = to->descriptorDesc;
+      if (desc->typeId == T_STRUCT) {
+          if (from->kind == TR_VALUE && desc->structInfo == from->descriptorDesc->structInfo) {
+              return TRUE;
+          }
+          if (report) {
+            reportDiagnostic(ctx, DIAG_NON_CASTABLE_TYPE, coords, to);
+          }
+          return FALSE;
+      }
+      if (desc->typeId == T_UNION) {
+          if (from->kind == TR_VALUE && desc->structInfo == from->descriptorDesc->structInfo) {
+              return TRUE;
+          }
+          return checkUnionIsCastableToType(ctx, coords, from, desc->structInfo, report);
+      }
+  }
+
+  if (isPointerLikeType(from) && isRealType(to)) {
+      if (report) {
+        reportDiagnostic(ctx, DIAG_POINTER_CANNOT_BE_CAST, coords, to);
+      }
+      return FALSE;
+  }
+
+  if (isStructualType(from)) {
+      if (report) {
+        reportDiagnostic(ctx, DIAG_NON_CASTABLE_OPERAND, coords, from);
+      }
+      return FALSE;
+  }
+
+  return TRUE;
+}
+
 TypeRef *computeAssignmentTypes(ParserContext *ctx, int so, int eo, TypeRef *left, TypeRef *right) {
   if (isErrorType(left)) return left;
   if (isErrorType(right)) return right;
