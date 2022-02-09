@@ -641,6 +641,14 @@ Boolean checkExpressionIsAssignable(ParserContext *ctx, Coordinates *coords, Ast
           return FALSE;
       }
       return TRUE;
+  case EU_DEREF:
+      if (expr->type->pointedTo->flags.bits.isConst) {
+          if(report) {
+            reportDiagnostic(ctx, DIAG_ASSIGN_IN_CONST, coords, expr->type);
+          }
+          return FALSE;
+      }
+      return TRUE;
   default:
       if (report) {
         reportDiagnostic(ctx, DIAG_EXPRESSION_IS_NOT_ASSIGNABLE, coords);
