@@ -862,7 +862,7 @@ static AstExpression* parseCastExpression(ParserContext *ctx, struct _Scope* sco
         Token * saved = ctx->token;
         Coordinates coords = { ctx->token->coordinates.startOffset, -1 };
         nextToken(ctx);
-        if (isSpecifierQualifierList(ctx->token->code)) {
+        if (isDeclarationSpecifierToken(ctx->token->code)) {
             TypeRef* typeRef = parseTypeName(ctx, scope);
             coords.endOffset = ctx->token->coordinates.endOffset;
             consume(ctx, ')');
