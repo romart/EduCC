@@ -708,6 +708,14 @@ Boolean checkTypeIsCastable(ParserContext *ctx, Coordinates *coords, TypeRef *to
       return FALSE;
   }
 
+  if (isRealType(from) && isPointerLikeType(to)) {
+      if (report) {
+        reportDiagnostic(ctx, DIAG_CANNOT_BE_CAST_TO_POINTER, coords, from);
+      }
+      return FALSE;
+  }
+
+
   if (isStructualType(from)) {
       if (report) {
         reportDiagnostic(ctx, DIAG_NON_CASTABLE_OPERAND, coords, from);
