@@ -627,6 +627,23 @@ Boolean checkTypeAssignable(ParserContext *ctx, Coordinates *coords, TypeRef *ty
   return TRUE;
 }
 
+
+Boolean checkRefArgument(ParserContext *ctx, Coordinates *coords, AstExpression *arg, Boolean report) {
+  switch (arg->op) {
+  case E_NAMEREF:
+  case EF_ARROW:
+  case EF_DOT:
+  case EB_A_ACC:
+  case EU_DEREF:
+      return TRUE;
+  default:
+      if (report) {
+          reportDiagnostic(ctx, DIAG_CANNOT_TAKE_ADDRESS_OF_RVALUE, coords, arg->type);
+      }
+      return FALSE;
+  }
+}
+
 Boolean checkExpressionIsAssignable(ParserContext *ctx, Coordinates *coords, AstExpression *expr, Boolean report) {
 
   switch (expr->op) {

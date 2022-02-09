@@ -43,6 +43,7 @@ void verifyGotoLabels(ParserContext *ctx, AstStatement *body, HashMap *labelSet)
 
 Boolean checkExpressionIsAssignable(ParserContext *ctx, Coordinates *coords, AstExpression *expr, Boolean report);
 Boolean checkTypeIsCastable(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, Boolean report);
+Boolean checkRefArgument(ParserContext *ctx, Coordinates *coords, AstExpression *arg, Boolean report);
 
 typedef enum _TypeEqualityKind {
   TEK_UNKNOWN,
