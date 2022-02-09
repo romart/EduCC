@@ -95,6 +95,8 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, NON_CASTABLE_TYPE, "used type '%tr' where arithmetic or pointer type is required"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, NON_CASTABLE_OPERAND, "operand of type '%tr' where arithmetic or pointer type is required"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, POINTER_CANNOT_BE_CAST, "pointer cannot be cast to type '%tr'"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, CANNOT_BE_CAST_TO_POINTER, "operand of type '%tr' cannot be cast to a pointer type"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, CAST_TO_UNION_NOT_PRESENT, "cast to union type from type '%tr' not present in union"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, CANNOT_TAKE_ADDRESS_OF_RVALUE, "cannot take the address of an rvalue of type '%tr'"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, TYPEDEF_WITHOUT_NAME, "typedef requires a name")
 
