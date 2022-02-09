@@ -796,6 +796,7 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
                         unreachable("Very suspissios, symbol is NULL");
                     }
                 }
+                checkRefArgument(ctx, &coords, argument, TRUE);
             }
             result = createUnaryExpression(ctx, coords.startOffset, coords.endOffset, op, argument);
             result->type = computeTypeForUnaryOperator(ctx, coords.startOffset, coords.endOffset, argument->type, op);
