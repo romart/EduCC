@@ -1,0 +1,9 @@
+test/testData/parser/negative/expressions/assgn.c:7:7: error: expression is not assignable
+test/testData/parser/negative/expressions/assgn.c:9:8: error: expression is not assignable
+test/testData/parser/negative/expressions/assgn.c:6:10: error: expression is not assignable
+test/testData/parser/negative/expressions/assgn.c:6:10: warning: incompatible integer to pointer conversion assigning to '*signed int' from 'signed int'
+test/testData/parser/negative/expressions/assgn.c:7:13: error: expression is not assignable
+test/testData/parser/negative/expressions/assgn.c:5:15: error: expression is not assignable
+test/testData/parser/negative/expressions/assgn.c:5:15: error: cannot assign to lvalue with const-qualified type 'C signed int'
+test/testData/parser/negative/expressions/assgn.c:5:17: error: cannot assign to lvalue with const-qualified type 'C signed int'
+test/testData/parser/negative/expressions/assgn.c:7:19: error: cannot assign to lvalue with const-qualified type 'C signed int'

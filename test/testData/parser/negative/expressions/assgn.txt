@@ -1,0 +1,16 @@
+FILE test/testData/parser/negative/expressions/assgn.c
+  FUN signed int test 
+  BEGIN
+    signed int a
+    *signed int pa
+    C signed int c
+    *C signed int pc
+    a++ = a
+    a + a = a
+    &a = a
+    *pa = a
+    --a = a
+    0 = a
+    c = a
+    *pc = a    
+  END
