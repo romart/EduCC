@@ -1,0 +1,45 @@
+FILE test/testData/parser/negative/expressions/casts.c
+  STRUCT S
+    signed int a
+  STRUCT_END
+----
+  STRUCT X
+    signed int b
+  STRUCT_END
+----
+  UNION U
+    signed int c
+    STRUCT S s
+  UNION_END
+----
+  FUN void test 
+  BEGIN
+    STRUCT S s
+    STRUCT X x
+    UNION U u
+    signed int a
+    *signed int pa = \
+      &a
+    float f
+    signed int[10] arr
+    signed long l
+    signed char c
+    (STRUCT S)s
+    (STRUCT X)s
+    (signed int)s
+    (signed int)x
+    (*signed int)x
+    (*signed int)s
+    (UNION U)a
+    (UNION U)s
+    (UNION U)x
+    (UNION U)f
+    (UNION U)l
+    (UNION U)c
+    (float)pa
+    (*signed int)f
+    (STRUCT S)l
+    (float)l
+    (signed int)f
+    (signed int[20])pa    
+  END

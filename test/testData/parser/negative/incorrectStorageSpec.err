@@ -1,36 +1,7 @@
 test/testData/parser/negative/incorrectStorageSpec.c:1:2: error: illegal storage class on file-scoped variable
-test/testData/parser/negative/incorrectStorageSpec.c:12:5: error: unexpected token STATIC '(null)' instead of (
-test/testData/parser/negative/incorrectStorageSpec.c:19:5: error: unexpected token INT '(null)' instead of (
-test/testData/parser/negative/incorrectStorageSpec.c:22:5: error: unexpected token ) '(null)' instead of (
-test/testData/parser/negative/incorrectStorageSpec.c:24:5: error: unexpected token ; '(null)' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:3:6: error: unexpected token INT '(null)' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:7:6: error: unexpected token IDENTIFIER 'b' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:12:6: error: unexpected token EXTERN '(null)' instead of (
-test/testData/parser/negative/incorrectStorageSpec.c:19:6: error: unexpected token INT '(null)' instead of (
-test/testData/parser/negative/incorrectStorageSpec.c:22:6: error: unexpected token ) '(null)' instead of (
-test/testData/parser/negative/incorrectStorageSpec.c:24:6: error: unexpected token ; '(null)' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:3:7: error: unexpected token INT '(null)' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:7:7: error: unexpected token IDENTIFIER 'c' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:12:7: error: unexpected token TYPEDEF '(null)' instead of (
-test/testData/parser/negative/incorrectStorageSpec.c:20:7: error: unexpected token INT '(null)' instead of (
-test/testData/parser/negative/incorrectStorageSpec.c:23:7: error: unexpected token ) '(null)' instead of (
-test/testData/parser/negative/incorrectStorageSpec.c:25:7: error: unexpected token ; '(null)' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:3:8: error: unexpected token INT '(null)' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:7:8: error: unexpected token IDENTIFIER 'd' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:12:8: error: unexpected token REGISTER '(null)' instead of (
-test/testData/parser/negative/incorrectStorageSpec.c:21:8: error: unexpected token INT '(null)' instead of (
-test/testData/parser/negative/incorrectStorageSpec.c:24:8: error: unexpected token ) '(null)' instead of (
-test/testData/parser/negative/incorrectStorageSpec.c:26:8: error: unexpected token ; '(null)' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:1:9: error: unexpected token } '(null)' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:1:11: error: unexpected token VOID '(null)' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:6:11: error: unexpected token IDENTIFIER 'testP' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:11:11: error: unexpected token ( '(null)' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:12:11: error: unexpected token STATIC '(null)' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:19:11: error: unexpected token FLOAT '(null)' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:25:11: error: unexpected token IDENTIFIER 'f' instead of ;
-test/testData/parser/negative/incorrectStorageSpec.c:26:11: error: unexpected token , '(null)' instead of (
-test/testData/parser/negative/incorrectStorageSpec.c:28:11: error: unexpected token EXTERN '(null)' instead of (
-test/testData/parser/negative/incorrectStorageSpec.c:35:11: error: unexpected token INT '(null)' instead of (
-test/testData/parser/negative/incorrectStorageSpec.c:39:11: error: use of undeclared identifier 'i'
-test/testData/parser/negative/incorrectStorageSpec.c:42:11: error: unexpected token { '(null)' instead of )
-test/testData/parser/negative/incorrectStorageSpec.c:43:11: error: unexpected token } '(null)' instead of )
+test/testData/parser/negative/incorrectStorageSpec.c:12:5: error: type name does not allow storage class to be specified
+test/testData/parser/negative/incorrectStorageSpec.c:12:6: error: type name does not allow storage class to be specified
+test/testData/parser/negative/incorrectStorageSpec.c:12:7: error: type name does not allow storage class to be specified
+test/testData/parser/negative/incorrectStorageSpec.c:12:8: error: type name does not allow storage class to be specified
+test/testData/parser/negative/incorrectStorageSpec.c:12:11: error: invalid storage class specifier in function declarator
+test/testData/parser/negative/incorrectStorageSpec.c:28:11: error: invalid storage class specifier in function declarator
