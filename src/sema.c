@@ -652,7 +652,7 @@ Boolean checkExpressionIsAssignable(ParserContext *ctx, Coordinates *coords, Ast
   case EF_DOT:
   case EB_A_ACC:
       if (expr->type->flags.bits.isConst) {
-          if(report) {
+          if (report) {
             reportDiagnostic(ctx, DIAG_ASSIGN_IN_CONST, coords, expr->type);
           }
           return FALSE;
@@ -660,16 +660,12 @@ Boolean checkExpressionIsAssignable(ParserContext *ctx, Coordinates *coords, Ast
       return TRUE;
   case EU_DEREF:
       if (expr->type->pointedTo->flags.bits.isConst) {
-          if(report) {
-            reportDiagnostic(ctx, DIAG_ASSIGN_IN_CONST, coords, expr->type);
-          }
+          reportDiagnostic(ctx, DIAG_ASSIGN_IN_CONST, coords, expr->type);
           return FALSE;
       }
       return TRUE;
   default:
-      if (report) {
-        reportDiagnostic(ctx, DIAG_EXPRESSION_IS_NOT_ASSIGNABLE, coords);
-      }
+      reportDiagnostic(ctx, DIAG_EXPRESSION_IS_NOT_ASSIGNABLE, coords);
       return FALSE;
   }
 }

@@ -1166,6 +1166,7 @@ static AstExpression* parseAssignmentExpression(ParserContext *ctx, struct _Scop
     int tokenCode = ctx->token->code;
     if (isAssignmentOperator(tokenCode)) {
         int so = ctx->token->coordinates.startOffset;
+        checkExpressionIsAssignable(ctx, &ctx->token->coordinates, left, FALSE);
         nextToken(ctx);
         AstExpression* right = parseAssignmentExpression(ctx, scope);
         int eo = right->coordinates.endOffset;
