@@ -1,0 +1,13 @@
+test/testData/parser/negative/expressions/casts.c:3:20: error: used type 'STRUCT X' where arithmetic or pointer type is required
+test/testData/parser/negative/expressions/casts.c:3:22: error: operand of type 'STRUCT S' where arithmetic or pointer type is required
+test/testData/parser/negative/expressions/casts.c:3:23: error: operand of type 'STRUCT X' where arithmetic or pointer type is required
+test/testData/parser/negative/expressions/casts.c:3:25: error: operand of type 'STRUCT X' where arithmetic or pointer type is required
+test/testData/parser/negative/expressions/casts.c:3:26: error: operand of type 'STRUCT S' where arithmetic or pointer type is required
+test/testData/parser/negative/expressions/casts.c:3:30: error: cast to union type from type 'STRUCT X' not present in union
+test/testData/parser/negative/expressions/casts.c:3:31: error: cast to union type from type 'float' not present in union
+test/testData/parser/negative/expressions/casts.c:3:32: error: cast to union type from type 'signed long' not present in union
+test/testData/parser/negative/expressions/casts.c:3:33: error: cast to union type from type 'signed char' not present in union
+test/testData/parser/negative/expressions/casts.c:3:35: error: pointer cannot be cast to type 'float'
+test/testData/parser/negative/expressions/casts.c:3:36: error: operand of type 'float' cannot be cast to a pointer type
+test/testData/parser/negative/expressions/casts.c:3:38: error: used type 'STRUCT S' where arithmetic or pointer type is required
+test/testData/parser/negative/expressions/casts.c:3:43: error: used type 'signed int[20]' where arithmetic or pointer type is required

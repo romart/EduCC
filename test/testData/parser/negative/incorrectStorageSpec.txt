@@ -6,6 +6,18 @@ FILE test/testData/parser/negative/incorrectStorageSpec.c
     #0: float f
   BEGIN
     signed int a = \
-      f = f = f = f
-    ERROR EXPR    
+      (signed int)f
+    signed int b = \
+      (signed int)f
+    signed int c = \
+      (signed int)f
+    signed int d = \
+      (signed int)f    
+  END
+----
+  FUN void testP 
+    S #0: float f
+    E #1: signed int i
+  BEGIN
+    
   END

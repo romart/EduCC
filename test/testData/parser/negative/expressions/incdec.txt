@@ -1,0 +1,63 @@
+FILE test/testData/parser/negative/expressions/incdec.c
+  STRUCT S
+    signed int a
+  STRUCT_END
+----
+  FUN void test 
+  BEGIN
+    signed int a
+    signed int b
+    C signed int c
+    signed int[10] ar
+    *signed int pa
+    float f
+    STRUCT S s
+    *STRUCT S ps
+    --a
+    ++b
+    a--
+    b++
+    f++
+    f--
+    --f
+    ++f
+    pa++
+    pa--
+    ++pa
+    --pa
+    ++s
+    --s
+    s++
+    s--
+    ar++
+    ar--
+    --ar
+    ++ar
+    c++
+    c--
+    ++c
+    --c
+    s.a++
+    s.a--
+    ++s.a
+    --s.a
+    ps->a++
+    ps->a--
+    ++ps->a
+    --ps->a
+    *pa++
+    *pa--
+    --*pa
+    ++*pa
+    *--pa
+    *++pa
+    *pa++
+    *pa--
+    --*pa
+    ++*pa
+    a + b++
+    --a * b
+    &a++
+    --&a
+    &a++    
+  END

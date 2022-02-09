@@ -1,0 +1,25 @@
+FILE test/testData/parser/negative/expressions/ref.c
+  STRUCT S
+    signed int a
+  STRUCT_END
+----
+  FUN void test 
+  BEGIN
+    signed int a
+    *signed int pa
+    R signed int r
+    STRUCT S s
+    *STRUCT S ps
+    &a
+    &pa
+    &*pa
+    &a + a
+    &r
+    &pa[1]
+    &a = a
+    &s.a
+    &ps->a
+    &++a
+    &a--
+    &(float)a    
+  END
