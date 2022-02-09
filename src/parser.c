@@ -756,6 +756,7 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
     Coordinates coords = ctx->token->coordinates;
 
     switch (ctx->token->code) {
+        // case AND_OP: // TODO: &&label;
         case INC_OP: op = EU_PRE_INC; goto ue1;
         case DEC_OP: op = EU_PRE_DEC;
         ue1:
