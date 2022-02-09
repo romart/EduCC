@@ -857,6 +857,7 @@ cast_expression
 static AstExpression* parseCastExpression(ParserContext *ctx, struct _Scope* scope) {
 
     if (ctx->token->code == '(') {
+        Token * saved = ctx->token;
         Coordinates coords = { ctx->token->coordinates.startOffset, -1 };
         nextToken(ctx);
         if (isSpecifierQualifierList(ctx->token->code)) {
@@ -867,8 +868,8 @@ static AstExpression* parseCastExpression(ParserContext *ctx, struct _Scope* sco
             checkTypeIsCastable(ctx, &coords, typeRef, argument->type, TRUE);
             return createCastExpression(ctx, coords.startOffset, coords.endOffset, typeRef, argument);
         } else {
-            AstExpression *result = parseExpression(ctx, scope);
-            consume(ctx, ')');
+            ctx->token = saved;
+            AstExpression *result = parseUnaryExpression(ctx, scope);
             return result;
         }
     } else {
