@@ -1,38 +1,67 @@
+test/testData/parser/negative/expressions/ternaryOp.c:3:13: warning: expression result unused
+test/testData/parser/negative/expressions/ternaryOp.c:3:14: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:15: warning: pointer/integer type mismatch in conditional expression ('signed int' and '*signed int')
+test/testData/parser/negative/expressions/ternaryOp.c:3:15: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:16: warning: pointer/integer type mismatch in conditional expression ('signed int' and '*float')
+test/testData/parser/negative/expressions/ternaryOp.c:3:16: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:17: warning: pointer/integer type mismatch in conditional expression ('signed int' and 'signed int[20]')
+test/testData/parser/negative/expressions/ternaryOp.c:3:17: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:18: error: incompatible operand types ('signed int' and 'STRUCT S')
 test/testData/parser/negative/expressions/ternaryOp.c:10:19: warning: pointer/integer type mismatch in conditional expression ('signed int' and '*STRUCT S')
+test/testData/parser/negative/expressions/ternaryOp.c:3:19: warning: expression result unused
+test/testData/parser/negative/expressions/ternaryOp.c:3:20: warning: expression result unused
+test/testData/parser/negative/expressions/ternaryOp.c:3:21: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:22: error: incompatible operand types ('float' and '*signed int')
 test/testData/parser/negative/expressions/ternaryOp.c:10:23: error: incompatible operand types ('float' and '*float')
 test/testData/parser/negative/expressions/ternaryOp.c:10:24: error: incompatible operand types ('float' and 'signed int[20]')
 test/testData/parser/negative/expressions/ternaryOp.c:10:25: error: incompatible operand types ('float' and 'STRUCT S')
 test/testData/parser/negative/expressions/ternaryOp.c:10:26: error: incompatible operand types ('float' and '*STRUCT S')
 test/testData/parser/negative/expressions/ternaryOp.c:10:27: warning: pointer/integer type mismatch in conditional expression ('*signed int' and 'signed int')
+test/testData/parser/negative/expressions/ternaryOp.c:3:27: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:28: error: incompatible operand types ('*signed int' and 'float')
+test/testData/parser/negative/expressions/ternaryOp.c:3:29: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:30: warning: pointer type mismatch ('*signed int' and '*float')
+test/testData/parser/negative/expressions/ternaryOp.c:3:30: warning: expression result unused
+test/testData/parser/negative/expressions/ternaryOp.c:3:31: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:32: error: incompatible operand types ('*signed int' and 'STRUCT S')
 test/testData/parser/negative/expressions/ternaryOp.c:10:33: warning: pointer type mismatch ('*signed int' and '*STRUCT S')
+test/testData/parser/negative/expressions/ternaryOp.c:3:33: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:34: warning: pointer/integer type mismatch in conditional expression ('*float' and 'signed int')
+test/testData/parser/negative/expressions/ternaryOp.c:3:34: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:35: error: incompatible operand types ('*float' and 'float')
 test/testData/parser/negative/expressions/ternaryOp.c:10:36: warning: pointer type mismatch ('*float' and '*signed int')
+test/testData/parser/negative/expressions/ternaryOp.c:3:36: warning: expression result unused
+test/testData/parser/negative/expressions/ternaryOp.c:3:37: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:38: warning: pointer type mismatch ('*float' and 'signed int[20]')
+test/testData/parser/negative/expressions/ternaryOp.c:3:38: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:39: error: incompatible operand types ('*float' and 'STRUCT S')
 test/testData/parser/negative/expressions/ternaryOp.c:10:40: warning: pointer type mismatch ('*float' and '*STRUCT S')
+test/testData/parser/negative/expressions/ternaryOp.c:3:40: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:41: warning: pointer/integer type mismatch in conditional expression ('signed int[20]' and 'signed int')
+test/testData/parser/negative/expressions/ternaryOp.c:3:41: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:42: error: incompatible operand types ('signed int[20]' and 'float')
+test/testData/parser/negative/expressions/ternaryOp.c:3:43: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:44: warning: pointer type mismatch ('signed int[20]' and '*float')
+test/testData/parser/negative/expressions/ternaryOp.c:3:44: warning: expression result unused
+test/testData/parser/negative/expressions/ternaryOp.c:3:45: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:46: error: incompatible operand types ('signed int[20]' and 'STRUCT S')
 test/testData/parser/negative/expressions/ternaryOp.c:10:47: warning: pointer type mismatch ('signed int[20]' and '*STRUCT S')
+test/testData/parser/negative/expressions/ternaryOp.c:3:47: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:48: error: incompatible operand types ('STRUCT S' and 'signed int')
 test/testData/parser/negative/expressions/ternaryOp.c:10:49: error: incompatible operand types ('STRUCT S' and 'float')
 test/testData/parser/negative/expressions/ternaryOp.c:10:50: error: incompatible operand types ('STRUCT S' and '*signed int')
 test/testData/parser/negative/expressions/ternaryOp.c:10:51: error: incompatible operand types ('STRUCT S' and '*float')
 test/testData/parser/negative/expressions/ternaryOp.c:10:52: error: incompatible operand types ('STRUCT S' and 'signed int[20]')
+test/testData/parser/negative/expressions/ternaryOp.c:3:53: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:54: error: incompatible operand types ('STRUCT S' and '*STRUCT S')
 test/testData/parser/negative/expressions/ternaryOp.c:10:55: warning: pointer/integer type mismatch in conditional expression ('*STRUCT S' and 'signed int')
+test/testData/parser/negative/expressions/ternaryOp.c:3:55: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:56: error: incompatible operand types ('*STRUCT S' and 'float')
 test/testData/parser/negative/expressions/ternaryOp.c:10:57: warning: pointer type mismatch ('*STRUCT S' and '*signed int')
+test/testData/parser/negative/expressions/ternaryOp.c:3:57: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:58: warning: pointer type mismatch ('*STRUCT S' and '*float')
+test/testData/parser/negative/expressions/ternaryOp.c:3:58: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:59: warning: pointer type mismatch ('*STRUCT S' and 'signed int[20]')
+test/testData/parser/negative/expressions/ternaryOp.c:3:59: warning: expression result unused
 test/testData/parser/negative/expressions/ternaryOp.c:10:60: error: incompatible operand types ('*STRUCT S' and 'STRUCT S')
+test/testData/parser/negative/expressions/ternaryOp.c:3:61: warning: expression result unused
