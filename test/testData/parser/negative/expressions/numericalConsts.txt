@@ -16,7 +16,7 @@ FILE test/testData/parser/negative/expressions/numericalConsts.c
     signed char c7 = \
       0
     signed char c8 = \
-      ERROR EXPR
+      ((ERROR EXPR))
     {void ()} testWchar
     signed int w1 = \
       97
@@ -34,7 +34,7 @@ FILE test/testData/parser/negative/expressions/numericalConsts.c
       0
     signed int w8 = \
       ERROR EXPR
-    ERROR EXPR    
+    (ERROR EXPR)
   END
 ----
   FUN signed int testInteger 

@@ -4,7 +4,7 @@ FILE test/testData/parser/negative/incorrectStatements.c
   BEGIN
     IF (a)
     THEN
-      ERROR EXPR
+      (ERROR EXPR)
     END_IF
-    ERROR EXPR(a)(a)    
+    ((((((((ERROR EXPR((a)))((((a)))))))))))    
   END

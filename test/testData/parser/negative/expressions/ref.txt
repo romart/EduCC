@@ -13,10 +13,10 @@ FILE test/testData/parser/negative/expressions/ref.c
     &a
     &pa
     &*pa
-    &a + a
+    &(a + a)
     &r
     &pa[1]
-    &a = a
+    &(a = a)
     &s.a
     &ps->a
     &++a
