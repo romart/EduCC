@@ -51,13 +51,13 @@ FILE test/testData/parser/negative/expressions/incdec.c
     ++*pa
     *--pa
     *++pa
-    *pa++
-    *pa--
-    --*pa
-    ++*pa
-    a + b++
-    --a * b
+    (*pa)++
+    (*pa)--
+    --(*pa)
+    ++(*pa)
+    (a + b)++
+    --(a * b)
     &a++
     --&a
-    &a++    
+    (&a)++
   END
