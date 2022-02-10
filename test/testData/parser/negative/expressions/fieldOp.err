@@ -8,6 +8,7 @@ test/testData/parser/negative/expressions/fieldOp.c:3:19: error: member referenc
 test/testData/parser/negative/expressions/fieldOp.c:3:20: error: member reference base type '*float' is not a structure or union
 test/testData/parser/negative/expressions/fieldOp.c:3:21: error: member reference base type 'signed int[20]' is not a structure or union
 test/testData/parser/negative/expressions/fieldOp.c:3:22: error: member reference base type 'signed int[20]' is not a structure or union
+test/testData/parser/negative/expressions/fieldOp.c:3:23: warning: expression result unused
 test/testData/parser/negative/expressions/fieldOp.c:3:24: error: no member named 'bad' in 'STRUCT S'
 test/testData/parser/negative/expressions/fieldOp.c:3:25: error: member reference base type '*STRUCT S' is not a structure or union
 test/testData/parser/negative/expressions/fieldOp.c:3:26: error: member reference base type '*STRUCT S' is not a structure or union
@@ -23,4 +24,5 @@ test/testData/parser/negative/expressions/fieldOp.c:3:39: error: member referenc
 test/testData/parser/negative/expressions/fieldOp.c:3:40: error: member reference base type 'signed int' is not a structure or union
 test/testData/parser/negative/expressions/fieldOp.c:3:41: error: member reference type 'STRUCT S' is not a pointer
 test/testData/parser/negative/expressions/fieldOp.c:3:42: error: member reference type 'STRUCT S' is not a pointer
+test/testData/parser/negative/expressions/fieldOp.c:3:43: warning: expression result unused
 test/testData/parser/negative/expressions/fieldOp.c:3:44: error: no member named 'bad' in 'STRUCT S'

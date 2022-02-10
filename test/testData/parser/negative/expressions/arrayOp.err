@@ -12,18 +12,21 @@ test/testData/parser/negative/expressions/arrayOp.c:3:23: error: array subscript
 test/testData/parser/negative/expressions/arrayOp.c:3:24: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:25: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:26: error: array subscript is not an integer
+test/testData/parser/negative/expressions/arrayOp.c:3:27: warning: expression result unused
 test/testData/parser/negative/expressions/arrayOp.c:3:28: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:29: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:30: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:31: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:32: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:33: error: array subscript is not an integer
+test/testData/parser/negative/expressions/arrayOp.c:3:34: warning: expression result unused
 test/testData/parser/negative/expressions/arrayOp.c:3:35: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:36: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:37: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:38: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:39: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:40: error: array subscript is not an integer
+test/testData/parser/negative/expressions/arrayOp.c:3:41: warning: expression result unused
 test/testData/parser/negative/expressions/arrayOp.c:3:42: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:43: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:44: error: array subscript is not an integer
@@ -37,6 +40,7 @@ test/testData/parser/negative/expressions/arrayOp.c:3:51: error: array subscript
 test/testData/parser/negative/expressions/arrayOp.c:3:52: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:53: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:54: error: array subscript is not an integer
+test/testData/parser/negative/expressions/arrayOp.c:3:55: warning: expression result unused
 test/testData/parser/negative/expressions/arrayOp.c:3:56: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:57: error: array subscript is not an integer
 test/testData/parser/negative/expressions/arrayOp.c:3:58: error: array subscript is not an integer

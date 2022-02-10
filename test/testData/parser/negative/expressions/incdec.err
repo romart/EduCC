@@ -10,8 +10,13 @@ test/testData/parser/negative/expressions/incdec.c:4:41: error: cannot assign to
 test/testData/parser/negative/expressions/incdec.c:4:42: error: cannot assign to lvalue with const-qualified type 'C signed int'
 test/testData/parser/negative/expressions/incdec.c:3:43: error: cannot assign to lvalue with const-qualified type 'C signed int'
 test/testData/parser/negative/expressions/incdec.c:3:44: error: cannot assign to lvalue with const-qualified type 'C signed int'
+test/testData/parser/negative/expressions/incdec.c:3:56: warning: expression result unused
+test/testData/parser/negative/expressions/incdec.c:3:57: warning: expression result unused
+test/testData/parser/negative/expressions/incdec.c:3:60: warning: expression result unused
+test/testData/parser/negative/expressions/incdec.c:3:61: warning: expression result unused
 test/testData/parser/negative/expressions/incdec.c:10:68: error: expression is not assignable
 test/testData/parser/negative/expressions/incdec.c:3:69: error: expression is not assignable
 test/testData/parser/negative/expressions/incdec.c:3:71: error: cannot take the address of an rvalue of type 'signed int'
+test/testData/parser/negative/expressions/incdec.c:3:71: warning: expression result unused
 test/testData/parser/negative/expressions/incdec.c:3:72: error: expression is not assignable
 test/testData/parser/negative/expressions/incdec.c:7:73: error: expression is not assignable
