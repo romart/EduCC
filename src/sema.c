@@ -1167,6 +1167,22 @@ AstExpression *transformAssignExpression(ParserContext *ctx, AstExpression *expr
   return expr;
 }
 
+void verifyStatementLevelExpression(ParserContext *ctx, AstExpression *expr) {
+  TypeRef *type = expr->type;
+  if (isErrorType(type) || isVoidType(type)) return;
+
+  if (expr->op == E_CALL || expr->op == EB_ASSIGN) return;
+
+  if (expr->op == EU_POST_INC || expr->op == EU_POST_DEC || expr->op == EU_PRE_INC || expr->op == EU_PRE_DEC) return;
+
+  if (expr->op == EB_COMMA) {
+      verifyStatementLevelExpression(ctx, expr->binaryExpr.left);
+      verifyStatementLevelExpression(ctx, expr->binaryExpr.right);
+  } else {
+      reportDiagnostic(ctx, DIAG_UNUSED_EXPR_RES, &expr->coordinates);
+  }
+}
+
 // true if everything is OK
 Boolean verifyValueType(ParserContext *ctx, int so, int eo, TypeRef *valueType) {
   if (isErrorType(valueType)) return TRUE;

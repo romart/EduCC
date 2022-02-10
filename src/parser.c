@@ -2343,6 +2343,7 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
     }
     default:
         expr = parseExpression(ctx, scope);
+        verifyStatementLevelExpression(ctx, expr);
         consume(ctx, ';');
         return createExprStatement(ctx, expr);
     }

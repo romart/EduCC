@@ -98,5 +98,6 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, CANNOT_BE_CAST_TO_POINTER, "operand of type '%tr' cannot be cast to a pointer type"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, CAST_TO_UNION_NOT_PRESENT, "cast to union type from type '%tr' not present in union"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, CANNOT_TAKE_ADDRESS_OF_RVALUE, "cannot take the address of an rvalue of type '%tr'"), \
-  DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, TYPEDEF_WITHOUT_NAME, "typedef requires a name")
+  DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, TYPEDEF_WITHOUT_NAME, "typedef requires a name"), \
+  DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, UNUSED_EXPR_RES, "expression result unused")
 
