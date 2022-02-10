@@ -229,20 +229,22 @@ AstExpression *createCastExpression(ParserContext *ctx, int startOffset, int end
     return result;
 }
 
-AstExpression *createTernaryExpression(ParserContext *ctx, AstExpression *cond, AstExpression *t, AstExpression* f) {
+AstExpression *createTernaryExpression(ParserContext *ctx, TypeRef *type, AstExpression *cond, AstExpression *t, AstExpression* f) {
     AstExpression *result = allocAstExpression(ctx, cond->coordinates.startOffset, f->coordinates.endOffset);
     result->op = E_TERNARY;
     result->ternaryExpr.condition = cond;
     result->ternaryExpr.ifTrue = t;
     result->ternaryExpr.ifFalse = f;
+    result->type = type;
     return result;
 }
 
-AstExpression *createBinaryExpression(ParserContext *ctx, ExpressionType op, AstExpression *left, AstExpression *right) {
+AstExpression *createBinaryExpression(ParserContext *ctx, ExpressionType op, TypeRef *type, AstExpression *left, AstExpression *right) {
     AstExpression *result = allocAstExpression(ctx, left->coordinates.startOffset, right->coordinates.endOffset);
     result->op = op;
     result->binaryExpr.left = left;
     result->binaryExpr.right = right;
+    result->type = type;
     return result;
 }
 

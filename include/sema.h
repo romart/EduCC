@@ -31,7 +31,7 @@ TypeRef *computeFunctionType(ParserContext *ctx, int so, int eo, AstFunctionDecl
 AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer *initializer, Boolean isTopLevel);
 
 Boolean verifyValueType(ParserContext *ctx, int so, int eo, TypeRef *valueType);
-void verifyCallAruments(ParserContext *ctx, int so, int eo, TypeRef *functionType, AstExpressionList *aruments);
+void verifyAndTransformCallAruments(ParserContext *ctx, int so, int eo, TypeRef *functionType, AstExpressionList *aruments);
 
 Boolean isErrorType(TypeRef *type);
 Boolean isIntegerType(TypeRef *type);
@@ -44,6 +44,10 @@ void verifyGotoLabels(ParserContext *ctx, AstStatement *body, HashMap *labelSet)
 Boolean checkExpressionIsAssignable(ParserContext *ctx, Coordinates *coords, AstExpression *expr, Boolean report);
 Boolean checkTypeIsCastable(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, Boolean report);
 Boolean checkRefArgument(ParserContext *ctx, Coordinates *coords, AstExpression *arg, Boolean report);
+
+AstExpression *transformBinaryExpression(ParserContext *ctx, AstExpression *expr);
+AstExpression *transformTernaryExpression(ParserContext *ctx, AstExpression *expr);
+AstExpression *transformAssignExpression(ParserContext *ctx, AstExpression *expr);
 
 typedef enum _TypeEqualityKind {
   TEK_UNKNOWN,
