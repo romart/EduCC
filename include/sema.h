@@ -49,6 +49,8 @@ AstExpression *transformBinaryExpression(ParserContext *ctx, AstExpression *expr
 AstExpression *transformTernaryExpression(ParserContext *ctx, AstExpression *expr);
 AstExpression *transformAssignExpression(ParserContext *ctx, AstExpression *expr);
 
+void verifyStatementLevelExpression(ParserContext *ctx, AstExpression *expr);
+
 typedef enum _TypeEqualityKind {
   TEK_UNKNOWN,
   TEK_EQUAL,
