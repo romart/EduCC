@@ -20,33 +20,33 @@ FILE test/testData/parser/negative/expressions/assignOp.c
   FUN void testAsg 
   BEGIN
     i = i
-    i = f
-    i = pi
-    i = pf
-    i = arr
+    i = (signed int)f
+    i = (signed int)pi
+    i = (signed int)pf
+    i = (signed int)arr
     i = s
-    i = ps
-    f = i
+    i = (signed int)ps
+    f = (float)i
     f = f
     f = pi
     f = pf
     f = arr
     f = s
     f = ps
-    pi = i
+    pi = (*signed int)i
     pi = f
     pi = pi
-    pi = pf
-    pi = arr
+    pi = (*signed int)pf
+    pi = (*signed int)arr
     pi = s
-    pi = ps
-    pf = i
+    pi = (*signed int)ps
+    pf = (*float)i
     pf = f
-    pf = pi
+    pf = (*float)pi
     pf = pf
-    pf = arr
+    pf = (*float)arr
     pf = s
-    pf = ps
+    pf = (*float)ps
     arr = i
     arr = f
     arr = pi
@@ -61,11 +61,11 @@ FILE test/testData/parser/negative/expressions/assignOp.c
     s = arr
     s = s
     s = ps
-    ps = i
+    ps = (*STRUCT S)i
     ps = f
-    ps = pi
-    ps = pf
-    ps = arr
+    ps = (*STRUCT S)pi
+    ps = (*STRUCT S)pf
+    ps = (*STRUCT S)arr
     ps = s
     ps = ps    
   END
@@ -73,13 +73,13 @@ FILE test/testData/parser/negative/expressions/assignOp.c
   FUN void testPlusAsg 
   BEGIN
     i = i + i
-    i = i + f
-    i = i + pi
-    i = i + pf
-    i = i + arr
+    i = (signed int)((float)i + f)
+    i = (signed int)(i + pi)
+    i = (signed int)(i + pf)
+    i = (signed int)(i + arr)
     i = i + s
-    i = i + ps
-    f = f + i
+    i = (signed int)(i + ps)
+    f = f + (float)i
     f = f + f
     f = f + pi
     f = f + pf
@@ -126,13 +126,13 @@ FILE test/testData/parser/negative/expressions/assignOp.c
   FUN void testMinusAsg 
   BEGIN
     i = i - i
-    i = i - f
-    i = i - pi
-    i = i - pf
-    i = i - arr
+    i = (signed int)((float)i - f)
+    i = (signed int)(i - pi)
+    i = (signed int)(i - pf)
+    i = (signed int)(i - arr)
     i = i - s
-    i = i - ps
-    f = f - i
+    i = (signed int)(i - ps)
+    f = f - (float)i
     f = f - f
     f = f - pi
     f = f - pf
@@ -141,18 +141,18 @@ FILE test/testData/parser/negative/expressions/assignOp.c
     f = f - ps
     pi = pi - i
     pi = pi - f
-    pi = pi - pi
-    pi = pi - pf
-    pi = pi - arr
+    pi = (*signed int)(pi - pi)
+    pi = (*signed int)(pi - pf)
+    pi = (*signed int)(pi - arr)
     pi = pi - s
-    pi = pi - ps
+    pi = (*signed int)(pi - ps)
     pf = pf - i
     pf = pf - f
-    pf = pf - pi
-    pf = pf - pf
-    pf = pf - arr
+    pf = (*float)(pf - pi)
+    pf = (*float)(pf - pf)
+    pf = (*float)(pf - arr)
     pf = pf - s
-    pf = pf - ps
+    pf = (*float)(pf - ps)
     arr = arr - i
     arr = arr - f
     arr = arr - pi
@@ -169,23 +169,23 @@ FILE test/testData/parser/negative/expressions/assignOp.c
     s = s - ps
     ps = ps - i
     ps = ps - f
-    ps = ps - pi
-    ps = ps - pf
-    ps = ps - arr
+    ps = (*STRUCT S)(ps - pi)
+    ps = (*STRUCT S)(ps - pf)
+    ps = (*STRUCT S)(ps - arr)
     ps = ps - s
-    ps = ps - ps    
+    ps = (*STRUCT S)(ps - ps)    
   END
 ----
   FUN void testMulAsg 
   BEGIN
     i = i * i
-    i = i * f
+    i = (signed int)((float)i * f)
     i = i * pi
     i = i * pf
     i = i * arr
     i = i * s
     i = i * ps
-    f = f * i
+    f = f * (float)i
     f = f * f
     f = f * pi
     f = f * pf
@@ -232,13 +232,13 @@ FILE test/testData/parser/negative/expressions/assignOp.c
   FUN void testDivAsg 
   BEGIN
     i = i / i
-    i = i / f
+    i = (signed int)((float)i / f)
     i = i / pi
     i = i / pf
     i = i / arr
     i = i / s
     i = i / ps
-    f = f / i
+    f = f / (float)i
     f = f / f
     f = f / pi
     f = f / pf
@@ -285,13 +285,13 @@ FILE test/testData/parser/negative/expressions/assignOp.c
   FUN void testModAsg 
   BEGIN
     i = i % i
-    i = i % f
+    i = (signed int)((float)i % f)
     i = i % pi
     i = i % pf
     i = i % arr
     i = i % s
     i = i % ps
-    f = f % i
+    f = f % (float)i
     f = f % f
     f = f % pi
     f = f % pf

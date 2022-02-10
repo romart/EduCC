@@ -42,8 +42,8 @@ FILE test/testData/parser/negative/expressions/binary/binAndAnd.c
   FUN void testAndAnd 
   BEGIN
     i1 && i2
-    i1 && f1
-    i1 && f2
+    (float)i1 && f1
+    (float)i1 && f2
     i1 && pi1
     i1 && pi2
     i1 && pf1
@@ -59,8 +59,8 @@ FILE test/testData/parser/negative/expressions/binary/binAndAnd.c
     i1 && ps21
     i1 && ps22
     i2 && i1
-    i2 && f1
-    i2 && f2
+    (float)i2 && f1
+    (float)i2 && f2
     i2 && pi1
     i2 && pi2
     i2 && pf1
@@ -75,11 +75,11 @@ FILE test/testData/parser/negative/expressions/binary/binAndAnd.c
     i2 && s22
     i2 && ps21
     i2 && ps22
-    f1 && i1
-    f1 && i2
+    f1 && (float)i1
+    f1 && (float)i2
     f1 && f2
     f1 && pi1
-    f1 && pi2
+    f1 && (float)pi2
     f1 && pf1
     f1 && pf2
     f1 && arr1
@@ -92,11 +92,11 @@ FILE test/testData/parser/negative/expressions/binary/binAndAnd.c
     f1 && s22
     f1 && ps21
     f1 && ps22
-    f2 && i1
-    f2 && i2
+    f2 && (float)i1
+    f2 && (float)i2
     f2 && f1
     f2 && pi1
-    f2 && pi2
+    f2 && (float)pi2
     f2 && pf1
     f2 && pf2
     f2 && arr1
@@ -128,8 +128,8 @@ FILE test/testData/parser/negative/expressions/binary/binAndAnd.c
     pi1 && ps22
     pi2 && i1
     pi2 && i2
-    pi2 && f1
-    pi2 && f2
+    (float)pi2 && f1
+    (float)pi2 && f2
     pi2 && pi1
     pi2 && pf1
     pi2 && pf2

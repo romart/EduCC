@@ -7,7 +7,7 @@ FILE test/testData/parser/negative/expressions/assgn.c
     *C signed int pc
     a++ = a
     a + a = a
-    &a = a
+    &a = (*signed int)a
     *pa = a
     --a = a
     0 = a
