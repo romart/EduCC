@@ -2245,11 +2245,11 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         consume(ctx, WHILE);
         consume(ctx, '(');
         oldFlag = ctx->stateFlags.inLoop;
-        ctx->stateFlags.inLoop = 1;
         expr = parseExpression(ctx, scope);
-        ctx->stateFlags.inLoop = oldFlag;
         consume(ctx, ')');
+        ctx->stateFlags.inLoop = 1;
         stmt = parseStatement(ctx, scope);
+        ctx->stateFlags.inLoop = oldFlag;
         eo = stmt->coordinates.endOffset;
         return createLoopStatement(ctx, so, eo, SK_WHILE, expr, stmt);
     case DO:
