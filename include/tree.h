@@ -466,8 +466,8 @@ AstFile *createAstFile(ParserContext *ctx);
 
 AstExpression* createAstConst(ParserContext *ctx, int startOffset, int endOffset, ConstKind type, void* value);
 AstExpression *createCastExpression(ParserContext *ctx, int startOffset, int endOffset, TypeRef *typeRef, AstExpression *argument);
-AstExpression *createTernaryExpression(ParserContext *ctx, AstExpression *cond, AstExpression *t, AstExpression* f);
-AstExpression *createBinaryExpression(ParserContext *ctx, ExpressionType op, AstExpression *left, AstExpression *right);
+AstExpression *createTernaryExpression(ParserContext *ctx, TypeRef *type, AstExpression *cond, AstExpression *t, AstExpression* f);
+AstExpression *createBinaryExpression(ParserContext *ctx, ExpressionType op, TypeRef *type, AstExpression *left, AstExpression *right);
 AstExpression *createUnaryExpression(ParserContext *ctx, int startOffset, int endOffset, ExpressionType op, AstExpression *argument);
 AstExpression *createNameRef(ParserContext *ctx, int startOffset, int endOffset, const char *name, struct _Symbol *s);
 AstExpression *createCallExpression(ParserContext *ctx, int startOffset, int endOffset, AstExpression *callee, AstExpressionList *arguments);

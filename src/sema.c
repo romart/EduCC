@@ -1087,6 +1087,86 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
   return NULL;
 }
 
+static AstExpression *parenIfNeeded(ParserContext *ctx, AstExpression *expr) {
+  switch (expr->op) {
+    case E_CONST:
+    case E_NAMEREF:
+    case E_CALL:
+    case E_PAREN:
+    case E_ERROR:
+    case EB_COMMA:
+    case EB_A_ACC:
+      return expr;
+    default:
+      return createParenExpression(ctx, expr->coordinates.startOffset, expr->coordinates.endOffset, expr);
+  }
+}
+
+AstExpression *transformTernaryExpression(ParserContext *ctx, AstExpression *expr) {
+  assert(expr->op == E_TERNARY);
+
+  if (isErrorType(expr->type)) return expr;
+
+  AstExpression *ifTrue = expr->ternaryExpr.ifTrue;
+  AstExpression *ifFalse = expr->ternaryExpr.ifFalse;
+
+  if (!typeEquality(expr->type, ifTrue->type)) {
+      expr->ternaryExpr.ifTrue = createCastExpression(ctx, ifTrue->coordinates.startOffset, ifTrue->coordinates.endOffset, expr->type, parenIfNeeded(ctx, ifTrue));
+  }
+
+  if (!typeEquality(expr->type, ifFalse->type)) {
+      expr->ternaryExpr.ifFalse = createCastExpression(ctx, ifFalse->coordinates.startOffset, ifFalse->coordinates.endOffset, expr->type, parenIfNeeded(ctx, ifFalse));
+  }
+
+  return expr;
+}
+
+AstExpression *transformBinaryExpression(ParserContext *ctx, AstExpression *expr) {
+  assert(EB_ADD <= expr->op && expr->op <= EB_GE);
+
+  if (isErrorType(expr->type)) return expr;
+
+  if (isPointerLikeType(expr->type)) return expr;
+
+  AstExpression *left = expr->binaryExpr.left;
+  AstExpression *right = expr->binaryExpr.right;
+
+  if (isPointerLikeType(left->type) || isPointerLikeType(right->type)) return expr;
+
+  assert(left->type->kind == TR_VALUE);
+  assert(right->type->kind == TR_VALUE);
+
+  TypeRef *commonType = commonPrimitiveType(ctx, left->type, right->type);
+
+  if (!typesEquals(commonType, left->type)) {
+      left = createCastExpression(ctx, left->coordinates.startOffset, left->coordinates.endOffset, commonType, parenIfNeeded(ctx, left));
+  }
+
+  if (!typesEquals(commonType, right->type)) {
+      right = createCastExpression(ctx, right->coordinates.startOffset, right->coordinates.endOffset, commonType, parenIfNeeded(ctx, right));
+  }
+
+  expr->binaryExpr.left = left;
+  expr->binaryExpr.right = right;
+
+  return expr;
+}
+
+AstExpression *transformAssignExpression(ParserContext *ctx, AstExpression *expr) {
+  assert(expr->op == EB_ASSIGN);
+
+  if (isErrorType(expr->type)) return expr;
+
+  AstExpression *lvalue = expr->binaryExpr.left;
+  AstExpression *rvalue = expr->binaryExpr.right;
+
+  if (!typesEquals(lvalue->type, rvalue->type)) {
+      expr->binaryExpr.right = createCastExpression(ctx, rvalue->coordinates.startOffset, rvalue->coordinates.endOffset, lvalue->type, parenIfNeeded(ctx, rvalue));
+  }
+
+  return expr;
+}
+
 // true if everything is OK
 Boolean verifyValueType(ParserContext *ctx, int so, int eo, TypeRef *valueType) {
   if (isErrorType(valueType)) return TRUE;
@@ -1104,7 +1184,7 @@ Boolean verifyValueType(ParserContext *ctx, int so, int eo, TypeRef *valueType) 
   return TRUE;
 }
 
-void verifyCallAruments(ParserContext *ctx, int so, int eo, TypeRef *functionType, AstExpressionList *aruments) {
+void verifyAndTransformCallAruments(ParserContext *ctx, int so, int eo, TypeRef *functionType, AstExpressionList *aruments) {
   if (isErrorType(functionType)) return;
 
   if (functionType->kind == TR_POINTED)
@@ -1122,6 +1202,9 @@ void verifyCallAruments(ParserContext *ctx, int so, int eo, TypeRef *functionTyp
       TypeRef *aType = arg->type;
       TypeRef *pType = param->type;
       if (isAssignableTypes(ctx, so, eo, pType, aType, FALSE)) {
+          if (!typeEquality(pType, aType)) {
+              argument->expression = createCastExpression(ctx, so, eo, pType, parenIfNeeded(ctx, arg));
+          }
           argument = argument->next;
           param = param->next;
       } else {
