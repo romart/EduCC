@@ -309,6 +309,8 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
         }
         return NULL;
     }
+    case E_PAREN:
+      return eval(ctx, expression->parened);
     case E_CAST:
       // TODO: not supported yet
       return NULL;

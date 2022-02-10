@@ -629,6 +629,9 @@ Boolean checkTypeAssignable(ParserContext *ctx, Coordinates *coords, TypeRef *ty
 
 
 Boolean checkRefArgument(ParserContext *ctx, Coordinates *coords, AstExpression *arg, Boolean report) {
+
+  arg = deparen(arg);
+
   switch (arg->op) {
   case E_NAMEREF:
   case EF_ARROW:
@@ -645,6 +648,8 @@ Boolean checkRefArgument(ParserContext *ctx, Coordinates *coords, AstExpression 
 }
 
 Boolean checkExpressionIsAssignable(ParserContext *ctx, Coordinates *coords, AstExpression *expr, Boolean report) {
+
+  expr = deparen(expr);
 
   switch (expr->op) {
   case E_NAMEREF:
@@ -858,6 +863,8 @@ static Boolean isCompileTimeConstant(AstExpression *expr) {
       return isCompileTimeConstant(expr->binaryExpr.left) && isCompileTimeConstant(expr->binaryExpr.right);
     case EB_COMMA:
       return isCompileTimeConstant(expr->binaryExpr.right);
+    case E_PAREN:
+      return isCompileTimeConstant(expr->parened);
     default:
       return FALSE;
   }

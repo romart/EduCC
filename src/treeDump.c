@@ -34,6 +34,11 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
     case E_NAMEREF:
       result += fprintf(output, "%s", expr->nameRefExpr.name);
       break;
+    case E_PAREN:
+      result += fprintf(output, "(");
+      result += dumpAstExpressionImpl(output, 0, expr->parened);
+      result += fprintf(output, ")");
+      break;
     case E_CALL: {
        AstCallExpression *callExpr = &expr->callExpr;
        result += dumpAstExpressionImpl(output, 0, callExpr->callee);

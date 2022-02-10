@@ -613,8 +613,10 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
         default: {
             consume(ctx, '(');
             AstExpression* expr = parseExpression(ctx, scope);
+            eo = ctx->token->coordinates.endOffset;
             consume(ctx, ')');
-            return expr;
+
+            return createParenExpression(ctx, so, eo, expr);
         }
     }
 
