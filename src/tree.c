@@ -202,6 +202,16 @@ AstExpression* createAstConst(ParserContext *ctx, int startOffset, int endOffset
     return result;
 }
 
+AstExpression *createParenExpression(ParserContext *ctx, int startOffset, int endOffset, AstExpression *parened) {
+  AstExpression* result = allocAstExpression(ctx, startOffset, endOffset);
+
+  result->op = E_PAREN;
+  result->parened = parened;
+  result->type = parened->type;
+
+  return result;
+}
+
 AstExpression *createErrorExpression(ParserContext *ctx, int startOffset, int endOffset) {
   AstExpression* result = allocAstExpression(ctx, startOffset, endOffset);
 
@@ -377,4 +387,9 @@ AstStatement *createErrorStatement(ParserContext *ctx, int startOffset, int endO
     result->statementKind = SK_ERROR;
 
     return result;
+}
+
+AstExpression *deparen(AstExpression *expr) {
+  if (expr->op == E_PAREN) return deparen(expr->parened);
+  return expr;
 }

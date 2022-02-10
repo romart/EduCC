@@ -19,6 +19,7 @@ typedef enum _ExpressionType {
     E_CAST,
     E_NAMEREF,
     E_CALL,
+    E_PAREN,      /** (expr) */
     E_ERROR,
 
     EU_PRE_INC,   /** --a */
@@ -134,6 +135,7 @@ typedef struct _AstExpression {
     AstNameRef nameRefExpr;
     AstCallExpression callExpr;
     AstFieldExpression fieldExpr;
+    struct _AstExpression *parened;
   };
 } AstExpression;
 
@@ -433,6 +435,7 @@ typedef struct _AstFile {
   struct _AstFile *next;
 } AstFile;
 
+AstExpression *deparen(AstExpression *expr);
 
 //Factories
 
@@ -469,7 +472,7 @@ AstExpression *createUnaryExpression(ParserContext *ctx, int startOffset, int en
 AstExpression *createNameRef(ParserContext *ctx, int startOffset, int endOffset, const char *name, struct _Symbol *s);
 AstExpression *createCallExpression(ParserContext *ctx, int startOffset, int endOffset, AstExpression *callee, AstExpressionList *arguments);
 AstExpression *createFieldExpression(ParserContext *ctx, int startOffset, int endOffset, ExpressionType op, AstExpression *receiver, const char *member);
-
+AstExpression *createParenExpression(ParserContext *ctx, int startOffset, int endOffset, AstExpression *parened);
 AstExpression *createErrorExpression(ParserContext *ctx, int startOffset, int endOffset);
 
 // statemetns
