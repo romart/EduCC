@@ -409,6 +409,8 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
     case E_CALL:
     case E_NAMEREF:
       return NULL; // same for call foo() and nameref
+    case E_LABEL_REF:
+      return NULL; // no idea how to evaluate this
     case EU_DEREF:
     case EU_REF:
       return NULL; // ref/deref is not supported yet;

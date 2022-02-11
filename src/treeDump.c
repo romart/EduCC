@@ -34,6 +34,9 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
     case E_NAMEREF:
       result += fprintf(output, "%s", expr->nameRefExpr.name);
       break;
+    case E_LABEL_REF:
+      result += fprintf(output, "&&%s", expr->label);
+      break;
     case E_PAREN:
       result += fprintf(output, "(");
       result += dumpAstExpressionImpl(output, 0, expr->parened);
@@ -274,9 +277,14 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
       result += putIndent(output, indent);
       result += fprintf(output, "CONTINUE");
       break;
-    case SK_GOTO:
+    case SK_GOTO_L:
       result += putIndent(output, indent);
       result += fprintf(output, "GOTO %s", stmt->jumpStmt.label);
+      break;
+    case SK_GOTO_P:
+      result += putIndent(output, indent);
+      result += fprintf(output, "GOTO *");
+      result += dumpAstExpressionImpl(output, 0, stmt->jumpStmt.expression);
       break;
     case SK_RETURN:
       result += putIndent(output, indent);

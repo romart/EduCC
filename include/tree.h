@@ -20,6 +20,7 @@ typedef enum _ExpressionType {
     E_NAMEREF,
     E_CALL,
     E_PAREN,      /** (expr) */
+    E_LABEL_REF,
     E_ERROR,
 
     EU_PRE_INC,   /** --a */
@@ -136,6 +137,7 @@ typedef struct _AstExpression {
     AstCallExpression callExpr;
     AstFieldExpression fieldExpr;
     struct _AstExpression *parened;
+    const char* label;
   };
 } AstExpression;
 
@@ -156,7 +158,8 @@ typedef enum _StatementKind {
     SK_DO_WHILE,
     SK_FOR,
 
-    SK_GOTO,
+    SK_GOTO_L,
+    SK_GOTO_P,
     SK_CONTINUE,
     SK_BREAK,
     SK_RETURN
@@ -473,6 +476,7 @@ AstExpression *createNameRef(ParserContext *ctx, int startOffset, int endOffset,
 AstExpression *createCallExpression(ParserContext *ctx, int startOffset, int endOffset, AstExpression *callee, AstExpressionList *arguments);
 AstExpression *createFieldExpression(ParserContext *ctx, int startOffset, int endOffset, ExpressionType op, AstExpression *receiver, const char *member);
 AstExpression *createParenExpression(ParserContext *ctx, int startOffset, int endOffset, AstExpression *parened);
+AstExpression *createLabelRefExpression(ParserContext *ctx, int startOffset, int endOffset, const char *label);
 AstExpression *createErrorExpression(ParserContext *ctx, int startOffset, int endOffset);
 
 // statemetns

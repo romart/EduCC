@@ -279,6 +279,17 @@ AstExpression *createFieldExpression(ParserContext *ctx, int startOffset, int en
     return result;
 }
 
+AstExpression *createLabelRefExpression(ParserContext *ctx, int startOffset, int endOffset, const char *label) {
+    AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
+    SpecifierFlags flags = { 0 };
+
+    result->op = E_LABEL_REF;
+    result->label = label;
+    result->type = makePointedType(ctx, flags, makePrimitiveType(ctx, T_VOID, 0));
+
+    return result;
+}
+
 // statements
 
 AstStatement *createBlockStatement(ParserContext *ctx, int startOffset, int endOffset, struct _Scope *scope, AstStatementList *stmts) {
