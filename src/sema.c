@@ -860,9 +860,8 @@ static Boolean isCompileTimeConstant(AstExpression *expr) {
     case EB_LE:
     case EB_GT:
     case EB_GE:
-      return isCompileTimeConstant(expr->binaryExpr.left) && isCompileTimeConstant(expr->binaryExpr.right);
     case EB_COMMA:
-      return isCompileTimeConstant(expr->binaryExpr.right);
+      return isCompileTimeConstant(expr->binaryExpr.left) && isCompileTimeConstant(expr->binaryExpr.right);
     case E_PAREN:
       return isCompileTimeConstant(expr->parened);
     default:
