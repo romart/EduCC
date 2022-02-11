@@ -1312,9 +1312,22 @@ static void verifySwtichCasesRec(ParserContext *ctx, AstStatement *stmt, unsigne
     case SK_ERROR:
     case SK_BREAK:
     case SK_CONTINUE:
-    case SK_GOTO:
+    case SK_GOTO_L:
+    case SK_GOTO_P:
       break;
   }
+}
+
+void verifyGotoExpression(ParserContext *ctx, AstExpression *expr) {
+  TypeRef *type = expr->type;
+  if (isErrorType(type)) return;
+
+  // TODO: introduce special type for such pointers
+  if (type->kind == TR_POINTED && isVoidType(type->pointedTo)) {
+      return ;
+  }
+
+  reportDiagnostic(ctx, DIAG_ILL_INDIRECT_GOTO_OPERAND, &expr->coordinates);
 }
 
 void verifySwitchCases(ParserContext *ctx, AstStatement *switchBody, unsigned caseCount) {
@@ -1327,7 +1340,91 @@ void verifySwitchCases(ParserContext *ctx, AstStatement *switchBody, unsigned ca
   releaseHeap(caseSet);
 }
 
+static void verifyGotoLabelsExpr(ParserContext *ctx, AstExpression *expr, HashMap *labelSet) {
+  AstExpressionList *args = NULL;
+  switch (expr->op) {
+  case E_LABEL_REF:
+      if (expr->label && !isInHashMap(labelSet, expr->label)) {
+          reportDiagnostic(ctx, DIAG_UNDECLARED_LABEL, &expr->coordinates, expr->label);
+      }
+      break;
+  case E_TERNARY:
+      verifyGotoLabelsExpr(ctx, expr->ternaryExpr.condition, labelSet);
+      verifyGotoLabelsExpr(ctx, expr->ternaryExpr.ifTrue, labelSet);
+      verifyGotoLabelsExpr(ctx, expr->ternaryExpr.ifFalse, labelSet);
+      break;
+  case E_CAST:
+      verifyGotoLabelsExpr(ctx, expr->castExpr.argument, labelSet);
+      break;
+  case E_PAREN:
+      verifyGotoLabelsExpr(ctx, expr->parened, labelSet);
+      break;
+  case E_CALL:
+      verifyGotoLabelsExpr(ctx, expr->callExpr.callee, labelSet);
+      args = expr->callExpr.arguments;
+      while (args) {
+          verifyGotoLabelsExpr(ctx, args->expression, labelSet);
+          args = args->next;
+      }
+      break;
+  case EU_PRE_INC:
+  case EU_POST_INC:
+  case EU_PRE_DEC:
+  case EU_POST_DEC:
+  case EU_DEREF:
+  case EU_REF:
+  case EU_PLUS:
+  case EU_MINUS:
+  case EU_TILDA:
+  case EU_EXL:
+      verifyGotoLabelsExpr(ctx, expr->unaryExpr.argument, labelSet);
+      break;
+  case EB_ADD:
+  case EB_SUB:
+  case EB_MUL:
+  case EB_DIV:
+  case EB_MOD:
+  case EB_LHS: /** << */
+  case EB_RHS: /** >> */
+  case EB_AND:
+  case EB_OR:
+  case EB_XOR:
+  case EB_ANDAND:
+  case EB_OROR:
+  case EB_EQ:
+  case EB_NE:
+  case EB_LT:
+  case EB_LE:
+  case EB_GT:
+  case EB_GE:
+  case EB_A_ACC: /** a[b] */
+  case EB_COMMA: /** a, b = c, d */
+  case EF_DOT: /** a.b */
+  case EF_ARROW: /** a->b */
+  case EB_ASSIGN:
+      verifyGotoLabelsExpr(ctx, expr->binaryExpr.left, labelSet);
+      verifyGotoLabelsExpr(ctx, expr->binaryExpr.right, labelSet);
+      break;
+  default: break;
+  }
+}
+
+
+static void verifyGotoLabelsInit(ParserContext *ctx, AstInitializer *init, HashMap *labelSet) {
+  if (init->kind == IK_EXPRESSION) {
+      verifyGotoLabelsExpr(ctx, init->expression, labelSet);
+  } else {
+      AstInitializerList *inits = init->initializerList;
+      while (inits) {
+          verifyGotoLabelsInit(ctx, inits->initializer, labelSet);
+          inits = inits->next;
+      }
+  }
+}
+
+
 void verifyGotoLabels(ParserContext *ctx, AstStatement *stmt, HashMap *labelSet) {
+  AstDeclaration *declaration = NULL;
   switch (stmt->statementKind) {
     case SK_BLOCK: {
         AstStatementList *node = stmt->block.stmts;
@@ -1341,6 +1438,7 @@ void verifyGotoLabels(ParserContext *ctx, AstStatement *stmt, HashMap *labelSet)
         verifyGotoLabels(ctx, stmt->labelStmt.body, labelSet);
         break;
     case SK_IF:
+        verifyGotoLabelsExpr(ctx, stmt->ifStmt.condition, labelSet);
         verifyGotoLabels(ctx, stmt->ifStmt.thenBranch, labelSet);
         if (stmt->ifStmt.elseBranch) {
             verifyGotoLabels(ctx, stmt->ifStmt.elseBranch, labelSet);
@@ -1348,23 +1446,44 @@ void verifyGotoLabels(ParserContext *ctx, AstStatement *stmt, HashMap *labelSet)
         break;
     case SK_WHILE:
     case SK_DO_WHILE:
-        verifyGotoLabels(ctx, stmt->loopStmt.body, labelSet);;
+        verifyGotoLabelsExpr(ctx, stmt->loopStmt.condition, labelSet);
+        verifyGotoLabels(ctx, stmt->loopStmt.body, labelSet);
         break;
     case SK_FOR:
-        verifyGotoLabels(ctx, stmt->forStmt.body, labelSet);;
+        if (stmt->forStmt.initial)
+          verifyGotoLabelsExpr(ctx, stmt->forStmt.initial, labelSet);
+        if (stmt->forStmt.condition)
+          verifyGotoLabelsExpr(ctx, stmt->forStmt.condition, labelSet);
+        if (stmt->forStmt.modifier)
+          verifyGotoLabelsExpr(ctx, stmt->forStmt.modifier, labelSet);
+
+        verifyGotoLabels(ctx, stmt->forStmt.body, labelSet);
         break;
     case SK_SWITCH: // stop
-        verifyGotoLabels(ctx, stmt->switchStmt.body, labelSet);;
+        verifyGotoLabelsExpr(ctx, stmt->switchStmt.condition, labelSet);
+        verifyGotoLabels(ctx, stmt->switchStmt.body, labelSet);
         break;
     case SK_RETURN:
+      if (stmt->jumpStmt.expression)
+        verifyGotoLabelsExpr(ctx, stmt->jumpStmt.expression, labelSet);
+      break;
     case SK_DECLARATION:
+      declaration = stmt->declStmt.declaration;
+      if (declaration->kind == DK_VAR)
+        if (declaration->variableDeclaration->initializer)
+          verifyGotoLabelsInit(ctx, declaration->variableDeclaration->initializer, labelSet);
     case SK_EXPR_STMT:
+      verifyGotoLabelsExpr(ctx, stmt->exprStmt.expression, labelSet);
+      break;
     case SK_EMPTY:
     case SK_ERROR:
     case SK_BREAK:
     case SK_CONTINUE:
       break;
-    case SK_GOTO:
+    case SK_GOTO_P:
+      verifyGotoLabelsExpr(ctx, stmt->jumpStmt.expression, labelSet);
+      break;
+    case SK_GOTO_L:
       if (!isInHashMap(labelSet, stmt->jumpStmt.label)) {
           reportDiagnostic(ctx, DIAG_UNDECLARED_LABEL, &stmt->coordinates, stmt->jumpStmt.label);
       }

@@ -748,16 +748,23 @@ unary_expression
     | unary_operator cast_expression
     | SIZEOF unary_expression
     | SIZEOF '(' type_name ')'
+    | AND_OP ID
     ;
  */
 static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* scope) {
     ExpressionType op;
     AstExpression* argument = NULL;
     AstExpression* result = NULL;
+    const char *label = NULL;
     Coordinates coords = ctx->token->coordinates;
 
     switch (ctx->token->code) {
-        // case AND_OP: // TODO: &&label;
+        case AND_OP: // &&label
+            consume(ctx, AND_OP);
+            label = ctx->token->text;
+            coords.endOffset = ctx->token->coordinates.endOffset;
+            consumeRaw(ctx, IDENTIFIER);
+            return createLabelRefExpression(ctx, coords.startOffset, coords.endOffset, label);
         case INC_OP: op = EU_PRE_INC; goto ue1;
         case DEC_OP: op = EU_PRE_DEC;
         ue1:
@@ -2287,15 +2294,22 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         return createForStatement(ctx, so, eo, expr, expr2, expr3, stmt);
     case GOTO:
         consume(ctx, GOTO);
-        const char* label = ctx->token->text;
-        consumeRaw(ctx, IDENTIFIER);
-        eo = ctx->token->coordinates.endOffset;
-        consume(ctx, ';');
-        if (label) {
-          stmt = createJumpStatement(ctx, so, eo, SK_GOTO);
-          stmt->jumpStmt.label = label;
+        if (nextTokenIf(ctx, '*')) {
+          AstExpression *expr = parseExpression(ctx, scope);
+          verifyGotoExpression(ctx, expr);
+          stmt = createJumpStatement(ctx, so, eo, SK_GOTO_P);
+          stmt->jumpStmt.expression = expr;
         } else {
-          stmt = createErrorStatement(ctx, so, eo);
+          const char* label = ctx->token->text;
+          consumeRaw(ctx, IDENTIFIER);
+          eo = ctx->token->coordinates.endOffset;
+          consume(ctx, ';');
+          if (label) {
+            stmt = createJumpStatement(ctx, so, eo, SK_GOTO_L);
+            stmt->jumpStmt.label = label;
+          } else {
+            stmt = createErrorStatement(ctx, so, eo);
+          }
         }
         return stmt;
     case CONTINUE:

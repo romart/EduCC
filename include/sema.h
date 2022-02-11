@@ -38,6 +38,8 @@ Boolean isIntegerType(TypeRef *type);
 
 Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeRef *from, Boolean init);
 
+void verifyGotoExpression(ParserContext *ctx, AstExpression *expr);
+
 void verifySwitchCases(ParserContext *ctx, AstStatement *switchBody, unsigned caseCount);
 void verifyGotoLabels(ParserContext *ctx, AstStatement *body, HashMap *labelSet);
 
