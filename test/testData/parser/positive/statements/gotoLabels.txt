@@ -24,3 +24,27 @@ FILE test/testData/parser/positive/statements/gotoLabels.c
       END_IF
     END_IF    
   END
+----
+  FUN signed int foo_p 
+    #0: signed int a
+    #1: signed int b
+  BEGIN
+    *void lptr = \
+      &&bb
+    IF (a)
+    THEN
+      bar("ss")
+      GOTO *lptr
+      
+    ELSE
+      IF (b)
+      THEN
+        bar("lll")
+        bb: bar("lfff")        
+      ELSE
+        bar("JHHHH")
+        GOTO *lptr
+        
+      END_IF
+    END_IF    
+  END

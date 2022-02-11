@@ -1,2 +1,3 @@
 test/testData/parser/negative/statements/gotoLabels.c:7:14: error: redefinition of label 'bb'
 test/testData/parser/negative/statements/gotoLabels.c:7:22: error: use of undeclared label 'cc'
+test/testData/parser/negative/statements/gotoLabels.c:16:31: error: use of undeclared label 'cc'

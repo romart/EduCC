@@ -38,3 +38,20 @@ FILE test/testData/parser/negative/statements/gotoLabels.c
       bb: bar("lffppppf")      
     END_IF    
   END
+----
+  FUN signed int foo_fail3 
+    #0: signed int a
+    #1: signed int b
+  BEGIN
+    *void lptr = \
+      &&cc
+    IF (a)
+    THEN
+      bar("ss")
+      GOTO *lptr
+      
+    ELSE
+      bar("uuu")
+      bb: bar("lffppppf")      
+    END_IF    
+  END
