@@ -1,4 +1,5 @@
 
+#include <stddef.h>
 #include "common.h"
 #include "parser.h"
 #include "tree.h"
@@ -251,15 +252,78 @@ static AstConst *evaluateBinaryConst(ParserContext *ctx, AstConst *left, AstCons
   }
 }
 
+static AstConst* evalCast(ParserContext *ctx, TypeRef *toType, AstConst *arg) {
+  if (toType->kind == TR_POINTED) {
+      // TODO: think about const address representation
+      arg->i = (intptr_t)arg->i;
+      return arg;
+  }
+
+  if (toType->kind == TR_VALUE) {
+     TypeDesc *desc = toType->descriptorDesc;
+     switch (desc->typeId) {
+       case T_S1:
+         arg->i = arg->op == CK_FLOAT_CONST ? (int8_t)arg->f : (int8_t)arg->i;
+         arg->op = CK_INT_CONST;
+         break;
+       case T_S2:
+         arg->i = arg->op == CK_FLOAT_CONST ? (int16_t)arg->f : (int16_t)arg->i;
+         arg->op = CK_INT_CONST;
+         break;
+       case T_S4:
+         arg->i = arg->op == CK_FLOAT_CONST ? (int32_t)arg->f : (int32_t)arg->i;
+         arg->op = CK_INT_CONST;
+         break;
+       case T_S8:
+         arg->i = arg->op == CK_FLOAT_CONST ? (int64_t)arg->f : (int64_t)arg->i;
+         arg->op = CK_INT_CONST;
+         break;
+       case T_U1:
+         arg->i = arg->op == CK_FLOAT_CONST ? (u_int8_t)arg->f : (u_int8_t)arg->i;
+         arg->op = CK_INT_CONST;
+         break;
+       case T_U2:
+         arg->i = arg->op == CK_FLOAT_CONST ? (u_int16_t)arg->f : (u_int16_t)arg->i;
+         arg->op = CK_INT_CONST;
+         break;
+       case T_U4:
+         arg->i = arg->op == CK_FLOAT_CONST ? (u_int32_t)arg->f : (u_int32_t)arg->i;
+         arg->op = CK_INT_CONST;
+         break;
+       case T_U8:
+         arg->i = arg->op == CK_FLOAT_CONST ? (u_int64_t)arg->f : (u_int64_t)arg->i;
+         arg->op = CK_INT_CONST;
+         break;
+       case T_F4:
+         arg->i = arg->op == CK_FLOAT_CONST ? (float)arg->f : (float)arg->i;
+         arg->op = CK_FLOAT_CONST;
+         break;
+       case T_F8:
+         arg->i = arg->op == CK_FLOAT_CONST ? (double)arg->f : (double)arg->i;
+         arg->op = CK_FLOAT_CONST;
+         break;
+       case T_F10: // TODO: storage is small a bit
+         arg->i = arg->op == CK_FLOAT_CONST ? (long double)arg->f : (long double)arg->i;
+         arg->op = CK_FLOAT_CONST;
+         break;
+       default:
+         return NULL;
+     }
+  }
+
+  return NULL;
+}
+
 AstConst* eval(ParserContext *ctx, AstExpression* expression) {
+
+  if (isErrorType(expression->type)) return NULL; // cannot evaluate error expression
+
   int64_const_t ic;
   float64_const_t fc;
   float f = 4.2f;
   float f2;
   int ii;
   ExpressionType op = expression->op;
-
-
   int_unary_evaluate un_i_eval = NULL;
   float_unary_evaluate un_f_eval = NULL;
   int_binary_evaluate bin_i_eval = NULL;
@@ -311,9 +375,11 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
     }
     case E_PAREN:
       return eval(ctx, expression->parened);
-    case E_CAST:
-      // TODO: not supported yet
-      return NULL;
+    case E_CAST: {
+      AstConst *arg = eval(ctx, expression->castExpr.argument);
+      if (arg == NULL) return NULL;
+      return evalCast(ctx, expression->castExpr.type, arg);
+    }
     case EU_POST_INC:
     case EU_POST_DEC:
     case EU_PLUS:
@@ -333,6 +399,8 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
       }
       return NULL;
     }
+    case EB_A_ACC:
+      return NULL; // cannot evaluate array access
     case EB_ASSIGN:
       return NULL; // cannot evaluate assignemt
     case EF_DOT:
