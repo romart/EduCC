@@ -26,3 +26,15 @@ int foo_fail2(int a, int b) {
       bar("lffppppf");
   }
 }
+
+int foo_fail3(int a, int b) {
+  void *lptr = &&cc;
+  if (a) {
+      bar("ss");
+      goto *lptr;
+  } else {
+      bar("uuu");
+      bb:
+      bar("lffppppf");
+  }
+}
