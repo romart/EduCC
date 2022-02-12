@@ -17,26 +17,26 @@ int computeTypeSize(TypeRef *type);
 int computeSUETypeSize(ParserContext *ctx, AstSUEDeclaration *declaration);
 
 
-TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, int so, int eo, TypeRef *arrayType, TypeRef *indexType);
-TypeRef *computeMemberAccessType(ParserContext *ctx, int so, int eo, TypeRef *receiverType, const char *memberName, ExpressionType op);
-TypeRef *computeFunctionReturnType(ParserContext *ctx, int so, int eo, TypeRef *calleeType);
-TypeRef *computeIncDecType(ParserContext *ctx, int so, int eo, TypeRef *argumentType, ExpressionType op);
-TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, int so, int eo, TypeRef *argumentType, ExpressionType op);
-TypeRef *computeBinaryType(ParserContext *ctx, int so, int eo, TypeRef* left, TypeRef *right, ExpressionType op);
-TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op);
-TypeRef *computeAssignmentTypes(ParserContext *ctx, int so, int eo, TypeRef *left, TypeRef *right);
-TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op);
-TypeRef *computeFunctionType(ParserContext *ctx, int so, int eo, AstFunctionDeclaration *declaration);
+TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, Coordinates *coords, TypeRef *arrayType, TypeRef *indexType);
+TypeRef *computeMemberAccessType(ParserContext *ctx, Coordinates *coords, TypeRef *receiverType, const char *memberName, ExpressionType op);
+TypeRef *computeFunctionReturnType(ParserContext *ctx, Coordinates *coords, TypeRef *calleeType);
+TypeRef *computeIncDecType(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, ExpressionType op);
+TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, ExpressionType op);
+TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, TypeRef* left, TypeRef *right, ExpressionType op);
+TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op);
+TypeRef *computeAssignmentTypes(ParserContext *ctx, Coordinates *coords, TypeRef *left, TypeRef *right);
+TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op);
+TypeRef *computeFunctionType(ParserContext *ctx, Coordinates *coords, AstFunctionDeclaration *declaration);
 
 AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer *initializer, Boolean isTopLevel);
 
-Boolean verifyValueType(ParserContext *ctx, int so, int eo, TypeRef *valueType);
-void verifyAndTransformCallAruments(ParserContext *ctx, int so, int eo, TypeRef *functionType, AstExpressionList *aruments);
+Boolean verifyValueType(ParserContext *ctx, Coordinates *coords, TypeRef *valueType);
+void verifyAndTransformCallAruments(ParserContext *ctx, Coordinates *coords, TypeRef *functionType, AstExpressionList *aruments);
 
 Boolean isErrorType(TypeRef *type);
 Boolean isIntegerType(TypeRef *type);
 
-Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeRef *from, Boolean init);
+Boolean isAssignableTypes(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, Boolean init);
 
 void verifyGotoExpression(ParserContext *ctx, AstExpression *expr);
 

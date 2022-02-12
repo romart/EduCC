@@ -20,11 +20,11 @@ TypeDesc *createTypeDescriptor(ParserContext *ctx, TypeId typeId, const char *na
 
 // declarations
 
-EnumConstant *createEnumConst(ParserContext *ctx, int startOffset, int endOffset, const char* name, int64_const_t value) {
+EnumConstant *createEnumConst(ParserContext *ctx, Coordinates *coords, const char* name, int64_const_t value) {
     EnumConstant* result = (EnumConstant*)areanAllocate(ctx->memory.astArena, sizeof(EnumConstant));
 
-    result->coordinates.startOffset = startOffset;
-    result->coordinates.endOffset = endOffset;
+    result->coordinates.startOffset = coords->startOffset;
+    result->coordinates.endOffset = coords->endOffset;
     result->name = name;
     result->value = value;
 
@@ -52,11 +52,11 @@ AstStructMember* createStructMember(ParserContext *ctx, AstDeclaration *declarat
 }
 
 
-AstStructDeclarator* createStructDeclarator(ParserContext *ctx, int startOffset, int endOffset, TypeRef *type, const char *name, int width) {
+AstStructDeclarator* createStructDeclarator(ParserContext *ctx, Coordinates *coords, TypeRef *type, const char *name, int width) {
     AstStructDeclarator* result = (AstStructDeclarator*)areanAllocate(ctx->memory.astArena, sizeof(AstStructDeclarator));
 
-    result->coordinates.startOffset = startOffset;
-    result->coordinates.endOffset = endOffset;
+    result->coordinates.startOffset = coords->startOffset;
+    result->coordinates.endOffset = coords->endOffset;
     result->f_width = width;
 
     result->name = name;
@@ -65,11 +65,11 @@ AstStructDeclarator* createStructDeclarator(ParserContext *ctx, int startOffset,
     return result;
 }
 
-AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, int startOffset, int endOffset, DeclarationKind kind, Boolean isDefinition, const char *name, AstStructMember *members) {
+AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, Coordinates *coords, DeclarationKind kind, Boolean isDefinition, const char *name, AstStructMember *members) {
     AstSUEDeclaration *result = (AstSUEDeclaration*)areanAllocate(ctx->memory.astArena, sizeof(AstSUEDeclaration));
 
-    result->coordinates.startOffset = startOffset;
-    result->coordinates.endOffset = endOffset;
+    result->coordinates.startOffset = coords->startOffset;
+    result->coordinates.endOffset = coords->endOffset;
 
     result->kind = kind;
     result->name = name;
@@ -79,11 +79,11 @@ AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, int startOffset, int
     return result;
 }
 
-AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, int startOffset, int endOffset, ValueKind kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer) {
+AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, Coordinates *coords, ValueKind kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer) {
     AstValueDeclaration *result = (AstValueDeclaration *)areanAllocate(ctx->memory.astArena, sizeof (AstValueDeclaration));
 
-    result->coordinates.startOffset = startOffset;
-    result->coordinates.endOffset = endOffset;
+    result->coordinates.startOffset = coords->startOffset;
+    result->coordinates.endOffset = coords->endOffset;
 
     result->kind = kind;
     result->name = name;
@@ -124,11 +124,11 @@ AstInitializerList *createAstInitializerList(ParserContext *ctx) {
     return (AstInitializerList*)areanAllocate(ctx->memory.astArena, sizeof(AstInitializerList));
 }
 
-AstInitializer *createAstInitializer(ParserContext *ctx, int startOffset, int endOffset, InitializerKind kind) {
+AstInitializer *createAstInitializer(ParserContext *ctx, Coordinates *coords, InitializerKind kind) {
     AstInitializer* result = (AstInitializer*)areanAllocate(ctx->memory.astArena, sizeof(AstInitializer));
 
-    result->coordinates.startOffset = startOffset;
-    result->coordinates.endOffset = endOffset;
+    result->coordinates.startOffset = coords->startOffset;
+    result->coordinates.endOffset = coords->endOffset;
 
     result->kind = kind;
 
@@ -143,11 +143,11 @@ AstFile *createAstFile(ParserContext *ctx) {
     return astFile;
 }
 
-AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, int startOffset, int endOffset, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, Boolean isVariadic) {
+AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, Coordinates *coords, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, Boolean isVariadic) {
   AstFunctionDeclaration *result = (AstFunctionDeclaration *)areanAllocate(ctx->memory.astArena, sizeof(AstFunctionDeclaration));
 
-  result->coordinates.startOffset = startOffset;
-  result->coordinates.endOffset = endOffset;
+  result->coordinates.startOffset = coords->startOffset;
+  result->coordinates.endOffset = coords->endOffset;
 
   result->flags.storage = flags;
   result->name = name;
@@ -170,26 +170,26 @@ AstFunctionDefinition *createFunctionDefinition(ParserContext *ctx, AstFunctionD
 }
 
 
-static AstExpression *allocAstExpression(ParserContext *ctx, int startOffset, int endOffset) {
+static AstExpression *allocAstExpression(ParserContext *ctx, Coordinates *coords) {
   AstExpression *result = (AstExpression *)areanAllocate(ctx->memory.astArena, sizeof(AstExpression));
 
-  result->coordinates.startOffset = startOffset;
-  result->coordinates.endOffset = endOffset;
+  result->coordinates.startOffset = coords->startOffset;
+  result->coordinates.endOffset = coords->endOffset;
 
   return result;
 }
 
-static AstStatement *allocAstStatement(ParserContext *ctx, int startOffset, int endOffset) {
+static AstStatement *allocAstStatement(ParserContext *ctx, Coordinates *coords) {
   AstStatement *result = (AstStatement *)areanAllocate(ctx->memory.astArena, sizeof(AstStatement));
 
-  result->coordinates.startOffset = startOffset;
-  result->coordinates.endOffset = endOffset;
+  result->coordinates.startOffset = coords->startOffset;
+  result->coordinates.endOffset = coords->endOffset;
 
   return result;
 }
 
-AstExpression* createAstConst(ParserContext *ctx, int startOffset, int endOffset, ConstKind type, void* value) {
-    AstExpression* result = allocAstExpression(ctx, startOffset, endOffset);
+AstExpression* createAstConst(ParserContext *ctx, Coordinates *coords, ConstKind type, void* value) {
+    AstExpression* result = allocAstExpression(ctx, coords);
     result->op = E_CONST;
     result->constExpr.op = type;
     switch (type) {
@@ -202,8 +202,8 @@ AstExpression* createAstConst(ParserContext *ctx, int startOffset, int endOffset
     return result;
 }
 
-AstExpression *createParenExpression(ParserContext *ctx, int startOffset, int endOffset, AstExpression *parened) {
-  AstExpression* result = allocAstExpression(ctx, startOffset, endOffset);
+AstExpression *createParenExpression(ParserContext *ctx, Coordinates *coords, AstExpression *parened) {
+  AstExpression* result = allocAstExpression(ctx, coords);
 
   result->op = E_PAREN;
   result->parened = parened;
@@ -212,8 +212,8 @@ AstExpression *createParenExpression(ParserContext *ctx, int startOffset, int en
   return result;
 }
 
-AstExpression *createErrorExpression(ParserContext *ctx, int startOffset, int endOffset) {
-  AstExpression* result = allocAstExpression(ctx, startOffset, endOffset);
+AstExpression *createErrorExpression(ParserContext *ctx, Coordinates *coords) {
+  AstExpression* result = allocAstExpression(ctx, coords);
 
   result->op = E_ERROR;
   result->type = makeErrorRef(ctx);
@@ -221,8 +221,8 @@ AstExpression *createErrorExpression(ParserContext *ctx, int startOffset, int en
   return result;
 }
 
-AstExpression *createCastExpression(ParserContext *ctx, int startOffset, int endOffset, TypeRef *typeRef, AstExpression *argument) {
-    AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
+AstExpression *createCastExpression(ParserContext *ctx, Coordinates *coords, TypeRef *typeRef, AstExpression *argument) {
+    AstExpression *result = allocAstExpression(ctx, coords);
     result->op = E_CAST;
     result->type = result->castExpr.type = typeRef;
     result->castExpr.argument = argument;
@@ -230,7 +230,8 @@ AstExpression *createCastExpression(ParserContext *ctx, int startOffset, int end
 }
 
 AstExpression *createTernaryExpression(ParserContext *ctx, TypeRef *type, AstExpression *cond, AstExpression *t, AstExpression* f) {
-    AstExpression *result = allocAstExpression(ctx, cond->coordinates.startOffset, f->coordinates.endOffset);
+    Coordinates coords = { cond->coordinates.startOffset, f->coordinates.endOffset };
+    AstExpression *result = allocAstExpression(ctx, &coords);
     result->op = E_TERNARY;
     result->ternaryExpr.condition = cond;
     result->ternaryExpr.ifTrue = t;
@@ -240,7 +241,8 @@ AstExpression *createTernaryExpression(ParserContext *ctx, TypeRef *type, AstExp
 }
 
 AstExpression *createBinaryExpression(ParserContext *ctx, ExpressionType op, TypeRef *type, AstExpression *left, AstExpression *right) {
-    AstExpression *result = allocAstExpression(ctx, left->coordinates.startOffset, right->coordinates.endOffset);
+    Coordinates coords = { left->coordinates.startOffset, right->coordinates.endOffset };
+    AstExpression *result = allocAstExpression(ctx, &coords);
     result->op = op;
     result->binaryExpr.left = left;
     result->binaryExpr.right = right;
@@ -248,39 +250,39 @@ AstExpression *createBinaryExpression(ParserContext *ctx, ExpressionType op, Typ
     return result;
 }
 
-AstExpression *createUnaryExpression(ParserContext *ctx, int startOffset, int endOffset, ExpressionType op, AstExpression *argument) {
-    AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
+AstExpression *createUnaryExpression(ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *argument) {
+    AstExpression *result = allocAstExpression(ctx, coords);
     result->op = op;
     result->unaryExpr.argument = argument;
     return result;
 }
 
-AstExpression *createNameRef(ParserContext *ctx, int startOffset, int endOffset, const char *name, Symbol* s) {
-    AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
+AstExpression *createNameRef(ParserContext *ctx, Coordinates *coords, const char *name, Symbol* s) {
+    AstExpression *result = allocAstExpression(ctx, coords);
     result->op = E_NAMEREF;
     result->nameRefExpr.name = name;
     result->nameRefExpr.s = s;
     return result;
 }
 
-AstExpression *createCallExpression(ParserContext *ctx, int startOffset, int endOffset, AstExpression *callee, AstExpressionList *arguments) {
-    AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
+AstExpression *createCallExpression(ParserContext *ctx, Coordinates *coords, AstExpression *callee, AstExpressionList *arguments) {
+    AstExpression *result = allocAstExpression(ctx, coords);
     result->op = E_CALL;
     result->callExpr.callee = callee;
     result->callExpr.arguments = arguments;
     return result;
 }
 
-AstExpression *createFieldExpression(ParserContext *ctx, int startOffset, int endOffset, ExpressionType op, AstExpression *receiver, const char *member) {
-    AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
+AstExpression *createFieldExpression(ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *receiver, const char *member) {
+    AstExpression *result = allocAstExpression(ctx, coords);
     result->op = op;
     result->fieldExpr.recevier = receiver;
     result->fieldExpr.member = member;
     return result;
 }
 
-AstExpression *createLabelRefExpression(ParserContext *ctx, int startOffset, int endOffset, const char *label) {
-    AstExpression *result = allocAstExpression(ctx, startOffset, endOffset);
+AstExpression *createLabelRefExpression(ParserContext *ctx, Coordinates *coords, const char *label) {
+    AstExpression *result = allocAstExpression(ctx, coords);
     SpecifierFlags flags = { 0 };
 
     result->op = E_LABEL_REF;
@@ -292,8 +294,8 @@ AstExpression *createLabelRefExpression(ParserContext *ctx, int startOffset, int
 
 // statements
 
-AstStatement *createBlockStatement(ParserContext *ctx, int startOffset, int endOffset, struct _Scope *scope, AstStatementList *stmts) {
-    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
+AstStatement *createBlockStatement(ParserContext *ctx, Coordinates *coords, struct _Scope *scope, AstStatementList *stmts) {
+    AstStatement *result = allocAstStatement(ctx, coords);
 
     result->statementKind = SK_BLOCK;
     result->block.stmts = stmts;
@@ -303,7 +305,7 @@ AstStatement *createBlockStatement(ParserContext *ctx, int startOffset, int endO
 }
 
 AstStatement *createExprStatement(ParserContext *ctx, AstExpression* expression) {
-    AstStatement *result = allocAstStatement(ctx, expression->coordinates.startOffset, expression->coordinates.endOffset);
+    AstStatement *result = allocAstStatement(ctx, &expression->coordinates);
 
     result->statementKind = SK_EXPR_STMT;
     result->exprStmt.expression = expression;
@@ -311,8 +313,8 @@ AstStatement *createExprStatement(ParserContext *ctx, AstExpression* expression)
     return result;
 }
 
-AstStatement *createLabelStatement(ParserContext *ctx, int startOffset, int endOffset, LabelKind labelKind, AstStatement *body, const char *label, int c) {
-    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
+AstStatement *createLabelStatement(ParserContext *ctx, Coordinates *coords, LabelKind labelKind, AstStatement *body, const char *label, int c) {
+    AstStatement *result = allocAstStatement(ctx, coords);
 
     result->statementKind = SK_LABEL;
     result->labelStmt.kind = labelKind;
@@ -326,8 +328,8 @@ AstStatement *createLabelStatement(ParserContext *ctx, int startOffset, int endO
     return result;
 }
 
-AstStatement *createDeclStatement(ParserContext *ctx, int startOffset, int endOffset, AstDeclaration *decl) {
-    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
+AstStatement *createDeclStatement(ParserContext *ctx, Coordinates *coords, AstDeclaration *decl) {
+    AstStatement *result = allocAstStatement(ctx, coords);
 
     result->statementKind = SK_DECLARATION;
     result->declStmt.declaration = decl;
@@ -335,8 +337,8 @@ AstStatement *createDeclStatement(ParserContext *ctx, int startOffset, int endOf
     return result;
 }
 
-AstStatement *createIfStatement(ParserContext *ctx, int startOffset, int endOffset, AstExpression *cond, AstStatement *thenB, AstStatement *elseB) {
-    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
+AstStatement *createIfStatement(ParserContext *ctx, Coordinates *coords, AstExpression *cond, AstStatement *thenB, AstStatement *elseB) {
+    AstStatement *result = allocAstStatement(ctx, coords);
 
     result->statementKind = SK_IF;
     result->ifStmt.condition = cond;
@@ -346,8 +348,8 @@ AstStatement *createIfStatement(ParserContext *ctx, int startOffset, int endOffs
     return result;
 }
 
-AstStatement *createSwitchStatement(ParserContext *ctx, int startOffset, int endOffset, AstExpression *cond, AstStatement *body) {
-    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
+AstStatement *createSwitchStatement(ParserContext *ctx, Coordinates *coords, AstExpression *cond, AstStatement *body) {
+    AstStatement *result = allocAstStatement(ctx, coords);
 
     result->statementKind = SK_SWITCH;
     result->switchStmt.condition = cond;
@@ -356,8 +358,8 @@ AstStatement *createSwitchStatement(ParserContext *ctx, int startOffset, int end
     return result;
 }
 
-AstStatement *createLoopStatement(ParserContext *ctx, int startOffset, int endOffset, StatementKind kind, AstExpression *cond, AstStatement *body) {
-    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
+AstStatement *createLoopStatement(ParserContext *ctx, Coordinates *coords, StatementKind kind, AstExpression *cond, AstStatement *body) {
+    AstStatement *result = allocAstStatement(ctx, coords);
 
     result->statementKind = kind;
     result->loopStmt.condition = cond;
@@ -366,8 +368,8 @@ AstStatement *createLoopStatement(ParserContext *ctx, int startOffset, int endOf
     return result;
 }
 
-AstStatement *createForStatement(ParserContext *ctx, int startOffset, int endOffset, AstExpression* init, AstExpression *cond, AstExpression *modifier, AstStatement *body) {
-    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
+AstStatement *createForStatement(ParserContext *ctx, Coordinates *coords, AstExpression* init, AstExpression *cond, AstExpression *modifier, AstStatement *body) {
+    AstStatement *result = allocAstStatement(ctx, coords);
 
     result->statementKind = SK_FOR;
     result->forStmt.initial = init;
@@ -378,24 +380,24 @@ AstStatement *createForStatement(ParserContext *ctx, int startOffset, int endOff
     return result;
 }
 
-AstStatement *createJumpStatement(ParserContext *ctx, int startOffset, int endOffset, StatementKind jumpKind) {
-    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
+AstStatement *createJumpStatement(ParserContext *ctx, Coordinates *coords, StatementKind jumpKind) {
+    AstStatement *result = allocAstStatement(ctx, coords);
 
     result->statementKind = jumpKind;
 
     return result;
 }
 
-AstStatement *createEmptyStatement(ParserContext *ctx, int startOffset, int endOffset) {
-    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
+AstStatement *createEmptyStatement(ParserContext *ctx, Coordinates *coords) {
+    AstStatement *result = allocAstStatement(ctx, coords);
 
     result->statementKind = SK_EMPTY;
 
     return result;
 }
 
-AstStatement *createErrorStatement(ParserContext *ctx, int startOffset, int endOffset) {
-    AstStatement *result = allocAstStatement(ctx, startOffset, endOffset);
+AstStatement *createErrorStatement(ParserContext *ctx, Coordinates *coords) {
+    AstStatement *result = allocAstStatement(ctx, coords);
 
     result->statementKind = SK_ERROR;
 
