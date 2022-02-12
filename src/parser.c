@@ -112,7 +112,7 @@ static void dumpToken(char *buffer, size_t bsize, Token *token) {
   }
 }
 
-static int parseCharSymbol(ParserContext *ctx, int so, int eo, const char *text, size_t length, Boolean isWide) {
+static int parseCharSymbol(ParserContext *ctx, Coordinates *coords, const char *text, size_t length, Boolean isWide) {
   char buffer[8] = { 0 };
   buffer[0] = '0';
 
@@ -120,49 +120,47 @@ static int parseCharSymbol(ParserContext *ctx, int so, int eo, const char *text,
   unsigned idx = isWide ? 1 : 0;
   assert(text[idx++] == '\'');
 
-  Coordinates coords = { so, eo };
-
   if (text[idx] == '\\') {
     idx++;
     switch (text[idx]) {
         case '0':
-          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, &coords);
+          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
           return '\0';
         case 'a':
-          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, &coords);
+          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
           return '\a';
         case 'b':
-          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, &coords);
+          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
           return '\b';
         case 'e':
-          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, &coords);
+          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
           return '\e';
         case 'f':
-          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, &coords);
+          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
           return '\f';
         case 'n':
-          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, &coords);
+          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
           return '\n';
         case 'r':
-          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, &coords);
+          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
           return '\r';
         case 't':
-          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, &coords);
+          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
           return '\t';
         case 'v':
-          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, &coords);
+          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
           return '\v';
         case '\\':
-          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, &coords);
+          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
           return '\\';
         case '\'':
-          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, &coords);
+          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
           return '\'';
         case '\"':
-          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, &coords);
+          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
           return '\"';
         case '?':
-          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, &coords);
+          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
           return '\?';
         case 'x': isHex = TRUE;
         default: {
@@ -179,14 +177,14 @@ static int parseCharSymbol(ParserContext *ctx, int so, int eo, const char *text,
           }
           if (v > limit) {
               enum DiagnosticId diag = isHex ? DIAG_ESCAPE_SEC_OOR_HEX : DIAG_ESCAPE_SEC_OOR_OCT;
-              reportDiagnostic(ctx, diag, &coords);
+              reportDiagnostic(ctx, diag, coords);
           }
           return v;
         }
     }
   } else {
     if ((length - idx) > 3) {
-        reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, &coords);
+        reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
     }
     return text[idx] - '\0';
   }
@@ -207,13 +205,13 @@ static void parseNumber(ParserContext *ctx, Token *token) {
       assert(length > 1);
       assert(text[1] == '\'');
       token->code = C16_CONSTANT;
-      token->value.iv = parseCharSymbol(ctx, token->coordinates.startOffset, token->coordinates.endOffset, text, length, TRUE);
+      token->value.iv = parseCharSymbol(ctx, &token->coordinates, text, length, TRUE);
       return;
   } else if (text[0] == '\'') {
       // char
       assert(code == I_CONSTANT_RAW);
       token->code = C_CONSTANT;
-      token->value.iv = parseCharSymbol(ctx, token->coordinates.startOffset, token->coordinates.endOffset, text, length, FALSE);
+      token->value.iv = parseCharSymbol(ctx, &token->coordinates, text, length, FALSE);
       return;
   }
 
@@ -534,28 +532,27 @@ static Boolean parseAsIntConst(ParserContext *ctx, int64_t *result) {
 }
 
 static AstExpression *resolveNameRef(ParserContext *ctx) {
-  int so = ctx->token->coordinates.startOffset;
-  int eo = ctx->token->coordinates.endOffset;
+  Coordinates *coords = &ctx->token->coordinates;
   const char *name = ctx->token->text;
   Symbol *s = findSymbol(ctx, name);
 
   if (s) {
     assert(s->kind == FunctionSymbol || s->kind == ValueSymbol);
-    AstExpression *result = createNameRef(ctx, so, eo, name, s);
+    AstExpression *result = createNameRef(ctx, coords, name, s);
 
     if (s->kind == ValueSymbol) {
         result->type = s->variableDesc->type;
     } else {
         SpecifierFlags flags = { 0 };
         flags.bits.isConst = 1;
-        result->type = makePointedType(ctx, flags, computeFunctionType(ctx, so, eo, s->function));
+        result->type = makePointedType(ctx, flags, computeFunctionType(ctx, coords, s->function));
     }
 
     return result;
   } else {
     reportDiagnostic(ctx, DIAG_UNDECLARED_ID_USE, &ctx->token->coordinates, name);
   }
-  return createErrorExpression(ctx, so, eo);
+  return createErrorExpression(ctx, coords);
 }
 
 /**
@@ -570,8 +567,7 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
     AstExpression *result = NULL;
     SpecifierFlags flags = { 0 };
     flags.bits.isConst = 1;
-    int so = ctx->token->coordinates.startOffset;
-    int eo = ctx->token->coordinates.endOffset;
+    Coordinates coords = ctx->token->coordinates;
     TypeId typeId = T_ERROR;
     switch (ctx->token->code) {
         case IDENTIFIER:
@@ -579,7 +575,7 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
             break;
         case TYPE_NAME:
             reportDiagnostic(ctx, DIAG_UNEXPECTED_TYPE_NAME_EXPR, &ctx->token->coordinates, ctx->token->text);
-            result = createErrorExpression(ctx, so, eo);
+            result = createErrorExpression(ctx, &coords);
             break;
         case C_CONSTANT: typeId = T_S1; goto iconst;
         case C16_CONSTANT: typeId = T_S2; goto iconst;
@@ -590,7 +586,7 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
         case UL_CONSTANT: typeId = T_U8; goto iconst;
         iconst: {
             int64_t l = ctx->token->value.iv;
-            result = createAstConst(ctx, so, eo, CK_INT_CONST, &l);
+            result = createAstConst(ctx, &coords, CK_INT_CONST, &l);
             result->type = makePrimitiveType(ctx, typeId, flags.storage);
             break;
         }
@@ -598,25 +594,26 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
         case D_CONSTANT: typeId = T_F8; goto fconst;
         fconst: {
             float64_const_t f = ctx->token->value.dv;
-            result = createAstConst(ctx, so, eo, CK_FLOAT_CONST, &f);
+            result = createAstConst(ctx, &coords, CK_FLOAT_CONST, &f);
             result->type = makePrimitiveType(ctx, typeId, flags.storage);
             break;
         }
         case STRING_LITERAL: {
+            // compound string literal
             const char* s = ctx->token->text;
-            result = createAstConst(ctx, so, eo, CK_STRING_LITERAL, &s);
+            result = createAstConst(ctx, &coords, CK_STRING_LITERAL, &s);
             result->type = makePointedType(ctx, flags, makePrimitiveType(ctx, T_S1, 0));
             break;
         }
         case 0:
-          return createErrorExpression(ctx, so, eo);
+          return createErrorExpression(ctx, &coords);
         default: {
             consume(ctx, '(');
             AstExpression* expr = parseExpression(ctx, scope);
-            eo = ctx->token->coordinates.endOffset;
+            coords.endOffset = ctx->token->coordinates.endOffset;
             consume(ctx, ')');
 
-            return createParenExpression(ctx, so, eo, expr);
+            return createParenExpression(ctx, &coords, expr);
         }
     }
 
@@ -670,8 +667,6 @@ static TypeRef* parseTypeName(ParserContext *ctx, struct _Scope *scope) {
     return makeTypeRef(ctx, &specifiers, &declarator);
 }
 
-
-
 /**
 postfix_expression
     : primary_expression
@@ -697,7 +692,7 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
             consume(ctx, ']');
             TypeRef *arrayType = left->type;
             TypeRef *indexType = right->type;
-            TypeRef *exprType = computeArrayAccessExpressionType(ctx, coords.startOffset, coords.endOffset, arrayType, indexType);
+            TypeRef *exprType = computeArrayAccessExpressionType(ctx, &coords, arrayType, indexType);
             left = createBinaryExpression(ctx, EB_A_ACC, exprType, left, right);
             break;
         case '(': // '(' argument_expression_list? ')'
@@ -707,12 +702,12 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
             if (ctx->token->code != ')') {
                 arguments = parseArgumentExpressionList(ctx, scope);
                 coords.endOffset  = ctx->token->coordinates.endOffset;
-                verifyAndTransformCallAruments(ctx, coords.startOffset, coords.endOffset, calleeType, arguments);
+                verifyAndTransformCallAruments(ctx, &coords, calleeType, arguments);
             }
             coords.endOffset  = ctx->token->coordinates.endOffset;
             consume(ctx, ')');
-            left = createCallExpression(ctx, coords.startOffset, coords.endOffset, left, arguments);
-            left->type = computeFunctionReturnType(ctx, coords.startOffset, coords.endOffset, calleeType);
+            left = createCallExpression(ctx, &coords, left, arguments);
+            left->type = computeFunctionReturnType(ctx, &coords, calleeType);
             break;
         case '.':    op = EF_DOT; goto acc;// '.' IDENTIFIER
         case PTR_OP: op = EF_ARROW; // PTR_OP IDENTIFIER
@@ -721,8 +716,8 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
             coords.endOffset  = ctx->token->coordinates.endOffset;
             TypeRef *receiverType = left->type;
             const char *memberName = ctx->token->text;
-            left = createFieldExpression(ctx, coords.startOffset, coords.endOffset, op, left, memberName);
-            left->type = computeMemberAccessType(ctx, coords.startOffset, coords.endOffset, receiverType, memberName, op);
+            left = createFieldExpression(ctx, &coords, op, left, memberName);
+            left->type = computeMemberAccessType(ctx, &coords, receiverType, memberName, op);
             nextToken(ctx);
             break;
         case INC_OP: op = EU_POST_INC; goto incdec;
@@ -731,9 +726,9 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
             coords.endOffset  = ctx->token->coordinates.endOffset;
             TypeRef *argType = left->type;
             checkExpressionIsAssignable(ctx, &ctx->token->coordinates, left, TRUE);
-            left = createUnaryExpression(ctx, coords.startOffset, coords.endOffset, op, left);
+            left = createUnaryExpression(ctx, &coords, op, left);
 
-            left->type = computeIncDecType(ctx, coords.startOffset, coords.endOffset, argType, op);
+            left->type = computeIncDecType(ctx, &coords, argType, op);
             nextToken(ctx);
             break;
         default: return left;
@@ -764,15 +759,15 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
             label = ctx->token->text;
             coords.endOffset = ctx->token->coordinates.endOffset;
             consumeRaw(ctx, IDENTIFIER);
-            return createLabelRefExpression(ctx, coords.startOffset, coords.endOffset, label);
+            return createLabelRefExpression(ctx, &coords, label);
         case INC_OP: op = EU_PRE_INC; goto ue1;
         case DEC_OP: op = EU_PRE_DEC;
         ue1:
             nextToken(ctx);
             argument = parseUnaryExpression(ctx, scope);
             checkExpressionIsAssignable(ctx, &coords, argument, TRUE);
-            result = createUnaryExpression(ctx, coords.startOffset, coords.endOffset, op, argument);
-            result->type = computeIncDecType(ctx, coords.startOffset, coords.endOffset, argument->type, op);
+            result = createUnaryExpression(ctx, &coords, op, argument);
+            result->type = computeIncDecType(ctx, &coords, argument->type, op);
             return result;
         case '&': op = EU_REF; goto ue2;
         case '*': op = EU_DEREF; goto ue2;
@@ -807,8 +802,8 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
                 }
                 checkRefArgument(ctx, &coords, argument, TRUE);
             }
-            result = createUnaryExpression(ctx, coords.startOffset, coords.endOffset, op, argument);
-            result->type = computeTypeForUnaryOperator(ctx, coords.startOffset, coords.endOffset, argument->type, op);
+            result = createUnaryExpression(ctx, &coords, op, argument);
+            result->type = computeTypeForUnaryOperator(ctx, &coords, argument->type, op);
             return result;
         case SIZEOF: {
             int token = nextToken(ctx)->code;
@@ -836,11 +831,11 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
                 long long c = computeTypeSize(sizeType);
                 AstExpression *constVal = NULL;
                 if (c >= 0) {
-                    constVal = createAstConst(ctx, coords.startOffset, coords.endOffset, CK_INT_CONST, &c);
+                    constVal = createAstConst(ctx, &coords, CK_INT_CONST, &c);
                     constVal->type = makePrimitiveType(ctx, T_U4, 0);
                 } else {
                     reportDiagnostic(ctx, DIAG_SIZEOF_INCOMPLETE_TYPE, &coords, sizeType);
-                    constVal = createErrorExpression(ctx, coords.startOffset, coords.endOffset);
+                    constVal = createErrorExpression(ctx, &coords);
                 }
 
                 if (argument) {
@@ -876,7 +871,7 @@ static AstExpression* parseCastExpression(ParserContext *ctx, struct _Scope* sco
             consume(ctx, ')');
             AstExpression* argument = parseCastExpression(ctx, scope);
             checkTypeIsCastable(ctx, &coords, typeRef, argument->type, TRUE);
-            return createCastExpression(ctx, coords.startOffset, coords.endOffset, typeRef, argument);
+            return createCastExpression(ctx, &coords, typeRef, argument);
         } else {
             ctx->token = saved;
             AstExpression *result = parseUnaryExpression(ctx, scope);
@@ -899,11 +894,10 @@ static AstExpression* parseMultiplicativeExpression(ParserContext *ctx, struct _
 
     while (tokenCode == '*' || tokenCode == '/' || tokenCode == '%') {
         ExpressionType op = tokenCode == '*' ? EB_MUL : tokenCode == '/' ? EB_DIV : EB_MOD;
-        int so = ctx->token->coordinates.startOffset;
-        int eo = ctx->token->coordinates.endOffset;
+        Coordinates coords = { ctx->token->coordinates.startOffset, ctx->token->coordinates.endOffset };
         nextToken(ctx);
         AstExpression* tmp = parseCastExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, so, eo, result->type, tmp->type, op);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, op);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, op, resultType, result, tmp));
         tokenCode = ctx->token->code;
     }
@@ -923,11 +917,10 @@ static AstExpression* parseAdditiveExpression(ParserContext *ctx, struct _Scope*
 
     while (tokenCode == '+' || tokenCode == '-') {
         ExpressionType op = tokenCode == '+' ? EB_ADD : EB_SUB;
-        int so = ctx->token->coordinates.startOffset;
-        int eo = ctx->token->coordinates.endOffset;
+        Coordinates coords = { ctx->token->coordinates.startOffset, ctx->token->coordinates.endOffset };
         nextToken(ctx);
         AstExpression* tmp = parseMultiplicativeExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, so, eo, result->type, tmp->type, op);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, op);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, op, resultType, result, tmp));
         tokenCode = ctx->token->code;
     }
@@ -946,11 +939,10 @@ static AstExpression* parseShiftExpression(ParserContext *ctx, struct _Scope* sc
 
     while (tokenCode == LEFT_OP || tokenCode == RIGHT_OP) {
         ExpressionType op = tokenCode == LEFT_OP ? EB_LHS : EB_RHS;
-        int so = ctx->token->coordinates.startOffset;
-        int eo = ctx->token->coordinates.endOffset;
+        Coordinates coords = { ctx->token->coordinates.startOffset, ctx->token->coordinates.endOffset };
         nextToken(ctx);
         AstExpression* tmp = parseAdditiveExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, so, eo, result->type, tmp->type, op);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, op);
         result = createBinaryExpression(ctx, op, resultType, result, tmp);
         tokenCode = ctx->token->code;
     }
@@ -984,11 +976,10 @@ static AstExpression* parseRelationalExpression(ParserContext *ctx, struct _Scop
 
     while (isRelationalOperator(ctx->token->code)) {
         ExpressionType op = relationalTokenToOp(ctx->token->code);
-        int so = ctx->token->coordinates.startOffset;
-        int eo = ctx->token->coordinates.endOffset;
+        Coordinates coords = { ctx->token->coordinates.startOffset, ctx->token->coordinates.endOffset };
         nextToken(ctx);
         AstExpression* tmp = parseShiftExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, so, eo, result->type, tmp->type, op);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, op);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, op, resultType, result, tmp));
     }
 
@@ -1019,11 +1010,10 @@ static AstExpression* parseEqualityExpression(ParserContext *ctx, struct _Scope*
 
     while (isEqualityOperator(ctx->token->code)) {
         int op = equalityTokenToOp(ctx->token->code);
-        int so = ctx->token->coordinates.startOffset;
-        int eo = ctx->token->coordinates.endOffset;
+        Coordinates coords = { ctx->token->coordinates.startOffset, ctx->token->coordinates.endOffset };
         nextToken(ctx);
         AstExpression* tmp = parseRelationalExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, so, eo, result->type, tmp->type, op);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, op);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, op, resultType, result, tmp));
     }
 
@@ -1039,11 +1029,10 @@ static AstExpression* parseAndExpression(ParserContext *ctx, struct _Scope* scop
     AstExpression* result = parseEqualityExpression(ctx, scope);
 
     while (ctx->token->code == '&') {
-        int so = ctx->token->coordinates.startOffset;
-        int eo = ctx->token->coordinates.endOffset;
+        Coordinates coords = { ctx->token->coordinates.startOffset, ctx->token->coordinates.endOffset };
         nextToken(ctx);
         AstExpression* tmp = parseEqualityExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, so, eo, result->type, tmp->type, EB_AND);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, EB_AND);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, EB_AND, resultType, result, tmp));
     }
 
@@ -1059,11 +1048,10 @@ static AstExpression* parseExcOrExpression(ParserContext *ctx, struct _Scope* sc
     AstExpression* result = parseAndExpression(ctx, scope);
 
     while (ctx->token->code == '^') {
-        int so = ctx->token->coordinates.startOffset;
-        int eo = ctx->token->coordinates.endOffset;
+        Coordinates coords = { ctx->token->coordinates.startOffset, ctx->token->coordinates.endOffset };
         nextToken(ctx);
         AstExpression* tmp = parseAndExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, so, eo, result->type, tmp->type, EB_XOR);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, EB_XOR);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, EB_XOR, resultType, result, tmp));
     }
 
@@ -1079,11 +1067,10 @@ static AstExpression* parseIncOrExpression(ParserContext *ctx, struct _Scope* sc
     AstExpression* result = parseExcOrExpression(ctx, scope);
 
     while (ctx->token->code == '|') {
-        int so = ctx->token->coordinates.startOffset;
-        int eo = ctx->token->coordinates.endOffset;
+        Coordinates coords = { ctx->token->coordinates.startOffset, ctx->token->coordinates.endOffset };
         nextToken(ctx);
         AstExpression* tmp = parseExcOrExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, so, eo, result->type, tmp->type, EB_OR);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, EB_OR);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, EB_OR, resultType, result, tmp));
     }
 
@@ -1099,11 +1086,10 @@ static AstExpression* parseLogicalAndExpression(ParserContext *ctx, struct _Scop
     AstExpression* result = parseIncOrExpression(ctx, scope);
 
     while (ctx->token->code == AND_OP) {
-        int so = ctx->token->coordinates.startOffset;
-        int eo = ctx->token->coordinates.endOffset;
+        Coordinates coords = { ctx->token->coordinates.startOffset, ctx->token->coordinates.endOffset };
         nextToken(ctx);
         AstExpression* tmp = parseIncOrExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, so, eo, result->type, tmp->type, EB_ANDAND);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, EB_ANDAND);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, EB_ANDAND, resultType, result, tmp));
     }
 
@@ -1119,11 +1105,10 @@ static AstExpression* parseLogicalOrExpression(ParserContext *ctx, struct _Scope
     AstExpression* result = parseLogicalAndExpression(ctx, scope);
 
     while (ctx->token->code == OR_OP) {
-        int so = ctx->token->coordinates.startOffset;
-        int eo = ctx->token->coordinates.endOffset;
+        Coordinates coords = { ctx->token->coordinates.startOffset, ctx->token->coordinates.endOffset };
         nextToken(ctx);
         AstExpression* tmp = parseLogicalAndExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, so, eo, result->type, tmp->type, EB_OROR);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, EB_OROR);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, EB_OROR, resultType, result, tmp));
     }
 
@@ -1140,12 +1125,12 @@ static AstExpression* parseConditionalExpression(ParserContext *ctx, struct _Sco
 
     if (ctx->token->code == '?') {
         nextToken(ctx);
-        int so = ctx->token->coordinates.startOffset;
+        Coordinates coords = { ctx->token->coordinates.startOffset, -1 };
         AstExpression* ifTrue = parseExpression(ctx, scope);
         consume(ctx, ':');
         AstExpression* ifFalse = parseConditionalExpression(ctx, scope);
-        int eo = ifFalse->coordinates.endOffset;
-        TypeRef *resultType = computeTernaryType(ctx, so, eo, left->type, ifTrue->type, ifFalse->type, E_TERNARY);
+        coords.endOffset = ifFalse->coordinates.endOffset;
+        TypeRef *resultType = computeTernaryType(ctx, &coords, left->type, ifTrue->type, ifFalse->type, E_TERNARY);
         AstExpression *result = transformTernaryExpression(ctx, createTernaryExpression(ctx, resultType, left, ifTrue, ifFalse));
         return result;
     }
@@ -1163,20 +1148,20 @@ static AstExpression* parseAssignmentExpression(ParserContext *ctx, struct _Scop
     AstExpression* left = parseConditionalExpression(ctx, scope);
     int tokenCode = ctx->token->code;
     if (isAssignmentOperator(tokenCode)) {
-        int so = ctx->token->coordinates.startOffset;
+        Coordinates coords = { ctx->token->coordinates.startOffset, -1 };
         checkExpressionIsAssignable(ctx, &ctx->token->coordinates, left, FALSE);
         nextToken(ctx);
         AstExpression* right = parseAssignmentExpression(ctx, scope);
-        int eo = right->coordinates.endOffset;
+        coords.endOffset = right->coordinates.endOffset;
 
         if (tokenCode != '=') {
             ExpressionType op = assignOpTokenToEB(tokenCode);
             TypeRef *rightType = right->type;
-            TypeRef *resultType = computeBinaryType(ctx, so, eo, left->type, rightType, op);
+            TypeRef *resultType = computeBinaryType(ctx, &coords, left->type, rightType, op);
             right = transformBinaryExpression(ctx, createBinaryExpression(ctx, op, resultType, left, right));
         }
 
-        TypeRef *resultType = computeAssignmentTypes(ctx, so, eo, left->type, right->type);
+        TypeRef *resultType = computeAssignmentTypes(ctx, &coords, left->type, right->type);
         AstExpression* result = transformAssignExpression(ctx, createBinaryExpression(ctx, EB_ASSIGN, resultType, left, right));
         return result;
     }
@@ -1218,8 +1203,7 @@ static AstStructMember *parseEnumeratorList(ParserContext *ctx, struct _Scope* s
     do {
         int token = ctx->token->code;
         if (token == '}') break;
-        int so = ctx->token->coordinates.startOffset;
-        int eo = ctx->token->coordinates.endOffset;
+        Coordinates coords = { ctx->token->coordinates.startOffset, ctx->token->coordinates.endOffset };
         const char* name = NULL;
         if (token == IDENTIFIER) {
             name = ctx->token->text;
@@ -1230,7 +1214,7 @@ static AstStructMember *parseEnumeratorList(ParserContext *ctx, struct _Scope* s
 
         int64_t v = idx;
         if (nextTokenIf(ctx, '=')) {
-            eo = ctx->token->coordinates.endOffset; // TODO: fix
+            coords.endOffset = ctx->token->coordinates.endOffset; // TODO: fix
             parseAsIntConst(ctx, &v);
             idx = v + 1;
         } else {
@@ -1238,7 +1222,7 @@ static AstStructMember *parseEnumeratorList(ParserContext *ctx, struct _Scope* s
         }
 
         if (name) {
-          EnumConstant *enumerator = createEnumConst(ctx, so, eo, name, v);
+          EnumConstant *enumerator = createEnumConst(ctx, &coords, name, v);
           declareEnumConstantSymbol(ctx, enumerator);
           AstStructMember *member = createStructMember(ctx, NULL, NULL, enumerator);
           if (tail) {
@@ -1263,9 +1247,9 @@ static AstSUEDeclaration* parseEnumDeclaration(ParserContext *ctx, struct _Scope
     const char *name = NULL;
 
     AstStructMember *members = NULL;
-    int so = ctx->token->coordinates.startOffset;
+    Coordinates coords = { ctx->token->coordinates.startOffset };
     int token = nextToken(ctx)->code;
-    int eo = ctx->token->coordinates.endOffset;
+    coords.endOffset = ctx->token->coordinates.endOffset;
 
     if (token == IDENTIFIER) {
         name = ctx->token->text;
@@ -1280,11 +1264,11 @@ static AstSUEDeclaration* parseEnumDeclaration(ParserContext *ctx, struct _Scope
       }
 
       members = parseEnumeratorList(ctx, scope);
-      eo = ctx->token->coordinates.endOffset;
+      coords.endOffset = ctx->token->coordinates.endOffset;
       consume(ctx, '}');
     }
 
-    return createSUEDeclaration(ctx, so, eo, DK_ENUM, TRUE, name, members);
+    return createSUEDeclaration(ctx, &coords, DK_ENUM, TRUE, name, members);
 }
 
 /**
@@ -1318,8 +1302,9 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _S
     int token = ctx->token->code;
     do {
         DeclarationSpecifiers specifiers = { 0 };
-        int so = specifiers.coordinates.startOffset = ctx->token->coordinates.startOffset;
+        specifiers.coordinates.startOffset = ctx->token->coordinates.startOffset;
         parseDeclarationSpecifiers(ctx, &specifiers, DS_STRUCT);
+        Coordinates coords = specifiers.coordinates;
 
         if (specifiers.defined) {
             AstSUEDeclaration *definition = specifiers.defined;
@@ -1349,7 +1334,7 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _S
             }
 
             const char *name = declarator.identificator;
-            int eo = declarator.coordinates.endOffset;
+            coords.endOffset = declarator.coordinates.endOffset;
             TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
             if (hasWidth) {
                 // TODO: coordinates
@@ -1380,7 +1365,7 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _S
                 }
             }
             AstStructDeclarator *structDeclarator = NULL;
-            structDeclarator = createStructDeclarator(ctx, so, eo, type, name, width);
+            structDeclarator = createStructDeclarator(ctx, &coords, type, name, width);
             AstStructMember *member = createStructMember(ctx, NULL, structDeclarator, NULL);
             if (tail) {
                 tail->next = member;
@@ -1415,9 +1400,9 @@ static AstSUEDeclaration* parseStructOrUnionDeclaration(ParserContext *ctx, Decl
     AstStructMember *members = NULL;
     Boolean isDefinition = FALSE;
 
-    int so = ctx->token->coordinates.startOffset;
+    Coordinates coords = { ctx->token->coordinates.startOffset };
     int token = nextToken(ctx)->rawCode;
-    int eo = ctx->token->coordinates.endOffset;
+    coords.endOffset = ctx->token->coordinates.endOffset;
 
     if (token == IDENTIFIER) { // typedef'ed typename is valid struct name
         name = ctx->token->text;
@@ -1430,18 +1415,18 @@ static AstSUEDeclaration* parseStructOrUnionDeclaration(ParserContext *ctx, Decl
     token = nextToken(ctx)->code;
     isDefinition = TRUE;
 
-    eo = ctx->token->coordinates.endOffset;
+    coords.endOffset = ctx->token->coordinates.endOffset;
     if (nextTokenIf(ctx, '}')) {
         goto done;
     }
 
     members = parseStructDeclarationList(ctx, scope);
 
-    eo = ctx->token->coordinates.endOffset;
+    coords.endOffset = ctx->token->coordinates.endOffset;
     consume(ctx, '}');
 
 done:
-    return createSUEDeclaration(ctx, so, eo, kind, isDefinition, name, members);
+    return createSUEDeclaration(ctx, &coords, kind, isDefinition, name, members);
 }
 
 /**
@@ -1902,7 +1887,7 @@ initializer
  */
 static AstInitializer* parseInitializer(ParserContext *ctx, struct _Scope* scope) {
     AstExpression *expr = NULL;
-    int so = ctx->token->coordinates.startOffset, eo = -1;
+    Coordinates cooords = { ctx->token->coordinates.startOffset };
 
     AstInitializer *result;
 
@@ -1922,15 +1907,15 @@ static AstInitializer* parseInitializer(ParserContext *ctx, struct _Scope* scope
             tail = next;
             ++numOfInits;
         }
-        eo = ctx->token->coordinates.endOffset;
+        cooords.endOffset = ctx->token->coordinates.endOffset;
         consume(ctx, '}');
-        result = createAstInitializer(ctx, so, eo, IK_LIST);
+        result = createAstInitializer(ctx, &cooords, IK_LIST);
         result->initializerList = head;
         result->numOfInitializers = numOfInits;
     } else {
         expr = parseAssignmentExpression(ctx, scope);
-        eo = expr->coordinates.endOffset;
-        result = createAstInitializer(ctx, so, eo, IK_EXPRESSION);
+        cooords.endOffset = expr->coordinates.endOffset;
+        result = createAstInitializer(ctx, &cooords, IK_EXPRESSION);
         result->expression = expr;
     }
 
@@ -1999,7 +1984,8 @@ static void parseParameterList(ParserContext *ctx, FunctionParams *params, struc
             }
         } else {
           DeclarationSpecifiers specifiers = { 0 };
-          int so = specifiers.coordinates.startOffset = ctx->token->coordinates.startOffset;
+          Coordinates coords = { 0 };
+          coords.startOffset = specifiers.coordinates.startOffset = ctx->token->coordinates.startOffset;
 
           parseDeclarationSpecifiers(ctx, &specifiers, DS_PARAMETERS);
 
@@ -2024,12 +2010,12 @@ static void parseParameterList(ParserContext *ctx, FunctionParams *params, struc
           parseDeclarator(ctx, &declarator);
           verifyDeclarator(ctx, &declarator, DS_PARAMETERS);
 
-          int eo = declarator.coordinates.endOffset;
+          coords.endOffset = declarator.coordinates.endOffset;
           const char *name = declarator.identificator;
 
           type = makeTypeRef(ctx, &specifiers, &declarator);
           AstValueDeclaration *parameter =
-              createAstValueDeclaration(ctx, so, eo, VD_PARAMETER, type, name, idx++, specifiers.flags.storage, NULL);
+              createAstValueDeclaration(ctx, &coords, VD_PARAMETER, type, name, idx++, specifiers.flags.storage, NULL);
           declareValueSymbol(ctx, name, parameter);
 
           if (tail) {
@@ -2181,21 +2167,21 @@ static AstStatement *parseCompoundStatement(ParserContext *ctx);
 static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope);
 
 static AstStatement *parseIfStatement(ParserContext *ctx, struct _Scope* scope) {
-    int so = ctx->token->coordinates.startOffset;
+    Coordinates coords = { ctx->token->coordinates.startOffset };
     consume(ctx, IF);
     consume(ctx, '(');
     AstExpression *cond = parseExpression(ctx, scope);
     consume(ctx, ')');
     AstStatement *thenB = parseStatement(ctx, scope);
-    int eo = thenB->coordinates.endOffset;
+    coords.endOffset = thenB->coordinates.endOffset;
     AstStatement *elseB = NULL;
     if (ctx->token->code == ELSE) {
         nextToken(ctx);
         elseB = parseStatement(ctx, scope);
-        eo = elseB->coordinates.endOffset;
+        coords.endOffset = elseB->coordinates.endOffset;
     }
 
-    return createIfStatement(ctx, so, eo, cond, thenB, elseB);
+    return createIfStatement(ctx, &coords, cond, thenB, elseB);
 }
 
 static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
@@ -2204,8 +2190,7 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
     int64_t c = 0;
     unsigned oldFlag = 0;
     unsigned oldCaseCount = 0;
-    int so = ctx->token->coordinates.startOffset;
-    int eo = ctx->token->coordinates.endOffset;
+    Coordinates coords = ctx->token->coordinates;
     switch (ctx->token->rawCode) {
     case CASE:
         if (!ctx->stateFlags.inSwitch) {
@@ -2217,8 +2202,8 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         parseAsIntConst(ctx, &c);
         consume(ctx, ':');
         stmt = parseStatement(ctx, scope);
-        eo = stmt->coordinates.endOffset;
-        return createLabelStatement(ctx, so, eo, LK_CASE,stmt, NULL, c);
+        coords.endOffset = stmt->coordinates.endOffset;
+        return createLabelStatement(ctx, &coords, LK_CASE,stmt, NULL, c);
     case DEFAULT:
         if (!ctx->stateFlags.inSwitch) {
             reportDiagnostic(ctx, DIAG_SWITCH_LABEL_NOT_IN_SWITCH, &ctx->token->coordinates, "default");
@@ -2226,8 +2211,8 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         consume(ctx, DEFAULT);
         consume(ctx, ':');
         stmt = parseStatement(ctx, scope);
-        eo = stmt->coordinates.endOffset;
-        return createLabelStatement(ctx, so, eo, LK_DEFAULT, stmt, NULL, c);
+        coords.endOffset = stmt->coordinates.endOffset;
+        return createLabelStatement(ctx, &coords, LK_DEFAULT, stmt, NULL, c);
     case '{': return parseCompoundStatement(ctx);
     case IF: return parseIfStatement(ctx, scope);
     case SWITCH:
@@ -2246,8 +2231,8 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         ctx->stateFlags.inSwitch = oldFlag;
         verifySwitchCases(ctx, stmt, ctx->stateFlags.caseCount);
         ctx->stateFlags.caseCount = oldCaseCount;
-        eo = stmt->coordinates.endOffset;
-        return createSwitchStatement(ctx, so, eo, expr, stmt);
+        coords.endOffset = stmt->coordinates.endOffset;
+        return createSwitchStatement(ctx, &coords, expr, stmt);
     case WHILE:
         consume(ctx, WHILE);
         consume(ctx, '(');
@@ -2257,21 +2242,21 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         ctx->stateFlags.inLoop = 1;
         stmt = parseStatement(ctx, scope);
         ctx->stateFlags.inLoop = oldFlag;
-        eo = stmt->coordinates.endOffset;
-        return createLoopStatement(ctx, so, eo, SK_WHILE, expr, stmt);
+        coords.endOffset = stmt->coordinates.endOffset;
+        return createLoopStatement(ctx, &coords, SK_WHILE, expr, stmt);
     case DO:
         consume(ctx, DO);
         oldFlag = ctx->stateFlags.inLoop;
         ctx->stateFlags.inLoop = 1;
         stmt = parseStatement(ctx, scope);
         ctx->stateFlags.inLoop = oldFlag;
-        eo = ctx->token->coordinates.endOffset;
+        coords.endOffset = ctx->token->coordinates.endOffset;
         consume(ctx, WHILE);
         consume(ctx, '(');
         expr = parseExpression(ctx, scope);
         consume(ctx, ')');
         consume(ctx, ';');
-        return createLoopStatement(ctx, so, eo, SK_DO_WHILE, expr, stmt);
+        return createLoopStatement(ctx, &coords, SK_DO_WHILE, expr, stmt);
     case FOR:
         consume(ctx, FOR); // for
         consume(ctx, '('); // for(
@@ -2290,25 +2275,25 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         stmt = parseStatement(ctx, scope); // for( ...; ...; ...) ...
         ctx->stateFlags.inLoop = oldFlag;
 
-        eo = stmt->coordinates.endOffset;
-        return createForStatement(ctx, so, eo, expr, expr2, expr3, stmt);
+        coords.endOffset = stmt->coordinates.endOffset;
+        return createForStatement(ctx, &coords, expr, expr2, expr3, stmt);
     case GOTO:
         consume(ctx, GOTO);
         if (nextTokenIf(ctx, '*')) {
           AstExpression *expr = parseExpression(ctx, scope);
           verifyGotoExpression(ctx, expr);
-          stmt = createJumpStatement(ctx, so, eo, SK_GOTO_P);
+          stmt = createJumpStatement(ctx, &coords, SK_GOTO_P);
           stmt->jumpStmt.expression = expr;
         } else {
           const char* label = ctx->token->text;
           consumeRaw(ctx, IDENTIFIER);
-          eo = ctx->token->coordinates.endOffset;
+          coords.endOffset = ctx->token->coordinates.endOffset;
           consume(ctx, ';');
           if (label) {
-            stmt = createJumpStatement(ctx, so, eo, SK_GOTO_L);
+            stmt = createJumpStatement(ctx, &coords, SK_GOTO_L);
             stmt->jumpStmt.label = label;
           } else {
-            stmt = createErrorStatement(ctx, so, eo);
+            stmt = createErrorStatement(ctx, &coords);
           }
         }
         return stmt;
@@ -2318,39 +2303,39 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         }
         consume(ctx, CONTINUE);
         consume(ctx, ';');
-        return createJumpStatement(ctx, so, eo, SK_CONTINUE);
+        return createJumpStatement(ctx, &coords, SK_CONTINUE);
     case BREAK:
         if (!(ctx->stateFlags.inLoop || ctx->stateFlags.inSwitch)) {
             reportDiagnostic(ctx, DIAG_BRAEK_NOT_IN_LOOP_OR_SWITCH, &ctx->token->coordinates);
         }
         consume(ctx, BREAK);
         consume(ctx, ';');
-        return createJumpStatement(ctx, so, eo, SK_BREAK);
+        return createJumpStatement(ctx, &coords, SK_BREAK);
     case RETURN:
         consume(ctx, RETURN);
         expr = ctx->token->code != ';' ? parseExpression(ctx, scope) : NULL;
-        eo = ctx->token->coordinates.endOffset;
+        coords.endOffset = ctx->token->coordinates.endOffset;
         consume(ctx, ';');
-        stmt = createJumpStatement(ctx, so, eo, SK_RETURN);
+        stmt = createJumpStatement(ctx, &coords, SK_RETURN);
         if (expr) {
-          isAssignableTypes(ctx, so, eo, ctx->functionReturnType, expr->type, FALSE);
+          isAssignableTypes(ctx, &coords, ctx->functionReturnType, expr->type, FALSE);
         }
         stmt->jumpStmt.expression = expr;
         return stmt;
     case ';':
         consume(ctx, ';');
-        return createEmptyStatement(ctx, so, eo);
+        return createEmptyStatement(ctx, &coords);
     case IDENTIFIER: { // IDENTIFIER ':' statement
         Token *savedToken = ctx->token;
         nextToken(ctx);
         if (nextTokenIf(ctx, ':')) {
             stmt = parseStatement(ctx, scope);
-            eo = stmt->coordinates.endOffset;
+            coords.endOffset = stmt->coordinates.endOffset;
             const void *oldValue = putToHashMap(ctx->stateFlags.labelSet, savedToken->text, savedToken->text);
             if (oldValue) {
                 reportDiagnostic(ctx, DIAG_LABEL_REDEFINITION, &savedToken->coordinates, savedToken->text);
             }
-            return createLabelStatement(ctx, so, eo, LK_LABEL, stmt, savedToken->text, 0);
+            return createLabelStatement(ctx, &coords, LK_LABEL, stmt, savedToken->text, 0);
         } else {
             ctx->token = savedToken;
         }
@@ -2388,7 +2373,7 @@ block_item
  */
 static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
 
-    int so = ctx->token->coordinates.startOffset;
+    Coordinates coords = { ctx->token->coordinates.startOffset };
     consume(ctx, '{');
 
     Scope *blockScope = ctx->currentScope;
@@ -2396,16 +2381,15 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
 
     while (ctx->token->code && ctx->token->code != '}') {
         if (isDeclarationSpecifierToken(ctx->token->code)) {
-            int sod = ctx->token->coordinates.startOffset;
             DeclarationSpecifiers specifiers = { 0 };
-            int so = specifiers.coordinates.startOffset = ctx->token->coordinates.startOffset;
+            specifiers.coordinates.startOffset = ctx->token->coordinates.startOffset;
             parseDeclarationSpecifiers(ctx, &specifiers, DS_STATEMENT);
-            int eod = specifiers.coordinates.startOffset;
+            Coordinates coords2 = specifiers.coordinates;
 
             if (specifiers.defined) {
                 AstDeclaration *declaration = createAstDeclaration(ctx, specifiers.defined->kind, specifiers.defined->name);
                 declaration->structDeclaration = specifiers.defined;
-                AstStatement *declStmt = createDeclStatement(ctx, sod, eod, declaration);
+                AstStatement *declStmt = createDeclStatement(ctx, &coords2, declaration);
                 AstStatementList *node = allocateStmtList(ctx, declStmt);
                 if (tail) tail->next = node;
                 else head = node;
@@ -2420,9 +2404,9 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                     verifyDeclarator(ctx, &declarator, DS_STATEMENT);
 
                     const char *name = declarator.identificator;
-                    int eod = declarator.coordinates.endOffset;
+                    coords2.endOffset = declarator.coordinates.endOffset;
                     TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
-                    Boolean isTypeOk = verifyValueType(ctx, sod, eod, type);
+                    Boolean isTypeOk = verifyValueType(ctx, &coords2, type);
                     if (!isTypeOk) type = makeErrorRef(ctx);
                     AstInitializer* initializer = NULL;
                     int eqPos = ctx->token->coordinates.startOffset;
@@ -2433,35 +2417,33 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
 
                         initializer = parseInitializer(ctx, NULL);
                         initializer = finalizeInitializer(ctx, type, initializer, specifiers.flags.bits.isStatic);
-                        eod = initializer->coordinates.endOffset;
+                        coords2.endOffset = initializer->coordinates.endOffset;
                     } else {
                         if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE) {
-                            Coordinates coords = { sod, eod };
-                            reportDiagnostic(ctx, DIAG_ARRAY_EXPLICIT_SIZE_OR_INIT, &coords);
+                            reportDiagnostic(ctx, DIAG_ARRAY_EXPLICIT_SIZE_OR_INIT, &coords2);
                         }
                     }
 
                     AstDeclaration *declaration = NULL;
                     if (specifiers.flags.bits.isTypedef) {
                         if (initializer != NULL) {
-                            Coordinates coords = { eqPos, eod };
-                            reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &coords);
+                            Coordinates coords3 = { eqPos, coords2.endOffset };
+                            reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &coords3);
                         }
                         declareTypeDef(ctx, name, type);
                         declaration = createAstDeclaration(ctx, DK_TYPEDEF, name);
-                        declaration->typeDefinition.coordinates.startOffset = sod;
-                        declaration->typeDefinition.coordinates.endOffset = eod;
+                        declaration->typeDefinition.coordinates = coords2;
                         declaration->typeDefinition.definedType = type;
                     } else {
                         declaration = createAstDeclaration(ctx, DK_VAR, name);
                         AstValueDeclaration *valueDeclaration =
-                            createAstValueDeclaration(ctx, sod, eod, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
+                            createAstValueDeclaration(ctx, &coords2, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
                         declaration->variableDeclaration = valueDeclaration;
                         declareValueSymbol(ctx, name, valueDeclaration);
                     }
 
                     if (declaration) {
-                      AstStatement *declStmt = createDeclStatement(ctx, sod, eod, declaration);
+                      AstStatement *declStmt = createDeclStatement(ctx, &coords2, declaration);
                       AstStatementList *node = allocateStmtList(ctx, declStmt);
                       if (tail) tail->next = node;
                       else head = node;
@@ -2483,10 +2465,10 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
         }
     }
 
-    int eo = ctx->token->coordinates.endOffset;
+    coords.endOffset = ctx->token->coordinates.endOffset;
     consume(ctx, '}');
 
-    return createBlockStatement(ctx, so, eo, ctx->currentScope, head);
+    return createBlockStatement(ctx, &coords, ctx->currentScope, head);
 }
 
 static AstStatement *parseCompoundStatement(ParserContext *ctx) {
@@ -2602,8 +2584,9 @@ init_declarator
 */
 static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
   DeclarationSpecifiers specifiers = { 0 };
-  int so = specifiers.coordinates.startOffset = ctx->token->coordinates.startOffset;
+  specifiers.coordinates.startOffset = ctx->token->coordinates.startOffset;
   parseDeclarationSpecifiers(ctx, &specifiers, DS_FILE);
+  Coordinates coords = specifiers.coordinates;
 
   Boolean isTypeDefDeclaration = specifiers.flags.bits.isTypedef != 0 ? TRUE : FALSE;
 
@@ -2644,14 +2627,15 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
 
     if (initializer != NULL) {
         if (isTypeDefDeclaration || isFunDeclarator) {
-            reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &initializer->coordinates);
+            Coordinates coords3 = { eqPos,  initializer->coordinates.endOffset };
+            reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &coords3);
         }
     }
 
     verifyDeclarator(ctx, &declarator, DS_FILE);
 
     const char *name = declarator.identificator;
-    int eo = declarator.coordinates.endOffset;
+    coords.endOffset = declarator.coordinates.endOffset;
 
     AstDeclaration *declaration = NULL;
 
@@ -2660,8 +2644,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
       declareTypeDef(ctx, name, type);
       declaration = createAstDeclaration(ctx, DK_TYPEDEF, name);
       declaration->typeDefinition.definedType = type;
-      declaration->typeDefinition.coordinates.startOffset = so;
-      declaration->typeDefinition.coordinates.endOffset = eo;
+      declaration->typeDefinition.coordinates = coords;
     } else if (isFunDeclarator) {
       TypeRef *returnType = makeFunctionReturnType(ctx, &specifiers, &declarator);
       verifyFunctionReturnType(ctx, &declarator, returnType);
@@ -2680,7 +2663,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
       // TODO: what if name == NULL
       assert(params_dpk != NULL);
       AstValueDeclaration *params = params_dpk->parameters;
-      functionDeclaration = createFunctionDeclaration(ctx, so, eo, returnType, funName, specifiers.flags.storage, params, params_dpk->isVariadic);
+      functionDeclaration = createFunctionDeclaration(ctx, &coords, returnType, funName, specifiers.flags.storage, params, params_dpk->isVariadic);
       declareFunctionSymbol(ctx, name, functionDeclaration);
 
       if (ctx->token->code == '{') {
@@ -2695,7 +2678,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
       }
     } else {
         TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
-        Boolean isTypeOk = verifyValueType(ctx, so, eo, type);
+        Boolean isTypeOk = verifyValueType(ctx, &coords, type);
         if (!isTypeOk) type = makeErrorRef(ctx);
         if (initializer) {
           initializer = finalizeInitializer(ctx, type, initializer, TRUE);
@@ -2704,7 +2687,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
               reportDiagnostic(ctx, DIAG_ARRAY_EXPLICIT_SIZE_OR_INIT, &declarator.coordinates);
           }
         }
-        AstValueDeclaration *valueDeclaration = createAstValueDeclaration(ctx, so, eo, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
+        AstValueDeclaration *valueDeclaration = createAstValueDeclaration(ctx, &coords, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
         declareValueSymbol(ctx, name, valueDeclaration);
         declaration = createAstDeclaration(ctx, DK_VAR, name);
         declaration->variableDeclaration = valueDeclaration;

@@ -269,14 +269,12 @@ Boolean isIncompleteType(TypeRef *type) {
   return FALSE;
 }
 
-TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, int so, int eo, TypeRef *arrayType, TypeRef *indexType) {
+TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, Coordinates *coords, TypeRef *arrayType, TypeRef *indexType) {
   if (isErrorType(arrayType)) return arrayType;
   if (isErrorType(indexType)) return indexType;
 
-  Coordinates coords = { so, eo };
-
   if (!isIntegerType(indexType)) {
-      reportDiagnostic(ctx, DIAG_ARRAY_SUBSCRIPT_NOT_INT, &coords);
+      reportDiagnostic(ctx, DIAG_ARRAY_SUBSCRIPT_NOT_INT, coords);
       return makeErrorRef(ctx);
   }
 
@@ -288,13 +286,13 @@ TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, int so, int eo, Ty
       return arrayType->arrayTypeDesc.elementType;
   }
 
-  reportDiagnostic(ctx, DIAG_SUBSCRIPTED_NOT_A_POINTER, &coords);
+  reportDiagnostic(ctx, DIAG_SUBSCRIPTED_NOT_A_POINTER, coords);
 
   return makeErrorRef(ctx);
 }
 
 
-TypeRef *computeFunctionReturnType(ParserContext *ctx, int so, int eo, TypeRef *_calleeType) {
+TypeRef *computeFunctionReturnType(ParserContext *ctx, Coordinates *coords, TypeRef *_calleeType) {
     if (isErrorType(_calleeType)) return _calleeType;
 
     TypeRef *calleType = _calleeType;
@@ -303,8 +301,7 @@ TypeRef *computeFunctionReturnType(ParserContext *ctx, int so, int eo, TypeRef *
     }
 
     if (calleType->kind != TR_FUNCTION) {
-        Coordinates coords = { so, eo };
-        reportDiagnostic(ctx, DIAG_INVOKE_NOT_FUNCTIONAL, &coords, _calleeType);
+        reportDiagnostic(ctx, DIAG_INVOKE_NOT_FUNCTIONAL, coords, _calleeType);
         return makeErrorRef(ctx);
     }
 
@@ -313,13 +310,11 @@ TypeRef *computeFunctionReturnType(ParserContext *ctx, int so, int eo, TypeRef *
 
 
 
-TypeRef *computeMemberAccessType(ParserContext *ctx, int so, int eo, TypeRef *_receiverType, const char *memberName, ExpressionType op) {
+TypeRef *computeMemberAccessType(ParserContext *ctx, Coordinates *coords, TypeRef *_receiverType, const char *memberName, ExpressionType op) {
   assert(op == EF_DOT || op == EF_ARROW);
   if (isErrorType(_receiverType)) return _receiverType;
 
   TypeRef *receiverType = _receiverType;
-
-  Coordinates coords = { so, eo };
 
   if (op == EF_ARROW) {
     if (_receiverType->kind == TR_POINTED) {
@@ -327,14 +322,14 @@ TypeRef *computeMemberAccessType(ParserContext *ctx, int so, int eo, TypeRef *_r
     } else if (_receiverType->kind == TR_ARRAY) {
         receiverType = _receiverType->arrayTypeDesc.elementType;
     } else {
-        reportDiagnostic(ctx, DIAG_MEMBER_REF_NOT_A_POINTER, &coords, _receiverType);
+        reportDiagnostic(ctx, DIAG_MEMBER_REF_NOT_A_POINTER, coords, _receiverType);
         return makeErrorRef(ctx);
     }
   }
 
 
   if (!isStructualType(receiverType)) {
-      reportDiagnostic(ctx, DIAG_MEMBER_REF_NOT_A_STRUCTUAL, &coords, receiverType);
+      reportDiagnostic(ctx, DIAG_MEMBER_REF_NOT_A_STRUCTUAL, coords, receiverType);
       return makeErrorRef(ctx);
   }
 
@@ -357,7 +352,7 @@ TypeRef *computeMemberAccessType(ParserContext *ctx, int so, int eo, TypeRef *_r
 
 
   if (memberDeclarator == NULL) {
-      reportDiagnostic(ctx, DIAG_NO_MEMBER_NAME, &coords, memberName, receiverType);
+      reportDiagnostic(ctx, DIAG_NO_MEMBER_NAME, coords, memberName, receiverType);
       return makeErrorRef(ctx);
   }
 
@@ -365,18 +360,16 @@ TypeRef *computeMemberAccessType(ParserContext *ctx, int so, int eo, TypeRef *_r
   return memberDeclarator->typeRef;
 }
 
-TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op) {
+TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op) {
   if (isErrorType(cond)) return cond;
   if (isErrorType(ifTrue)) return ifTrue;
   if (isErrorType(ifFalse)) return ifFalse;
-
-  Coordinates coords = { so, eo };
 
   if (isStructualType(ifTrue) || isStructualType(ifFalse)) {
       if (typesEquals(ifTrue, ifFalse)) {
           return ifTrue;
       } else {
-          reportDiagnostic(ctx, DIAG_INCOMPATIBLE_OPERANDS, &coords, ifTrue, ifFalse);
+          reportDiagnostic(ctx, DIAG_INCOMPATIBLE_OPERANDS, coords, ifTrue, ifFalse);
           return makeErrorRef(ctx);
       }
   }
@@ -393,14 +386,14 @@ TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, T
       if (isPointerLikeType(ifFalse)) {
           TypeRef *pointedF = ifFalse->kind == TR_POINTED ? ifFalse->pointedTo : ifFalse->arrayTypeDesc.elementType;
           if (!typesEquals(pointedT, pointedF)) { // TODO: could fail with array vs ponter
-              reportDiagnostic(ctx, DIAG_POINTER_TYPE_MISMATCH, &coords, ifTrue, ifFalse);
+              reportDiagnostic(ctx, DIAG_POINTER_TYPE_MISMATCH, coords, ifTrue, ifFalse);
           }
           return makePointedType(ctx, ifTrue->flags, pointedT);
       } else if (isIntegerType(ifFalse)) {
-          reportDiagnostic(ctx, DIAG_POINTER_INT_MISMATCH_IN_COND, &coords, ifTrue, ifFalse);
+          reportDiagnostic(ctx, DIAG_POINTER_INT_MISMATCH_IN_COND, coords, ifTrue, ifFalse);
           return makePointedType(ctx, ifTrue->flags, pointedT);
       } else {
-          reportDiagnostic(ctx, DIAG_INCOMPATIBLE_OPERANDS, &coords, ifTrue, ifFalse);
+          reportDiagnostic(ctx, DIAG_INCOMPATIBLE_OPERANDS, coords, ifTrue, ifFalse);
           return makeErrorRef(ctx);
       }
   }
@@ -408,10 +401,10 @@ TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, T
   if (isPointerLikeType(ifFalse)) {
       TypeRef *pointedF = ifFalse->kind == TR_POINTED ? ifFalse->pointedTo : ifFalse->arrayTypeDesc.elementType;
       if (isIntegerType(ifTrue)) {
-          reportDiagnostic(ctx, DIAG_POINTER_INT_MISMATCH_IN_COND, &coords, ifTrue, ifFalse);
+          reportDiagnostic(ctx, DIAG_POINTER_INT_MISMATCH_IN_COND, coords, ifTrue, ifFalse);
           return makePointedType(ctx, ifFalse->flags, pointedF);
       } else {
-          reportDiagnostic(ctx, DIAG_INCOMPATIBLE_OPERANDS, &coords, ifTrue, ifFalse);
+          reportDiagnostic(ctx, DIAG_INCOMPATIBLE_OPERANDS, coords, ifTrue, ifFalse);
           return makeErrorRef(ctx);
       }
   }
@@ -419,14 +412,12 @@ TypeRef *computeTernaryType(ParserContext *ctx, int so, int eo, TypeRef* cond, T
   return makeErrorRef(ctx); // Unknown situation
 }
 
-TypeRef *computeBinaryType(ParserContext *ctx, int so, int eo, TypeRef* left, TypeRef *right, ExpressionType op) {
+TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, TypeRef* left, TypeRef *right, ExpressionType op) {
   if (isErrorType(left)) return left;
   if (isErrorType(right)) return right;
 
-  Coordinates coords = { so, eo };
-
   if (isStructualType(left) || isStructualType(right)) {
-      reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, &coords, left, right);
+      reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
       return makeErrorRef(ctx);
   }
 
@@ -438,7 +429,7 @@ TypeRef *computeBinaryType(ParserContext *ctx, int so, int eo, TypeRef* left, Ty
       if (isIntegerType(left) && isIntegerType(right)) {
           return commonPrimitiveType(ctx, left, right);
       }
-      reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, &coords, left, right);
+      reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
       return makeErrorRef(ctx);
   }
 
@@ -447,14 +438,14 @@ TypeRef *computeBinaryType(ParserContext *ctx, int so, int eo, TypeRef* left, Ty
     if (isPrimitiveType(left) && isPrimitiveType(right)) {
         return commonPrimitiveType(ctx, left, right);
     }
-    reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, &coords, left, right);
+    reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
     return makeErrorRef(ctx);
   }
 
 
   if (op == EB_ADD) {
       if (isPointerLikeType(left) && isPointerLikeType(right)) {
-          reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, &coords, left, right);
+          reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
           return makeErrorRef(ctx);
       }
   }
@@ -469,7 +460,7 @@ TypeRef *computeBinaryType(ParserContext *ctx, int so, int eo, TypeRef* left, Ty
         TypeRef *pointedL = left->kind == TR_POINTED ? left->pointedTo : left->arrayTypeDesc.elementType;
         return makePointedType(ctx, left->flags, pointedL);
       }
-      reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, &coords, left, right);
+      reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
       return makeErrorRef(ctx);
   }
 
@@ -478,7 +469,7 @@ TypeRef *computeBinaryType(ParserContext *ctx, int so, int eo, TypeRef* left, Ty
         TypeRef *pointedR = right->kind == TR_POINTED ? right->pointedTo : right->arrayTypeDesc.elementType;
         return makePointedType(ctx, right->flags, pointedR);
       }
-      reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, &coords, left, right);
+      reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
       return makeErrorRef(ctx);
   }
 
@@ -486,22 +477,21 @@ TypeRef *computeBinaryType(ParserContext *ctx, int so, int eo, TypeRef* left, Ty
 }
 
 
-TypeRef *computeIncDecType(ParserContext *ctx, int so, int eo, TypeRef *argumentType, ExpressionType op) {
+TypeRef *computeIncDecType(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, ExpressionType op) {
   assert(op == EU_PRE_INC || op == EU_PRE_DEC || op == EU_POST_INC || op == EU_POST_DEC);
 
   if (isErrorType(argumentType)) return argumentType;
 
   if (argumentType->kind == TR_FUNCTION || argumentType->kind == TR_ARRAY || isStructualType(argumentType)) {
       enum DiagnosticId diag = op == EU_POST_DEC || op == EU_PRE_DEC ? DIAG_CANNOT_DECREMENT : DIAG_CANNOT_INCREMENT;
-      Coordinates coords = { so, eo };
-      reportDiagnostic(ctx, diag, &coords, argumentType);
+      reportDiagnostic(ctx, diag, coords, argumentType);
       return makeErrorRef(ctx);
   }
 
   return argumentType;
 }
 
-static TypeRef *computeTypeForDerefOperator(ParserContext *ctx, int so, int eo, TypeRef *argumentType) {
+static TypeRef *computeTypeForDerefOperator(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType) {
   if (argumentType->kind == TR_POINTED) {
       return argumentType->pointedTo;
   }
@@ -510,13 +500,12 @@ static TypeRef *computeTypeForDerefOperator(ParserContext *ctx, int so, int eo, 
       return argumentType->arrayTypeDesc.elementType;
   }
 
-  Coordinates coords = { so, eo };
-  reportDiagnostic(ctx, DIAG_INDERECTION_POINTER_OP, &coords, argumentType);
+  reportDiagnostic(ctx, DIAG_INDERECTION_POINTER_OP, coords, argumentType);
 
   return makeErrorRef(ctx);
 }
 
-TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, int so, int eo, TypeRef *argumentType, ExpressionType op) {
+TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, ExpressionType op) {
   if (isErrorType(argumentType)) return argumentType;
 
   SpecifierFlags flags = { 0 };
@@ -525,7 +514,7 @@ TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, int so, int eo, TypeRef
     case EU_REF:   // &a
       return makePointedType(ctx, flags, argumentType);
     case EU_DEREF: // *a
-      return computeTypeForDerefOperator(ctx, so, eo, argumentType);
+      return computeTypeForDerefOperator(ctx, coords, argumentType);
     case EU_PLUS:  // +a
     case EU_MINUS: // -a
     case EU_EXL:   // !a
@@ -535,8 +524,7 @@ TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, int so, int eo, TypeRef
       } else if (op != EU_TILDA && isPrimitiveType(argumentType)) {
           return argumentType;
       } else {
-          Coordinates coords = { so, eo };
-          reportDiagnostic(ctx, DIAG_INVALID_UNARY_ARGUMENT, &coords, argumentType);
+          reportDiagnostic(ctx, DIAG_INVALID_UNARY_ARGUMENT, coords, argumentType);
           return makeErrorRef(ctx);
       }
     default:
@@ -547,19 +535,17 @@ TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, int so, int eo, TypeRef
   return argumentType;
 }
 
-Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeRef *from, Boolean init) {
+Boolean isAssignableTypes(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, Boolean init) {
   if (isErrorType(to)) return TRUE;
   if (isErrorType(from)) return TRUE;
 
-  Coordinates coords = { so, eo };
-
   if (!init && to->flags.bits.isConst) {
-      reportDiagnostic(ctx, DIAG_ASSIGN_IN_CONST, &coords, to);
+      reportDiagnostic(ctx, DIAG_ASSIGN_IN_CONST, coords, to);
       return FALSE;
   }
 
   if (to->kind == TR_ARRAY) {
-      reportDiagnostic(ctx, DIAG_ARRAY_TYPE_IS_NOT_ASSIGNABLE, &coords, to);
+      reportDiagnostic(ctx, DIAG_ARRAY_TYPE_IS_NOT_ASSIGNABLE, coords, to);
       return FALSE;
   }
 
@@ -567,7 +553,7 @@ Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeR
       if (typesEquals(to, from)) {
           return TRUE;
       } else {
-          reportDiagnostic(ctx, DIAG_ASSIGN_FROM_INCOMPATIBLE_TYPE, &coords, to, from);
+          reportDiagnostic(ctx, DIAG_ASSIGN_FROM_INCOMPATIBLE_TYPE, coords, to, from);
           return FALSE;
       }
   }
@@ -581,14 +567,14 @@ Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeR
           } else if (typesEquals(pLeft, pointed)) {
               return TRUE;
           } else {
-              reportDiagnostic(ctx, DIAG_ASSIGN_INCOMPATIBLE_POINTERS, &coords, to, from);
+              reportDiagnostic(ctx, DIAG_ASSIGN_INCOMPATIBLE_POINTERS, coords, to, from);
               return TRUE;
           }
       } else if (isIntegerType(from)) {
-          reportDiagnostic(ctx, DIAG_ASSIGN_INT_TO_POINTER, &coords, to, from);
+          reportDiagnostic(ctx, DIAG_ASSIGN_INT_TO_POINTER, coords, to, from);
           return TRUE;
       } else {
-          reportDiagnostic(ctx, DIAG_ASSIGN_FROM_INCOMPATIBLE_TYPE, &coords, to, from);
+          reportDiagnostic(ctx, DIAG_ASSIGN_FROM_INCOMPATIBLE_TYPE, coords, to, from);
           return FALSE;
       }
   }
@@ -596,10 +582,10 @@ Boolean isAssignableTypes(ParserContext *ctx, int so, int eo, TypeRef *to, TypeR
 
   if (isPointerLikeType(from)) {
       if (isIntegerType(to)) {
-          reportDiagnostic(ctx, DIAG_ASSIGN_INT_TO_POINTER, &coords, to, from);
+          reportDiagnostic(ctx, DIAG_ASSIGN_INT_TO_POINTER, coords, to, from);
           return TRUE;
       } else {
-          reportDiagnostic(ctx, DIAG_ASSIGN_FROM_INCOMPATIBLE_TYPE, &coords, to, from);
+          reportDiagnostic(ctx, DIAG_ASSIGN_FROM_INCOMPATIBLE_TYPE, coords, to, from);
           return FALSE;
       }
   }
@@ -752,18 +738,18 @@ Boolean checkTypeIsCastable(ParserContext *ctx, Coordinates *coords, TypeRef *to
   return TRUE;
 }
 
-TypeRef *computeAssignmentTypes(ParserContext *ctx, int so, int eo, TypeRef *left, TypeRef *right) {
+TypeRef *computeAssignmentTypes(ParserContext *ctx, Coordinates *coords, TypeRef *left, TypeRef *right) {
   if (isErrorType(left)) return left;
   if (isErrorType(right)) return right;
 
-  if (isAssignableTypes(ctx, so, eo, left, right, FALSE)) {
+  if (isAssignableTypes(ctx, coords, left, right, FALSE)) {
     return left;
   }
 
   return makeErrorRef(ctx);
 }
 
-TypeRef *computeFunctionType(ParserContext *ctx, int so, int eo, AstFunctionDeclaration *declaration) {
+TypeRef *computeFunctionType(ParserContext *ctx, Coordinates *coords, AstFunctionDeclaration *declaration) {
   TypeRef *result = (TypeRef *)areanAllocate(ctx->memory.typeArena, sizeof(TypeRef));
 
   result->kind = TR_FUNCTION;
@@ -871,20 +857,19 @@ static Boolean isCompileTimeConstant(AstExpression *expr) {
 
 
 static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *elementType, AstInitializer *initializer, unsigned arraySize, unsigned *counter, Boolean isTopLevel) {
-  int so = initializer->coordinates.startOffset;
-  int eo = initializer->coordinates.endOffset;
+  Coordinates *coords = &initializer->coordinates;
 
   if (initializer->kind == IK_EXPRESSION) {
       AstExpression *expr = initializer->expression;
       if (expr) {
         if (isTopLevel && !isCompileTimeConstant(expr)) {
-            reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, &initializer->coordinates);
+            reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, coords);
         }
         if (!(isStructualType(elementType) && isIntegerType(expr->type))) { // array initializer like `struct S as[] = { 0 }` is totally acceptable
-          isAssignableTypes(ctx, so, eo, elementType, expr->type, TRUE);
+          isAssignableTypes(ctx, coords, elementType, expr->type, TRUE);
         }
       } else {
-        initializer->expression = createErrorExpression(ctx, so, eo);
+        initializer->expression = createErrorExpression(ctx, coords);
       }
       (*counter)++;
       return initializer;
@@ -905,14 +890,14 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *ele
 
               inner = inner->next;
           }
-          AstInitializer *result = createAstInitializer(ctx, so, eo, IK_LIST);
+          AstInitializer *result = createAstInitializer(ctx, coords, IK_LIST);
           result->initializerList = head;
           result->numOfInitializers = count;
           return result;
         } else {
-          reportDiagnostic(ctx, DIAG_SCALAR_INIT_EMPTY, &initializer->coordinates);
-          AstInitializer *result = createAstInitializer(ctx, so, eo, IK_EXPRESSION);
-          result->expression = createErrorExpression(ctx, so, eo);
+          reportDiagnostic(ctx, DIAG_SCALAR_INIT_EMPTY, coords);
+          AstInitializer *result = createAstInitializer(ctx, coords, IK_EXPRESSION);
+          result->expression = createErrorExpression(ctx, coords);
           return result;
         }
     } else {
@@ -926,8 +911,7 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *ele
 }
 
 static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember **pmember, AstInitializer *initializer, Boolean isTopLevel) {
-  int so = initializer->coordinates.startOffset;
-  int eo = initializer->coordinates.endOffset;
+  Coordinates *coords = &initializer->coordinates;
   AstStructMember *member  = *pmember;
   assert(member->kind == SM_DECLARATOR);
   TypeRef *memberType = member->declarator->typeRef;
@@ -935,11 +919,11 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
       AstExpression *expr = initializer->expression;
       if (expr) {
         if (isTopLevel && !isCompileTimeConstant(expr)) {
-            reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, &initializer->coordinates);
+            reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, coords);
         }
-        isAssignableTypes(ctx, so, eo, memberType, expr->type, TRUE);
+        isAssignableTypes(ctx, coords, memberType, expr->type, TRUE);
       } else {
-        initializer->expression = createErrorExpression(ctx, so, eo);
+        initializer->expression = createErrorExpression(ctx, coords);
       }
       *pmember = member->next;
       return initializer;
@@ -967,13 +951,13 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
                 reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &inner->initializer->coordinates);
             }
 
-            result = createAstInitializer(ctx, so, eo, IK_LIST);
+            result = createAstInitializer(ctx, &initializer->coordinates, IK_LIST);
             result->initializerList = head;
             result->numOfInitializers = count;
           } else {
-            reportDiagnostic(ctx, DIAG_SCALAR_INIT_EMPTY, &initializer->coordinates);
-            result = createAstInitializer(ctx, so, eo, IK_EXPRESSION);
-            result->expression = createErrorExpression(ctx, so, eo);
+            reportDiagnostic(ctx, DIAG_SCALAR_INIT_EMPTY, coords);
+            result = createAstInitializer(ctx, coords, IK_EXPRESSION);
+            result->expression = createErrorExpression(ctx, coords);
           }
           *pmember = member;
           return result;
@@ -987,11 +971,10 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
 }
 
 AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer *initializer, Boolean isTopLevel) {
-  int so = initializer->coordinates.startOffset;
-  int eo = initializer->coordinates.endOffset;
+  Coordinates *coords = &initializer->coordinates;
   if (isErrorType(valueType)) {
       initializer->kind = IK_EXPRESSION;
-      initializer->expression = createErrorExpression(ctx, so, eo);
+      initializer->expression = createErrorExpression(ctx, coords);
       initializer->numOfInitializers = -1;
       return initializer;
   }
@@ -1001,7 +984,7 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
           assert(initializer->numOfInitializers >= 0);
           valueType->arrayTypeDesc.size = initializer->numOfInitializers;
       } else {
-          reportDiagnostic(ctx, DIAG_INVALID_INITIALIZER, &initializer->coordinates);
+          reportDiagnostic(ctx, DIAG_INVALID_INITIALIZER, coords);
           return initializer;
       }
   }
@@ -1010,9 +993,9 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
       AstExpression *expr = initializer->expression;
       if (expr) {
         if (isTopLevel && !isCompileTimeConstant(expr)) {
-            reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, &initializer->coordinates);
+            reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, coords);
         }
-        isAssignableTypes(ctx, so, eo, valueType, expr->type, TRUE);
+        isAssignableTypes(ctx, coords, valueType, expr->type, TRUE);
       }
       return initializer;
   } else {
@@ -1027,7 +1010,7 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
               }
               return result;
             } else {
-                reportDiagnostic(ctx, DIAG_SCALAR_INIT_EMPTY, &initializer->coordinates);
+                reportDiagnostic(ctx, DIAG_SCALAR_INIT_EMPTY, coords);
                 return initializer;
             }
       } else if (isStructualType(valueType)) {
@@ -1054,7 +1037,7 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
               inner = inner->next;
           }
 
-          AstInitializer *result = createAstInitializer(ctx, so, eo, IK_LIST);
+          AstInitializer *result = createAstInitializer(ctx, coords, IK_LIST);
           result->numOfInitializers = count;
           result->initializerList = head;
           return result;
@@ -1074,13 +1057,13 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
               unwindInitializer(ctx, transformed, elementType, &head, &tail, &count);
               inner = inner->next;
           }
-          AstInitializer *result = createAstInitializer(ctx, so, eo, IK_LIST);
+          AstInitializer *result = createAstInitializer(ctx, coords, IK_LIST);
           result->numOfInitializers = count;
           result->initializerList = head;
           return result;
       } else {
           // ft fx = { 01.f, 5, { 0, 0.1f, "ccc" } , 0 };
-          reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &initializer->coordinates);
+          reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, coords);
       }
   }
   return NULL;
@@ -1097,7 +1080,7 @@ static AstExpression *parenIfNeeded(ParserContext *ctx, AstExpression *expr) {
     case EB_A_ACC:
       return expr;
     default:
-      return createParenExpression(ctx, expr->coordinates.startOffset, expr->coordinates.endOffset, expr);
+      return createParenExpression(ctx, &expr->coordinates, expr);
   }
 }
 
@@ -1110,11 +1093,11 @@ AstExpression *transformTernaryExpression(ParserContext *ctx, AstExpression *exp
   AstExpression *ifFalse = expr->ternaryExpr.ifFalse;
 
   if (!typeEquality(expr->type, ifTrue->type)) {
-      expr->ternaryExpr.ifTrue = createCastExpression(ctx, ifTrue->coordinates.startOffset, ifTrue->coordinates.endOffset, expr->type, parenIfNeeded(ctx, ifTrue));
+      expr->ternaryExpr.ifTrue = createCastExpression(ctx, &ifTrue->coordinates, expr->type, parenIfNeeded(ctx, ifTrue));
   }
 
   if (!typeEquality(expr->type, ifFalse->type)) {
-      expr->ternaryExpr.ifFalse = createCastExpression(ctx, ifFalse->coordinates.startOffset, ifFalse->coordinates.endOffset, expr->type, parenIfNeeded(ctx, ifFalse));
+      expr->ternaryExpr.ifFalse = createCastExpression(ctx, &ifFalse->coordinates, expr->type, parenIfNeeded(ctx, ifFalse));
   }
 
   return expr;
@@ -1138,11 +1121,11 @@ AstExpression *transformBinaryExpression(ParserContext *ctx, AstExpression *expr
   TypeRef *commonType = commonPrimitiveType(ctx, left->type, right->type);
 
   if (!typesEquals(commonType, left->type)) {
-      left = createCastExpression(ctx, left->coordinates.startOffset, left->coordinates.endOffset, commonType, parenIfNeeded(ctx, left));
+      left = createCastExpression(ctx, &left->coordinates, commonType, parenIfNeeded(ctx, left));
   }
 
   if (!typesEquals(commonType, right->type)) {
-      right = createCastExpression(ctx, right->coordinates.startOffset, right->coordinates.endOffset, commonType, parenIfNeeded(ctx, right));
+      right = createCastExpression(ctx, &right->coordinates, commonType, parenIfNeeded(ctx, right));
   }
 
   expr->binaryExpr.left = left;
@@ -1160,7 +1143,7 @@ AstExpression *transformAssignExpression(ParserContext *ctx, AstExpression *expr
   AstExpression *rvalue = expr->binaryExpr.right;
 
   if (!typesEquals(lvalue->type, rvalue->type)) {
-      expr->binaryExpr.right = createCastExpression(ctx, rvalue->coordinates.startOffset, rvalue->coordinates.endOffset, lvalue->type, parenIfNeeded(ctx, rvalue));
+      expr->binaryExpr.right = createCastExpression(ctx, &rvalue->coordinates, lvalue->type, parenIfNeeded(ctx, rvalue));
   }
 
   return expr;
@@ -1183,15 +1166,13 @@ void verifyStatementLevelExpression(ParserContext *ctx, AstExpression *expr) {
 }
 
 // true if everything is OK
-Boolean verifyValueType(ParserContext *ctx, int so, int eo, TypeRef *valueType) {
+Boolean verifyValueType(ParserContext *ctx, Coordinates *coords, TypeRef *valueType) {
   if (isErrorType(valueType)) return TRUE;
-
-  Coordinates coords = { so, eo };
 
   if (valueType->kind == TR_VALUE) {
       TypeDesc *desc = valueType->descriptorDesc;
       if (desc->typeId == T_VOID || desc->size == UNKNOWN_SIZE) {
-          reportDiagnostic(ctx, DIAG_VAR_INCOMPLETE_TYPE, &coords, desc);
+          reportDiagnostic(ctx, DIAG_VAR_INCOMPLETE_TYPE, coords, desc);
           return FALSE;
       }
   }
@@ -1199,7 +1180,7 @@ Boolean verifyValueType(ParserContext *ctx, int so, int eo, TypeRef *valueType) 
   return TRUE;
 }
 
-void verifyAndTransformCallAruments(ParserContext *ctx, int so, int eo, TypeRef *functionType, AstExpressionList *aruments) {
+void verifyAndTransformCallAruments(ParserContext *ctx, Coordinates *coords, TypeRef *functionType, AstExpressionList *aruments) {
   if (isErrorType(functionType)) return;
 
   if (functionType->kind == TR_POINTED)
@@ -1212,13 +1193,11 @@ void verifyAndTransformCallAruments(ParserContext *ctx, int so, int eo, TypeRef 
 
   while (argument && param) {
       AstExpression *arg = argument->expression;
-      int so = arg->coordinates.startOffset;
-      int eo = arg->coordinates.endOffset;
       TypeRef *aType = arg->type;
       TypeRef *pType = param->type;
-      if (isAssignableTypes(ctx, so, eo, pType, aType, FALSE)) {
+      if (isAssignableTypes(ctx, &arg->coordinates, pType, aType, FALSE)) {
           if (!typeEquality(pType, aType)) {
-              argument->expression = createCastExpression(ctx, so, eo, pType, parenIfNeeded(ctx, arg));
+              argument->expression = createCastExpression(ctx, coords, pType, parenIfNeeded(ctx, arg));
           }
           argument = argument->next;
           param = param->next;
@@ -1227,15 +1206,13 @@ void verifyAndTransformCallAruments(ParserContext *ctx, int so, int eo, TypeRef 
       }
   }
 
-  Coordinates coords = { so, eo };
-
   if (argument == NULL && param != NULL) { // fewer
-      reportDiagnostic(ctx, DIAG_TOO_FEW_ARGS, &coords);
+      reportDiagnostic(ctx, DIAG_TOO_FEW_ARGS, coords);
   }
 
   if (argument != NULL && param == NULL) {
       if (!functionType->functionTypeDesc.isVariadic) {
-          reportDiagnostic(ctx, DIAG_TOO_MANY_ARGS, &coords);
+          reportDiagnostic(ctx, DIAG_TOO_MANY_ARGS, coords);
       }
   }
 }

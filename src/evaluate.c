@@ -208,16 +208,18 @@ typedef int64_const_t (*int_binary_evaluate)(int64_const_t, int64_const_t);
 
 typedef int (*evaluateChecker)(int64_const_t, int64_const_t);
 
+static Coordinates noCoords = { -1, -1 };
+
 static AstConst *evaluateUnaryConst(ParserContext *ctx, AstConst *expr, int_unary_evaluate eInt, float_unary_evaluate eFloat) {
   if (expr->op == CK_FLOAT_CONST) {
       if (eFloat == NULL) return NULL; // cannot evaluate
       float64_const_t v = eFloat(expr->f);
-      return &createAstConst(ctx, -1, -1, expr->op, &v)->constExpr;
+      return &createAstConst(ctx, &noCoords, expr->op, &v)->constExpr;
   } else {
       int64_const_t v = 0;
       derefIntConst(expr, &v);
       v = eInt(v);
-      return &createAstConst(ctx, -1, -1, expr->op, &v)->constExpr;
+      return &createAstConst(ctx, &noCoords, expr->op, &v)->constExpr;
   }
 }
 
@@ -239,14 +241,14 @@ static AstConst *evaluateBinaryConst(ParserContext *ctx, AstConst *left, AstCons
           rv = (float64_const_t)iv;
       }
       float64_const_t v = eFloat(lv, rv);
-      return &createAstConst(ctx, -1, -1, CK_FLOAT_CONST, &v)->constExpr;
+      return &createAstConst(ctx, &noCoords, CK_FLOAT_CONST, &v)->constExpr;
   } else {
       int64_const_t lv = 0, rv = 0;
       derefIntConst(left, &lv);
       derefIntConst(right, &rv);
       if (checker(lv, rv)) {
         int64_const_t v = eInt(lv, rv);
-        return &createAstConst(ctx, -1, -1, CK_INT_CONST, &v)->constExpr;
+        return &createAstConst(ctx, &noCoords, CK_INT_CONST, &v)->constExpr;
       }
       return NULL;
   }
