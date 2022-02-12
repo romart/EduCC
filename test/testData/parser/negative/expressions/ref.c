@@ -1,12 +1,16 @@
 
-struct S { int a; };
+struct S {
+  int a;
+  unsigned f:10;
+  int f2: 20;
+};
 
 void test() {
   int a;
   int *pa;
   register int r;
 
-  struct S s, *ps;
+  struct S s, *ps = &s;
 
   &a;
   &pa;
@@ -27,4 +31,7 @@ void test() {
   &a--;
 
   &(float)a;
+
+  &s.f;
+  &ps->f2;
 }
