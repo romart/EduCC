@@ -488,6 +488,11 @@ int renderTypeRef(TypeRef *type, char *b, int bufferSize) {
       l = snprintf(b, bufferSize, ")}"); b += l; bufferSize -= l;
       break;
     }
+  case TR_BITFIELD:
+      l = renderTypeRef(type->bitFieldDesc.storageType, b, bufferSize); b += l; bufferSize -= l;
+      if (bufferSize <= 0) goto done;
+      l = snprintf(b, bufferSize, ":%u:%u", type->bitFieldDesc.offset, type->bitFieldDesc.width);
+      break;
   }
 
   done:

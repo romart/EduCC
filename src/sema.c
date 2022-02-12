@@ -1712,6 +1712,10 @@ int computeTypeSize(TypeRef *type) {
       return POINTER_TYPE_SIZE;
   }
 
+  if (type->kind == TR_BITFIELD) {
+      return computeTypeSize(type->bitFieldDesc.storageType);
+  }
+
   if (type->kind == TR_ARRAY) {
       ArrayTypeDescriptor *atype = &type->arrayTypeDesc;
       return atype->size * computeTypeSize(atype->elementType);
@@ -1941,6 +1945,17 @@ TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Decl
     }
 
     return type;
+}
+
+TypeRef *makeBitFieldType(ParserContext *ctx, TypeRef *storage, unsigned offset, unsigned width) {
+  TypeRef *result = (TypeRef *)areanAllocate(ctx->memory.typeArena, sizeof(TypeRef));
+
+  result->kind = TR_BITFIELD;
+  result->bitFieldDesc.storageType = storage;
+  result->bitFieldDesc.offset = offset;
+  result->bitFieldDesc.width = width;
+
+  return result;
 }
 
 TypeRef *makeErrorRef(ParserContext *ctx) {
