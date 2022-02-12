@@ -1,6 +1,8 @@
 FILE test/testData/parser/negative/expressions/ref.c
   STRUCT S
     signed int a #0
+    unsigned int:0:10 f #4
+    signed int:0:20 f2 #8
   STRUCT_END
 ----
   FUN void test 
@@ -9,7 +11,8 @@ FILE test/testData/parser/negative/expressions/ref.c
     *signed int pa
     R signed int r
     STRUCT S s
-    *STRUCT S ps
+    *STRUCT S ps = \
+      &s
     &a
     &pa
     &*pa
@@ -21,5 +24,7 @@ FILE test/testData/parser/negative/expressions/ref.c
     &ps->a
     &++a
     &a--
-    &(float)a    
+    &(float)a
+    &s.f
+    &ps->f2
   END
