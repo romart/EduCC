@@ -803,6 +803,11 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
                     } else {
                         unreachable("Very suspissios, symbol is NULL");
                     }
+                } else if (argument->op == EF_ARROW || argument->op == EF_DOT) {
+                    TypeRef *fieldType = argument->fieldExpr.member->typeRef;
+                    if (fieldType->kind == TR_BITFIELD) {
+                        reportDiagnostic(ctx, DIAG_BIT_FIELD_ADDRESS, &coords);
+                    }
                 }
                 checkRefArgument(ctx, &coords, argument, TRUE);
             }

@@ -100,5 +100,6 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, CANNOT_TAKE_ADDRESS_OF_RVALUE, "cannot take the address of an rvalue of type '%tr'"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, TYPEDEF_WITHOUT_NAME, "typedef requires a name"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ILL_INDIRECT_GOTO_OPERAND, "indirect goto in function with no address-of-label expressions"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, BIT_FIELD_ADDRESS, "address of bit-field requested"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, UNUSED_EXPR_RES, "expression result unused")
 
