@@ -1,25 +1,25 @@
 FILE test/testData/parser/negative/structBitFields.c
   STRUCT NegativeBFSize
-    unsigned int negative
-    unsigned int (null)
+    unsigned int negative #0
+    unsigned int (null) #0
   STRUCT_END
 ----
   STRUCT ExceedBFSize
-    unsigned int not_exceed : 32
-    unsigned long not_exceed_l : 64
-    unsigned int exceed : 33
-    unsigned long exceed_l : 65
-    unsigned int exceed2 : 33333
-    unsigned int (null) : 32
-    unsigned int (null) : 33
-    unsigned int (null) : 33333
+    unsigned int:0:32 not_exceed #0
+    unsigned long:0:64 not_exceed_l #4
+    unsigned int:0:0 exceed #16
+    unsigned long:0:0 exceed_l #24
+    unsigned int:0:0 exceed2 #28
+    unsigned int:0:32 (null) #28
+    unsigned int:32:0 (null) #32
+    unsigned int:0:0 (null) #36
   STRUCT_END
 ----
   STRUCT F
-    signed int a
+    signed int a #0
   STRUCT_END
 ----
   STRUCT NotIntType
-    float f_bf : 10
-    STRUCT F (null) : 20
+    float f_bf #0
+    STRUCT F (null) #0
   STRUCT_END

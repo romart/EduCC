@@ -10,7 +10,7 @@ FILE test/testData/parser/negative/expressions/arrayOp.c
   signed int[20] arr
 ----
   STRUCT S
-    signed int good
+    signed int good #0
   STRUCT_END
 ----
   STRUCT S s

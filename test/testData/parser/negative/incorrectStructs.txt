@@ -1,25 +1,25 @@
 FILE test/testData/parser/negative/incorrectStructs.c
   STRUCT SS
-    signed int a
-    signed int b
-    signed int d
+    signed int a #0
+    signed int b #4
+    signed int d #8
     STRUCT <anon$0>
-      double x
-      ****STRUCT XXX xx
+      double x #0
+      ****STRUCT XXX xx #8
     STRUCT_END
-    STRUCT <anon$0> ss1
-    *STRUCT <anon$0> ss2
-    **STRUCT <anon$0> ss3
-    signed int ss1
-    signed int (null)
-    *signed int pv1
-    **signed int pv1
-    signed int ss2
-    signed int (null)
-    *signed int pv2
-    **signed int pv2
-    signed int ss3
-    signed int (null)
-    *signed int pv3
-    **signed int pv3
+    STRUCT <anon$0> ss1 #12
+    *STRUCT <anon$0> ss2 #28
+    **STRUCT <anon$0> ss3 #36
+    signed int ss1 #44
+    signed int (null) #48
+    *signed int pv1 #52
+    **signed int pv1 #60
+    signed int ss2 #68
+    signed int (null) #72
+    *signed int pv2 #76
+    **signed int pv2 #84
+    signed int ss3 #92
+    signed int (null) #96
+    *signed int pv3 #100
+    **signed int pv3 #108
   STRUCT_END

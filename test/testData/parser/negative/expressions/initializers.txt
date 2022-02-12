@@ -1,14 +1,14 @@
 FILE test/testData/parser/negative/expressions/initializers.c
   STRUCT S
-    float x
-    *signed int ptr
-    *signed int ptr2
+    float x #0
+    *signed int ptr #4
+    *signed int ptr2 #12
   STRUCT_END
 ----
   STRUCT SX
-    signed int a
-    STRUCT S s
-    STRUCT S[2] as
+    signed int a #0
+    STRUCT S s #4
+    STRUCT S[2] as #28
   STRUCT_END
 ----
   STRUCT S s0

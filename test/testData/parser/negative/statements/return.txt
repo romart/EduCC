@@ -1,6 +1,6 @@
 FILE test/testData/parser/negative/statements/return.c
   STRUCT S
-    signed int b
+    signed int b #0
   STRUCT_END
 ----
   FUN signed int testInt 

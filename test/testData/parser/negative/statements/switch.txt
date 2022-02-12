@@ -84,7 +84,7 @@ FILE test/testData/parser/negative/statements/switch.c
   END
 ----
   STRUCT SX
-    signed int a
+    signed int a #0
   STRUCT_END
 ----
   FUN signed int testSwitchArgStruct 
