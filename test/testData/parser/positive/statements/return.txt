@@ -18,7 +18,7 @@ FILE test/testData/parser/positive/statements/return.c
   END
 ----
   STRUCT S
-    signed int b
+    signed int b #0
   STRUCT_END
 ----
   FUN STRUCT S testStruct 

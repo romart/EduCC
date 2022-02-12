@@ -1,6 +1,6 @@
 FILE test/testData/parser/negative/expressions/ref.c
   STRUCT S
-    signed int a
+    signed int a #0
   STRUCT_END
 ----
   FUN void test 

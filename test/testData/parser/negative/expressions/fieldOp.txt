@@ -10,45 +10,45 @@ FILE test/testData/parser/negative/expressions/fieldOp.c
   signed int[20] arr
 ----
   STRUCT S
-    signed int good
+    signed int good #0
   STRUCT_END
 ----
   STRUCT S s
 ----
   *STRUCT S ps
 ----
-  FUN void testDot 
+  FUN void testDot
   BEGIN
-    i.good
-    i.bad
-    f.good
-    f.bad
-    pi.good
-    pi.bad
-    pf.good
-    pf.bad
-    arr.good
-    arr.bad
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
     s.good
-    s.bad
-    ps.good
-    ps.bad    
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
   END
 ----
-  FUN void testArrow 
+  FUN void testArrow
   BEGIN
-    i->good
-    i->bad
-    f->good
-    f->bad
-    pi->good
-    pi->bad
-    pf->good
-    pf->bad
-    arr->good
-    arr->bad
-    s->good
-    s->bad
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
+    ERROR EXPR
     ps->good
-    ps->bad    
+    ERROR EXPR
   END
