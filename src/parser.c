@@ -716,8 +716,12 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
             coords.endOffset  = ctx->token->coordinates.endOffset;
             TypeRef *receiverType = left->type;
             const char *memberName = ctx->token->text;
-            left = createFieldExpression(ctx, &coords, op, left, memberName);
-            left->type = computeMemberAccessType(ctx, &coords, receiverType, memberName, op);
+            AstStructDeclarator *declarator = computeMemberDeclarator(ctx, &coords, receiverType, memberName, op);
+            if (declarator) {
+              left = createFieldExpression(ctx, &coords, op, left, declarator);
+            } else {
+              left = createErrorExpression(ctx, &coords);
+            }
             nextToken(ctx);
             break;
         case INC_OP: op = EU_POST_INC; goto incdec;
@@ -1297,9 +1301,12 @@ struct_declarator
     | declarator ':' constant_expression
     ;
 */
-static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _Scope* scope) {
+static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned factor, struct _Scope* scope) {
     AstStructMember *head = NULL, *tail = NULL;
     int token = ctx->token->code;
+    unsigned offset = 0;
+    unsigned bitOffset = 0;
+    TypeRef *curBitFieldUnit = NULL;
     do {
         DeclarationSpecifiers specifiers = { 0 };
         specifiers.coordinates.startOffset = ctx->token->coordinates.startOffset;
@@ -1307,6 +1314,7 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _S
         Coordinates coords = specifiers.coordinates;
 
         if (specifiers.defined) {
+            // TODO: it doesn't work like this
             AstSUEDeclaration *definition = specifiers.defined;
             AstDeclaration *declaration = createAstDeclaration(ctx, definition->kind, definition->name);
             declaration->structDeclaration = definition;
@@ -1345,6 +1353,7 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _S
                       } else {
                         reportDiagnostic(ctx, DIAG_ANON_BIT_FIELD_NEGATIVE_WIDTH, &specifiers.coordinates, width);
                       }
+                      width = 0;
                   } else {
                       int typeSize = type->descriptorDesc->size;
                       int typeWidth = typeSize * BYTE_BIT_SIZE;
@@ -1354,6 +1363,26 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _S
                         } else {
                           reportDiagnostic(ctx, DIAG_EXCEED_ANON_BIT_FIELD_TYPE_WIDTH, &specifiers.coordinates, width, typeWidth);
                         }
+                        width = 0;
+                      }
+
+                      if (curBitFieldUnit) {
+                          if (!typesEquals(curBitFieldUnit, type) || (width && (typeWidth - bitOffset) < width)) {
+                              bitOffset = 0;
+                              offset += computeTypeSize(curBitFieldUnit) * factor;
+                          }
+                      }
+
+                      curBitFieldUnit = type;
+
+                      type = makeBitFieldType(ctx, curBitFieldUnit, bitOffset, width);
+
+                      bitOffset += width * factor;
+
+                      if (width == 0) {
+                          curBitFieldUnit = NULL;
+                          bitOffset = 0;
+                          offset += computeTypeSize(type) * factor;
                       }
                   }
                 } else {
@@ -1363,9 +1392,12 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _S
                       reportDiagnostic(ctx, DIAG_ANON_BIT_FIELD_TYPE_NON_INT, &declarator.coordinates, type);
                     }
                 }
+            } else if (curBitFieldUnit) {
+                offset += computeTypeSize(curBitFieldUnit) * factor;
             }
+
             AstStructDeclarator *structDeclarator = NULL;
-            structDeclarator = createStructDeclarator(ctx, &coords, type, name, width);
+            structDeclarator = createStructDeclarator(ctx, &coords, type, name, offset);
             AstStructMember *member = createStructMember(ctx, NULL, structDeclarator, NULL);
             if (tail) {
                 tail->next = member;
@@ -1373,6 +1405,13 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, struct _S
                 head = member;
             }
             tail = member;
+
+            if (!hasWidth) {
+              bitOffset = 0;
+              curBitFieldUnit = NULL;
+              offset += computeTypeSize(type) * factor;
+            }
+
             if (!nextTokenIf(ctx, ',')) break;
         }
 
@@ -1401,6 +1440,8 @@ static AstSUEDeclaration* parseStructOrUnionDeclaration(ParserContext *ctx, Decl
     Boolean isDefinition = FALSE;
 
     Coordinates coords = { ctx->token->coordinates.startOffset };
+    unsigned factor = ctx->token->code == STRUCT ? 1 : 0;
+
     int token = nextToken(ctx)->rawCode;
     coords.endOffset = ctx->token->coordinates.endOffset;
 
@@ -1420,7 +1461,7 @@ static AstSUEDeclaration* parseStructOrUnionDeclaration(ParserContext *ctx, Decl
         goto done;
     }
 
-    members = parseStructDeclarationList(ctx, scope);
+    members = parseStructDeclarationList(ctx, factor, scope);
 
     coords.endOffset = ctx->token->coordinates.endOffset;
     consume(ctx, '}');

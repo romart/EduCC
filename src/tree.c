@@ -52,12 +52,12 @@ AstStructMember* createStructMember(ParserContext *ctx, AstDeclaration *declarat
 }
 
 
-AstStructDeclarator* createStructDeclarator(ParserContext *ctx, Coordinates *coords, TypeRef *type, const char *name, int width) {
+AstStructDeclarator* createStructDeclarator(ParserContext *ctx, Coordinates *coords, TypeRef *type, const char *name, unsigned offset) {
     AstStructDeclarator* result = (AstStructDeclarator*)areanAllocate(ctx->memory.astArena, sizeof(AstStructDeclarator));
 
     result->coordinates.startOffset = coords->startOffset;
     result->coordinates.endOffset = coords->endOffset;
-    result->f_width = width;
+    result->offset = offset;
 
     result->name = name;
     result->typeRef = type;
@@ -273,11 +273,13 @@ AstExpression *createCallExpression(ParserContext *ctx, Coordinates *coords, Ast
     return result;
 }
 
-AstExpression *createFieldExpression(ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *receiver, const char *member) {
+AstExpression *createFieldExpression(ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *receiver, AstStructDeclarator *member) {
     AstExpression *result = allocAstExpression(ctx, coords);
     result->op = op;
     result->fieldExpr.recevier = receiver;
     result->fieldExpr.member = member;
+    result->type = member->typeRef;
+
     return result;
 }
 
