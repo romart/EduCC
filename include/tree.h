@@ -119,7 +119,7 @@ typedef struct _AstCallExpression {
 
 typedef struct _AstFieldExpression {
     struct _AstExpression* recevier;
-    const char* member;
+    struct _AstStructDeclarator *member;
 } AstFieldExpression;
 
 
@@ -321,8 +321,7 @@ typedef struct _AstStructDeclarator {
     Coordinates coordinates;
     TypeRef *typeRef;
     const char *name;
-
-    int f_width; // -1 if not specified;
+    unsigned offset;
 } AstStructDeclarator;
 
 typedef enum _StructMember {
@@ -452,7 +451,7 @@ EnumConstant *createEnumConst(ParserContext *ctx, Coordinates *coords, const cha
 
 AstInitializerList *createAstInitializerList(ParserContext *ctx);
 AstInitializer *createAstInitializer(ParserContext *ctx, Coordinates *coords, InitializerKind kind);
-AstStructDeclarator *createStructDeclarator(ParserContext *ctx, Coordinates *coords, TypeRef *type, const char *name, int width);
+AstStructDeclarator *createStructDeclarator(ParserContext *ctx, Coordinates *coords, TypeRef *type, const char *name, unsigned offset);
 AstStructMember* createStructMember(ParserContext *ctx, AstDeclaration *declaration, AstStructDeclarator *declarator, EnumConstant *enumerator);
 AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, Coordinates *coords, DeclarationKind kind, unsigned isDefinition, const char *name, AstStructMember *members);
 AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, Coordinates *coords, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, Boolean isVariadic);
@@ -474,7 +473,7 @@ AstExpression *createBinaryExpression(ParserContext *ctx, ExpressionType op, Typ
 AstExpression *createUnaryExpression(ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *argument);
 AstExpression *createNameRef(ParserContext *ctx, Coordinates *coords, const char *name, struct _Symbol *s);
 AstExpression *createCallExpression(ParserContext *ctx, Coordinates *coords, AstExpression *callee, AstExpressionList *arguments);
-AstExpression *createFieldExpression(ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *receiver, const char *member);
+AstExpression *createFieldExpression(ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *receiver, AstStructDeclarator *member);
 AstExpression *createParenExpression(ParserContext *ctx, Coordinates *coords, AstExpression *parened);
 AstExpression *createLabelRefExpression(ParserContext *ctx, Coordinates *coords, const char *label);
 AstExpression *createErrorExpression(ParserContext *ctx, Coordinates *coords);

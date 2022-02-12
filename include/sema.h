@@ -18,7 +18,7 @@ int computeSUETypeSize(ParserContext *ctx, AstSUEDeclaration *declaration);
 
 
 TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, Coordinates *coords, TypeRef *arrayType, TypeRef *indexType);
-TypeRef *computeMemberAccessType(ParserContext *ctx, Coordinates *coords, TypeRef *receiverType, const char *memberName, ExpressionType op);
+AstStructDeclarator *computeMemberDeclarator(ParserContext *ctx, Coordinates *coords, TypeRef *receiverType, const char *memberName, ExpressionType op);
 TypeRef *computeFunctionReturnType(ParserContext *ctx, Coordinates *coords, TypeRef *calleeType);
 TypeRef *computeIncDecType(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, ExpressionType op);
 TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, ExpressionType op);

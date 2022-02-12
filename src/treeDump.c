@@ -83,9 +83,9 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
         AstFieldExpression *fieldExpr = &expr->fieldExpr;
         result += dumpAstExpressionImpl(output, 0, fieldExpr->recevier);
         if (expr->op == EF_ARROW) {
-            result += fprintf(output, "->%s", fieldExpr->member);
+            result += fprintf(output, "->%s", fieldExpr->member->name);
         } else {
-            result += fprintf(output, ".%s", fieldExpr->member);
+            result += fprintf(output, ".%s", fieldExpr->member->name);
         }
         break;
     }
@@ -576,10 +576,7 @@ static int dumpAstSUEDeclarationImpl(FILE *output, int indent, AstSUEDeclaration
           AstStructDeclarator *declarator = member->declarator;
           assert(declarator != NULL);
           result += dumpTypeRefImpl(output, indent + 2, declarator->typeRef);
-          result += fprintf(output, " %s", declarator->name);
-          if (declarator->f_width >= 0) {
-            result += fprintf(output, " : %d", declarator->f_width);
-          }
+          result += fprintf(output, " %s #%u", declarator->name, declarator->offset);
         } else {
           AstDeclaration *declaration = member->declaration;
           assert(member->kind == SM_DECLARATION && declaration != NULL);

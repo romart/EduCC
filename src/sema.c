@@ -310,9 +310,9 @@ TypeRef *computeFunctionReturnType(ParserContext *ctx, Coordinates *coords, Type
 
 
 
-TypeRef *computeMemberAccessType(ParserContext *ctx, Coordinates *coords, TypeRef *_receiverType, const char *memberName, ExpressionType op) {
+AstStructDeclarator *computeMemberDeclarator(ParserContext *ctx, Coordinates *coords, TypeRef *_receiverType, const char *memberName, ExpressionType op) {
   assert(op == EF_DOT || op == EF_ARROW);
-  if (isErrorType(_receiverType)) return _receiverType;
+  if (isErrorType(_receiverType)) return NULL;
 
   TypeRef *receiverType = _receiverType;
 
@@ -323,14 +323,14 @@ TypeRef *computeMemberAccessType(ParserContext *ctx, Coordinates *coords, TypeRe
         receiverType = _receiverType->arrayTypeDesc.elementType;
     } else {
         reportDiagnostic(ctx, DIAG_MEMBER_REF_NOT_A_POINTER, coords, _receiverType);
-        return makeErrorRef(ctx);
+        return NULL;
     }
   }
 
 
   if (!isStructualType(receiverType)) {
       reportDiagnostic(ctx, DIAG_MEMBER_REF_NOT_A_STRUCTUAL, coords, receiverType);
-      return makeErrorRef(ctx);
+      return NULL;
   }
 
   AstSUEDeclaration *declaration = receiverType->descriptorDesc->structInfo;
@@ -353,11 +353,11 @@ TypeRef *computeMemberAccessType(ParserContext *ctx, Coordinates *coords, TypeRe
 
   if (memberDeclarator == NULL) {
       reportDiagnostic(ctx, DIAG_NO_MEMBER_NAME, coords, memberName, receiverType);
-      return makeErrorRef(ctx);
+      return NULL;
   }
 
 
-  return memberDeclarator->typeRef;
+  return memberDeclarator;
 }
 
 TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op) {
@@ -1737,17 +1737,14 @@ static int computeUnionTypeSize(ParserContext *ctx, AstSUEDeclaration *declarati
       if (member->kind == SM_DECLARATOR) {
          AstStructDeclarator *declarator = member->declarator;
 
-         if (declarator->f_width >= 0) {
-            unsigned aligned = ALIGN_SIZE(declarator->f_width, BYTE_BIT_SIZE);
-            result = max(result, aligned / BYTE_BIT_SIZE);
-         } else {
-            int tmp = computeTypeSize(declarator->typeRef);
-            if (tmp < 0) {
-                reportDiagnostic(ctx, DIAG_FIELD_INCOMPLETE_TYPE, &declarator->coordinates, declarator->name, declarator->typeRef);
-                return UNKNOWN_SIZE;
-            }
-            result = max(result, tmp);
+         TypeRef *type = declarator->typeRef;
+
+         int tmp = computeTypeSize(declarator->typeRef);
+         if (tmp < 0) {
+             reportDiagnostic(ctx, DIAG_FIELD_INCOMPLETE_TYPE, &declarator->coordinates, declarator->name, declarator->typeRef);
+             return UNKNOWN_SIZE;
          }
+         result = max(result, tmp);
       }
 
       member = member->next;
@@ -1770,10 +1767,13 @@ static int computeStructTypeSize(ParserContext *ctx, AstSUEDeclaration *declarat
       assert(member->kind != SM_ENUMERATOR);
       if (member->kind == SM_DECLARATOR) {
          AstStructDeclarator *declarator = member->declarator;
-         if (declarator->f_width >= 0) {
-            bitCount += declarator->f_width;
+         TypeRef *memberType = declarator->typeRef;
+         if (memberType->kind == TR_BITFIELD) {
+            if (memberType->bitFieldDesc.offset == 0) {
+                result += computeTypeSize(memberType->bitFieldDesc.storageType);
+            }
          } else {
-            int tmp = computeTypeSize(declarator->typeRef);
+            int tmp = computeTypeSize(memberType);
             if (tmp < 0) {
                 reportDiagnostic(ctx, DIAG_FIELD_INCOMPLETE_TYPE, &declarator->coordinates, declarator->name, declarator->typeRef);
                 return UNKNOWN_SIZE;
