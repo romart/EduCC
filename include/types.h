@@ -69,11 +69,18 @@ typedef struct _TypeDesc {
   struct _AstSUEDeclaration *structInfo;
 } TypeDesc;
 
+typedef struct _BitFieldTypeDescriptor {
+  struct _TypeRef *storageType;
+  unsigned offset : 7;
+  unsigned width  : 7;
+} BitFieldTypeDescriptor;
+
 typedef enum _TypeRefKind {
     TR_VALUE,
     TR_POINTED,
     TR_ARRAY,
-    TR_FUNCTION
+    TR_FUNCTION,
+    TR_BITFIELD
 } TypeRefKind;
 
 typedef struct _TypeRef {
@@ -84,6 +91,7 @@ typedef struct _TypeRef {
         FunctionTypeDescriptor functionTypeDesc;
         struct _TypeRef *pointedTo; // aka UnderlyingType
         ArrayTypeDescriptor arrayTypeDesc;
+        BitFieldTypeDescriptor bitFieldDesc;
     };
 } TypeRef;
 

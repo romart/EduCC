@@ -125,6 +125,7 @@ TypeRef *makeArrayType(ParserContext *ctx, int size, TypeRef *elementType);
 TypeRef *makeFunctionType(ParserContext *ctx, TypeRef *returnType, FunctionParams *params);
 TypeRef *makeFunctionReturnType(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator);
 TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator);
+TypeRef *makeBitFieldType(ParserContext *ctx, TypeRef *storage, unsigned offset, unsigned width);
 TypeRef *makeErrorRef(ParserContext *ctx);
 
 
