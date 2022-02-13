@@ -1,0 +1,24 @@
+FILE test/testData/parser/positive/compoundStringLiteral.c
+  FUN signed int test 
+  BEGIN
+    signed char[1] s0 = \
+      ""
+    *C signed char s1 = \
+      "1"
+    signed char[4] s2 = \
+      "122"
+    signed char[11] s3 = \
+      "1222333333"
+    signed char[7] s4 = \
+      "123459"
+    signed int l0 = \
+      s0 , 1
+    signed int l1 = \
+      s1 , 8
+    signed int l2 = \
+      s2 , 4
+    signed int l3 = \
+      s3 , 11
+    signed int l4 = \
+      s4 , 7    
+  END

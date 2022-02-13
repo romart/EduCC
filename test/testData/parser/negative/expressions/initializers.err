@@ -6,7 +6,7 @@ test/testData/parser/negative/expressions/initializers.c:23:15: error: assigning
 test/testData/parser/negative/expressions/initializers.c:33:15: error: assigning to '*signed int' from incompatible type 'C float'
 test/testData/parser/negative/expressions/initializers.c:39:15: warning: incompatible integer to pointer conversion assigning to '*signed int' from 'C signed int'
 test/testData/parser/negative/expressions/initializers.c:55:15: error: assigning to '*signed int' from incompatible type 'C float'
-test/testData/parser/negative/expressions/initializers.c:61:15: warning: incompatible pointer types assigning to '*signed int' from 'C *signed char'
+test/testData/parser/negative/expressions/initializers.c:61:15: warning: incompatible pointer types assigning to '*signed int' from 'signed char[4]'
 test/testData/parser/negative/expressions/initializers.c:22:19: error: initializer element is not a compile-time constant
 test/testData/parser/negative/expressions/initializers.c:27:24: warning: excess elements in scalar initializer
 test/testData/parser/negative/expressions/initializers.c:29:24: warning: excess elements in scalar initializer
