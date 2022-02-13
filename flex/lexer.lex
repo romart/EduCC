@@ -51,6 +51,7 @@ int fileno(FILE *stream);
 
 "/"+"/"+[^\n]*   { }
 
+"\"\""                  { return(EMPTY_STRING_LITERAL); }
 "\""                    { BEGIN(STRING); }
 <STRING>[^\"\n]*        { return(STRING_LITERAL); }
 <STRING>"\n"            { BEGIN(INITIAL); return(DANGLING_NEWLINE); }

@@ -363,6 +363,9 @@ static Token* nextToken(ParserContext *ctx) {
         cur->coordinates.startOffset -= 1; // "..
         cur->coordinates.endOffset += 1; // .."
         cur->text = copyLiteralString(ctx);
+    } else if (rawToken == EMPTY_STRING_LITERAL) {
+        cur->code = STRING_LITERAL;
+        cur->text = "";
     }
 
     if (ctx->token) {
