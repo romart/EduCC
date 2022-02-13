@@ -603,10 +603,32 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
         }
         case STRING_LITERAL: {
             // compound string literal
-            const char* s = ctx->token->text;
-            result = createAstConst(ctx, &coords, CK_STRING_LITERAL, &s);
-            result->type = makePointedType(ctx, flags, makePrimitiveType(ctx, T_S1, 0));
-            break;
+            Token *first = ctx->token;
+            int code = -1;
+            unsigned length = 0;
+            Token *last = NULL;
+
+            while (ctx->token->code == STRING_LITERAL) {
+                last = ctx->token;
+                length += (ctx->token->coordinates.endOffset - ctx->token->coordinates.startOffset - 2);
+                nextToken(ctx);
+            }
+
+            coords.endOffset = last->coordinates.endOffset;
+
+            char *buffer = allocateString(ctx, length + 1);
+            const char *literal = buffer;
+
+            while (first->code == STRING_LITERAL) {
+                unsigned l = (first->coordinates.endOffset - first->coordinates.startOffset - 2);
+                strncpy(buffer, first->text, l);
+                buffer += l;
+                first = first->next;
+            }
+
+            result = createAstConst(ctx, &coords, CK_STRING_LITERAL, &literal);
+            result->type = makeArrayType(ctx, length + 1, makePrimitiveType(ctx, T_S1, 0));
+            return result;
         }
         case 0:
           return createErrorExpression(ctx, &coords);
