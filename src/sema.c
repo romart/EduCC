@@ -984,7 +984,13 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
           assert(initializer->numOfInitializers >= 0);
           valueType->arrayTypeDesc.size = initializer->numOfInitializers;
       } else {
-          reportDiagnostic(ctx, DIAG_INVALID_INITIALIZER, coords);
+          AstExpression *expr = initializer->expression;
+          if (expr->op == E_CONST && expr->constExpr.op == CK_STRING_LITERAL) {
+              assert(expr->type->kind == TR_ARRAY);
+              valueType->arrayTypeDesc.size = expr->type->arrayTypeDesc.size;
+          } else {
+              reportDiagnostic(ctx, DIAG_INVALID_INITIALIZER, coords);
+          }
           return initializer;
       }
   }
