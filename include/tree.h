@@ -467,6 +467,7 @@ AstFile *createAstFile(ParserContext *ctx);
 // expressions
 
 AstExpression* createAstConst(ParserContext *ctx, Coordinates *coords, ConstKind type, void* value);
+AstExpression* createAstConst2(ParserContext *ctx, Coordinates *coords, TypeRef *type, AstConst *cnst);
 AstExpression *createCastExpression(ParserContext *ctx, Coordinates *coords, TypeRef *typeRef, AstExpression *argument);
 AstExpression *createTernaryExpression(ParserContext *ctx, TypeRef *type, AstExpression *cond, AstExpression *t, AstExpression* f);
 AstExpression *createBinaryExpression(ParserContext *ctx, ExpressionType op, TypeRef *type, AstExpression *left, AstExpression *right);

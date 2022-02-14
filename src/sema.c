@@ -239,7 +239,7 @@ static Boolean isPrimitiveType(TypeRef *type) {
   return FALSE;
 }
 
-static Boolean isPointerLikeType(TypeRef *type) {
+Boolean isPointerLikeType(TypeRef *type) {
   return type->kind == TR_POINTED || type->kind == TR_ARRAY;
 }
 
@@ -1664,6 +1664,7 @@ Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeI
                 // TODO: also point to already defined one
             } else {
                 typeDescriptor->structInfo = declaration;
+                typeDescriptor->size = computeSUETypeSize(ctx, declaration);
             }
           }
       }

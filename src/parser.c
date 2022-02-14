@@ -2921,17 +2921,16 @@ void compileFile(Configuration * config) {
 
       Boolean hasError = printDiagnostics(&context.diagnostics, config->verbose);
 
-      if (config->dumpFileName) {
-          dumpFile(astFile, config->dumpFileName);
-      }
-
       if (config->memoryStatistics) {
           printMemoryStatistics(&context);
       }
 
       if (!hasError) {
-//          GeneratedFile *genFile = generateCodeForFile(&context, astFile);
-          // TODO: emit it
+        cannonizeAstFile(&context, astFile);
+      }
+
+      if (config->dumpFileName) {
+          dumpFile(astFile, config->dumpFileName);
       }
 
       releaseContext(&context);

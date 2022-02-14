@@ -202,6 +202,15 @@ AstExpression* createAstConst(ParserContext *ctx, Coordinates *coords, ConstKind
     return result;
 }
 
+AstExpression* createAstConst2(ParserContext *ctx, Coordinates *coords, TypeRef *type, AstConst *cnst) {
+    AstExpression* result = allocAstExpression(ctx, coords);
+    result->op = E_CONST;
+    result->constExpr = *cnst;
+    result->type = type;
+
+    return result;
+}
+
 AstExpression *createParenExpression(ParserContext *ctx, Coordinates *coords, AstExpression *parened) {
   AstExpression* result = allocAstExpression(ctx, coords);
 

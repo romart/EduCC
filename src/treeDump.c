@@ -89,16 +89,18 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
         }
         break;
     }
-    case EU_PRE_INC: result += fprintf(output, "++"); goto pre;
-    case EU_PRE_DEC: result += fprintf(output, "--"); goto pre;
     case EU_DEREF: result += fprintf(output, "*"); goto pre;
     case EU_REF: result += fprintf(output, "&"); goto pre;
+    case EU_PRE_INC: result += fprintf(output, "++"); goto pre;
+    case EU_PRE_DEC: result += fprintf(output, "--"); goto pre;
     case EU_PLUS: result += fprintf(output, "+"); goto pre;
     case EU_MINUS: result += fprintf(output, "-"); goto pre;
     case EU_TILDA: result += fprintf(output, "~"); goto pre;
     case EU_EXL: result += fprintf(output, "!"); goto pre;
     pre:
+        result += fprintf(output, "(");
         result += dumpAstExpressionImpl(output, 0, expr->unaryExpr.argument);
+        result += fprintf(output, ")");
         break;
     case EU_POST_INC: mnemonic = "++"; goto post;
     case EU_POST_DEC: mnemonic = "--"; goto post;

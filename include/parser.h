@@ -23,6 +23,7 @@ typedef struct _Configuration {
 
 
 void compileFile(Configuration * config);
+void cannonizeAstFile(ParserContext *ctx, AstFile *file);
 AstConst* eval(ParserContext *ctx, AstExpression* expression);
 
 typedef struct _Token {
