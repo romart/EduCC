@@ -1,0 +1,8 @@
+FILE test/testData/parser/positive/declaration.c
+  signed int g = \
+    10
+----
+  E signed int h
+----
+  S signed int s = \
+    15

@@ -1,0 +1,158 @@
+FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
+  STRUCT S1
+    signed int a #0
+    signed int b #4
+  STRUCT_END
+----
+  STRUCT S2
+    STRUCT S1 s1 #0
+    *STRUCT S2 p_s2 #8
+    signed int c #16
+  STRUCT_END
+----
+  STRUCT S3
+    STRUCT S2 s2 #0
+    STRUCT S1 s1 #24
+    STRUCT S1[10] s1_arr #32
+    (*STRUCT S2)[10] p_s2_arr #112
+  STRUCT_END
+----
+  STRUCT S4
+    unsigned int:0:6 bf #0
+    unsigned int:6:7 ff #0
+    STRUCT S3 s3 #4
+  STRUCT_END
+----
+  FUN signed int testArrayPrimitive 
+  BEGIN
+    signed int i = \
+      0
+    signed int[10] arr
+    signed char[10] carr
+    signed int a = \
+      arr[i]
+    signed int b = \
+      arr[2]
+    signed int c = \
+      arr[4]
+    signed int d = \
+      carr[0]
+    signed int e = \
+      carr[9]    
+  END
+----
+  FUN signed int testStructValued1 
+  BEGIN
+    STRUCT S1 s1
+    signed int a = \
+      s1.a
+    signed int b = \
+      s1.b    
+  END
+----
+  FUN signed int testStructPointed1 
+    #0: *STRUCT S1 p_s1
+  BEGIN
+    signed int a = \
+      p_s1->a
+    signed int b = \
+      p_s1->b    
+  END
+----
+  FUN signed int testStructValued2 
+  BEGIN
+    STRUCT S2 s2
+    signed int a = \
+      s2.s1.b
+    signed int c = \
+      s2.p_s2->c    
+  END
+----
+  FUN signed int testStructPointed2 
+    #0: *STRUCT S2 p_s2
+  BEGIN
+    signed int a = \
+      p_s2->s1.a
+    signed int b = \
+      p_s2->p_s2->c
+    signed int c = \
+      p_s2->c    
+  END
+----
+  FUN signed int testStructValued3 
+    #0: signed int i
+  BEGIN
+    STRUCT S3 s3
+    signed int b = \
+      s3.s2.s1.b
+    signed int c = \
+      s3.s2.p_s2->c
+    signed int d = \
+      s3.s1_arr[i].b
+    signed int e = \
+      s3.p_s2_arr[i + 1]->p_s2->s1.b
+    signed int e = \
+      s3.p_s2_arr[i + 1]->p_s2->c    
+  END
+----
+  FUN signed int testStructPointed3 
+    #0: *STRUCT S3 p_s3
+    #1: signed int i
+  BEGIN
+    signed int b = \
+      p_s3->s2.s1.b
+    signed int c = \
+      p_s3->s2.p_s2->c
+    signed int d = \
+      p_s3->s1_arr[i].b
+    signed int e = \
+      p_s3->p_s2_arr[i + 1]->p_s2->s1.b
+    signed int e = \
+      p_s3->p_s2_arr[i + 1]->p_s2->c    
+  END
+----
+  FUN signed int testStructPointed4 
+    #0: *STRUCT S4 p_s4
+    #1: signed int i
+  BEGIN
+    signed int f1 = \
+      p_s4->bf
+    signed int f2 = \
+      p_s4->ff
+    signed int b = \
+      p_s4->s3.s2.s1.b
+    signed int c = \
+      p_s4->s3.s2.p_s2->c
+    signed int d = \
+      p_s4->s3.s1_arr[i].b
+    signed int e = \
+      p_s4->s3.p_s2_arr[i + 15]->p_s2->s1.b
+    signed int e = \
+      p_s4->s3.p_s2_arr[i + 15]->p_s2->c    
+  END
+----
+  FUN signed int testStructValued 
+    #0: signed int i
+  BEGIN
+    STRUCT S4 s4
+    signed int a = \
+      s4.bf
+    signed int b = \
+      s4.ff
+    signed int c = \
+      s4.s3.s2.s1.a
+    signed int d = \
+      s4.s3.s2.s1.b
+    signed int e = \
+      s4.s3.s2.p_s2->c
+    signed int f = \
+      s4.s3.s2.c
+    signed int g = \
+      s4.s3.s1.a
+    signed int h = \
+      s4.s3.s1.b
+    signed int j = \
+      s4.s3.s1_arr[i].b
+    signed int k = \
+      s4.s3.p_s2_arr[i]->p_s2->p_s2->c    
+  END

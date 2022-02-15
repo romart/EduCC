@@ -1,0 +1,30 @@
+FILE test/testData/parser/positive/functionalTypes.c
+  FUN *signed int qux 
+    #0: ******{signed int (*****{double (*STRUCT S)})} f
+  BEGIN
+    
+  END
+----
+  FUN *signed int fxx 
+    #0: signed int p
+----
+  (((***{*signed int (*{*signed int (signed int, **{**signed int (signed int, **signed int)})}, signed int)})[40])[30])[20] x
+----
+  (*{*signed int (signed int)})[10] xx
+----
+  TYPEDF f_t = *{signed int (signed int, signed int)}
+----
+  FUN void foo 
+    #0: *C signed char
+    ## ...
+----
+  FUN *{signed int (signed int, signed int)} fax 
+    #0: signed int a
+    #1: signed int b
+  BEGIN
+    signed int c = \
+      15
+    FOR (c = a; c < b; ++c)
+      foo("%d %d %d", a, b, c)      
+    END_FOR    
+  END

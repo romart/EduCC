@@ -1,0 +1,5 @@
+FILE test/testData/parser/negative/typedefoName.c
+  FUN void test 
+  BEGIN
+    
+  END
