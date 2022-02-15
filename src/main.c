@@ -13,6 +13,8 @@ int main(int argc, char** argv) {
     const char *arg = argv[i];
     if (strcmp("-astDump", arg) == 0) {
       config.dumpFileName = argv[++i];
+    } else if (strcmp("-astCanonDump", arg) == 0) {
+      config.canonDumpFileName = argv[++i];
     } else if (strcmp("-oneline", arg) == 0) {
       config.verbose = 0;
     } else if (strcmp("-memstat", arg) == 0) {
