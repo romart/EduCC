@@ -2930,8 +2930,10 @@ void compileFile(Configuration * config) {
       }
 
       if (!hasError) {
-//          GeneratedFile *genFile = generateCodeForFile(&context, astFile);
-          // TODO: emit it
+        cannonizeAstFile(&context, astFile);
+        if (config->canonDumpFileName) {
+          dumpFile(astFile, config->canonDumpFileName);
+        }
       }
 
       releaseContext(&context);

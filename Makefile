@@ -25,6 +25,7 @@ SOURCES=\
     $(SRCDIR)/memory.c \
     $(SRCDIR)/diagnostics.c \
     $(SRCDIR)/evaluate.c \
+    $(SRCDIR)/cannonization.c \
     $(GENERATED_SRC_DIR)/lex.yy.c
 
 OBJ=$(patsubst %.c,%.o,$(subst $(SRCDIR)/,$(OBJDIR)/, $(SOURCES)))
