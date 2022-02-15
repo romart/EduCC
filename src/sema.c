@@ -1664,6 +1664,7 @@ Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeI
                 // TODO: also point to already defined one
             } else {
                 typeDescriptor->structInfo = declaration;
+                typeDescriptor->size = computeSUETypeSize(ctx, declaration);
             }
           }
       }
