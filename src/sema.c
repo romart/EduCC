@@ -215,7 +215,7 @@ static Boolean isStructualType(TypeRef *type) {
   return FALSE;
 }
 
-static Boolean isVoidType(TypeRef *type) {
+Boolean isVoidType(TypeRef *type) {
   if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_VOID)
     return TRUE;
   return FALSE;
