@@ -63,6 +63,7 @@ def runTestForData(filePath, compiler, workingDir):
         testFilePath = dirname + '/' + name + '.c'
         expectedAstFilePath = dirname + '/' + name + '.txt'
         expectedErrFilePath = dirname + '/' + name + '.err'
+        expectedAstCanonFilePath = dirname + '/' + name + '.canon.txt'
         outputDir = workingDir + '/' + dirname
 
         if (not path.exists(outputDir)):
@@ -70,11 +71,12 @@ def runTestForData(filePath, compiler, workingDir):
 
         actualAstFilePath = workingDir + '/' + expectedAstFilePath
         actualErrFilePath = workingDir + '/' + expectedErrFilePath
+        actualAstCanonFilePath = workingDir + '/' + expectedAstCanonFilePath
 
         err = open(actualErrFilePath, 'w+')
 
         # print(f"Run process: {compiler} -astDump {actualFilePath} {testFilePath}")
-        process = Popen([compiler, "-oneline" , "-astDump", actualAstFilePath, testFilePath], stdout=DEVNULL, stderr=err)
+        process = Popen([compiler, "-oneline" , "-astDump", actualAstFilePath, "-astCanonDump", actualAstCanonFilePath, testFilePath], stdout=DEVNULL, stderr=err)
         exit_code = process.wait()
         if exit_code != 0:
             print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
@@ -88,11 +90,16 @@ def runTestForData(filePath, compiler, workingDir):
             if (testOk and path.exists(expectedErrFilePath)):
                 testOk = compareFilesLineByLine("Stderr", testFilePath, actualErrFilePath, expectedErrFilePath)
 
+            if (testOk and path.exists(actualAstCanonFilePath) and path.exists(expectedAstCanonFilePath)):
+                testOk = compareFilesLineByLine("AstCanonDump", testFilePath, actualAstCanonFilePath, expectedAstCanonFilePath)
+
             if (testOk):
                 print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
 
             updateExpectedFromActualIfNeed("AstDump", actualAstFilePath, expectedAstFilePath)
             updateExpectedFromActualIfNeed("Stderr", actualErrFilePath, expectedErrFilePath)
+            if (path.exists(actualAstCanonFilePath)):
+                updateExpectedFromActualIfNeed("AstCanonDump", actualAstCanonFilePath, expectedAstCanonFilePath)
 
 
 
