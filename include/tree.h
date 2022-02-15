@@ -61,6 +61,8 @@ typedef enum _ExpressionType {
     EB_ASSIGN
 } ExpressionType;
 
+unsigned opPriority(ExpressionType op);
+
 typedef signed long long sint64_const_t;
 typedef unsigned long long int64_const_t;
 typedef double float64_const_t;
