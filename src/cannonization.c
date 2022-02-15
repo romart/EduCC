@@ -43,9 +43,8 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
 
   TypeRef *indexType = makePrimitiveType(ctx, T_U8, 0);
 
-  if (!isVoidType(pointerType->pointedTo)) {
-      base = createCastExpression(ctx, &base->coordinates, voidPtrType(ctx), base);
-  }
+  // TODO: probably void* isn't the best choose, think about introducing an address type for that purpose
+  base->type = voidPtrType(ctx); // we do some address arith here, first normalize pointer
 
   AstExpression *elemSizeConst = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &elementSize);
   elemSizeConst->type = indexType;
@@ -153,6 +152,8 @@ static AstExpression *cannonizeAddExpression(ParserContext *ctx, AstExpression *
   expr->binaryExpr.left = left;
   expr->binaryExpr.right = right;
 
+  // TODO: same is possible for sub
+
   // x + ptr -> ptr + x
   if (isPointerLikeType(right->type)) {
     expr->binaryExpr.left = right;
@@ -190,23 +191,22 @@ static AstExpression *cannonizeAddExpression(ParserContext *ctx, AstExpression *
       }
   }
 
-  if (isPointerLikeType(left->type)) {
-      TypeRef *pointedTo = left->type->pointedTo;
-      if (!isVoidType(pointedTo)) {
-          u_int64_t elementSize = computeTypeSize(pointedTo);
-          if (elementSize != 1) {
-              TypeRef *p_void = voidPtrType(ctx);
-              left = createCastExpression(ctx, &left->coordinates, p_void, left);
-              AstExpression *elemSizeConst = createAstConst(ctx, &right->coordinates, CK_INT_CONST, &elementSize);
-              elemSizeConst->type = makePrimitiveType(ctx, T_S8, 0);
-              right = createBinaryExpression(ctx, EB_MUL, elemSizeConst->type, right, elemSizeConst);
-              expr->binaryExpr.left = left;
-              expr->binaryExpr.right = right;
-          }
-      }
-  }
-
-
+//  if (isPointerLikeType(expr->type)) {
+//      TypeRef *pointedTo = expr->type->pointedTo;
+//      if (!isVoidType(pointedTo)) {
+//          u_int64_t elementSize = computeTypeSize(pointedTo);
+//          if (elementSize != 1) {
+//              TypeRef *p_void = voidPtrType(ctx);
+////              left = createCastExpression(ctx, &left->coordinates, p_void, left);
+//              left->type = p_void;
+//              AstExpression *elemSizeConst = createAstConst(ctx, &right->coordinates, CK_INT_CONST, &elementSize);
+//              elemSizeConst->type = makePrimitiveType(ctx, T_S8, 0);
+//              right = createBinaryExpression(ctx, EB_MUL, elemSizeConst->type, right, elemSizeConst);
+//              expr->binaryExpr.left = left;
+//              expr->binaryExpr.right = right;
+//          }
+//      }
+//  }
 
   return cannonizeBinaryExpression(ctx, expr, TRUE);
 }
@@ -216,7 +216,8 @@ static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression
   AstExpression *offset = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &member->offset);
   offset->type = makePrimitiveType(ctx, T_U8, 0);
 
-  receiver = createCastExpression(ctx, &receiver->coordinates, voidPtrType(ctx), receiver);
+  // normalize pointer
+  receiver->type = voidPtrType(ctx);
 
   SpecifierFlags f = { 0 };
   AstExpression *offsetedPtr = createBinaryExpression(ctx, EB_ADD, receiver->type, receiver, offset);
