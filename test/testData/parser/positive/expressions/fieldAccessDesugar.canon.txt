@@ -23,136 +23,136 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     STRUCT S3 s3 #4
   STRUCT_END
 ----
-  FUN signed int testArrayPrimitive 
+  FUN signed int testArrayPrimitive
   BEGIN
     signed int i = \
       0
     signed int[10] arr
     signed char[10] carr
     signed int a = \
-      *((*void)arr + i * 4)
+      *(arr + i * 4)
     signed int b = \
-      *((*void)arr + 8)
+      *(arr + 8)
     signed int c = \
-      *((*void)arr + 16)
+      *(arr + 16)
     signed int d = \
-      *((*void)carr + 0)
+      *(carr + 0)
     signed int e = \
-      *((*void)carr + 9)    
+      *(carr + 9)
   END
 ----
-  FUN signed int testStructValued1 
+  FUN signed int testStructValued1
   BEGIN
     STRUCT S1 s1
     signed int a = \
-      *((*void)&s1)
+      *&s1
     signed int b = \
-      *((*void)&s1 + 4)    
+      *(&s1 + 4)
   END
 ----
-  FUN signed int testStructPointed1 
+  FUN signed int testStructPointed1
     #0: *STRUCT S1 p_s1
   BEGIN
     signed int a = \
-      *((*void)p_s1)
+      *p_s1
     signed int b = \
-      *((*void)p_s1 + 4)    
+      *(p_s1 + 4)
   END
 ----
-  FUN signed int testStructValued2 
+  FUN signed int testStructValued2
   BEGIN
     STRUCT S2 s2
     signed int a = \
-      *((*void)&s2 + 4)
+      *(&s2 + 4)
     signed int c = \
-      *((*void)*((*void)&s2 + 8) + 16)    
+      *(*(&s2 + 8) + 16)
   END
 ----
-  FUN signed int testStructPointed2 
+  FUN signed int testStructPointed2
     #0: *STRUCT S2 p_s2
   BEGIN
     signed int a = \
-      *((*void)p_s2)
+      *p_s2
     signed int b = \
-      *((*void)*((*void)p_s2 + 8) + 16)
+      *(*(p_s2 + 8) + 16)
     signed int c = \
-      *((*void)p_s2 + 16)    
+      *(p_s2 + 16)
   END
 ----
-  FUN signed int testStructValued3 
+  FUN signed int testStructValued3
     #0: signed int i
   BEGIN
     STRUCT S3 s3
     signed int b = \
-      *((*void)&s3 + 4)
+      *(&s3 + 4)
     signed int c = \
-      *((*void)*((*void)&s3 + 8) + 16)
+      *(*(&s3 + 8) + 16)
     signed int d = \
-      *((*void)((*void)*((*void)&s3 + 32) + i * 8) + 4)
+      *(*(&s3 + 32) + i * 8 + 4)
     signed int e = \
-      *((*void)*((*void)*((*void)*((*void)&s3 + 112) + (i + 1) * 8) + 8) + 4)
+      *(*(*(*(&s3 + 112) + (i + 1) * 8) + 8) + 4)
     signed int e = \
-      *((*void)*((*void)*((*void)*((*void)&s3 + 112) + (i + 1) * 8) + 8) + 16)    
+      *(*(*(*(&s3 + 112) + (i + 1) * 8) + 8) + 16)
   END
 ----
-  FUN signed int testStructPointed3 
+  FUN signed int testStructPointed3
     #0: *STRUCT S3 p_s3
     #1: signed int i
   BEGIN
     signed int b = \
-      *((*void)p_s3 + 4)
+      *(p_s3 + 4)
     signed int c = \
-      *((*void)*((*void)p_s3 + 8) + 16)
+      *(*(p_s3 + 8) + 16)
     signed int d = \
-      *((*void)((*void)*((*void)p_s3 + 32) + i * 8) + 4)
+      *(*(p_s3 + 32) + i * 8 + 4)
     signed int e = \
-      *((*void)*((*void)*((*void)*((*void)p_s3 + 112) + (i + 1) * 8) + 8) + 4)
+      *(*(*(*(p_s3 + 112) + (i + 1) * 8) + 8) + 4)
     signed int e = \
-      *((*void)*((*void)*((*void)*((*void)p_s3 + 112) + (i + 1) * 8) + 8) + 16)    
+      *(*(*(*(p_s3 + 112) + (i + 1) * 8) + 8) + 16)
   END
 ----
-  FUN signed int testStructPointed4 
+  FUN signed int testStructPointed4
     #0: *STRUCT S4 p_s4
     #1: signed int i
   BEGIN
     signed int f1 = \
-      *((*void)p_s4) >> 0 && 63
+      *p_s4 >> 0 && 63
     signed int f2 = \
-      *((*void)p_s4) >> 6 && 127
+      *p_s4 >> 6 && 127
     signed int b = \
-      *((*void)((*void)p_s4 + 4) + 4)
+      *(p_s4 + 8)
     signed int c = \
-      *((*void)*((*void)((*void)p_s4 + 4) + 8) + 16)
+      *(*(p_s4 + 12) + 16)
     signed int d = \
-      *((*void)((*void)*((*void)((*void)p_s4 + 4) + 32) + i * 8) + 4)
+      *(*(p_s4 + 36) + i * 8 + 4)
     signed int e = \
-      *((*void)*((*void)*((*void)*((*void)((*void)p_s4 + 4) + 112) + (i + 15) * 8) + 8) + 4)
+      *(*(*(*(p_s4 + 116) + (i + 15) * 8) + 8) + 4)
     signed int e = \
-      *((*void)*((*void)*((*void)*((*void)((*void)p_s4 + 4) + 112) + (i + 15) * 8) + 8) + 16)    
+      *(*(*(*(p_s4 + 116) + (i + 15) * 8) + 8) + 16)
   END
 ----
-  FUN signed int testStructValued 
+  FUN signed int testStructValued
     #0: signed int i
   BEGIN
     STRUCT S4 s4
     signed int a = \
-      *((*void)&s4) >> 0 && 63
+      *&s4 >> 0 && 63
     signed int b = \
-      *((*void)&s4) >> 6 && 127
+      *&s4 >> 6 && 127
     signed int c = \
-      *((*void)((*void)&s4 + 4))
+      *(&s4 + 4)
     signed int d = \
-      *((*void)((*void)&s4 + 4) + 4)
+      *(&s4 + 8)
     signed int e = \
-      *((*void)*((*void)((*void)&s4 + 4) + 8) + 16)
+      *(*(&s4 + 12) + 16)
     signed int f = \
-      *((*void)((*void)&s4 + 4) + 16)
+      *(&s4 + 20)
     signed int g = \
-      *((*void)((*void)((*void)&s4 + 4) + 24))
+      *(&s4 + 28)
     signed int h = \
-      *((*void)((*void)((*void)&s4 + 4) + 24) + 4)
+      *(&s4 + 32)
     signed int j = \
-      *((*void)((*void)*((*void)((*void)&s4 + 4) + 32) + i * 8) + 4)
+      *(*(&s4 + 36) + i * 8 + 4)
     signed int k = \
-      *((*void)*((*void)*((*void)*((*void)*((*void)((*void)&s4 + 4) + 112) + i * 8) + 8) + 8) + 16)    
+      *(*(*(*(*(&s4 + 116) + i * 8) + 8) + 8) + 16)
   END
