@@ -239,7 +239,7 @@ static Boolean isPrimitiveType(TypeRef *type) {
   return FALSE;
 }
 
-static Boolean isPointerLikeType(TypeRef *type) {
+Boolean isPointerLikeType(TypeRef *type) {
   return type->kind == TR_POINTED || type->kind == TR_ARRAY;
 }
 

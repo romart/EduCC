@@ -36,6 +36,7 @@ void verifyAndTransformCallAruments(ParserContext *ctx, Coordinates *coords, Typ
 Boolean isErrorType(TypeRef *type);
 Boolean isIntegerType(TypeRef *type);
 Boolean isVoidType(TypeRef *type);
+Boolean isPointerLikeType(TypeRef *type);
 
 Boolean isAssignableTypes(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, Boolean init);
 
