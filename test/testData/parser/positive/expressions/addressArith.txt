@@ -1,0 +1,49 @@
+FILE test/testData/parser/positive/expressions/addressArith.c
+  STRUCT S1
+    signed int a #0
+    signed int b #4
+    signed int c #8
+  STRUCT_END
+----
+  FUN signed int intPtrTest 
+    #0: *signed int p
+    #1: signed int x
+  BEGIN
+    *signed int ptr1 = \
+      1 + p
+    *signed int ptr2 = \
+      2 + p + 2
+    *signed int ptr3 = \
+      (p + 2) + 3
+    *signed int ptr4 = \
+      x + (3 + (2 + p))    
+  END
+----
+  FUN signed int voidPtrTest 
+    #0: *void p
+    #1: signed int x
+  BEGIN
+    *void ptr1 = \
+      1 + p + 1
+    *void ptr2 = \
+      2 + 2 + p
+    *void ptr3 = \
+      (p + 2) + 3
+    *void ptr4 = \
+      x + (3 + (2 + p))    
+  END
+----
+  FUN signed int structPtrTest 
+    #0: *STRUCT S1 p
+    #1: signed int x
+  BEGIN
+    *STRUCT S1 ptr1 = \
+      1 + p + 1
+    *STRUCT S1 ptr2 = \
+      2 + 2 + p
+    *STRUCT S1 ptr3 = \
+      (p + 2) + 3
+    *STRUCT S1 ptr4 = \
+      x + (3 + (2 + p))
+    
+  END
