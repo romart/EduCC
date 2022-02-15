@@ -1,0 +1,30 @@
+FILE test/testData/parser/positive/typedef.c
+  TYPEDF t_i = signed int
+----
+  TYPEDF pt_i = *signed int
+----
+  TYPEDF ppt_i = **signed int
+----
+  FUN void yylex 
+----
+  FUN signed int fopen 
+    #0: *C signed char
+    #1: *C signed char
+----
+  FUN signed int foo 
+    #0: signed int x
+    #1: signed int xx
+    #2: **signed int y
+    #3: *signed int pz
+    #4: **signed int ppz
+    #5: **signed int a
+    #6: ***signed int pa
+    #7: ****signed int ppa
+  BEGIN
+    signed int yyin = \
+      fopen("test.txt", "r")
+    yylex()
+    signed int t_t = \
+      x + yyin
+    RETURN 0    
+  END

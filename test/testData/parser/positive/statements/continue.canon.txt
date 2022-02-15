@@ -1,0 +1,61 @@
+FILE test/testData/parser/positive/statements/continue.c
+  FUN void foo 
+    #0: signed int x
+----
+  FUN void forTest 
+    #0: signed int a
+    #1: signed int b
+  BEGIN
+    signed int i = \
+      0
+    FOR (; i < a; ++i)
+      IF (a > b)
+      THEN
+        foo(a - b)
+        CONTINUE        
+      END_IF
+      foo(b)
+      foo(a)
+      forTest(b, b - a)      
+    END_FOR    
+  END
+----
+  FUN void whileTest 
+    #0: signed int a
+    #1: signed int b
+  BEGIN
+    signed int i = \
+      0
+    WHILE (i < a)
+      IF (a > b)
+      THEN
+        foo(a - b)
+        ++i
+        CONTINUE        
+      END_IF
+      foo(b)
+      foo(a)
+      whileTest(b, b - a)
+      --a      
+    END_WHILE    
+  END
+----
+  FUN void doWhileTest 
+    #0: signed int a
+    #1: signed int b
+  BEGIN
+    signed int i = \
+      0
+    DO
+      IF (a > b)
+      THEN
+        foo(a - b)
+        ++i
+        CONTINUE        
+      END_IF
+      foo(b)
+      foo(a)
+      whileTest(b, b - a)
+      --a      
+    WHILE (i < b)    
+  END
