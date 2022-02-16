@@ -55,11 +55,11 @@ FILE test/testData/parser/positive/expressions/addressArith.c
     *signed int ptr1 = \
       p - 4
     *signed int ptr2 = \
-      p
+      p - 16
     *signed int ptr3 = \
-      p - 8 + 12
+      p - -4
     *signed int ptr4 = \
-      p - x * 4 + 4    
+      p - (x * 4 - 4)
   END
 ----
   FUN void voidPtrTestMinus 
@@ -69,11 +69,11 @@ FILE test/testData/parser/positive/expressions/addressArith.c
     *void ptr1 = \
       p - 1
     *void ptr2 = \
-      p
+      p - 4
     *void ptr3 = \
-      p + 2 - 3
+      p + -1
     *void ptr4 = \
-      p - x - 1    
+      p - (x + 1)
   END
 ----
   FUN void structPtrTestMinus 
@@ -84,11 +84,11 @@ FILE test/testData/parser/positive/expressions/addressArith.c
     *STRUCT S1 ptr1 = \
       p - 96
     *STRUCT S1 ptr2 = \
-      p
+      p - 384
     *STRUCT S1 ptr3 = \
-      p + 192 - 288
+      p + -96
     *STRUCT S1 ptr4 = \
-      p - x * 96 + 96    
+      p - (x * 96 - 96)
   END
 ----
   FUN void intPtrTestDiff 
@@ -151,5 +151,5 @@ FILE test/testData/parser/positive/expressions/addressArith.c
     signed int h = \
       (ps3_2 - arr_s3) / 8
     signed int j = \
-      (p1 - a * 96 - b * 96 - p2) / 96    
+      (p1 - (p2 + a * 96 + b * 96)) / 96
   END
