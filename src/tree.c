@@ -78,6 +78,68 @@ unsigned opPriority(ExpressionType op) {
   return opPriorities[op];
 }
 
+Boolean isCommute(ExpressionType op) {
+  // a op b === b op a
+
+  switch (op) {
+  case EB_ADD:
+  case EB_MUL:
+  case EB_AND:
+  case EB_OR:
+  case EB_XOR:
+  case EB_ANDAND:
+  case EB_OROR:
+  case EB_NE:
+  case EB_EQ:
+      return TRUE;
+  default:
+    return FALSE;
+  }
+}
+
+Boolean isBinary(ExpressionType op) {
+  switch (op) {
+  case EB_ADD:
+  case EB_SUB:
+  case EB_MUL:
+  case EB_DIV:
+  case EB_MOD:
+  case EB_LHS: /** << */
+  case EB_RHS: /** >> */
+  case EB_AND:
+  case EB_OR:
+  case EB_XOR:
+  case EB_ANDAND:
+  case EB_OROR:
+  case EB_EQ:
+  case EB_NE:
+  case EB_LT:
+  case EB_LE:
+  case EB_GT:
+  case EB_GE:
+    return TRUE;
+  default:
+    return FALSE;
+  }
+}
+
+Boolean isAdditiveOp(ExpressionType op) {
+  // a op 0 === a
+
+  switch (op) {
+  case EB_ADD:
+  case EB_SUB:
+  case EB_OR:
+  case EB_XOR:
+  case EB_OROR:
+  case EB_LHS:
+  case EB_RHS:
+      return TRUE;
+    default:
+      return FALSE;
+  }
+}
+
 TypeDesc *createTypeDescriptor(ParserContext *ctx, TypeId typeId, const char *name, int size) {
   TypeDesc *result = (TypeDesc*)areanAllocate(ctx->memory.typeArena, sizeof(TypeDesc));
 

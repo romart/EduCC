@@ -63,6 +63,10 @@ typedef enum _ExpressionType {
 
 unsigned opPriority(ExpressionType op);
 
+Boolean isCommute(ExpressionType op);
+Boolean isBinary(ExpressionType op);
+Boolean isAdditiveOp(ExpressionType op);
+
 typedef signed long long sint64_const_t;
 typedef unsigned long long int64_const_t;
 typedef double float64_const_t;

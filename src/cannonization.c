@@ -7,21 +7,6 @@
 
 static AstExpression *transformExpression(ParserContext *ctx, AstExpression *expr);
 
-static Boolean isAdditiveOp(ExpressionType op) {
-  switch (op) {
-  case EB_ADD:
-  case EB_SUB:
-  case EB_OR:
-  case EB_XOR:
-  case EB_OROR:
-  case EB_LHS:
-  case EB_RHS:
-      return TRUE;
-    default:
-      return FALSE;
-  }
-}
-
 static TypeRef *voidPtrType(ParserContext *ctx) {
   SpecifierFlags f = { 0 };
 
