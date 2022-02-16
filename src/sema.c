@@ -412,6 +412,12 @@ TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* co
   return makeErrorRef(ctx); // Unknown situation
 }
 
+TypeRef *elementType(TypeRef *type) {
+  if (type->kind == TR_POINTED) return type->pointedTo;
+  if (type->kind == TR_ARRAY) return type->arrayTypeDesc.elementType;
+  return NULL;
+}
+
 TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, TypeRef* left, TypeRef *right, ExpressionType op) {
   if (isErrorType(left)) return left;
   if (isErrorType(right)) return right;
@@ -419,6 +425,28 @@ TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, TypeRef* lef
   if (isStructualType(left) || isStructualType(right)) {
       reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
       return makeErrorRef(ctx);
+  }
+
+  if (op == EB_EQ || op == EB_NE) {
+      if (isPointerLikeType(left) || isPointerLikeType(right)) {
+          if (isIntegerType(left) || isIntegerType(right)) {
+              reportDiagnostic(ctx, DIAG_INT_PTR_COMPARISON, coords, left, right);
+          } else if (!isPointerLikeType(left) || !isPointerLikeType(right)) {
+              reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
+              return makeErrorRef(ctx);
+          }
+      }
+  }
+
+  if (EB_LT <= op && op <= EB_GE) {
+      if (isPointerLikeType(left) || isPointerLikeType(right)) {
+          if (isIntegerType(left) || isIntegerType(right)) {
+              reportDiagnostic(ctx, DIAG_ORDEDER_INT_PTR_COMPARISON, coords, left, right);
+          } else if (!isPointerLikeType(left) || !isPointerLikeType(right)) {
+              reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
+              return makeErrorRef(ctx);
+          }
+      }
   }
 
   if (EB_ANDAND <= op && op <= EB_GE) {
@@ -452,24 +480,68 @@ TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, TypeRef* lef
 
   if (isPointerLikeType(left) && isPointerLikeType(right)) {
       assert(op == EB_SUB);
-      return makePrimitiveType(ctx, T_S8, 0);
+
+      TypeRef *savedL = left;
+      TypeRef *savedR = right;
+
+      TypeRef *l = left;
+      TypeRef *r = right;
+
+      while (l && r) {
+          left = l;
+          right = r;
+          l = elementType(l);
+          r = elementType(r);
+      }
+
+      if (l == r && typesEquals(left, right)) {
+          TypeRef *elemType = elementType(savedL);
+          int size = computeTypeSize(elemType);
+
+          if (size != UNKNOWN_SIZE) {
+            return makePrimitiveType(ctx, T_S8, 0);
+          } else {
+            reportDiagnostic(ctx, DIAG_PTR_ARITH_INCOMPLETE_TYPE, coords, elemType);
+          }
+      } else {
+        reportDiagnostic(ctx, DIAG_INCOMPATIBLE_PTR_DIFF, coords, savedL, savedR);
+      }
+      return makeErrorRef(ctx);
   }
 
   if (isPointerLikeType(left)) {
-      if (isIntegerType(right)) {
-        TypeRef *pointedL = left->kind == TR_POINTED ? left->pointedTo : left->arrayTypeDesc.elementType;
+      TypeRef *elemType = elementType(left);
+      int elemSize = computeTypeSize(elemType);
+      if (elemSize != UNKNOWN_SIZE && isIntegerType(right)) {
+        TypeRef *pointedL = elementType(left);
         return makePointedType(ctx, left->flags, pointedL);
       }
-      reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
+
+      if (elemSize == UNKNOWN_SIZE) {
+        reportDiagnostic(ctx, DIAG_PTR_ARITH_INCOMPLETE_TYPE, coords, elemType);
+      } else {
+        reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
+      }
+
       return makeErrorRef(ctx);
   }
 
   if (isPointerLikeType(right)) {
-      if (isIntegerType(left)) {
-        TypeRef *pointedR = right->kind == TR_POINTED ? right->pointedTo : right->arrayTypeDesc.elementType;
-        return makePointedType(ctx, right->flags, pointedR);
+      TypeRef *elemType = elementType(right);
+      int elemSize = computeTypeSize(elemType);
+      if (elemSize != UNKNOWN_SIZE && isIntegerType(left)) {
+        if (op == EB_ADD) {
+          TypeRef *pointedR = elementType(right);
+          return makePointedType(ctx, right->flags, pointedR);
+        }
       }
-      reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
+
+      if (elemSize == UNKNOWN_SIZE) {
+        reportDiagnostic(ctx, DIAG_PTR_ARITH_INCOMPLETE_TYPE, coords, elemType);
+      } else {
+        reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
+      }
+
       return makeErrorRef(ctx);
   }
 
@@ -1114,12 +1186,50 @@ AstExpression *transformBinaryExpression(ParserContext *ctx, AstExpression *expr
 
   if (isErrorType(expr->type)) return expr;
 
-  if (isPointerLikeType(expr->type)) return expr;
-
   AstExpression *left = expr->binaryExpr.left;
   AstExpression *right = expr->binaryExpr.right;
 
-  if (isPointerLikeType(left->type) || isPointerLikeType(right->type)) return expr;
+  if (isPointerLikeType(left->type) || isPointerLikeType(right->type)) {
+
+      if (isPointerLikeType(expr->type)) {
+          TypeRef *elemType = elementType(left->type);
+          AstExpression *base = left;
+          AstExpression *offset = right;
+          if (elemType == NULL) {
+              elemType = elementType(right->type);
+              base = right;
+              offset = left;
+          }
+
+          int64_t elemSize = isVoidType(elemType) ? 1 : computeTypeSize(elemType);
+
+          if (elemSize != 1) {
+            AstExpression *sizeConst = createAstConst(ctx, &offset->coordinates, CK_INT_CONST, &elemSize);
+            sizeConst->type = makePrimitiveType(ctx, T_S8, 0);
+            offset = createBinaryExpression(ctx, EB_MUL, sizeConst->type, offset, sizeConst);
+          }
+
+          if (base == left) {
+              expr->binaryExpr.left = base;
+              expr->binaryExpr.right = offset;
+          } else {
+              expr->binaryExpr.left = offset;
+              expr->binaryExpr.right = base;
+          }
+
+      } else {
+          if (expr->op == EB_SUB) {
+            TypeRef *elemType = elementType(left->type);
+            int64_t elemSize = isVoidType(elemType) ? 1 : computeTypeSize(elemType);
+            if (elemSize != 1) {
+              AstExpression *astConst = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &elemSize);
+              astConst->type = expr->type;
+              return createBinaryExpression(ctx, EB_DIV, expr->type, expr, astConst);
+            }
+          }
+      }
+      return expr;
+  }
 
   assert(left->type->kind == TR_VALUE);
   assert(right->type->kind == TR_VALUE);
