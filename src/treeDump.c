@@ -15,17 +15,21 @@ static int putIndent(FILE *output, int indent) {
   return result;
 }
 
-static int wrapIfNeeded(FILE *output, unsigned topPrior, AstExpression *arg) {
+static int wrapIfNeeded(FILE *output, ExpressionType topOp, AstExpression *arg, Boolean forced) {
+  unsigned topPrior = opPriority(topOp);
   unsigned argPriority = opPriority(arg->op);
+
   int result = 0;
 
-  if (topPrior > argPriority) {
+  Boolean needParens = forced || topPrior > argPriority;
+
+  if (needParens) {
       result += fprintf(output, "(");
   }
 
   result += dumpAstExpressionImpl(output, 0, arg);
 
-  if (topPrior > argPriority) {
+  if (needParens) {
       result += fprintf(output, ")");
   }
 
@@ -35,11 +39,11 @@ static int wrapIfNeeded(FILE *output, unsigned topPrior, AstExpression *arg) {
 static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) {
   int result = putIndent(output, indent);
 
-  unsigned priority = opPriority(expr->op);
+  ExpressionType op = expr->op;
+  ExpressionType op2 = E_ERROR;
 
   const char *mnemonic;
-  // TODO: add parens in case of less-priority operations
-  switch (expr->op) {
+  switch (op) {
     case E_CONST: {
         AstConst *cnts = &expr->constExpr;
         switch (cnts->op) {
@@ -65,7 +69,7 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
       break;
     case E_CALL: {
        AstCallExpression *callExpr = &expr->callExpr;
-       result += wrapIfNeeded(output, priority, callExpr->callee);
+       result += wrapIfNeeded(output, op, callExpr->callee, FALSE);
        result += fprintf(output, "(");
        int i;
        AstExpressionList *arguments = callExpr->arguments;
@@ -87,7 +91,7 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
         result += fprintf(output, "(");
         result += dumpTypeRefImpl(output, 0, castExpr->type);
         result += fprintf(output, ")");
-        result += wrapIfNeeded(output, priority, castExpr->argument);
+        result += wrapIfNeeded(output, op, castExpr->argument, FALSE);
         break;
     }
     case E_TERNARY: {
@@ -102,7 +106,7 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
     case EF_ARROW:
     case EF_DOT: {
         AstFieldExpression *fieldExpr = &expr->fieldExpr;
-        result += wrapIfNeeded(output, priority, fieldExpr->recevier);
+        result += wrapIfNeeded(output, op, fieldExpr->recevier, FALSE);
         if (expr->op == EF_ARROW) {
             result += fprintf(output, "->%s", fieldExpr->member->name);
         } else {
@@ -119,12 +123,12 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
     case EU_TILDA: result += fprintf(output, "~"); goto pre;
     case EU_EXL: result += fprintf(output, "!"); goto pre;
     pre:
-        result += wrapIfNeeded(output, priority, expr->unaryExpr.argument);
+        result += wrapIfNeeded(output, op, expr->unaryExpr.argument, FALSE);
         break;
     case EU_POST_INC: mnemonic = "++"; goto post;
     case EU_POST_DEC: mnemonic = "--"; goto post;
     post:
-        result += wrapIfNeeded(output, priority, expr->unaryExpr.argument);
+        result += wrapIfNeeded(output, op, expr->unaryExpr.argument, FALSE);
         result += fprintf(output, "%s", mnemonic);
         break;
 
@@ -149,12 +153,14 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
     case EB_COMMA: mnemonic = ","; goto binary;
     case EB_ASSIGN: mnemonic = "="; goto binary;
     binary:
-      result += wrapIfNeeded(output, priority, expr->binaryExpr.left);
+      result += wrapIfNeeded(output, op, expr->binaryExpr.left, FALSE);
       result += fprintf(output, " %s ", mnemonic);
-      result += wrapIfNeeded(output, priority, expr->binaryExpr.right);
+      op2 = expr->binaryExpr.right->op;
+      // In expressions like x - (a + b) or x - (a - b) rhs has to be enparened
+      result += wrapIfNeeded(output, op, expr->binaryExpr.right, op == EB_SUB && (op2 == EB_SUB || op2 == EB_ADD));
       break;
     case EB_A_ACC: /** a[b] */
-      result += wrapIfNeeded(output, priority, expr->binaryExpr.left);
+      result += wrapIfNeeded(output, op, expr->binaryExpr.left, FALSE);
       result += fprintf(output, "[");
       result += dumpAstExpressionImpl(output, 0, expr->binaryExpr.right);
       result += fprintf(output, "]");
