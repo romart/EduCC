@@ -46,12 +46,15 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
 }
 
 static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpression *expr, Boolean isComute) {
+  if (!isBinary(expr->op)) return expr;
+
   AstExpression *left = transformExpression(ctx, expr->binaryExpr.left);
   AstExpression *right = transformExpression(ctx, expr->binaryExpr.right);
 
   expr->binaryExpr.left = left;
   expr->binaryExpr.right = right;
 
+  isComute = isCommute(expr->op);
 
   // 1 op x -> x op 1
   if (isComute && left->op == E_CONST) {
@@ -98,25 +101,6 @@ static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpressio
       }
   }
 
-
-  // x op (y op 1) -> (x op y) op 1
-
-  if (right->op == expr->op) {
-      AstExpression *r_left = right->binaryExpr.left;
-      AstExpression *r_right = right->binaryExpr.right;
-
-      if (r_right->op == E_CONST) {
-          right->binaryExpr.left = left;
-          right->binaryExpr.right = r_left;
-          right->coordinates.startOffset = left->coordinates.startOffset;
-          right->coordinates.endOffset = r_left->coordinates.endOffset;
-          expr->binaryExpr.left = right;
-          expr->binaryExpr.right = r_right;
-          left = expr->binaryExpr.left;
-          right = expr->binaryExpr.right;
-      }
-  }
-
   if (isAdditiveOp(expr->op)) {
       if (right->op == E_CONST) {
           if (right->constExpr.i == 0) {
@@ -128,16 +112,16 @@ static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpressio
   return expr;
 }
 
+static AstExpression *cannonizeSubExpression(ParserContext *ctx, AstExpression *expr);
+
 static AstExpression *cannonizeAddExpression(ParserContext *ctx, AstExpression *expr) {
-  assert(expr->op == EB_ADD);
+  if (expr->op != EB_ADD) return expr;
 
   AstExpression *left = transformExpression(ctx, expr->binaryExpr.left);
   AstExpression *right = transformExpression(ctx, expr->binaryExpr.right);
 
   expr->binaryExpr.left = left;
   expr->binaryExpr.right = right;
-
-  // TODO: same is possible for sub
 
   // x + ptr -> ptr + x
   if (isPointerLikeType(right->type)) {
@@ -163,12 +147,32 @@ static AstExpression *cannonizeAddExpression(ParserContext *ctx, AstExpression *
     }
   }
 
+  // (ptr - x) + y -> ptr - x + y -> ptr - (x - y)
+  if (left->op == EB_SUB) {
+    AstExpression *l_left = left->binaryExpr.left;
+    AstExpression *l_right = left->binaryExpr.right;
+    if (isPointerLikeType(l_left->type)) {
+        expr->op = EB_SUB;
+        left->binaryExpr.left = l_right;
+        left->binaryExpr.right = right;
+        left->type = right->type;
+        left->op = EB_SUB;
+        left->coordinates.startOffset = l_right->coordinates.startOffset;
+        left->coordinates.endOffset = right->coordinates.endOffset;
+        expr->binaryExpr.left = l_left;
+        expr->binaryExpr.right = left;
+        left = expr->binaryExpr.left;
+        right = expr->binaryExpr.right;
+    }
+  }
+
   // x + (ptr + y) -> ptr + (x + y)
-  if (right->op == expr->op) {
+  if (expr->op == EB_ADD && right->op == expr->op) {
       AstExpression *r_left = right->binaryExpr.left;
       AstExpression *r_right = right->binaryExpr.right;
       if (isPointerLikeType(r_left->type)) {
           right->binaryExpr.left = left;
+          right->type = left->type;
           right->coordinates.startOffset = left->coordinates.startOffset;
           expr->binaryExpr.left = r_left;
           left = expr->binaryExpr.left;
@@ -176,25 +180,92 @@ static AstExpression *cannonizeAddExpression(ParserContext *ctx, AstExpression *
       }
   }
 
-//  if (isPointerLikeType(expr->type)) {
-//      TypeRef *pointedTo = expr->type->pointedTo;
-//      if (!isVoidType(pointedTo)) {
-//          u_int64_t elementSize = computeTypeSize(pointedTo);
-//          if (elementSize != 1) {
-//              TypeRef *p_void = voidPtrType(ctx);
-////              left = createCastExpression(ctx, &left->coordinates, p_void, left);
-//              left->type = p_void;
-//              AstExpression *elemSizeConst = createAstConst(ctx, &right->coordinates, CK_INT_CONST, &elementSize);
-//              elemSizeConst->type = makePrimitiveType(ctx, T_S8, 0);
-//              right = createBinaryExpression(ctx, EB_MUL, elemSizeConst->type, right, elemSizeConst);
-//              expr->binaryExpr.left = left;
-//              expr->binaryExpr.right = right;
-//          }
-//      }
-//  }
+  // x + (ptr - y) -> x + ptr - y -> ptr + (x - y)
+  if (expr->op == EB_ADD && right->op == EB_SUB) {
+      AstExpression *r_left = right->binaryExpr.left;
+      AstExpression *r_right = right->binaryExpr.right;
+      if (isPointerLikeType(r_left->type)) {
+          TypeRef *l_type = left->type;
+          right->binaryExpr.left = left;
+          right->op = EB_SUB;
+          right->type = l_type;
+          right->coordinates.startOffset = left->coordinates.startOffset;
+          expr->binaryExpr.left = r_left;
+          left = expr->binaryExpr.left;
+          right = expr->binaryExpr.right;
+      }
+  }
+
+  if (expr->op == EB_SUB)
+    expr = cannonizeSubExpression(ctx, expr);
 
   return cannonizeBinaryExpression(ctx, expr, TRUE);
 }
+
+static AstExpression *cannonizeSubExpression(ParserContext *ctx, AstExpression *expr) {
+  if (expr->op != EB_SUB) return expr;
+
+  AstExpression *left = transformExpression(ctx, expr->binaryExpr.left);
+  AstExpression *right = transformExpression(ctx, expr->binaryExpr.right);
+
+  expr->binaryExpr.left = left;
+  expr->binaryExpr.right = right;
+
+  // x - -y -> x + y
+  if (right->op == EU_MINUS) {
+      expr->op = EB_ADD;
+      expr->binaryExpr.right = right->unaryExpr.argument;
+      return cannonizeAddExpression(ctx, expr);
+  }
+
+  // (ptr + x) - y -> ptr + (x - y)
+  if (left->op == EB_ADD) {
+    AstExpression *l_left = left->binaryExpr.left;
+    AstExpression *l_right = left->binaryExpr.right;
+    if (isPointerLikeType(l_left->type)) {
+        left->binaryExpr.left = l_right;
+        left->binaryExpr.right = right;
+        left->op = EB_SUB;
+        left->type = right->type;
+        left->coordinates.startOffset = l_right->coordinates.startOffset;
+        left->coordinates.endOffset = right->coordinates.endOffset;
+
+        expr->binaryExpr.left = l_left;
+        expr->binaryExpr.right = left;
+        expr->op = EB_ADD;
+
+        left = expr->binaryExpr.left;
+        right = expr->binaryExpr.right;
+    }
+  }
+
+  // (ptr - x) - y -> ptr - (x + y)
+  if (expr->op == EB_SUB && left->op == EB_SUB) {
+    AstExpression *l_left = left->binaryExpr.left;
+    AstExpression *l_right = left->binaryExpr.right;
+    if (isPointerLikeType(l_left->type)) {
+        left->binaryExpr.left = l_right;
+        left->binaryExpr.right = right;
+        left->op = EB_ADD;
+        left->type = right->type;
+
+        left->coordinates.startOffset = l_right->coordinates.startOffset;
+        left->coordinates.endOffset = right->coordinates.endOffset;
+
+        expr->binaryExpr.left = l_left;
+        expr->binaryExpr.right = left;
+
+        left = expr->binaryExpr.left;
+        right = expr->binaryExpr.right;
+    }
+  }
+
+  if (expr->op == EB_ADD)
+    expr = cannonizeAddExpression(ctx, expr);
+
+  return cannonizeBinaryExpression(ctx, expr, TRUE);
+}
+
 
 
 static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression *receiver, AstStructDeclarator *member, AstExpression *orig, Boolean deBit) {
@@ -392,6 +463,7 @@ static AstExpression *transformExpression(ParserContext *ctx, AstExpression *exp
     case EB_A_ACC:
       return cannonizeArrayAccess(ctx, expr);
     case EB_SUB:
+      return cannonizeSubExpression(ctx, expr);
     case EB_MOD:
     case EB_DIV:
       return cannonizeBinaryExpression(ctx, expr, FALSE);
