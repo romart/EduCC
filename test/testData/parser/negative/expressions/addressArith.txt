@@ -1,0 +1,97 @@
+FILE test/testData/parser/negative/expressions/addressArith.c
+  STRUCT S1
+    signed int a #0
+    signed int b #4
+    signed int c #8
+  STRUCT_END
+----
+  STRUCT S2
+    signed int a #0
+    signed int b #4
+    signed int c #8
+    signed int d #12
+  STRUCT_END
+----
+  FUN void incompatiblePtrsDiff 
+  BEGIN
+    *STRUCT S1 s1
+    *STRUCT S2 s2
+    *STRUCT S3 s3
+    *STRUCT S3 s3_2
+    signed int a = \
+      s1 - s2
+    signed int b = \
+      s3 - s3_2
+    signed int c = \
+      s1 - s3
+    *signed int ip
+    *double dp
+    **signed int ipp
+    signed int d = \
+      ip - dp
+    signed int e = \
+      ip - ipp
+    signed int[1] arr
+    (*signed int)[1] parr
+    signed int f = \
+      dp - arr
+    signed int g = \
+      arr - parr
+    *void vp
+    signed int h = \
+      vp - ip    
+  END
+----
+  FUN void ptrPlus 
+    #0: *signed int ptr1
+    #1: *signed int ptr2
+    #2: *STRUCT S3 p2
+  BEGIN
+    float f = \
+      1.000000
+    **signed int pp
+    *signed int r = \
+      ptr1 + ptr2
+    *signed int a = \
+      ptr1 + f
+    *signed int b = \
+      f + ptr1
+    pp + ptr1
+    signed int x
+    *STRUCT S3 ptr1_2 = \
+      1 + p2 + 1
+    *STRUCT S3 ptr2_2 = \
+      2 + 2 + p2
+    *STRUCT S3 ptr3_2 = \
+      (p2 + 2) + 3
+    *STRUCT S3 ptr4_2 = \
+      x + (3 + (2 + p2))    
+  END
+----
+  FUN void ptrMinus 
+    #0: *signed int ptr1
+    #1: *signed int ptr2
+    #2: *STRUCT S3 p
+  BEGIN
+    float f = \
+      1.000000
+    *signed int a = \
+      ptr1 - f
+    *signed int b = \
+      f - ptr1
+    signed int x
+    *signed int ptr1 = \
+      1 - ptr1
+    *signed int ptr2 = \
+      2 - ptr1 - 2
+    *signed int ptr3 = \
+      x + (3 - (2 - ptr1))
+    *STRUCT S3 ptr4 = \
+      1 - p - 1
+    *STRUCT S3 ptr5 = \
+      2 - 2 - p
+    *STRUCT S3 ptr6 = \
+      (p + 2) - 3
+    *STRUCT S3 ptr7 = \
+      x + (3 - (2 - p))    
+  END
