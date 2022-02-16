@@ -3,23 +3,24 @@ FILE test/testData/parser/positive/expressions/addressArith.c
     signed int a #0
     signed int b #4
     signed int c #8
+    signed int[20] arr #12
   STRUCT_END
 ----
-  FUN signed int intPtrTest 
+  FUN void intPtrTestPlus 
     #0: *signed int p
     #1: signed int x
   BEGIN
     *signed int ptr1 = \
-      p + 1
-    *signed int ptr2 = \
       p + 4
+    *signed int ptr2 = \
+      p + 16
     *signed int ptr3 = \
-      p + 5
+      p + 20
     *signed int ptr4 = \
-      p + x + 5    
+      p + x * 4 + 20    
   END
 ----
-  FUN signed int voidPtrTest 
+  FUN void voidPtrTestPlus 
     #0: *void p
     #1: signed int x
   BEGIN
@@ -33,17 +34,122 @@ FILE test/testData/parser/positive/expressions/addressArith.c
       p + x + 5    
   END
 ----
-  FUN signed int structPtrTest 
+  FUN void structPtrTestPlus 
     #0: *STRUCT S1 p
     #1: signed int x
   BEGIN
     *STRUCT S1 ptr1 = \
-      p + 2
+      p + 192
     *STRUCT S1 ptr2 = \
-      p + 4
+      p + 384
     *STRUCT S1 ptr3 = \
-      p + 5
+      p + 480
     *STRUCT S1 ptr4 = \
-      p + x + 5
-    
+      p + x * 96 + 480    
+  END
+----
+  FUN void intPtrTestMinus 
+    #0: *signed int p
+    #1: signed int x
+  BEGIN
+    *signed int ptr1 = \
+      p - 4
+    *signed int ptr2 = \
+      p
+    *signed int ptr3 = \
+      p - 8 + 12
+    *signed int ptr4 = \
+      p - x * 4 + 4    
+  END
+----
+  FUN void voidPtrTestMinus 
+    #0: *void p
+    #1: signed int x
+  BEGIN
+    *void ptr1 = \
+      p - 1
+    *void ptr2 = \
+      p
+    *void ptr3 = \
+      p + 2 - 3
+    *void ptr4 = \
+      p - x - 1    
+  END
+----
+  FUN void structPtrTestMinus 
+    #0: *STRUCT S1 p
+    #1: *STRUCT S2 p2
+    #2: signed int x
+  BEGIN
+    *STRUCT S1 ptr1 = \
+      p - 96
+    *STRUCT S1 ptr2 = \
+      p
+    *STRUCT S1 ptr3 = \
+      p + 192 - 288
+    *STRUCT S1 ptr4 = \
+      p - x * 96 + 96    
+  END
+----
+  FUN void intPtrTestDiff 
+    #0: *signed int p1
+    #1: *C signed int p2
+    #2: **signed int pp
+  BEGIN
+    signed int a = \
+      (p1 - p2) / 4
+    signed int[10] arr
+    signed int b = \
+      (arr - p1) / 4
+    signed int c = \
+      (p2 - arr) / 4
+    (*signed int)[10] p_arr
+    signed int d = \
+      (p_arr - pp) / 8
+    signed int e = \
+      (pp - p_arr) / 8    
+  END
+----
+  FUN void voidPtrTestDiff 
+    #0: *void p1
+    #1: *C void p2
+    #2: **void pp
+  BEGIN
+    signed int a = \
+      p1 - p2
+    **void ppx
+    signed int d = \
+      (ppx - pp) / 8
+    signed int e = \
+      (pp - ppx) / 8    
+  END
+----
+  FUN void structPtrTestDiff 
+    #0: *STRUCT S1 p1
+    #1: *STRUCT S1 p2
+    #2: **STRUCT S1 pp
+  BEGIN
+    signed int a = \
+      (p1 - p2) / 96
+    STRUCT S1[10] arr
+    signed int b = \
+      (arr - p1) / 96
+    signed int c = \
+      (p2 - arr) / 96
+    (*STRUCT S1)[10] p_arr
+    signed int d = \
+      (p_arr - pp) / 8
+    signed int e = \
+      (pp - p_arr) / 8
+    **STRUCT S3 ps3_1
+    **STRUCT S3 ps3_2
+    (*STRUCT S3)[10] arr_s3
+    signed int f = \
+      (ps3_2 - ps3_1) / 8
+    signed int g = \
+      (arr_s3 - ps3_1) / 8
+    signed int h = \
+      (ps3_2 - arr_s3) / 8
+    signed int j = \
+      (p1 - a * 96 - b * 96 - p2) / 96    
   END
