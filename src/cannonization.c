@@ -327,7 +327,9 @@ static AstExpression *cannonizeDotExpression(ParserContext *ctx, AstExpression *
   AstExpression *receiver = transformExpression(ctx, expr->fieldExpr.recevier);
 
   if (receiver->op == E_CALL) {
-      assert(0 && "Not implemeted yet");
+      // keep it as is and desugar later in codegen
+      expr->fieldExpr.recevier = receiver;
+      return expr;
   }
 
   AstExpression *pReceiver = NULL;
