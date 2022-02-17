@@ -1,0 +1,25 @@
+FILE test/testData/parser/positive/expressions/incdecCanon.c
+  STRUCT N
+    signed int x #0
+  STRUCT_END
+----
+  STRUCT S
+    signed int[10] a #0
+    STRUCT N n #40
+  STRUCT_END
+----
+  FUN void testIncDec 
+    #0: *signed int ptr
+    #1: **STRUCT S pptr
+    #2: signed int x
+  BEGIN
+    ptr[x]++
+    --*ptr
+    --*(ptr + 15 * 4)
+    pptr[x]++
+    --*pptr
+    --*(pptr + 10 * 8)
+    pptr[x]->n.x++
+    **STRUCT Incpt incpt
+    ++incpt    
+  END

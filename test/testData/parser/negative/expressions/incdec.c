@@ -13,6 +13,8 @@ void test() {
 
   struct S s, *ps;
 
+  struct Incomplete *incpt;
+
   --a;
   ++b;
   a--;
@@ -71,4 +73,7 @@ void test() {
   &a++;
   --&a;
   (&a)++;
+
+  incpt++;
+  --incpt;
 }
