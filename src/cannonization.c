@@ -373,6 +373,25 @@ static AstExpression *cannonizeRelativeExpression(ParserContext *ctx, AstExpress
   return expr;
 }
 
+static AstExpression *cannonizeAssignmentExpression(ParserContext *ctx, AstExpression *expr) {
+  AstExpression *lhs = expr->binaryExpr.left;
+  AstExpression *rhs = expr->binaryExpr.right;
+
+  if (lhs->type->kind == TR_BITFIELD) {
+      // we will properly de-sugar in codegen
+      lhs->fieldExpr.recevier = transformExpression(ctx, lhs->fieldExpr.recevier);
+  } else {
+      lhs = transformExpression(ctx, lhs);
+  }
+
+  rhs = transformExpression(ctx, rhs);
+
+  expr->binaryExpr.left = lhs;
+  expr->binaryExpr.right = rhs;
+
+  return expr;
+}
+
 static AstExpression *transformExpression(ParserContext *ctx, AstExpression *expr) {
 
   AstConst *evaluated = eval(ctx, expr);
@@ -406,16 +425,6 @@ static AstExpression *transformExpression(ParserContext *ctx, AstExpression *exp
       break;
 
     case EU_PRE_INC:
-      // ++i -> i = i + 1;
-      // s.a.b.c.d.e = s.a.b.c.d.e + 1
-      // arr[brr[crr[j++]]] = arr[brr[crr[j++]]] + 1;
-      expr->unaryExpr.argument = transformExpression(ctx, expr->unaryExpr.argument);
-//      if (expr->type->kind == TR_POINTED) {
-//          AstExpression *arg = expr->unaryExpr.argument;
-
-//      }
-
-      break;
     case EU_POST_INC:
     case EU_PRE_DEC:
     case EU_POST_DEC:
@@ -482,15 +491,23 @@ static AstExpression *transformExpression(ParserContext *ctx, AstExpression *exp
       // p->a->b->c
       return cannonizeArrowExpression(ctx, expr, TRUE);
     case EB_ASSIGN:
-      // TODO:
-      expr->binaryExpr.left = transformExpression(ctx, expr->binaryExpr.left);
-      expr->binaryExpr.right = transformExpression(ctx, expr->binaryExpr.right);
-      break;
+    case EB_ASG_MUL:
+    case EB_ASG_DIV:
+    case EB_ASG_MOD:
+    case EB_ASG_ADD:
+    case EB_ASG_SUB:
+    case EB_ASG_SHL:
+    case EB_ASG_SHR:
+    case EB_ASG_AND:
+    case EB_ASG_XOR:
+    case EB_ASG_OR:
+      return cannonizeAssignmentExpression(ctx, expr);
     case E_LABEL_REF:
     case E_NAMEREF:
     case E_CONST:
       break;
     case E_ERROR:
+    default:
       unreachable("ERROR EXPRESSION in not allowed in correct checked code");
   }
   return expr;
