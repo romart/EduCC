@@ -404,6 +404,16 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
     case EB_A_ACC:
       return NULL; // cannot evaluate array access
     case EB_ASSIGN:
+    case EB_ASG_MUL:
+    case EB_ASG_DIV:
+    case EB_ASG_MOD:
+    case EB_ASG_ADD:
+    case EB_ASG_SUB:
+    case EB_ASG_SHL:
+    case EB_ASG_SHR:
+    case EB_ASG_AND:
+    case EB_ASG_XOR:
+    case EB_ASG_OR:
       return NULL; // cannot evaluate assignemt
     case EF_DOT:
     case EF_ARROW:
