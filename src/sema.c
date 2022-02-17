@@ -55,6 +55,11 @@ static TypeEqualityKind typeDescriprorEquals(TypeDesc *d1, TypeDesc *d2) {
 }
 
 static TypeEqualityKind valueTypeEquality(TypeRef *t1, TypeRef *t2) {
+
+  if (t1->kind == TR_BITFIELD) t1 = t1->bitFieldDesc.storageType;
+  if (t2->kind == TR_BITFIELD) t2 = t2->bitFieldDesc.storageType;
+
+
   if (t1->kind == TR_VALUE && t2->kind == TR_VALUE) {
     TypeEqualityKind equality = typeDescriprorEquals(t1->descriptorDesc, t2->descriptorDesc);
     if (equality == TEK_EQUAL) {
@@ -108,6 +113,11 @@ TypeEqualityKind typeEquality(TypeRef *t1, TypeRef *t2) {
 
   if (t1->kind == TR_ARRAY || t2->kind == TR_ARRAY) {
     return TEK_NOT_EQUAL;
+  }
+
+  if (t1->kind == TR_BITFIELD) {
+      if (t2->kind == TR_BITFIELD) return typeEquality(t1->bitFieldDesc.storageType, t2->bitFieldDesc.storageType);
+      return typeEquality(t1->bitFieldDesc.storageType, t2);
   }
 
   assert(t1->kind == TR_FUNCTION);
@@ -1295,7 +1305,12 @@ AstExpression *transformAssignExpression(ParserContext *ctx, AstExpression *expr
   AstExpression *rvalue = expr->binaryExpr.right;
 
   if (!typesEquals(lvalue->type, rvalue->type)) {
-      expr->binaryExpr.right = createCastExpression(ctx, &rvalue->coordinates, lvalue->type, parenIfNeeded(ctx, rvalue));
+      TypeRef *castTo = lvalue->type;
+
+      if (castTo->kind == TR_BITFIELD)
+        castTo = castTo->bitFieldDesc.storageType;
+
+      expr->binaryExpr.right = createCastExpression(ctx, &rvalue->coordinates, castTo, parenIfNeeded(ctx, rvalue));
   }
 
   return expr;
