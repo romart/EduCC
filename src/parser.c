@@ -411,6 +411,25 @@ static Boolean isAssignmentOperator(int token) {
 
 static ExpressionType assignOpTokenToEB(int token) {
     switch (token) {
+        case '=': return EB_ASSIGN;
+        case MUL_ASSIGN: return EB_ASG_MUL;
+        case DIV_ASSIGN: return EB_ASG_DIV;
+        case MOD_ASSIGN: return EB_ASG_MOD;
+        case ADD_ASSIGN: return EB_ASG_ADD;
+        case SUB_ASSIGN: return EB_ASG_SUB;
+        case LEFT_ASSIGN: return EB_ASG_SHL;
+        case RIGHT_ASSIGN: return EB_ASG_SHR;
+        case AND_ASSIGN: return EB_ASG_AND;
+        case XOR_ASSIGN: return EB_ASG_XOR;
+        case OR_ASSIGN: return EB_ASG_OR;
+    }
+
+    unreachable("Unepxected token");
+    return (ExpressionType)-1;
+}
+
+static ExpressionType assignOpTokenToOp(int token) {
+    switch (token) {
         case MUL_ASSIGN: return EB_MUL;
         case DIV_ASSIGN: return EB_DIV;
         case MOD_ASSIGN: return EB_MOD;
@@ -1188,16 +1207,10 @@ static AstExpression* parseAssignmentExpression(ParserContext *ctx, struct _Scop
         AstExpression* right = parseAssignmentExpression(ctx, scope);
         coords.endOffset = right->coordinates.endOffset;
 
-        if (tokenCode != '=') {
-            ExpressionType op = assignOpTokenToEB(tokenCode);
-            TypeRef *rightType = right->type;
-            TypeRef *resultType = computeBinaryType(ctx, &coords, left->type, rightType, op);
-            right = transformBinaryExpression(ctx, createBinaryExpression(ctx, op, resultType, left, right));
-        }
-
-        TypeRef *resultType = computeAssignmentTypes(ctx, &coords, left->type, right->type);
-        AstExpression* result = transformAssignExpression(ctx, createBinaryExpression(ctx, EB_ASSIGN, resultType, left, right));
-        return result;
+        ExpressionType op = assignOpTokenToEB(tokenCode);
+        TypeRef *resultType = computeAssignmentTypes(ctx, &coords, op, left->type, right->type);
+        AstExpression *result = createBinaryExpression(ctx, op, resultType, left, right);
+        return transformAssignExpression(ctx, result);
     }
 
     return left;

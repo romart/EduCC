@@ -152,6 +152,16 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
     case EB_GE:  mnemonic = ">="; goto binary;
     case EB_COMMA: mnemonic = ","; goto binary;
     case EB_ASSIGN: mnemonic = "="; goto binary;
+    case EB_ASG_ADD: mnemonic = "+="; goto binary;
+    case EB_ASG_SUB: mnemonic = "-="; goto binary;
+    case EB_ASG_MUL: mnemonic = "*="; goto binary;
+    case EB_ASG_DIV: mnemonic = "/="; goto binary;
+    case EB_ASG_MOD: mnemonic = "%="; goto binary;
+    case EB_ASG_SHL: mnemonic = "<<="; goto binary;
+    case EB_ASG_SHR: mnemonic = ">>="; goto binary;
+    case EB_ASG_AND: mnemonic = "&="; goto binary;
+    case EB_ASG_OR: mnemonic = "|="; goto binary;
+    case EB_ASG_XOR: mnemonic = "^="; goto binary;
     binary:
       result += wrapIfNeeded(output, op, expr->binaryExpr.left, FALSE);
       result += fprintf(output, " %s ", mnemonic);

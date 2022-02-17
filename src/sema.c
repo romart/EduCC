@@ -810,15 +810,42 @@ Boolean checkTypeIsCastable(ParserContext *ctx, Coordinates *coords, TypeRef *to
   return TRUE;
 }
 
-TypeRef *computeAssignmentTypes(ParserContext *ctx, Coordinates *coords, TypeRef *left, TypeRef *right) {
+static ExpressionType assignOpTokenToOp(ExpressionType asg_op) {
+    switch (asg_op) {
+      case EB_ASG_MUL: return EB_MUL;
+      case EB_ASG_DIV: return EB_DIV;
+      case EB_ASG_MOD: return EB_MOD;
+      case EB_ASG_ADD: return EB_ADD;
+      case EB_ASG_SUB: return EB_SUB;
+      case EB_ASG_SHL: return EB_LHS;
+      case EB_ASG_SHR: return EB_RHS;
+      case EB_ASG_AND: return EB_AND;
+      case EB_ASG_XOR: return EB_XOR;
+      case EB_ASG_OR: return EB_OR;
+      default: unreachable("Unepxected token");
+    }
+
+    unreachable("Unepxected token");
+    return (ExpressionType)-1;
+}
+
+TypeRef *computeAssignmentTypes(ParserContext *ctx, Coordinates *coords, ExpressionType op, TypeRef *left, TypeRef *right) {
   if (isErrorType(left)) return left;
   if (isErrorType(right)) return right;
 
-  if (isAssignableTypes(ctx, coords, left, right, FALSE)) {
-    return left;
+  TypeRef *rhsType = right;
+
+  if (op != EB_ASSIGN) {
+      ExpressionType op2 = assignOpTokenToOp(op);
+      rhsType = computeBinaryType(ctx, coords, left, right, op2);
+  }
+
+  if (isAssignableTypes(ctx, coords, left, rhsType, FALSE)) {
+      return left;
   }
 
   return makeErrorRef(ctx);
+
 }
 
 TypeRef *computeFunctionType(ParserContext *ctx, Coordinates *coords, AstFunctionDeclaration *declaration) {
@@ -1251,7 +1278,7 @@ AstExpression *transformBinaryExpression(ParserContext *ctx, AstExpression *expr
 }
 
 AstExpression *transformAssignExpression(ParserContext *ctx, AstExpression *expr) {
-  assert(expr->op == EB_ASSIGN);
+  assert(isAssignmentOp(expr->op));
 
   if (isErrorType(expr->type)) return expr;
 
@@ -1269,7 +1296,7 @@ void verifyStatementLevelExpression(ParserContext *ctx, AstExpression *expr) {
   TypeRef *type = expr->type;
   if (isErrorType(type) || isVoidType(type)) return;
 
-  if (expr->op == E_CALL || expr->op == EB_ASSIGN) return;
+  if (expr->op == E_CALL || isAssignmentOp(expr->op)) return;
 
   if (expr->op == EU_POST_INC || expr->op == EU_POST_DEC || expr->op == EU_PRE_INC || expr->op == EU_PRE_DEC) return;
 
