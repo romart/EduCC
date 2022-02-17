@@ -560,6 +560,15 @@ TypeRef *computeIncDecType(ParserContext *ctx, Coordinates *coords, TypeRef *arg
       return makeErrorRef(ctx);
   }
 
+  if (argumentType->kind == TR_POINTED) {
+      TypeRef *ptrType = argumentType->pointedTo;
+      int typeSize = computeTypeSize(ptrType);
+      if (typeSize == UNKNOWN_SIZE) {
+          reportDiagnostic(ctx, DIAG_PTR_ARITH_INCOMPLETE_TYPE, coords, argumentType);
+          return makeErrorRef(ctx);
+      }
+  }
+
   return argumentType;
 }
 
