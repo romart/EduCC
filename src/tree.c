@@ -82,6 +82,10 @@ Boolean isAdditiveOp(ExpressionType op) {
   }
 }
 
+Boolean isAssignmentOp(ExpressionType op) {
+  return EB_ASSIGN <= op && op <= EB_ASG_OR;
+}
+
 TypeDesc *createTypeDescriptor(ParserContext *ctx, TypeId typeId, const char *name, int size) {
   TypeDesc *result = (TypeDesc*)areanAllocate(ctx->memory.typeArena, sizeof(TypeDesc));
 

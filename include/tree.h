@@ -54,7 +54,17 @@ typedef struct _Coordinates {
   DEF_EXPRESSION_OP(EB_COMMA, 1), \
   DEF_EXPRESSION_OP(EF_DOT, 16), \
   DEF_EXPRESSION_OP(EF_ARROW, 16), \
-  DEF_EXPRESSION_OP(EB_ASSIGN, 2)
+  DEF_EXPRESSION_OP(EB_ASSIGN, 2), \
+  DEF_EXPRESSION_OP(EB_ASG_ADD, 2), \
+  DEF_EXPRESSION_OP(EB_ASG_SUB, 2), \
+  DEF_EXPRESSION_OP(EB_ASG_MUL, 2), \
+  DEF_EXPRESSION_OP(EB_ASG_DIV, 2), \
+  DEF_EXPRESSION_OP(EB_ASG_MOD, 2), \
+  DEF_EXPRESSION_OP(EB_ASG_SHL, 2), \
+  DEF_EXPRESSION_OP(EB_ASG_SHR, 2), \
+  DEF_EXPRESSION_OP(EB_ASG_AND, 2), \
+  DEF_EXPRESSION_OP(EB_ASG_XOR, 2), \
+  DEF_EXPRESSION_OP(EB_ASG_OR, 2)
 
 typedef enum _ExpressionType {
 #define DEF_EXPRESSION_OP(ENUM, PRIORITY) ENUM
@@ -68,6 +78,7 @@ unsigned opPriority(ExpressionType op);
 Boolean isCommute(ExpressionType op);
 Boolean isBinary(ExpressionType op);
 Boolean isAdditiveOp(ExpressionType op);
+Boolean isAssignmentOp(ExpressionType op);
 
 typedef signed long long sint64_const_t;
 typedef unsigned long long int64_const_t;

@@ -24,7 +24,7 @@ TypeRef *computeIncDecType(ParserContext *ctx, Coordinates *coords, TypeRef *arg
 TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, ExpressionType op);
 TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, TypeRef* left, TypeRef *right, ExpressionType op);
 TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op);
-TypeRef *computeAssignmentTypes(ParserContext *ctx, Coordinates *coords, TypeRef *left, TypeRef *right);
+TypeRef *computeAssignmentTypes(ParserContext *ctx, Coordinates *coords, ExpressionType op, TypeRef *left, TypeRef *right);
 TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op);
 TypeRef *computeFunctionType(ParserContext *ctx, Coordinates *coords, AstFunctionDeclaration *declaration);
 
