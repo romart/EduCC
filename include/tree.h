@@ -13,52 +13,54 @@ typedef struct _Coordinates {
   int endOffset;
 } Coordinates;
 
+#define EXPR_TYPES \
+  DEF_EXPRESSION_OP(E_CONST, 17), \
+  DEF_EXPRESSION_OP(E_TERNARY, 3), \
+  DEF_EXPRESSION_OP(E_CAST, 14), \
+  DEF_EXPRESSION_OP(E_NAMEREF, 17), \
+  DEF_EXPRESSION_OP(E_CALL, 16), \
+  DEF_EXPRESSION_OP(E_PAREN, 17), \
+  DEF_EXPRESSION_OP(E_LABEL_REF, 15), \
+  DEF_EXPRESSION_OP(E_ERROR, 17), \
+  DEF_EXPRESSION_OP(EU_PRE_INC, 15), \
+  DEF_EXPRESSION_OP(EU_POST_INC, 16), \
+  DEF_EXPRESSION_OP(EU_PRE_DEC, 15), \
+  DEF_EXPRESSION_OP(EU_POST_DEC, 16), \
+  DEF_EXPRESSION_OP(EU_DEREF, 15), \
+  DEF_EXPRESSION_OP(EU_REF, 15), \
+  DEF_EXPRESSION_OP(EU_PLUS, 15), \
+  DEF_EXPRESSION_OP(EU_MINUS, 15), \
+  DEF_EXPRESSION_OP(EU_TILDA, 15), \
+  DEF_EXPRESSION_OP(EU_EXL, 15), \
+  DEF_EXPRESSION_OP(EB_ADD, 12), \
+  DEF_EXPRESSION_OP(EB_SUB, 12), \
+  DEF_EXPRESSION_OP(EB_MUL, 13), \
+  DEF_EXPRESSION_OP(EB_DIV, 13), \
+  DEF_EXPRESSION_OP(EB_MOD, 13), \
+  DEF_EXPRESSION_OP(EB_LHS, 11), \
+  DEF_EXPRESSION_OP(EB_RHS, 11), \
+  DEF_EXPRESSION_OP(EB_AND, 8), \
+  DEF_EXPRESSION_OP(EB_XOR, 7), \
+  DEF_EXPRESSION_OP(EB_OR, 6), \
+  DEF_EXPRESSION_OP(EB_ANDAND, 5), \
+  DEF_EXPRESSION_OP(EB_OROR, 4), \
+  DEF_EXPRESSION_OP(EB_EQ, 9), \
+  DEF_EXPRESSION_OP(EB_NE, 9), \
+  DEF_EXPRESSION_OP(EB_LT, 10), \
+  DEF_EXPRESSION_OP(EB_LE, 10), \
+  DEF_EXPRESSION_OP(EB_GT, 10), \
+  DEF_EXPRESSION_OP(EB_GE, 10), \
+  DEF_EXPRESSION_OP(EB_A_ACC, 16), \
+  DEF_EXPRESSION_OP(EB_COMMA, 1), \
+  DEF_EXPRESSION_OP(EF_DOT, 16), \
+  DEF_EXPRESSION_OP(EF_ARROW, 16), \
+  DEF_EXPRESSION_OP(EB_ASSIGN, 2)
+
 typedef enum _ExpressionType {
-    E_CONST,
-    E_TERNARY,
-    E_CAST,
-    E_NAMEREF,
-    E_CALL,
-    E_PAREN,      /** (expr) */
-    E_LABEL_REF,
-    E_ERROR,
-
-    EU_PRE_INC,   /** --a */
-    EU_POST_INC,  /** a++ */
-    EU_PRE_DEC,   /** --a */
-    EU_POST_DEC,  /** a-- */
-    EU_DEREF,     /** *a */
-    EU_REF,       /** &a */
-    EU_PLUS,      /** +a */
-    EU_MINUS,     /** -a */
-    EU_TILDA,     /** ~a */
-    EU_EXL,       /** !a */
-
-    EB_ADD,
-    EB_SUB,
-    EB_MUL,
-    EB_DIV,
-    EB_MOD,
-    EB_LHS, /** << */
-    EB_RHS, /** >> */
-    EB_AND,
-    EB_OR,
-    EB_XOR,
-    EB_ANDAND,
-    EB_OROR,
-    EB_EQ,
-    EB_NE,
-    EB_LT,
-    EB_LE,
-    EB_GT,
-    EB_GE,
-    EB_A_ACC, /** a[b] */
-    EB_COMMA, /** a, b = c, d */
-
-    EF_DOT, /** a.b */
-    EF_ARROW, /** a->b */
-
-    EB_ASSIGN
+#define DEF_EXPRESSION_OP(ENUM, PRIORITY) ENUM
+  EXPR_TYPES,
+#undef DEF_EXPRESSION_OP
+  E_NUM_OF_OPS
 } ExpressionType;
 
 unsigned opPriority(ExpressionType op);

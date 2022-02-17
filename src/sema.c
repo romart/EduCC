@@ -453,7 +453,7 @@ TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, TypeRef* lef
       return makePrimitiveType(ctx, T_S4, 0);
   }
 
-  if (EB_LHS <= op && op <= EB_XOR) {
+  if (EB_LHS <= op && op <= EB_OR) {
       if (isIntegerType(left) && isIntegerType(right)) {
           return commonPrimitiveType(ctx, left, right);
       }
