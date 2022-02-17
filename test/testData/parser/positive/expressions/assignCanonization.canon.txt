@@ -1,0 +1,66 @@
+FILE test/testData/parser/positive/expressions/assignCanonization.c
+  STRUCT S1
+    signed int x #0
+    signed int a #4
+    signed int[20] arr #8
+  STRUCT_END
+----
+  STRUCT S2
+    STRUCT S1[10] as #0
+  STRUCT_END
+----
+  FUN void testStructValue 
+    #0: signed int i
+  BEGIN
+    STRUCT S1 s1
+    *(&s1 + 4) += 10
+    *(&s1 + 4) += *(&s1 + 4)
+    *(*(&s1 + 8) + i++ * 4) -= 20
+    *(*(&s1 + 8) + *(&s1 + 4) * 4) *= *(&s1 + 4)
+    STRUCT S2 s2
+    *(s2 + i++ * 88 + 4) += 30
+    *(s2 + i++ * 88 + 4) += *(s2 + *(&s1 + 4) * 88 + 4)
+    *(*(s2 + i++ * 88 + 8) + i++ * 4) -= 40
+    *(*(s2 + *(&s1 + 4) * 88 + 8) + i++ * 4) *= *(*(s2 + i * 88 + 8) + *(s2 + *(&s1 + 4) * 88 + 4) * 4)    
+  END
+----
+  FUN void testStructPtr 
+    #0: *STRUCT S1 s1
+    #1: *STRUCT S2 s2
+    #2: signed int i
+  BEGIN
+    *(s1 + 4) += 10
+    *(s1 + 4) += *(s1 + 4)
+    *(*(s1 + 8) + i++ * 4) -= 20
+    *(*(s1 + 8) + *(s1 + 4) * 4) *= *(s1 + 4)
+    *(*s2 + i++ * 88 + 4) += 30
+    *(*s2 + i++ * 88 + 4) += *(*s2 + *(s1 + 4) * 88 + 4)
+    *(*(*s2 + i++ * 88 + 8) + i++ * 4) -= 40
+    *(*(*s2 + *(s1 + 4) * 88 + 8) + i++ * 4) *= *(*(*s2 + i * 88 + 8) + *(*s2 + *(s1 + 4) * 88 + 4) * 4)    
+  END
+----
+  STRUCT S3
+    double d #0
+    unsigned int:0:10 f1 #8
+    unsigned int:10:15 f2 #8
+  STRUCT_END
+----
+  STRUCT S4
+    STRUCT S3[10] as3 #0
+  STRUCT_END
+----
+  FUN void testStructBitField 
+    #0: *STRUCT S4 s4
+    #1: signed int x
+  BEGIN
+    (*(*s4 + x++ * 16)).f1 = (unsigned int)10
+    (*(*s4 + x++ * 16)).f2 = *(*s4 + --x * 16 + 8) >> 0 && 1023    
+  END
+----
+  FUN void testArrayAsgn 
+    #0: *signed int ptr
+    #1: signed int i
+  BEGIN
+    *(ptr + i++ * 4) += 10
+    *(ptr + 40) += --i    
+  END

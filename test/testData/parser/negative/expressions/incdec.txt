@@ -13,6 +13,7 @@ FILE test/testData/parser/negative/expressions/incdec.c
     float f
     STRUCT S s
     *STRUCT S ps
+    *STRUCT Incomplete incpt
     --a
     ++b
     a--
@@ -60,4 +61,6 @@ FILE test/testData/parser/negative/expressions/incdec.c
     &a++
     --&a
     (&a)++
+    incpt++
+    --incpt
   END
