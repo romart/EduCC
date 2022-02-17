@@ -8,72 +8,14 @@
 #include "sema.h"
 // types
 
-static unsigned opPriorities[] = {
-  17, /* E_CONST, */
-
-  3, /* E_TERNARY, */
-
-  14, /* E_CAST, */
-
-  17, /* E_NAMEREF, */
-
-  16, /* E_CALL, */
-
-  17, /* E_PAREN, */
-
-  15, /* E_LABEL_REF, */
-
-  17, /* E_ERROR, */
-
-  15, /* EU_PRE_INC, */
-  16, /* EU_POST_INC, */
-  15, /* EU_PRE_DEC, */
-  16, /* EU_POST_DEC, */
-
-  15, /* EU_DEREF, */
-  15, /* EU_REF, */
-  15, /* EU_PLUS, */
-  15, /* EU_MINUS, */
-  15, /* EU_TILDA, */
-  15, /* EU_EXL, */
-
-  12, /* EB_ADD, */
-  12, /* EB_SUB, */
-
-  13, /* EB_MUL, */
-  13, /* EB_DIV, */
-  13, /* EB_MOD, */
-
-  11, /* EB_LHS, */
-  11, /* EB_RHS, */
-
-  8, /* EB_AND, */
-  6, /* EB_OR, */
-  7, /* EB_XOR, */
-
-  5, /* EB_ANDAND, */
-  4, /* EB_OROR, */
-
-  9, /* EB_EQ, */
-  9, /* EB_NE, */
-
-  10, /* EB_LT, */
-  10, /* EB_LE, */
-  10, /* EB_GT, */
-  10, /* EB_GE, */
-
-  16, /* EB_A_ACC, */
-
-  1, /* EB_COMMA, least priority */
-
-  16, /* EF_DOT, */
-  16, /* EF_ARROW, */
-
-  2, /* EB_ASSIGN */
+static unsigned opPriorities[E_NUM_OF_OPS] = {
+#define DEF_EXPRESSION_OP(ENUM, PRIORITY) PRIORITY
+  EXPR_TYPES
+#undef DEF_EXPRESSION_OP
 };
 
 unsigned opPriority(ExpressionType op) {
-  assert(E_CONST <= op && op <= EB_ASSIGN);
+  assert(E_CONST <= op && op < E_NUM_OF_OPS);
 
   return opPriorities[op];
 }
