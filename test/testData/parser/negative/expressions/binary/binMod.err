@@ -1,6 +1,6 @@
 test/testData/parser/negative/expressions/binary/binMod.c:3:15: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binMod.c:3:16: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binMod.c:3:17: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binMod.c:6:16: error: invalid operands to binary expression ('signed int' and 'float')
+test/testData/parser/negative/expressions/binary/binMod.c:6:17: error: invalid operands to binary expression ('signed int' and 'float')
 test/testData/parser/negative/expressions/binary/binMod.c:6:18: error: invalid operands to binary expression ('signed int' and '*signed int')
 test/testData/parser/negative/expressions/binary/binMod.c:3:19: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binMod.c:6:20: error: invalid operands to binary expression ('signed int' and '*float')
@@ -16,8 +16,8 @@ test/testData/parser/negative/expressions/binary/binMod.c:6:29: error: invalid o
 test/testData/parser/negative/expressions/binary/binMod.c:6:30: error: invalid operands to binary expression ('signed int' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binMod.c:6:31: error: invalid operands to binary expression ('signed int' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binMod.c:3:32: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binMod.c:3:33: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binMod.c:3:34: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binMod.c:6:33: error: invalid operands to binary expression ('signed int' and 'float')
+test/testData/parser/negative/expressions/binary/binMod.c:6:34: error: invalid operands to binary expression ('signed int' and 'float')
 test/testData/parser/negative/expressions/binary/binMod.c:6:35: error: invalid operands to binary expression ('signed int' and '*signed int')
 test/testData/parser/negative/expressions/binary/binMod.c:3:36: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binMod.c:6:37: error: invalid operands to binary expression ('signed int' and '*float')
@@ -32,11 +32,11 @@ test/testData/parser/negative/expressions/binary/binMod.c:6:45: error: invalid o
 test/testData/parser/negative/expressions/binary/binMod.c:6:46: error: invalid operands to binary expression ('signed int' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binMod.c:6:47: error: invalid operands to binary expression ('signed int' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binMod.c:6:48: error: invalid operands to binary expression ('signed int' and '*STRUCT S2')
-test/testData/parser/negative/expressions/binary/binMod.c:3:49: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binMod.c:3:50: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binMod.c:3:51: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binMod.c:6:49: error: invalid operands to binary expression ('float' and 'signed int')
+test/testData/parser/negative/expressions/binary/binMod.c:6:50: error: invalid operands to binary expression ('float' and 'signed int')
+test/testData/parser/negative/expressions/binary/binMod.c:6:51: error: invalid operands to binary expression ('float' and 'float')
 test/testData/parser/negative/expressions/binary/binMod.c:6:52: error: invalid operands to binary expression ('float' and '*signed int')
-test/testData/parser/negative/expressions/binary/binMod.c:3:53: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binMod.c:6:53: error: invalid operands to binary expression ('float' and 'signed int')
 test/testData/parser/negative/expressions/binary/binMod.c:6:54: error: invalid operands to binary expression ('float' and '*float')
 test/testData/parser/negative/expressions/binary/binMod.c:6:55: error: invalid operands to binary expression ('float' and '*float')
 test/testData/parser/negative/expressions/binary/binMod.c:6:56: error: invalid operands to binary expression ('float' and 'signed int[20]')
@@ -49,11 +49,11 @@ test/testData/parser/negative/expressions/binary/binMod.c:6:62: error: invalid o
 test/testData/parser/negative/expressions/binary/binMod.c:6:63: error: invalid operands to binary expression ('float' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binMod.c:6:64: error: invalid operands to binary expression ('float' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binMod.c:6:65: error: invalid operands to binary expression ('float' and '*STRUCT S2')
-test/testData/parser/negative/expressions/binary/binMod.c:3:66: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binMod.c:3:67: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binMod.c:3:68: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binMod.c:6:66: error: invalid operands to binary expression ('float' and 'signed int')
+test/testData/parser/negative/expressions/binary/binMod.c:6:67: error: invalid operands to binary expression ('float' and 'signed int')
+test/testData/parser/negative/expressions/binary/binMod.c:6:68: error: invalid operands to binary expression ('float' and 'float')
 test/testData/parser/negative/expressions/binary/binMod.c:6:69: error: invalid operands to binary expression ('float' and '*signed int')
-test/testData/parser/negative/expressions/binary/binMod.c:3:70: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binMod.c:6:70: error: invalid operands to binary expression ('float' and 'signed int')
 test/testData/parser/negative/expressions/binary/binMod.c:6:71: error: invalid operands to binary expression ('float' and '*float')
 test/testData/parser/negative/expressions/binary/binMod.c:6:72: error: invalid operands to binary expression ('float' and '*float')
 test/testData/parser/negative/expressions/binary/binMod.c:6:73: error: invalid operands to binary expression ('float' and 'signed int[20]')
@@ -85,8 +85,8 @@ test/testData/parser/negative/expressions/binary/binMod.c:7:98: error: invalid o
 test/testData/parser/negative/expressions/binary/binMod.c:7:99: error: invalid operands to binary expression ('*signed int' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binMod.c:3:100: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binMod.c:3:101: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binMod.c:3:102: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binMod.c:3:103: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binMod.c:7:102: error: invalid operands to binary expression ('signed int' and 'float')
+test/testData/parser/negative/expressions/binary/binMod.c:7:103: error: invalid operands to binary expression ('signed int' and 'float')
 test/testData/parser/negative/expressions/binary/binMod.c:7:104: error: invalid operands to binary expression ('signed int' and '*signed int')
 test/testData/parser/negative/expressions/binary/binMod.c:7:105: error: invalid operands to binary expression ('signed int' and '*float')
 test/testData/parser/negative/expressions/binary/binMod.c:7:106: error: invalid operands to binary expression ('signed int' and '*float')

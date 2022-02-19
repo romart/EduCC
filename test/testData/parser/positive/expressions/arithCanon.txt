@@ -1,0 +1,136 @@
+FILE test/testData/parser/positive/expressions/arithCanon.c
+  FUN signed int testInt 
+  BEGIN
+    signed int x = \
+      10
+    signed int y = \
+      30
+    signed int z = \
+      50
+    signed int a = \
+      5 + x
+    signed int b = \
+      0 + x
+    signed int c = \
+      0 - x
+    signed int d = \
+      x + 0
+    signed int e = \
+      x - 0
+    signed int f = \
+      2 * x
+    signed int h = \
+      1 * x
+    signed int i = \
+      x * 1
+    signed int j = \
+      5 / x
+    signed int k = \
+      x / 5
+    signed int r = \
+      1 / x
+    signed int s = \
+      x / 1
+    signed int aa = \
+      (x + 5) + 7
+    signed int bb = \
+      (x - 5) + 7
+    signed int cc = \
+      (x + 5) - 7
+    signed int dd = \
+      (x - 5) - 7
+    signed int ee = \
+      (x * 5) * 7
+    signed int ff = \
+      (x / 5) * 7
+    signed int gg = \
+      (x * 5) / 7
+    signed int hh = \
+      (x / 5) / 7
+    signed int ii = \
+      (x % 5) % 7
+    signed int jj = \
+      (x % 7) % 5
+    signed int aaa = \
+      (x + 5) + y
+    signed int bbb = \
+      (x + 5) - y
+    signed int ccc = \
+      (x - 5) + y
+    signed int ddd = \
+      (x - 5) - y
+    signed int eee = \
+      (x * 5) * y
+    signed int fff = \
+      (x * 5) / y
+    signed int ggg = \
+      (x / 5) * y
+    signed int hhh = \
+      (x / 5) / y    
+  END
+----
+  FUN signed int testFloat 
+  BEGIN
+    float x = \
+      10.000000
+    float y = \
+      30.000000
+    float z = \
+      50.000000
+    float a = \
+      5.000000 + x
+    float b = \
+      0.000000 + x
+    float c = \
+      0.000000 - x
+    float d = \
+      x + 0.000000
+    float e = \
+      x - 0.000000
+    float f = \
+      2.000000 * x
+    float h = \
+      1.000000 * x
+    float i = \
+      x * 1.000000
+    float j = \
+      5.000000 / x
+    float k = \
+      x / 5.000000
+    float r = \
+      1.000000 / x
+    float s = \
+      x / 1.000000
+    float aa = \
+      (x + 5.000000) + 7.000000
+    float bb = \
+      (x - 5.000000) + 7.000000
+    float cc = \
+      (x + 5.000000) - 7.000000
+    float dd = \
+      (x - 5.000000) - 7.000000
+    float ee = \
+      (x * 5.000000) * 7.000000
+    float ff = \
+      (x / 5.000000) * 7.000000
+    float gg = \
+      (x * 5.000000) / 7.000000
+    float hh = \
+      (x / 5.000000) / 7.000000
+    float aaa = \
+      (x + 5.000000) + y
+    float bbb = \
+      (x + 5.000000) - y
+    float ccc = \
+      (x - 5.000000) + y
+    float ddd = \
+      (x - 5.000000) - y
+    float eee = \
+      (x * 5.000000) * y
+    float fff = \
+      (x * 5.000000) / y
+    float ggg = \
+      (x / 5.000000) * y
+    float hhh = \
+      (x / 5.000000) / y    
+  END
