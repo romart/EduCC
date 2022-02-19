@@ -472,12 +472,20 @@ TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, TypeRef* lef
   }
 
 
-  if (EB_MUL <= op && op <= EB_MOD) {
+  if (EB_MUL <= op && op <= EB_DIV) {
     if (isPrimitiveType(left) && isPrimitiveType(right)) {
         return commonPrimitiveType(ctx, left, right);
     }
     reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
     return makeErrorRef(ctx);
+  }
+
+  if (op == EB_MOD) {
+      if (isIntegerType(left) && isIntegerType(right)) {
+          return commonPrimitiveType(ctx, left, right);
+      }
+      reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
+      return makeErrorRef(ctx);
   }
 
 
