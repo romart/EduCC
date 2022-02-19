@@ -859,6 +859,7 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
             result->type = computeTypeForUnaryOperator(ctx, &coords, argument->type, op);
             return result;
         case SIZEOF: {
+            Token *saved = ctx->token;
             int token = nextToken(ctx)->code;
             TypeRef *sizeType = NULL;
             if (token == '(') {
@@ -866,12 +867,14 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
                 if (isSpecifierQualifierList(token)) {
                     argument = NULL;
                     sizeType = parseTypeName(ctx, scope);
+                    coords.endOffset = ctx->token->coordinates.endOffset;
+                    consume(ctx, ')');
                 } else {
-                    argument = parseExpression(ctx, scope);
+                    ctx->token = saved;
+                    argument = parseUnaryExpression(ctx, scope);
                     sizeType = argument->type;
+                    coords.endOffset = argument->coordinates.endOffset;
                 }
-                coords.endOffset = ctx->token->coordinates.endOffset;
-                consume(ctx, ')');
             } else {
                 argument = parseUnaryExpression(ctx, scope);
                 coords.endOffset = argument->coordinates.endOffset;
