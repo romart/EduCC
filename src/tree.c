@@ -97,6 +97,10 @@ Boolean isMultiplicative(ExpressionType op) {
   }
 }
 
+Boolean isShiftOp(ExpressionType op) {
+  return op == EB_RHS || op == EB_LHS;
+}
+
 Boolean isAssignmentOp(ExpressionType op) {
   return EB_ASSIGN <= op && op <= EB_ASG_OR;
 }
