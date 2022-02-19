@@ -257,7 +257,7 @@ static Boolean isScalarType(TypeRef *type) {
   return type->kind == TR_POINTED || isPrimitiveType(type);
 }
 
-static Boolean isRealType(TypeRef *type) {
+Boolean isRealType(TypeRef *type) {
   if (type->kind == TR_VALUE) {
       TypeId tid = type->descriptorDesc->typeId;
       return T_F4 <= tid && tid <= T_F10 ? TRUE : FALSE;
