@@ -54,7 +54,7 @@ FILE test/testData/parser/positive/expressions/assignCanonization.c
     #1: signed int x
   BEGIN
     s4->as3[x++].f1 = (unsigned int)10
-    s4->as3[x++].f2 = s4->as3[--x].f1    
+    s4->as3[x++].f2 = s4->as3[x -= 1].f1
   END
 ----
   FUN void testArrayAsgn 
@@ -62,5 +62,5 @@ FILE test/testData/parser/positive/expressions/assignCanonization.c
     #1: signed int i
   BEGIN
     ptr[i++] += 10
-    ptr[10] += --i    
+    ptr[10] += i -= 1
   END

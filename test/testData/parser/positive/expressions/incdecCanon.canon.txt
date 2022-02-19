@@ -14,12 +14,12 @@ FILE test/testData/parser/positive/expressions/incdecCanon.c
     #2: signed int x
   BEGIN
     (*(ptr + x * 4))++
-    --*ptr
-    --*(ptr + 60)
+    *ptr -= 1
+    *(ptr + 60) -= 1
     (*(pptr + x * 8))++
-    --*pptr
-    --*(pptr + 80)
+    *pptr -= 48
+    *(pptr + 80) -= 48
     (*(*(pptr + x * 8) + 40))++
     **STRUCT Incpt incpt
-    ++incpt    
+    incpt += 8
   END

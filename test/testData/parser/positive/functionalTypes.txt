@@ -24,7 +24,7 @@ FILE test/testData/parser/positive/functionalTypes.c
   BEGIN
     signed int c = \
       15
-    FOR (c = a; c < b; ++c)
+    FOR (c = a; c < b; c += 1)
       foo("%d %d %d", a, b, c)      
     END_FOR    
   END

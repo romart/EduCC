@@ -8,7 +8,7 @@ FILE test/testData/parser/positive/statements/break.c
   BEGIN
     signed int i = \
       0
-    FOR (; i < a; ++i)
+    FOR (; i < a; i += 1)
       IF (a > b)
       THEN
         foo(a - b)
@@ -30,13 +30,13 @@ FILE test/testData/parser/positive/statements/break.c
       IF (a > b)
       THEN
         foo(a - b)
-        ++i
+        i += 1
         BREAK        
       END_IF
       foo(b)
       foo(a)
       whileTest(b, b - a)
-      --a      
+      a -= 1
     END_WHILE    
   END
 ----
@@ -50,13 +50,13 @@ FILE test/testData/parser/positive/statements/break.c
       IF (a > b)
       THEN
         foo(a - b)
-        ++i
+        i += 1
         BREAK        
       END_IF
       foo(b)
       foo(a)
       whileTest(b, b - a)
-      --a      
+      a -= 1
     WHILE (i < b)    
   END
 ----

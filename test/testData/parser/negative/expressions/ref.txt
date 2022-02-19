@@ -22,7 +22,7 @@ FILE test/testData/parser/negative/expressions/ref.c
     &(a = a)
     &s.a
     &ps->a
-    &++a
+    &(a += 1)
     &a--
     &((float)a)
     &s.f

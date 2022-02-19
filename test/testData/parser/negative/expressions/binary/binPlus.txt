@@ -22,6 +22,8 @@ FILE test/testData/parser/negative/expressions/binary/binPlus.c
   STRUCT S1
 ----
   STRUCT S2
+    signed int[100] y #0
+  STRUCT_END
 ----
   STRUCT S1 s11
 ----
@@ -56,8 +58,8 @@ FILE test/testData/parser/negative/expressions/binary/binPlus.c
     i1 * 0 + ps12
     i1 + s21
     i1 + s22
-    i1 * 0 + ps21
-    i1 * 0 + ps22
+    i1 * 400 + ps21
+    i1 * 400 + ps22
     i2 + i1
     (float)i2 + f1
     (float)i2 + f2
@@ -73,8 +75,8 @@ FILE test/testData/parser/negative/expressions/binary/binPlus.c
     i2 * 0 + ps12
     i2 + s21
     i2 + s22
-    i2 * 0 + ps21
-    i2 * 0 + ps22
+    i2 * 400 + ps21
+    i2 * 400 + ps22
     f1 + (float)i1
     f1 + (float)i2
     f1 + f2
@@ -141,8 +143,8 @@ FILE test/testData/parser/negative/expressions/binary/binPlus.c
     pi2 * 0 + ps12
     pi2 + s21
     pi2 + s22
-    pi2 * 0 + ps21
-    pi2 * 0 + ps22
+    pi2 * 400 + ps21
+    pi2 * 400 + ps22
     pf1 + i1 * 4
     pf1 + i2 * 4
     pf1 + f1
@@ -313,12 +315,12 @@ FILE test/testData/parser/negative/expressions/binary/binPlus.c
     s22 + s21
     s22 + ps21
     s22 + ps22
-    ps21 + i1 * 0
-    ps21 + i2 * 0
+    ps21 + i1 * 400
+    ps21 + i2 * 400
     ps21 + f1
     ps21 + f2
     ps21 + pi1
-    ps21 + pi2 * 0
+    ps21 + pi2 * 400
     ps21 + pf1
     ps21 + pf2
     ps21 + arr1
@@ -330,12 +332,12 @@ FILE test/testData/parser/negative/expressions/binary/binPlus.c
     ps21 + s21
     ps21 + s22
     ps21 + ps22
-    ps22 + i1 * 0
-    ps22 + i2 * 0
+    ps22 + i1 * 400
+    ps22 + i2 * 400
     ps22 + f1
     ps22 + f2
     ps22 + pi1
-    ps22 + pi2 * 0
+    ps22 + pi2 * 400
     ps22 + pf1
     ps22 + pf2
     ps22 + arr1

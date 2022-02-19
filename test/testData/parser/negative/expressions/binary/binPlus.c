@@ -6,7 +6,7 @@ float *pf1, *pf2;
 int arr1[20], arr2[20];
 
 struct S1 {};
-struct S2 {};
+struct S2 { int y[100]; };
 
 struct S1 s11, s12, *ps11, *ps12;
 struct S2 s21, s22, *ps21, *ps22;
