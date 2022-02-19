@@ -88,3 +88,29 @@ int testFloat() {
   float ggg = (x / 5.f) * y;
   float hhh = (x / 5.f) / y;
 }
+
+void testShift() {
+  int a = 10;
+  int b = 20;
+  long c = 30;
+
+  int d = a >> b >> c;
+  int e = a << b >> c;
+  int f = a >> b << c;
+  int g = a << b << c;
+
+  int d = c >> b >> 10;
+  int e = c << b >> 10;
+  int f = c >> b << 10;
+  int g = c << b << 10;
+
+  int h = c >> 12 >> c;
+  int i = c << 12 >> c;
+  int j = c >> 12 << c;
+  int k = c << 12 << c;
+
+  int h = a >> 7 >> 5;
+  int i = a << 7 >> 5;
+  int j = a >> 7 << 5;
+  int k = a << 7 << 5;
+}
