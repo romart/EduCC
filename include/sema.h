@@ -20,7 +20,7 @@ int computeSUETypeSize(ParserContext *ctx, AstSUEDeclaration *declaration);
 TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, Coordinates *coords, TypeRef *arrayType, TypeRef *indexType);
 AstStructDeclarator *computeMemberDeclarator(ParserContext *ctx, Coordinates *coords, TypeRef *receiverType, const char *memberName, ExpressionType op);
 TypeRef *computeFunctionReturnType(ParserContext *ctx, Coordinates *coords, TypeRef *calleeType);
-TypeRef *computeIncDecType(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, ExpressionType op);
+TypeRef *computeIncDecType(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, Boolean isDec);
 TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, ExpressionType op);
 TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, TypeRef* left, TypeRef *right, ExpressionType op);
 TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op);
