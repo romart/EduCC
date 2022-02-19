@@ -82,6 +82,21 @@ Boolean isAdditiveOp(ExpressionType op) {
   }
 }
 
+Boolean isMultiplicative(ExpressionType op) {
+  // a op 1 === a
+
+  switch (op) {
+  case EB_MUL:
+  case EB_DIV:
+  case EB_MOD:
+  case EB_AND:
+  case EB_ANDAND:
+      return TRUE;
+  default:
+      return FALSE;
+  }
+}
+
 Boolean isAssignmentOp(ExpressionType op) {
   return EB_ASSIGN <= op && op <= EB_ASG_OR;
 }
