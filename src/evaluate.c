@@ -427,6 +427,7 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
     case EU_REF:
       return NULL; // ref/deref is not supported yet;
     case E_ERROR:
+    default:
       return NULL; // error cannot be evaluated
   }
 }
