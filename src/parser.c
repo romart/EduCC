@@ -809,6 +809,30 @@ static AstExpression *createUnaryIncDecExpression(ParserContext *ctx, Coordinate
   return createBinaryExpression(ctx, op, type, arg, offset);
 }
 
+static void useLabelExpr(ParserContext *ctx, AstExpression *expr, AstStatement *stmt, const char *label) {
+  DefinedLabel *l = ctx->labels.definedLabels;
+
+  while (l) {
+      if (strcmp(l->label->label, label) == 0) {
+          return;
+      }
+  }
+
+  UsedLabel *used = heapAllocate(sizeof (UsedLabel));
+  if (expr) {
+      assert(stmt == 0);
+      used->kind = LU_REF_USE;
+      used->labelRef = expr;
+  } else {
+      assert(stmt != 0);
+      used->kind = LU_GOTO_USE;
+      used->gotoStatement = stmt;
+  }
+  used->label = label;
+  used->next = ctx->labels.usedLabels;
+  ctx->labels.usedLabels = used;
+}
+
 /**
 unary_expression
     : postfix_expression
@@ -832,7 +856,9 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
             label = ctx->token->text;
             coords.endOffset = ctx->token->coordinates.endOffset;
             consumeRaw(ctx, IDENTIFIER);
-            return createLabelRefExpression(ctx, &coords, label);
+            result = createLabelRefExpression(ctx, &coords, label);
+            useLabelExpr(ctx, result, NULL, label);
+            return result;
         case INC_OP: op = EB_ASG_ADD; goto ue1;
         case DEC_OP: op = EB_ASG_SUB;
         ue1:
@@ -2296,6 +2322,46 @@ static AstStatement *parseIfStatement(ParserContext *ctx, struct _Scope* scope) 
     return createIfStatement(ctx, &coords, cond, thenB, elseB);
 }
 
+static void defineLabel(ParserContext *ctx, const char *label, AstStatement *lblStmt) {
+  DefinedLabel *defined = ctx->labels.definedLabels;
+  Boolean redefinition = FALSE;
+
+  while (defined) {
+      assert(defined->label->kind == LK_LABEL);
+      if (strcmp(defined->label->label, label) == 0) {
+          redefinition = TRUE;
+      }
+      defined = defined->next;
+  }
+
+  if (redefinition) {
+    reportDiagnostic(ctx, DIAG_LABEL_REDEFINITION, &lblStmt->coordinates, label);
+  }
+
+  DefinedLabel *newLabel = heapAllocate(sizeof (DefinedLabel));
+  assert(lblStmt->statementKind == SK_LABEL);
+  assert(lblStmt->labelStmt.kind == LK_LABEL);
+  newLabel->label = &lblStmt->labelStmt;
+  newLabel->next = ctx->labels.definedLabels;
+  ctx->labels.definedLabels = newLabel;
+
+  UsedLabel **prev = &ctx->labels.usedLabels;
+  UsedLabel *used = ctx->labels.usedLabels;
+
+  while (used) {
+      if (strcmp(used->label, label) == 0) {
+        *prev = used->next;
+        UsedLabel *t = used;
+        used = used->next;
+        releaseHeap(t);
+        // TOOD: link use with its def?
+      } else {
+        prev = &used->next;
+        used = *prev;
+      }
+  }
+}
+
 static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
     AstExpression *expr, *expr2, *expr3;
     AstStatement *stmt;
@@ -2404,6 +2470,7 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
           if (label) {
             stmt = createJumpStatement(ctx, &coords, SK_GOTO_L);
             stmt->jumpStmt.label = label;
+            useLabelExpr(ctx, NULL, stmt, label);
           } else {
             stmt = createErrorStatement(ctx, &coords);
           }
@@ -2443,11 +2510,9 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         if (nextTokenIf(ctx, ':')) {
             stmt = parseStatement(ctx, scope);
             coords.endOffset = stmt->coordinates.endOffset;
-            const void *oldValue = putToHashMap(ctx->stateFlags.labelSet, savedToken->text, savedToken->text);
-            if (oldValue) {
-                reportDiagnostic(ctx, DIAG_LABEL_REDEFINITION, &savedToken->coordinates, savedToken->text);
-            }
-            return createLabelStatement(ctx, &coords, LK_LABEL, stmt, savedToken->text, 0);
+            AstStatement *lbl = createLabelStatement(ctx, &coords, LK_LABEL, stmt, savedToken->text, -1);
+            defineLabel(ctx, savedToken->text, lbl);
+            return lbl;
         } else {
             ctx->token = savedToken;
         }
@@ -2664,6 +2729,43 @@ static void addToFile(AstFile *file, AstTranslationUnit *newUnit) {
   }
 }
 
+static void verifyLabels(ParserContext *ctx) {
+  DefinedLabel *def = ctx->labels.definedLabels;
+  ctx->labels.definedLabels = NULL;
+
+  while (def) {
+      DefinedLabel *next = def->next;
+      // TODO: warning - unused label?
+      releaseHeap(def);
+      def = next;
+  }
+
+  UsedLabel *used = ctx->labels.usedLabels;
+  ctx->labels.usedLabels = NULL;
+
+  while (used) {
+    Coordinates *coords = NULL;
+    const char *label = NULL;
+
+    if (used->kind == LU_GOTO_USE) {
+        assert(used->gotoStatement->statementKind == SK_GOTO_L);
+        coords = &used->gotoStatement->coordinates;
+        label = used->gotoStatement->jumpStmt.label;
+    } else {
+        assert(used->kind == LU_REF_USE);
+        assert(used->labelRef->op == E_LABEL_REF);
+        coords = &used->labelRef->coordinates;
+        label = used->labelRef->label;
+    }
+
+    reportDiagnostic(ctx, DIAG_UNDECLARED_LABEL, coords, label);
+
+    UsedLabel *next = used->next;
+    releaseHeap(used);
+    used = next;
+  }
+}
+
 /**
   external_declaration
     : function_definition
@@ -2823,14 +2925,11 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
   }
 
   ctx->functionReturnType = functionDeclaration ? functionDeclaration->returnType : makeErrorRef(ctx);
-  ctx->stateFlags.labelSet = createHashMap(DEFAULT_MAP_CAPACITY, stringHashCode, stringCmp);
 
   ctx->currentScope = functionScope;
   AstStatement *body = parseFunctionBody(ctx);
-  verifyGotoLabels(ctx, body, ctx->stateFlags.labelSet);
+  verifyLabels(ctx);
   ctx->functionReturnType = NULL;
-  releaseHashMap(ctx->stateFlags.labelSet);
-  ctx->stateFlags.labelSet = NULL;
   ctx->currentScope = functionScope->parent;
 
   if (functionDeclaration) {
