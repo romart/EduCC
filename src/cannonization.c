@@ -530,6 +530,45 @@ static AstExpression *cannonizeAssignmentExpression(ParserContext *ctx, AstExpre
   return expr;
 }
 
+static AstExpression *cannonizeShiftExpression(ParserContext *ctx, AstExpression *expr) {
+
+  assert(isShiftOp(expr->op));
+
+  AstExpression *left = transformExpression(ctx, expr->binaryExpr.left);
+  AstExpression *right = transformExpression(ctx, expr->binaryExpr.right);
+
+  expr->binaryExpr.left = left;
+  expr->binaryExpr.right = right;
+
+
+  // (x op y) op z -> x op (y + z)
+  if (left->op == expr->op) {
+    AstExpression *l_left = left->binaryExpr.left;
+    AstExpression *r_right = left->binaryExpr.right;
+
+    expr->binaryExpr.left = l_left;
+
+    left->binaryExpr.left = r_right;
+    left->binaryExpr.right = right;
+    left->coordinates.startOffset = r_right->coordinates.startOffset;
+    left->coordinates.endOffset = right->coordinates.endOffset;
+    left->op = EB_ADD;
+    left->type = right->type;
+
+    left = cannonizeAddExpression(ctx, left);
+
+    AstConst *evaluated = eval(ctx, left);
+
+    if (evaluated) {
+        left = createAstConst2(ctx, &left->coordinates, left->type, evaluated);
+    }
+
+    expr->binaryExpr.right = left;
+  }
+
+  return expr;
+}
+
 static AstExpression *transformExpression(ParserContext *ctx, AstExpression *expr) {
 
   AstConst *evaluated = eval(ctx, expr);
@@ -617,6 +656,7 @@ static AstExpression *transformExpression(ParserContext *ctx, AstExpression *exp
       return cannonizeSubExpression(ctx, expr);
     case EB_LHS:
     case EB_RHS:
+      return cannonizeShiftExpression(ctx, expr);
     case EB_COMMA:
       expr->binaryExpr.left = transformExpression(ctx, expr->binaryExpr.left);
       expr->binaryExpr.right = transformExpression(ctx, expr->binaryExpr.right);
