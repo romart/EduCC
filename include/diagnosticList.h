@@ -103,6 +103,7 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, BIT_FIELD_ADDRESS, "address of bit-field requested"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, INCOMPATIBLE_PTR_DIFF, "'%tr' and '%tr' are not pointers to compatible types"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, PTR_ARITH_INCOMPLETE_TYPE, "arithmetic on a pointer to an incomplete type '%tr'"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, PTR_ARITH_EMPTY_TYPE, "arithmetic on pointer to an empty aggregate"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, UNUSED_EXPR_RES, "expression result unused"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, INT_PTR_COMPARISON, "comparison between pointer and integer ('%tr' and '%tr')"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, ORDEDER_INT_PTR_COMPARISON, "ordered comparison between pointer and integer ('%tr' and '%tr')")
