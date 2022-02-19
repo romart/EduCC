@@ -518,6 +518,8 @@ TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, TypeRef* lef
 
           if (size != UNKNOWN_SIZE) {
             return makePrimitiveType(ctx, T_S8, 0);
+          } else if (!isVoidType(elemType) && size == 0) {
+            reportDiagnostic(ctx, DIAG_PTR_ARITH_EMPTY_TYPE, coords);
           } else {
             reportDiagnostic(ctx, DIAG_PTR_ARITH_INCOMPLETE_TYPE, coords, elemType);
           }
@@ -537,6 +539,8 @@ TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, TypeRef* lef
 
       if (elemSize == UNKNOWN_SIZE) {
         reportDiagnostic(ctx, DIAG_PTR_ARITH_INCOMPLETE_TYPE, coords, elemType);
+      } else if (!isVoidType(elemType) && elemSize == 0) {
+        reportDiagnostic(ctx, DIAG_PTR_ARITH_EMPTY_TYPE, coords);
       } else {
         reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
       }
@@ -556,6 +560,8 @@ TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, TypeRef* lef
 
       if (elemSize == UNKNOWN_SIZE) {
         reportDiagnostic(ctx, DIAG_PTR_ARITH_INCOMPLETE_TYPE, coords, elemType);
+      } else if (!isVoidType(elemType) && elemSize == 0) {
+        reportDiagnostic(ctx, DIAG_PTR_ARITH_EMPTY_TYPE, coords);
       } else {
         reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
       }
@@ -583,6 +589,9 @@ TypeRef *computeIncDecType(ParserContext *ctx, Coordinates *coords, TypeRef *arg
       int typeSize = computeTypeSize(ptrType);
       if (typeSize == UNKNOWN_SIZE) {
           reportDiagnostic(ctx, DIAG_PTR_ARITH_INCOMPLETE_TYPE, coords, argumentType);
+          return makeErrorRef(ctx);
+      } else if (!isVoidType(ptrType) && typeSize == 0) {
+          reportDiagnostic(ctx, DIAG_PTR_ARITH_EMPTY_TYPE, coords);
           return makeErrorRef(ctx);
       }
   }
