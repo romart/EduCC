@@ -45,7 +45,7 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
   return derefered;
 }
 
-static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpression *expr, Boolean isComute) {
+static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpression *expr) {
   if (!isBinary(expr->op)) return expr;
 
   AstExpression *left = transformExpression(ctx, expr->binaryExpr.left);
@@ -54,7 +54,8 @@ static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpressio
   expr->binaryExpr.left = left;
   expr->binaryExpr.right = right;
 
-  isComute = isCommute(expr->op);
+  Boolean isReal = isRealType(expr->type);
+  Boolean isComute = isCommute(expr->op) && !isReal;
 
   // 1 op x -> x op 1
   if (isComute && left->op == E_CONST) {
@@ -65,46 +66,183 @@ static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpressio
       expr->binaryExpr.right = right;
   }
 
-  // (x op 1) op 2 -> x op (1 op 2)
-
   if (right->op == E_CONST) {
+      // (x op 1) op 2 -> x op (1 op2 2)
       if (left->op == expr->op) {
         AstExpression *x = left->binaryExpr.left;
         AstExpression *c1 = left->binaryExpr.right;
         AstExpression *c2 = right;
         if (c1->op == E_CONST) {
-            expr->binaryExpr.left = x;
-            left->binaryExpr.left = c1;
-            left->binaryExpr.right = c2;
-            AstConst *evaluated = eval(ctx, left);
-            assert(evaluated);
-            expr->binaryExpr.right = createAstConst2(ctx, &right->coordinates, right->type, evaluated);
+
+            if (expr->op == EB_MOD) {
+              expr->binaryExpr.left = x;
+              // (x % 2) % 3 -> x % min(2, 3)
+              if (c2->constExpr.i < c1->constExpr.i) {
+                  expr->binaryExpr.right = c2;
+              } else {
+                  expr->binaryExpr.right = c1;
+              }
+            } else {
+                expr->binaryExpr.left = x;
+                left->binaryExpr.left = c1;
+                left->binaryExpr.right = c2;
+                // (x + 2) + 3 -> x + (2 + 3)
+                // (x * 2) * 3 -> x * (2 * 3)
+                ExpressionType newOp = left->op;
+                // (x - 2) - 3 -> x - (2 + 3)
+                if (left->op == EB_SUB) newOp = EB_ADD;
+                // (x / 2) / 3 -> x / (2 * 3)
+                if (left->op == EB_DIV) newOp = EB_MUL;
+
+                left->op = newOp;
+                AstConst *evaluated = eval(ctx, left);
+                assert(evaluated);
+                expr->binaryExpr.right = createAstConst2(ctx, &right->coordinates, right->type, evaluated);
+            }
             left = expr->binaryExpr.left;
             right = expr->binaryExpr.right;
         }
       }
+
+      // (x + 1) - 2 -> x + 1 - 2 -> x + (1 - 2)
+      if (left->op == EB_ADD && expr->op == EB_SUB) {
+          AstExpression *x = left->binaryExpr.left;
+          AstExpression *c1 = left->binaryExpr.right;
+          AstExpression *c2 = right;
+          if (c1->op == E_CONST) {
+              expr->binaryExpr.left = x;
+              left->binaryExpr.left = c1;
+              left->binaryExpr.right = c2;
+
+              expr->op = EB_ADD;
+              left->op = EB_SUB;
+
+              AstConst *evaluated = eval(ctx, left);
+              assert(evaluated);
+              expr->binaryExpr.right = createAstConst2(ctx, &right->coordinates, right->type, evaluated);
+
+              left = expr->binaryExpr.left;
+              right = expr->binaryExpr.right;
+          }
+      }
+
+      // (x - 5) + 7 -> x - 5 + 7 -> x - (5 - 7)
+      if (left->op == EB_SUB && expr->op == EB_ADD) {
+          AstExpression *x = left->binaryExpr.left;
+          AstExpression *c1 = left->binaryExpr.right;
+          AstExpression *c2 = right;
+          if (c1->op == E_CONST) {
+              expr->binaryExpr.left = x;
+              left->binaryExpr.left = c1;
+              left->binaryExpr.right = c2;
+
+              expr->op = EB_SUB;
+
+              AstConst *evaluated = eval(ctx, left);
+              assert(evaluated);
+              expr->binaryExpr.right = createAstConst2(ctx, &right->coordinates, right->type, evaluated);
+
+              left = expr->binaryExpr.left;
+              right = expr->binaryExpr.right;
+          }
+      }
+
   }
 
 
-  // (x op 1) op y -> (x op y) op 1
+  if (!isReal) {
 
-  if (isComute && left->op == expr->op) {
-      AstExpression *l_left = left->binaryExpr.left;
-      AstExpression *l_right = left->binaryExpr.right;
-      if (l_right->op == E_CONST) {
-          left->binaryExpr.left = l_left;
+    // (x op 1) op y -> (x op y) op 1
+    if (isAdditiveOp(left->op) && left->op == expr->op) {
+        AstExpression *l_left = left->binaryExpr.left;
+        AstExpression *l_right = left->binaryExpr.right;
+        if (l_right->op == E_CONST) {
+            left->binaryExpr.left = l_left;
+            left->binaryExpr.right = right;
+            left->coordinates.endOffset = right->coordinates.endOffset;
+            expr->binaryExpr.right = l_right;
+            left = expr->binaryExpr.left;
+            right = expr->binaryExpr.right;
+        }
+    }
+
+    // (x + 1) - y -> (x - y) + 1
+    if (expr->op == EB_SUB && left->op == EB_ADD) {
+        AstExpression *l_left = left->binaryExpr.left;
+        AstExpression *l_right = left->binaryExpr.right;
+        if (l_right->op == E_CONST) {
           left->binaryExpr.right = right;
-          left->coordinates.endOffset = right->coordinates.endOffset;
+          left->op = EB_SUB;
+          expr->op = EB_ADD;
           expr->binaryExpr.right = l_right;
           left = expr->binaryExpr.left;
           right = expr->binaryExpr.right;
-      }
+        }
+    }
+
+    // (x - 1) + y -> (x + y) - 1
+    if (expr->op == EB_ADD && left->op == EB_SUB) {
+        AstExpression *l_left = left->binaryExpr.left;
+        AstExpression *l_right = left->binaryExpr.right;
+        if (l_right->op == E_CONST) {
+          left->binaryExpr.right = right;
+          left->op = EB_ADD;
+          expr->op = EB_SUB;
+          expr->binaryExpr.right = l_right;
+          left = expr->binaryExpr.left;
+          right = expr->binaryExpr.right;
+        }
+    }
   }
 
   if (isAdditiveOp(expr->op)) {
       if (right->op == E_CONST) {
           if (right->constExpr.i == 0) {
               return left;
+          }
+      }
+      if (left->op == E_CONST) {
+          if (left->constExpr.i == 0) {
+            if (expr->op == EB_SUB) {
+                // 0 - x -> -x
+                return createUnaryExpression(ctx, &expr->coordinates, EU_MINUS, right);
+            } else {
+                return right;
+            }
+          }
+      }
+  }
+
+  if (isMultiplicative(expr->op)) {
+      if (left->op == E_CONST) {
+          if (left->constExpr.op == CK_INT_CONST) {
+              // 1 op x -> x
+              if (left->constExpr.i == 1) {
+                  return right;
+              }
+          }
+
+          if (left->constExpr.op == CK_FLOAT_CONST) {
+              // 1.0f op x -> x
+              if (left->constExpr.f == 1.0f) {
+                  return right;
+              }
+          }
+      }
+
+      if (right->op == E_CONST) {
+          if (right->constExpr.op == CK_INT_CONST) {
+              // x op 1 -> x
+              if (right->constExpr.i == 1) {
+                  return left;
+              }
+          }
+
+          if (right->constExpr.op == CK_FLOAT_CONST) {
+              // x op 1.f -> x
+              if (right->constExpr.f == 1.0f) {
+                  return left;
+              }
           }
       }
   }
@@ -199,7 +337,7 @@ static AstExpression *cannonizeAddExpression(ParserContext *ctx, AstExpression *
   if (expr->op == EB_SUB)
     expr = cannonizeSubExpression(ctx, expr);
 
-  return cannonizeBinaryExpression(ctx, expr, TRUE);
+  return cannonizeBinaryExpression(ctx, expr);
 }
 
 static AstExpression *cannonizeSubExpression(ParserContext *ctx, AstExpression *expr) {
@@ -263,7 +401,7 @@ static AstExpression *cannonizeSubExpression(ParserContext *ctx, AstExpression *
   if (expr->op == EB_ADD)
     expr = cannonizeAddExpression(ctx, expr);
 
-  return cannonizeBinaryExpression(ctx, expr, TRUE);
+  return cannonizeBinaryExpression(ctx, expr);
 }
 
 
@@ -465,7 +603,9 @@ static AstExpression *transformExpression(ParserContext *ctx, AstExpression *exp
     case EB_OROR:
     case EB_EQ:
     case EB_NE:
-      return cannonizeBinaryExpression(ctx, expr, TRUE);
+    case EB_MOD:
+    case EB_DIV:
+      return cannonizeBinaryExpression(ctx, expr);
     case EB_LT:
     case EB_LE:
     case EB_GT:
@@ -475,9 +615,6 @@ static AstExpression *transformExpression(ParserContext *ctx, AstExpression *exp
       return cannonizeArrayAccess(ctx, expr);
     case EB_SUB:
       return cannonizeSubExpression(ctx, expr);
-    case EB_MOD:
-    case EB_DIV:
-      return cannonizeBinaryExpression(ctx, expr, FALSE);
     case EB_LHS:
     case EB_RHS:
     case EB_COMMA:
