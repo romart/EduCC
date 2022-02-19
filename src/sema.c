@@ -573,13 +573,11 @@ TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, TypeRef* lef
 }
 
 
-TypeRef *computeIncDecType(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, ExpressionType op) {
-  assert(op == EU_PRE_INC || op == EU_PRE_DEC || op == EU_POST_INC || op == EU_POST_DEC);
-
+TypeRef *computeIncDecType(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, Boolean isDec) {
   if (isErrorType(argumentType)) return argumentType;
 
   if (argumentType->kind == TR_FUNCTION || argumentType->kind == TR_ARRAY || isStructualType(argumentType)) {
-      enum DiagnosticId diag = op == EU_POST_DEC || op == EU_PRE_DEC ? DIAG_CANNOT_DECREMENT : DIAG_CANNOT_INCREMENT;
+      enum DiagnosticId diag = isDec ? DIAG_CANNOT_DECREMENT : DIAG_CANNOT_INCREMENT;
       reportDiagnostic(ctx, diag, coords, argumentType);
       return makeErrorRef(ctx);
   }

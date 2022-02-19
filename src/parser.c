@@ -776,12 +776,37 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
             checkExpressionIsAssignable(ctx, &ctx->token->coordinates, left, TRUE);
             left = createUnaryExpression(ctx, &coords, op, left);
 
-            left->type = computeIncDecType(ctx, &coords, argType, op);
+            left->type = computeIncDecType(ctx, &coords, argType, op == EU_POST_DEC);
             nextToken(ctx);
             break;
         default: return left;
         }
     }
+}
+
+static AstExpression *createUnaryIncDecExpression(ParserContext *ctx, Coordinates *coords, AstExpression *arg, TypeRef *type, ExpressionType op) {
+  if (isErrorType(type)) return createErrorExpression(ctx, coords);
+
+  AstExpression *offset = NULL;
+
+  if (isRealType(type)) {
+    double d = 1.0;
+    offset = createAstConst(ctx, coords, CK_FLOAT_CONST, &d);
+    offset->type = type;
+  } else if (isPointerLikeType(type)) {
+    assert(type->kind == TR_POINTED);
+    TypeRef *ptr= type->pointedTo;
+    int64_t typeSize = isVoidType(ptr) ? 1 : computeTypeSize(type->pointedTo);
+    assert(typeSize != UNKNOWN_SIZE);
+    offset = createAstConst(ctx, coords, CK_INT_CONST, &typeSize);
+    offset->type = makePrimitiveType(ctx, T_S8, 0);
+  } else {
+    int64_t i = 1LL;
+    offset = createAstConst(ctx, coords, CK_INT_CONST, &i);
+    offset->type = type;
+  }
+
+  return createBinaryExpression(ctx, op, type, arg, offset);
 }
 
 /**
@@ -808,15 +833,15 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
             coords.endOffset = ctx->token->coordinates.endOffset;
             consumeRaw(ctx, IDENTIFIER);
             return createLabelRefExpression(ctx, &coords, label);
-        case INC_OP: op = EU_PRE_INC; goto ue1;
-        case DEC_OP: op = EU_PRE_DEC;
+        case INC_OP: op = EB_ASG_ADD; goto ue1;
+        case DEC_OP: op = EB_ASG_SUB;
         ue1:
             nextToken(ctx);
             argument = parseUnaryExpression(ctx, scope);
             checkExpressionIsAssignable(ctx, &coords, argument, TRUE);
-            result = createUnaryExpression(ctx, &coords, op, argument);
-            result->type = computeIncDecType(ctx, &coords, argument->type, op);
-            return result;
+            TypeRef *type = computeIncDecType(ctx, &coords, argument->type, op == EB_ASG_SUB);
+            coords.endOffset = argument->coordinates.endOffset;
+            return createUnaryIncDecExpression(ctx, &coords, argument, type, op);
         case '&': op = EU_REF; goto ue2;
         case '*': op = EU_DEREF; goto ue2;
         case '+': op = EU_PLUS; goto ue2;
