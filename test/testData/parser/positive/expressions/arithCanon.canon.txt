@@ -134,3 +134,45 @@ FILE test/testData/parser/positive/expressions/arithCanon.c
     float hhh = \
       x / 5.000000 / y    
   END
+----
+  FUN void testShift
+  BEGIN
+    signed int a = \
+      10
+    signed int b = \
+      20
+    signed int c = \
+      30
+    signed int d = \
+      a >> b + c
+    signed int e = \
+      a << b >> c
+    signed int f = \
+      a >> b << c
+    signed int g = \
+      a << b + c
+    signed int d = \
+      c >> b + 10
+    signed int e = \
+      c << b >> 10
+    signed int f = \
+      c >> b << 10
+    signed int g = \
+      c << b + 10
+    signed int h = \
+      c >> c + 12
+    signed int i = \
+      c << 12 >> c
+    signed int j = \
+      c >> 12 << c
+    signed int k = \
+      c << c + 12
+    signed int h = \
+      a >> 12
+    signed int i = \
+      a << 7 >> 5
+    signed int j = \
+      a >> 7 << 5
+    signed int k = \
+      a << 12
+  END
