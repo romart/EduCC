@@ -29,7 +29,7 @@ FILE test/testData/parser/negative/statements/break.c
     signed int r = \
       0
     signed int i
-    FOR (i = 0; i < a; ++i)
+    FOR (i = 0; i < a; i += 1)
       r += foo(i)
     END_FOR
     BREAK    

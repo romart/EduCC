@@ -43,8 +43,8 @@ test/testData/parser/negative/expressions/binary/binPlus.c:6:56: error: invalid 
 test/testData/parser/negative/expressions/binary/binPlus.c:6:57: error: invalid operands to binary expression ('float' and 'signed int[20]')
 test/testData/parser/negative/expressions/binary/binPlus.c:6:58: error: invalid operands to binary expression ('float' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binPlus.c:6:59: error: invalid operands to binary expression ('float' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binPlus.c:6:60: error: invalid operands to binary expression ('float' and '*STRUCT S1')
-test/testData/parser/negative/expressions/binary/binPlus.c:6:61: error: invalid operands to binary expression ('float' and '*STRUCT S1')
+test/testData/parser/negative/expressions/binary/binPlus.c:6:60: error: arithmetic on pointer to an empty aggregate
+test/testData/parser/negative/expressions/binary/binPlus.c:6:61: error: arithmetic on pointer to an empty aggregate
 test/testData/parser/negative/expressions/binary/binPlus.c:6:62: error: invalid operands to binary expression ('float' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binPlus.c:6:63: error: invalid operands to binary expression ('float' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binPlus.c:6:64: error: invalid operands to binary expression ('float' and '*STRUCT S2')
@@ -60,8 +60,8 @@ test/testData/parser/negative/expressions/binary/binPlus.c:6:73: error: invalid 
 test/testData/parser/negative/expressions/binary/binPlus.c:6:74: error: invalid operands to binary expression ('float' and 'signed int[20]')
 test/testData/parser/negative/expressions/binary/binPlus.c:6:75: error: invalid operands to binary expression ('float' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binPlus.c:6:76: error: invalid operands to binary expression ('float' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binPlus.c:6:77: error: invalid operands to binary expression ('float' and '*STRUCT S1')
-test/testData/parser/negative/expressions/binary/binPlus.c:6:78: error: invalid operands to binary expression ('float' and '*STRUCT S1')
+test/testData/parser/negative/expressions/binary/binPlus.c:6:77: error: arithmetic on pointer to an empty aggregate
+test/testData/parser/negative/expressions/binary/binPlus.c:6:78: error: arithmetic on pointer to an empty aggregate
 test/testData/parser/negative/expressions/binary/binPlus.c:6:79: error: invalid operands to binary expression ('float' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binPlus.c:6:80: error: invalid operands to binary expression ('float' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binPlus.c:6:81: error: invalid operands to binary expression ('float' and '*STRUCT S2')
@@ -204,8 +204,8 @@ test/testData/parser/negative/expressions/binary/binPlus.c:7:217: error: invalid
 test/testData/parser/negative/expressions/binary/binPlus.c:7:218: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binPlus.c:3:219: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binPlus.c:3:220: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binPlus.c:8:221: error: invalid operands to binary expression ('*STRUCT S1' and 'float')
-test/testData/parser/negative/expressions/binary/binPlus.c:8:222: error: invalid operands to binary expression ('*STRUCT S1' and 'float')
+test/testData/parser/negative/expressions/binary/binPlus.c:8:221: error: arithmetic on pointer to an empty aggregate
+test/testData/parser/negative/expressions/binary/binPlus.c:8:222: error: arithmetic on pointer to an empty aggregate
 test/testData/parser/negative/expressions/binary/binPlus.c:8:223: error: invalid operands to binary expression ('*STRUCT S1' and '*signed int')
 test/testData/parser/negative/expressions/binary/binPlus.c:3:224: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binPlus.c:8:225: error: invalid operands to binary expression ('*STRUCT S1' and '*float')
@@ -221,8 +221,8 @@ test/testData/parser/negative/expressions/binary/binPlus.c:8:234: error: invalid
 test/testData/parser/negative/expressions/binary/binPlus.c:8:235: error: invalid operands to binary expression ('*STRUCT S1' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binPlus.c:3:236: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binPlus.c:3:237: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binPlus.c:8:238: error: invalid operands to binary expression ('*STRUCT S1' and 'float')
-test/testData/parser/negative/expressions/binary/binPlus.c:8:239: error: invalid operands to binary expression ('*STRUCT S1' and 'float')
+test/testData/parser/negative/expressions/binary/binPlus.c:8:238: error: arithmetic on pointer to an empty aggregate
+test/testData/parser/negative/expressions/binary/binPlus.c:8:239: error: arithmetic on pointer to an empty aggregate
 test/testData/parser/negative/expressions/binary/binPlus.c:8:240: error: invalid operands to binary expression ('*STRUCT S1' and '*signed int')
 test/testData/parser/negative/expressions/binary/binPlus.c:3:241: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binPlus.c:8:242: error: invalid operands to binary expression ('*STRUCT S1' and '*float')

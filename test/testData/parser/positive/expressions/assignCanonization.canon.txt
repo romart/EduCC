@@ -54,7 +54,7 @@ FILE test/testData/parser/positive/expressions/assignCanonization.c
     #1: signed int x
   BEGIN
     (*(*s4 + x++ * 16)).f1 = (unsigned int)10
-    (*(*s4 + x++ * 16)).f2 = *(*s4 + --x * 16 + 8) >> 0 && 1023    
+    (*(*s4 + x++ * 16)).f2 = *(*s4 + (x -= 1) * 16 + 8) >> 0 && 1023
   END
 ----
   FUN void testArrayAsgn 
@@ -62,5 +62,5 @@ FILE test/testData/parser/positive/expressions/assignCanonization.c
     #1: signed int i
   BEGIN
     *(ptr + i++ * 4) += 10
-    *(ptr + 40) += --i    
+    *(ptr + 40) += i -= 1
   END

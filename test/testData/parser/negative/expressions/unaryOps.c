@@ -5,9 +5,11 @@ float *pf;
 
 int arr[20];
 
-struct S {};
+struct S { int x; };
 
 struct S s, *ps;
+
+void *vp;
 
 void testAmp() {
   register int ri;
@@ -20,6 +22,7 @@ void testAmp() {
   &arr;
   &s;
   &ps;
+  &vp;
 }
 
 
@@ -31,6 +34,7 @@ void testStar() {
   *arr;
   *s;
   *ps;
+  *vp;
 }
 
 
@@ -42,6 +46,7 @@ void testPlus() {
   +arr;
   +s;
   +ps;
+  +vp;
 }
 
 
@@ -53,6 +58,7 @@ void testMinus() {
   -arr;
   -s;
   -ps;
+  -vp;
 }
 
 
@@ -64,6 +70,7 @@ void testExl() {
   !arr;
   !s;
   !ps;
+  !vp;
 }
 
 
@@ -75,6 +82,7 @@ void testTilda() {
   ~arr;
   ~s;
   ~ps;
+  ~vp;
 }
 
 
@@ -86,6 +94,7 @@ void testInc() {
   ++arr;
   ++s;
   ++ps;
+  ++vp;
 }
 
 
@@ -97,4 +106,5 @@ void testDec() {
   --arr;
   --s;
   --ps;
+  --vp;
 }

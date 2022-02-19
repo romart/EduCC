@@ -22,6 +22,8 @@ FILE test/testData/parser/negative/expressions/binary/binMinus.c
   STRUCT S1
 ----
   STRUCT S2
+    signed int[100] y #0
+  STRUCT_END
 ----
   STRUCT S1 s11
 ----
@@ -313,12 +315,12 @@ FILE test/testData/parser/negative/expressions/binary/binMinus.c
     s22 - s21
     s22 - ps21
     s22 - ps22
-    ps21 - i1 * 0
-    ps21 - i2 * 0
+    ps21 - i1 * 400
+    ps21 - i2 * 400
     ps21 - f1
     ps21 - f2
     ps21 - pi1
-    ps21 - pi2 * 0
+    ps21 - pi2 * 400
     ps21 - pf1
     ps21 - pf2
     ps21 - arr1
@@ -329,13 +331,13 @@ FILE test/testData/parser/negative/expressions/binary/binMinus.c
     ps21 - ps12
     ps21 - s21
     ps21 - s22
-    (ps21 - ps22) / 0
-    ps22 - i1 * 0
-    ps22 - i2 * 0
+    (ps21 - ps22) / 400
+    ps22 - i1 * 400
+    ps22 - i2 * 400
     ps22 - f1
     ps22 - f2
     ps22 - pi1
-    ps22 - pi2 * 0
+    ps22 - pi2 * 400
     ps22 - pf1
     ps22 - pf2
     ps22 - arr1
@@ -346,5 +348,5 @@ FILE test/testData/parser/negative/expressions/binary/binMinus.c
     ps22 - ps12
     ps22 - s21
     ps22 - s22
-    (ps22 - ps21) / 0    
+    (ps22 - ps21) / 400
   END
