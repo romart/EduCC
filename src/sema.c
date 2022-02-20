@@ -1905,9 +1905,9 @@ TypeRef *makeFunctionReturnType(ParserContext *ctx, DeclarationSpecifiers *speci
 
     TypeRef *type = specifiers->basicType;
 
-    int i;
-    for (i = declarator->partsCounter - 1; i >= 0; --i) {
-        DeclaratorPart *part = &declarator->declaratorParts[i];
+    DeclaratorPart *part = declarator->declaratorParts;
+
+    while (part) {
         switch (part->kind) {
         case DPK_POINTER:
             type = makePointedType(ctx, part->flags, type);
@@ -1921,10 +1921,11 @@ TypeRef *makeFunctionReturnType(ParserContext *ctx, DeclarationSpecifiers *speci
         default:
             unreachable("UNKNOWN Declarator Part");
         }
-    }
+        part = part->next;
+     }
 
-    reportDiagnostic(ctx, DIAG_EXPECTED_FUNCTION_DECLARATOR, &ctx->token->coordinates);
-    return NULL; // return error type
+    reportDiagnostic(ctx, DIAG_EXPECTED_FUNCTION_DECLARATOR, &declarator->coordinates);
+    return makeErrorRef(ctx);
 }
 
 void verifyFunctionReturnType(ParserContext *ctx, Declarator *declarator, TypeRef *returnType) {
@@ -1955,9 +1956,9 @@ TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Decl
 
     TypeRef *type = specifiers->basicType;
 
-    int i;
-    for (i = declarator->partsCounter - 1; i >= 0; --i) {
-        DeclaratorPart *part = &declarator->declaratorParts[i];
+    DeclaratorPart *part = declarator->declaratorParts;
+
+    while (part) {
         switch (part->kind) {
         case DPK_POINTER:
             type = makePointedType(ctx, part->flags, type);
@@ -1974,6 +1975,7 @@ TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Decl
         default:
             unreachable("UNKNOWN Declarator Part");
         }
+        part = part->next;
     }
 
     return type;
