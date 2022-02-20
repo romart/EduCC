@@ -41,6 +41,26 @@ typedef struct _Token {
 
 struct _Scope;
 
+typedef struct _DefinedLabel {
+  AstLabelStatement *label;
+  struct _DefinedLabel *next;
+} DefinedLabel;
+
+enum LabelUseKind {
+  LU_GOTO_USE,
+  LU_REF_USE
+};
+
+typedef struct _UsedLabel {
+  const char *label;
+  enum LabelUseKind kind;
+  union {
+    AstExpression *labelRef;
+    AstStatement *gotoStatement;
+  };
+  struct _UsedLabel *next;
+} UsedLabel;
+
 typedef struct _ParserContext {
     Configuration *config;
 
@@ -79,8 +99,12 @@ typedef struct _ParserContext {
       unsigned inLoop: 1;
       unsigned inSwitch: 1;
       unsigned caseCount;
-      HashMap *labelSet;
     } stateFlags;
+
+    struct {
+      DefinedLabel *definedLabels;
+      UsedLabel *usedLabels;
+    } labels;
 
     TypeRef *functionReturnType;
 
