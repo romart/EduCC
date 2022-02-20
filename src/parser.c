@@ -1413,15 +1413,54 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
         if (specifiers.defined) {
             // TODO: it doesn't work like this
             AstSUEDeclaration *definition = specifiers.defined;
-            AstDeclaration *declaration = createAstDeclaration(ctx, definition->kind, definition->name);
-            declaration->structDeclaration = definition;
-            AstStructMember *m1 = createStructMember(ctx, declaration, NULL, NULL);
-            if (tail) {
-                tail->next = m1;
+            Boolean isAnon = strstr(definition->name, "<anon") == definition->name;
+            if (isAnon && nextTokenIf(ctx, ';')) {
+                /** Handle that case
+                 *
+                 * struct S {
+                 *   int a;
+                 *
+                 *   struct {
+                 *     int b;
+                 *   };
+                 */
+
+                AstStructMember *members = definition->members;
+                if (tail) {
+                    tail->next = members;
+                } else {
+                    head = members;
+                }
+
+                unsigned size = 0;
+
+                while (members) {
+                    if (members->kind == SM_DECLARATOR) {
+                        AstStructDeclarator *declarator = members->declarator;
+                        int mOffset = declarator->offset;
+                        TypeRef *type = declarator->typeRef;
+                        int typeSize = computeTypeSize(type);
+                        if (typeSize != UNKNOWN_SIZE) {
+                            size = mOffset + typeSize;
+                            members->declarator->offset += offset;
+                        }
+                    }
+                    tail = members;
+                    members = members->next;
+                }
+                offset += size;
+                continue;
             } else {
-                head = m1;
+                AstDeclaration *declaration = createAstDeclaration(ctx, definition->kind, definition->name);
+                declaration->structDeclaration = definition;
+                AstStructMember *m1 = createStructMember(ctx, declaration, NULL, NULL);
+                if (tail) {
+                    tail->next = m1;
+                } else {
+                    head = m1;
+                }
+                tail = m1;
             }
-            tail = m1;
         }
 
         for (;;) {
@@ -1439,76 +1478,89 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
             }
 
             const char *name = declarator.identificator;
-            coords.endOffset = declarator.coordinates.endOffset;
-            TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
-            if (hasWidth) {
-                // TODO: coordinates
-                if (isIntegerType(type)) {
-                  if (width < 0) {
-                      if (name) {
-                        reportDiagnostic(ctx, DIAG_BIT_FIELD_NEGATIVE_WIDTH, &declarator.coordinates, name, width);
-                      } else {
-                        reportDiagnostic(ctx, DIAG_ANON_BIT_FIELD_NEGATIVE_WIDTH, &specifiers.coordinates, width);
-                      }
-                      width = 0;
-                  } else {
-                      int typeSize = type->descriptorDesc->size;
-                      int typeWidth = typeSize * BYTE_BIT_SIZE;
-                      if (width > typeWidth) {
+
+            if (name == NULL && specifiers.defined) {
+                /** Handle that case
+                 *
+                 * struct S {
+                 *   int a;
+                 *
+                 *   struct N {
+                 *     int b;
+                 *   };
+                 */
+                ;
+            } else {
+              coords.endOffset = declarator.coordinates.endOffset;
+              TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
+              if (hasWidth) {
+                  // TODO: coordinates
+                  if (isIntegerType(type)) {
+                    if (width < 0) {
                         if (name) {
-                          reportDiagnostic(ctx, DIAG_EXCEED_BIT_FIELD_TYPE_WIDTH, &declarator.coordinates, name, width, typeWidth);
+                          reportDiagnostic(ctx, DIAG_BIT_FIELD_NEGATIVE_WIDTH, &declarator.coordinates, name, width);
                         } else {
-                          reportDiagnostic(ctx, DIAG_EXCEED_ANON_BIT_FIELD_TYPE_WIDTH, &specifiers.coordinates, width, typeWidth);
+                          reportDiagnostic(ctx, DIAG_ANON_BIT_FIELD_NEGATIVE_WIDTH, &specifiers.coordinates, width);
                         }
                         width = 0;
-                      }
-
-                      if (curBitFieldUnit) {
-                          if (!typesEquals(curBitFieldUnit, type) || (width && (typeWidth - bitOffset) < width)) {
-                              bitOffset = 0;
-                              offset += computeTypeSize(curBitFieldUnit) * factor;
+                    } else {
+                        int typeSize = type->descriptorDesc->size;
+                        int typeWidth = typeSize * BYTE_BIT_SIZE;
+                        if (width > typeWidth) {
+                          if (name) {
+                            reportDiagnostic(ctx, DIAG_EXCEED_BIT_FIELD_TYPE_WIDTH, &declarator.coordinates, name, width, typeWidth);
+                          } else {
+                            reportDiagnostic(ctx, DIAG_EXCEED_ANON_BIT_FIELD_TYPE_WIDTH, &specifiers.coordinates, width, typeWidth);
                           }
-                      }
+                          width = 0;
+                        }
 
-                      curBitFieldUnit = type;
+                        if (curBitFieldUnit) {
+                            if (!typesEquals(curBitFieldUnit, type) || (width && (typeWidth - bitOffset) < width)) {
+                                bitOffset = 0;
+                                offset += computeTypeSize(curBitFieldUnit) * factor;
+                            }
+                        }
 
-                      type = makeBitFieldType(ctx, curBitFieldUnit, bitOffset, width);
+                        curBitFieldUnit = type;
 
-                      bitOffset += width * factor;
+                        type = makeBitFieldType(ctx, curBitFieldUnit, bitOffset, width);
 
-                      if (width == 0) {
-                          curBitFieldUnit = NULL;
-                          bitOffset = 0;
-                          offset += computeTypeSize(type) * factor;
+                        bitOffset += width * factor;
+
+                        if (width == 0) {
+                            curBitFieldUnit = NULL;
+                            bitOffset = 0;
+                            offset += computeTypeSize(type) * factor;
+                        }
+                    }
+                  } else {
+                      if (name) {
+                        reportDiagnostic(ctx, DIAG_BIT_FIELD_TYPE_NON_INT, &declarator.coordinates, name, type);
+                      } else {
+                        reportDiagnostic(ctx, DIAG_ANON_BIT_FIELD_TYPE_NON_INT, &declarator.coordinates, type);
                       }
                   }
-                } else {
-                    if (name) {
-                      reportDiagnostic(ctx, DIAG_BIT_FIELD_TYPE_NON_INT, &declarator.coordinates, name, type);
-                    } else {
-                      reportDiagnostic(ctx, DIAG_ANON_BIT_FIELD_TYPE_NON_INT, &declarator.coordinates, type);
-                    }
-                }
-            } else if (curBitFieldUnit) {
-                offset += computeTypeSize(curBitFieldUnit) * factor;
-            }
+              } else if (curBitFieldUnit) {
+                  offset += computeTypeSize(curBitFieldUnit) * factor;
+              }
 
-            AstStructDeclarator *structDeclarator = NULL;
-            structDeclarator = createStructDeclarator(ctx, &coords, type, name, offset);
-            AstStructMember *member = createStructMember(ctx, NULL, structDeclarator, NULL);
-            if (tail) {
-                tail->next = member;
-            } else {
-                head = member;
-            }
-            tail = member;
+              AstStructDeclarator *structDeclarator = NULL;
+              structDeclarator = createStructDeclarator(ctx, &coords, type, name, offset);
+              AstStructMember *member = createStructMember(ctx, NULL, structDeclarator, NULL);
+              if (tail) {
+                  tail->next = member;
+              } else {
+                  head = member;
+              }
+              tail = member;
 
-            if (!hasWidth) {
-              bitOffset = 0;
-              curBitFieldUnit = NULL;
-              offset += computeTypeSize(type) * factor;
+              if (!hasWidth) {
+                bitOffset = 0;
+                curBitFieldUnit = NULL;
+                offset += computeTypeSize(type) * factor;
+              }
             }
-
             if (!nextTokenIf(ctx, ',')) break;
         }
 
