@@ -1448,7 +1448,7 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
                     tail = members;
                     members = members->next;
                 }
-                offset += size;
+                offset += size * factor;
                 continue;
             } else {
                 AstDeclaration *declaration = createAstDeclaration(ctx, definition->kind, definition->name);
