@@ -2139,15 +2139,6 @@ direct_declarator
 
 static void parseDirectDeclarator(ParserContext *ctx, Declarator *declarator);
 
-
-static Boolean isFunctionDeclarator(Declarator *declarator) {
-  if (declarator->partsCounter) {
-      return declarator->declaratorParts[0].kind == DPK_FUNCTION;
-  }
-
-  return FALSE;
-}
-
 /**
 parameter_list
     : parameter_declaration ( ',' parameter_declaration )* ( ',' ELLIPSIS )?
@@ -2251,35 +2242,50 @@ static AstIdentifierList* parseIdentifierList(ParserContext *ctx, struct _Scope*
 }
 
 static void parseFunctionDeclaratorPart(ParserContext *ctx, Declarator *declarator) {
+  int startOffset = ctx->token->coordinates.startOffset;
   consume(ctx, '(');
+
   Scope *paramScope = newScope(ctx, ctx->currentScope);
+  DeclaratorPart *part = allocateDeclaratorPart(ctx);
+
   ctx->currentScope = paramScope;
-  FunctionParams params = { 0 };
   if (ctx->token->code != ')') {
-      parseParameterList(ctx, &params, NULL);
+      parseParameterList(ctx, &part->parameters, NULL);
   }
-  DeclaratorPart *part = &declarator->declaratorParts[declarator->partsCounter++];
+
+  part->coordinates.startOffset = startOffset;
+  part->coordinates.endOffset = declarator->coordinates.endOffset = ctx->token->coordinates.endOffset;
+
   part->kind = DPK_FUNCTION;
-  part->parameters.isVariadic = params.isVariadic;
-  part->parameters.parameters = params.parameters;
   part->parameters.scope = paramScope;
 
-  declarator->coordinates.endOffset = ctx->token->coordinates.endOffset;
+  part->next = declarator->declaratorParts;
+
+  declarator->functionDeclarator = declarator->declaratorParts ? NULL : part;
+  declarator->declaratorParts = part;
 
   ctx->currentScope = paramScope->parent;
+
   consume(ctx, ')');
 }
 
 static void parseArrayDeclaratorPart(ParserContext *ctx, Declarator *declarator) {
+  int startOffset = ctx->token->coordinates.startOffset;
   consume(ctx, '[');
   int64_t size = UNKNOWN_SIZE;
   if (ctx->token->code != ']') {
       parseAsIntConst(ctx, &size);
   }
-  declarator->coordinates.endOffset = ctx->token->coordinates.endOffset;
-  DeclaratorPart *part = &declarator->declaratorParts[declarator->partsCounter++];
+
+  DeclaratorPart *part = allocateDeclaratorPart(ctx);
+  part->coordinates.startOffset = startOffset;
+  part->coordinates.endOffset = declarator->coordinates.endOffset = ctx->token->coordinates.endOffset;
   part->kind = DPK_ARRAY;
   part->arraySize = size;
+
+  part->next = declarator->declaratorParts;
+  declarator->declaratorParts = part;
+
   consume(ctx, ']');
 }
 
@@ -2301,6 +2307,7 @@ static void parseDirectDeclarator(ParserContext *ctx, Declarator *declarator) {
         if (declarator->identificator) {
             reportDiagnostic(ctx, DIAG_ID_ALREADY_SPECIFIED, &ctx->token->coordinates);
         } else {
+            declarator->idCoordinates = ctx->token->coordinates;
             declarator->identificator = ctx->token->text;
         }
         declarator->coordinates.endOffset = ctx->token->coordinates.endOffset;
@@ -2341,13 +2348,23 @@ declarator
  */
 static void parseDeclarator(ParserContext *ctx, Declarator *declarator) {
 
+
+    int startOffset = ctx->token->coordinates.startOffset;
+
     if (nextTokenIf(ctx, '*')) {
         SpecifierFlags qualifiers = parseTypeQualifierList(ctx);
+
+        int endOffset = ctx->token->coordinates.startOffset;
         parseDeclarator(ctx, declarator);
 
-        DeclaratorPart *part = &declarator->declaratorParts[declarator->partsCounter++];
+
+        DeclaratorPart *part = allocateDeclaratorPart(ctx);
+        part->coordinates.startOffset = startOffset;
+        part->coordinates.endOffset = declarator->coordinates.endOffset = endOffset;
         part->kind = DPK_POINTER;
         part->flags.storage = qualifiers.storage;
+        part->next = declarator->declaratorParts;
+        declarator->declaratorParts = part;
     } else {
         parseDirectDeclarator(ctx, declarator);
     }
@@ -2882,7 +2899,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
     declarator.coordinates.startOffset = ctx->token->coordinates.startOffset;
     parseDeclarator(ctx, &declarator);
 
-    int isFunDeclarator = isFunctionDeclarator(&declarator);
+    DeclaratorPart *funDeclarator = declarator.functionDeclarator;
     int eqPos = ctx->token->coordinates.startOffset;
     if (nextTokenIf(ctx, '=')) {
         if (specifiers.flags.bits.isExternal) {
@@ -2892,7 +2909,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
     };
 
     if (initializer != NULL) {
-        if (isTypeDefDeclaration || isFunDeclarator) {
+        if (isTypeDefDeclaration || funDeclarator) {
             Coordinates coords3 = { eqPos,  initializer->coordinates.endOffset };
             reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &coords3);
         }
@@ -2911,32 +2928,22 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
       declaration = createAstDeclaration(ctx, DK_TYPEDEF, name);
       declaration->typeDefinition.definedType = type;
       declaration->typeDefinition.coordinates = coords;
-    } else if (isFunDeclarator) {
+    } else if (funDeclarator) {
+      assert(funDeclarator->kind == DPK_FUNCTION);
       TypeRef *returnType = makeFunctionReturnType(ctx, &specifiers, &declarator);
       verifyFunctionReturnType(ctx, &declarator, returnType);
-      FunctionParams *params_dpk = NULL;
       unsigned i;
       funName = name;
 
-      for (i = 0; i < declarator.partsCounter; ++i) {
-          DeclaratorPart *dp = &declarator.declaratorParts[i];
-          if (dp->kind == DPK_FUNCTION) {
-              params_dpk = &dp->parameters;
-              break;
-          }
-      }
-
-      // TODO: what if name == NULL
-      assert(params_dpk != NULL);
-      AstValueDeclaration *params = params_dpk->parameters;
-      functionDeclaration = createFunctionDeclaration(ctx, &coords, returnType, funName, specifiers.flags.storage, params, params_dpk->isVariadic);
+      AstValueDeclaration *params = funDeclarator->parameters.parameters;
+      functionDeclaration = createFunctionDeclaration(ctx, &coords, returnType, funName, specifiers.flags.storage, params, funDeclarator->parameters.isVariadic);
       declareFunctionSymbol(ctx, name, functionDeclaration);
 
       if (ctx->token->code == '{') {
           if (id_idx != 0) {
               reportDiagnostic(ctx, DIAG_EXPECTED_SEMI_AFTER_TL_DECLARATOR, &ctx->token->coordinates);
           }
-          functionScope = params_dpk->scope;
+          functionScope = funDeclarator->parameters.scope;
           break;
       } else {
           declaration = createAstDeclaration(ctx, DK_PROTOTYPE, name);

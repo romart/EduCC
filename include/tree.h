@@ -308,7 +308,9 @@ typedef struct _FunctionParams {
 } FunctionParams;
 
 typedef struct _DeclaratorPart {
+    Coordinates coordinates;
     DeclaratorPartKind kind;
+    struct _DeclaratorPart *next;
     union {
       SpecifierFlags flags;
       int arraySize;
@@ -326,10 +328,10 @@ typedef enum _DeclaratorScope {
 
 typedef struct _Declarator {
     Coordinates coordinates;
+    Coordinates idCoordinates;
     const char* identificator;
-    unsigned partsCounter;
-    DeclaratorPart declaratorParts[256];
-    unsigned identificatorCounter;
+    DeclaratorPart *declaratorParts;
+    DeclaratorPart *functionDeclarator;
 } Declarator;
 
 typedef struct _EnumConstant {
@@ -467,6 +469,8 @@ AstExpression *deparen(AstExpression *expr);
 TypeDesc *createTypeDescriptor(ParserContext *ctx, TypeId typeId, const char *name, int size);
 
 // declarations
+
+DeclaratorPart *allocateDeclaratorPart(ParserContext *ctx);
 
 EnumConstant *createEnumConst(ParserContext *ctx, Coordinates *coords, const char* name, int64_const_t value);
 
