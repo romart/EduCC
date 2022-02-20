@@ -17,3 +17,40 @@ struct SS {
 struct {
 
 };
+
+struct SN {
+  int a;
+  int b;
+
+  struct {
+    int d;
+    int e;
+
+    struct {
+      int ff;
+      int gg;
+
+      struct SSN {
+        int x;
+        int y;
+      } ss, *pss, **ppss;
+
+    };
+
+  };
+
+  struct N {
+    int f;
+    int g;
+  };
+
+  struct NN {
+    int h;
+    int i;
+  } nn;
+
+  struct {
+    int j;
+    int k;
+  } anon;
+};

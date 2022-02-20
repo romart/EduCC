@@ -31,3 +31,33 @@ FILE test/testData/parser/positive/structs.c
   STRUCT_END
 ----
   STRUCT <anon$1>
+----
+  STRUCT SN
+    signed int a #0
+    signed int b #4
+    signed int d #8
+    signed int e #12
+    signed int ff #16
+    signed int gg #20
+    STRUCT SSN
+      signed int x #0
+      signed int y #4
+    STRUCT_END
+    STRUCT SSN ss #24
+    *STRUCT SSN pss #32
+    **STRUCT SSN ppss #40
+    STRUCT N
+      signed int f #0
+      signed int g #4
+    STRUCT_END
+    STRUCT NN
+      signed int h #0
+      signed int i #4
+    STRUCT_END
+    STRUCT NN nn #48
+    STRUCT <anon$4>
+      signed int j #0
+      signed int k #4
+    STRUCT_END
+    STRUCT <anon$4> anon #56
+  STRUCT_END
