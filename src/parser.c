@@ -915,7 +915,7 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
             TypeRef *sizeType = NULL;
             if (token == '(') {
                 token = nextToken(ctx)->code;
-                if (isSpecifierQualifierList(token)) {
+                if (isDeclarationSpecifierToken(token)) {
                     argument = NULL;
                     sizeType = parseTypeName(ctx, scope);
                     coords.endOffset = ctx->token->coordinates.endOffset;
