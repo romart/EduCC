@@ -403,6 +403,8 @@ typedef struct _AstValueDeclaration {
   SpecifierFlags flags;
   struct _Symbol* symbol;
 
+  struct _GeneratedVariable *gen;
+
   union {
     struct {
       unsigned index; // VD_PARAMETER
@@ -423,6 +425,7 @@ typedef struct _AstFunctionDeclaration {
 
   struct _Symbol *symbol;
 
+  struct _GeneratedFunction *gen;
 } AstFunctionDeclaration;
 
 
