@@ -130,7 +130,7 @@ typedef struct _AstNameRef {
 
 typedef struct _AstExpressionList {
   struct _AstExpression *expression;
-  struct _AstExpressionList *next;
+  struct _AstExpressionList *next, *prev;
 } AstExpressionList;
 
 typedef struct _AstCallExpression {

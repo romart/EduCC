@@ -680,6 +680,7 @@ static AstExpressionList *parseArgumentExpressionList(ParserContext *ctx, struct
       node->expression = expr;
       if (tail) {
           tail->next = node;
+          node->prev = tail;
       } else {
           head = node;
       }
