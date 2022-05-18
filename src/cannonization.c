@@ -15,10 +15,14 @@ static TypeRef *voidPtrType(ParserContext *ctx) {
 
 static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *expr) {
   assert(expr->op == EB_A_ACC);
-  AstExpression *left = transformExpression(ctx, expr->binaryExpr.left);
-  AstExpression *right = transformExpression(ctx, expr->binaryExpr.right);
+
+
+  AstExpression *left = expr->binaryExpr.left;
+  AstExpression *right = expr->binaryExpr.right;
+
   AstExpression *base = isPointerLikeType(left->type) ? left : right;
   AstExpression *index = base == left ? right : left;
+
   TypeRef *arrayType = base->type;
   assert(isPointerLikeType(arrayType));
   TypeRef *pointerType = arrayType->kind == TR_ARRAY ? makePointedType(ctx, arrayType->flags, arrayType->arrayTypeDesc.elementType) : arrayType;
@@ -27,6 +31,16 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
   size_t elementSize = computeTypeSize(elementType);
 
   TypeRef *indexType = makePrimitiveType(ctx, T_U8, 0);
+
+  Boolean isFlat = base->op == EF_DOT;
+
+  base = transformExpression(ctx, base);
+  index = transformExpression(ctx, index);
+
+  if (isFlat) {
+      assert(base->op == EU_DEREF);
+      base = base->unaryExpr.argument;
+  }
 
   // TODO: probably void* isn't the best choose, think about introducing an address type for that purpose
   base->type = voidPtrType(ctx); // we do some address arith here, first normalize pointer
