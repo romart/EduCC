@@ -1521,7 +1521,7 @@ void verifySwitchCases(ParserContext *ctx, AstStatement *switchBody, unsigned ca
   releaseHeap(caseSet);
 }
 
-int stringHashCode(const void *v) {
+int stringHashCode(intptr_t v) {
     const char *s = (const char *)v;
     assert(s != NULL && "hashMap key is NULL");
     int result = 0;
@@ -1536,7 +1536,7 @@ int stringHashCode(const void *v) {
     return result;
 }
 
-int stringCmp(const void *v1, const void *v2) {
+int stringCmp(intptr_t v1, intptr_t v2) {
     const char *s1 = (const char *)v1;
     const char *s2 = (const char *)v2;
 
@@ -1553,14 +1553,14 @@ Scope *newScope(ParserContext *ctx, Scope *parent) {
 }
 
 static Symbol *findSymbolInScope(Scope *scope, const char *name) {
-  return (Symbol *)getFromHashMap(scope->symbols, name);
+  return (Symbol *)getFromHashMap(scope->symbols, (intptr_t)name);
 }
 
 Symbol* findSymbol(ParserContext *ctx, const char *name) {
     if (name) {
       Scope* s = ctx->currentScope;
       while (s != NULL) {
-          Symbol *sb = (Symbol *)getFromHashMap(s->symbols, name);
+          Symbol *sb = (Symbol *)getFromHashMap(s->symbols, (intptr_t)name);
           if (sb != NULL) return sb;
           s = s->parent;
       }
@@ -1583,7 +1583,7 @@ Symbol* declareSymbol(ParserContext *ctx, SymbolKind kind, const char *name) {
     s->name = name;
 
     Scope *scope = ctx->currentScope;
-    putToHashMap(scope->symbols, name, s);
+    putToHashMap(scope->symbols, (intptr_t)name, (intptr_t)s);
 
     return s;
 }

@@ -13,10 +13,10 @@ static Vector emptyImpl = {0};
 
 Vector *emptyVector = &emptyImpl;
 
-void addToVector(Vector* vector, void* value) {
+void addToVector(Vector* vector, intptr_t value) {
     if (vector->size == vector->capacity) {
         int newCapacity = (int)(vector->capacity * 1.2f) ;
-        void** newStorage = (void**)heapAllocate(sizeof(void*) * newCapacity);
+        intptr_t* newStorage = (intptr_t*)heapAllocate(sizeof(intptr_t) * newCapacity);
         memcpy(newStorage, vector->storage, vector->capacity);
         releaseHeap(vector->storage);
         vector->storage = newStorage;
@@ -28,7 +28,7 @@ void addToVector(Vector* vector, void* value) {
 
 static void initVector(Vector* vector, int capacity) {
     vector->capacity = capacity;
-    vector->storage = (void**)heapAllocate(sizeof(void*) * capacity);
+    vector->storage = (intptr_t*)heapAllocate(sizeof(intptr_t) * capacity);
 }
 
 Vector* createVector(int capacity) {
@@ -43,15 +43,15 @@ void releaseVector(Vector *vector) {
     releaseHeap(vector);
 }
 
-void* getFromVector(Vector* vector, int idx) {
+intptr_t getFromVector(Vector* vector, int idx) {
     assert(idx < vector->size);
     return vector->storage[idx];
 }
 
 struct LinkedNode {
     struct LinkedNode* next;
-    const void* key;
-    const void* value;
+    intptr_t key;
+    intptr_t value;
 };
 
 struct _HashMap {
@@ -73,14 +73,14 @@ struct _HashMap* createHashMap(int capacity, hashCode_fun hc, compare_fun cmp) {
     return map;
 }
 
-const void* putToHashMap(HashMap* map, const void* key, const void* value) {
+intptr_t putToHashMap(HashMap* map, intptr_t key, intptr_t value) {
     unsigned hc = map->hashCode(key);
     unsigned idx = hc % map->capacity;
     struct LinkedNode* list = map->storage[idx];
 
     while (list != NULL) {
         if (map->compare(list->key, key) == 0) {
-            const void* oldValue = list->value;
+            intptr_t oldValue = list->value;
             list->value = value;
             return oldValue;
         }
@@ -93,11 +93,11 @@ const void* putToHashMap(HashMap* map, const void* key, const void* value) {
     newNode->next = map->storage[idx];
     map->storage[idx] = newNode;
 
-    return NULL;
+    return 0;
 }
 
 
-const void* getFromHashMap(HashMap* map, const void* key) {
+intptr_t getFromHashMap(HashMap* map, intptr_t key) {
     unsigned hc = map->hashCode(key);
     unsigned idx = hc % map->capacity;
     struct LinkedNode* list = map->storage[idx];
@@ -109,11 +109,11 @@ const void* getFromHashMap(HashMap* map, const void* key) {
         list = list->next;
     }
 
-    return NULL;
+    return 0;
 }
 
 
-const void* removeFromHashMap(HashMap* map, const void* key) {
+intptr_t removeFromHashMap(HashMap* map, intptr_t key) {
     unsigned hc = map->hashCode(key);
     unsigned idx = hc % map->capacity;
     struct LinkedNode** prev = &(map->storage[idx]);
@@ -122,7 +122,7 @@ const void* removeFromHashMap(HashMap* map, const void* key) {
     while (list != NULL) {
         if (map->compare(list->key, key) == 0) {
             *prev = list->next;
-            const void* oldValue = list->value;
+            intptr_t oldValue = list->value;
             releaseHeap(list);
             return oldValue;
         }
@@ -130,10 +130,10 @@ const void* removeFromHashMap(HashMap* map, const void* key) {
         list = *prev;
     }
 
-    return NULL;
+    return 0;
 }
 
-int isInHashMap(HashMap* map, const void* key) {
+int isInHashMap(HashMap* map, intptr_t key) {
     unsigned hc = map->hashCode(key);
     unsigned idx = hc % map->capacity;
     struct LinkedNode* list = map->storage[idx];

@@ -2,27 +2,28 @@
 #define __UTILS_H__ 1
 
 #include <stdio.h>
+#include <unistd.h>
 #include "common.h"
 
 typedef struct _Vector {
     int size;
     int capacity;
-    void** storage;
+    intptr_t* storage;
 } Vector;
 
 #define INITIAL_VECTOR_CAPACITY 20
 
-void addToVector(Vector* vector, void* value);
+void addToVector(Vector* vector, intptr_t value);
 Vector* createVector(int capacity);
-void* getFromVector(Vector* vector, int idx);
+intptr_t getFromVector(Vector* vector, int idx);
 void releaseVector(Vector *vector);
 
 extern Vector *emptyVector;
 
 #define DEFAULT_MAP_CAPACITY 1024
 
-typedef int (*hashCode_fun)(const void*);
-typedef int (*compare_fun)(const void*, const void*);
+typedef int (*hashCode_fun)(intptr_t);
+typedef int (*compare_fun)(intptr_t, intptr_t);
 
 typedef struct _HashMap HashMap;
 
@@ -30,14 +31,14 @@ HashMap* createHashMap(int capacity, hashCode_fun hc, compare_fun cmp);
 void releaseHashMap(HashMap *map);
 
 /** returns old value if exixtsed, NULL otherwise */
-const void* putToHashMap(HashMap* map, const void* key, const void* value);
+intptr_t putToHashMap(HashMap* map, intptr_t key, intptr_t value);
 
-const void* getFromHashMap(HashMap* map, const void* key);
+intptr_t getFromHashMap(HashMap* map, intptr_t key);
 
 /** returns removed value if found, NULL otherwise */
-const void* removeFromHashMap(HashMap* map, const void* key);
+intptr_t removeFromHashMap(HashMap* map, intptr_t key);
 
-int isInHashMap(HashMap* map, const void* key);
+int isInHashMap(HashMap* map, intptr_t key);
 
 
 unsigned countLines(FILE* file);
