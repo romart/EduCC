@@ -219,7 +219,9 @@ static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpressio
           if (left->constExpr.i == 0) {
             if (expr->op == EB_SUB) {
                 // 0 - x -> -x
-                return createUnaryExpression(ctx, &expr->coordinates, EU_MINUS, right);
+                AstExpression *t = createUnaryExpression(ctx, &expr->coordinates, EU_MINUS, right);
+                t->type = right->type;
+                return t;
             } else {
                 return right;
             }
