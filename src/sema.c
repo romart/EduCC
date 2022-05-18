@@ -1395,6 +1395,29 @@ void verifyAndTransformCallAruments(ParserContext *ctx, Coordinates *coords, Typ
   if (argument != NULL && param == NULL) {
       if (!functionType->functionTypeDesc.isVariadic) {
           reportDiagnostic(ctx, DIAG_TOO_MANY_ARGS, coords);
+      } else {
+          /*
+           *  6.5.2.2.7 The ellipsis notation in a function prototype declarator causes argument type
+           *  conversion to stop after the last declared parameter. The default argument promotions are
+           *  performed on trailing arguments.
+           */
+          while(argument) {
+              AstExpression *arg = argument->expression;
+              TypeRef *argType = arg->type;
+              int size = computeTypeSize(argType);
+
+              if (isRealType(argType) && size == 4) {
+                TypeRef *doubleType = makePrimitiveType(ctx, T_F8, 0);
+                argument->expression = createCastExpression(ctx, &arg->coordinates, doubleType, arg);
+              } else if (size < 4) {
+                assert(argType->kind == TR_VALUE);
+                TypeId typeId = argType->descriptorDesc->typeId;
+                TypeId toTypeId = typeId < T_S4 ? T_S4 : T_U4;
+                TypeRef *toType = makePrimitiveType(ctx, toTypeId, 0);
+                argument->expression = createCastExpression(ctx, &arg->coordinates, toType, arg);
+              }
+              argument = argument->next;
+          }
       }
   }
 }
