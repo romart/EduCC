@@ -478,16 +478,13 @@ static AstExpression *cannonizeDotExpression(ParserContext *ctx, AstExpression *
 
   AstExpression *receiver = transformExpression(ctx, expr->fieldExpr.recevier);
 
-  if (receiver->op == E_CALL) {
-      // keep it as is and desugar later in codegen
-      expr->fieldExpr.recevier = receiver;
-      return expr;
-  }
-
   AstExpression *pReceiver = NULL;
 
   if (receiver->op == EU_DEREF) {
       pReceiver = receiver->unaryExpr.argument;
+  } else if (receiver->op == E_CALL) {
+      pReceiver = receiver;
+      pReceiver->type = makePointedType(ctx, receiver->type->flags, receiver->type);
   } else {
       pReceiver = createUnaryExpression(ctx, &receiver->coordinates, EU_REF, receiver);
       pReceiver->type = makePointedType(ctx, receiver->type->flags, receiver->type);
