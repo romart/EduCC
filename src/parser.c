@@ -2437,6 +2437,7 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
     int64_t c = 0;
     unsigned oldFlag = 0;
     unsigned oldCaseCount = 0;
+    unsigned oldHasDefault = 0;
     Coordinates coords = ctx->token->coordinates;
     switch (ctx->token->rawCode) {
     case CASE:
@@ -2454,6 +2455,8 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
     case DEFAULT:
         if (!ctx->stateFlags.inSwitch) {
             reportDiagnostic(ctx, DIAG_SWITCH_LABEL_NOT_IN_SWITCH, &ctx->token->coordinates, "default");
+        } else {
+            ctx->stateFlags.hasDefault = 1;
         }
         consume(ctx, DEFAULT);
         consume(ctx, ':');
@@ -2474,12 +2477,17 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         ctx->stateFlags.caseCount = 0;
         oldFlag = ctx->stateFlags.inSwitch;
         ctx->stateFlags.inSwitch = 1;
+        oldHasDefault = ctx->stateFlags.hasDefault;
+        ctx->stateFlags.hasDefault = 0;
         stmt = parseStatement(ctx, scope);
         ctx->stateFlags.inSwitch = oldFlag;
         verifySwitchCases(ctx, stmt, ctx->stateFlags.caseCount);
+        unsigned caseCount = ctx->stateFlags.caseCount;
+        unsigned hasDefault = ctx->stateFlags.hasDefault;
         ctx->stateFlags.caseCount = oldCaseCount;
+        ctx->stateFlags.hasDefault = oldHasDefault;
         coords.endOffset = stmt->coordinates.endOffset;
-        return createSwitchStatement(ctx, &coords, expr, stmt);
+        return createSwitchStatement(ctx, &coords, expr, stmt, caseCount, hasDefault);
     case WHILE:
         consume(ctx, WHILE);
         consume(ctx, '(');

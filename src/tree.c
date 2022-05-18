@@ -461,12 +461,14 @@ AstStatement *createIfStatement(ParserContext *ctx, Coordinates *coords, AstExpr
     return result;
 }
 
-AstStatement *createSwitchStatement(ParserContext *ctx, Coordinates *coords, AstExpression *cond, AstStatement *body) {
+AstStatement *createSwitchStatement(ParserContext *ctx, Coordinates *coords, AstExpression *cond, AstStatement *body, unsigned caseCount, unsigned hasDefault) {
     AstStatement *result = allocAstStatement(ctx, coords);
 
     result->statementKind = SK_SWITCH;
     result->switchStmt.condition = cond;
     result->switchStmt.body = body;
+    result->switchStmt.caseCount = caseCount;
+    result->switchStmt.hasDefault = hasDefault;
 
     return result;
 }
