@@ -219,8 +219,8 @@ static Boolean isEnumType(TypeRef *type) {
   return FALSE;
 }
 
-static Boolean isStructualType(TypeRef *type) {
-  if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_STRUCT || type->descriptorDesc->typeId == T_STRUCT)
+Boolean isStructualType(TypeRef *type) {
+  if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_STRUCT)
     return TRUE;
   return FALSE;
 }
