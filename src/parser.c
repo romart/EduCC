@@ -2198,6 +2198,7 @@ static void parseParameterList(ParserContext *ctx, FunctionParams *params, struc
           AstValueDeclaration *parameter =
               createAstValueDeclaration(ctx, &coords, VD_PARAMETER, type, name, idx++, specifiers.flags.storage, NULL);
           declareValueSymbol(ctx, name, parameter);
+          parameter->flags.bits.isLocal = 1;
 
           if (tail) {
             tail->next = parameter;
@@ -2693,6 +2694,9 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                         AstValueDeclaration *valueDeclaration =
                             createAstValueDeclaration(ctx, &coords2, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
                         declaration->variableDeclaration = valueDeclaration;
+                        if (!valueDeclaration->flags.bits.isStatic) {
+                            valueDeclaration->flags.bits.isLocal = 1;
+                        }
                         declareValueSymbol(ctx, name, valueDeclaration);
                     }
 

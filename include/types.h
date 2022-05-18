@@ -43,6 +43,8 @@ typedef union {
         unsigned isExternal : 1;
         unsigned isRegister : 1;
         unsigned isTypedef : 1;
+
+        unsigned isLocal : 1;
     } bits;
 } SpecifierFlags;
 
