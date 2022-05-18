@@ -2197,7 +2197,7 @@ static void parseParameterList(ParserContext *ctx, FunctionParams *params, struc
           type = makeTypeRef(ctx, &specifiers, &declarator);
           AstValueDeclaration *parameter =
               createAstValueDeclaration(ctx, &coords, VD_PARAMETER, type, name, idx++, specifiers.flags.storage, NULL);
-          declareValueSymbol(ctx, name, parameter);
+          parameter->symbol = declareValueSymbol(ctx, name, parameter);
           parameter->flags.bits.isLocal = 1;
 
           if (tail) {
@@ -2697,7 +2697,7 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                         if (!valueDeclaration->flags.bits.isStatic) {
                             valueDeclaration->flags.bits.isLocal = 1;
                         }
-                        declareValueSymbol(ctx, name, valueDeclaration);
+                        valueDeclaration->symbol = declareValueSymbol(ctx, name, valueDeclaration);
                     }
 
                     if (declaration) {
@@ -2949,7 +2949,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
 
       AstValueDeclaration *params = funDeclarator->parameters.parameters;
       functionDeclaration = createFunctionDeclaration(ctx, &coords, returnType, funName, specifiers.flags.storage, params, funDeclarator->parameters.isVariadic);
-      declareFunctionSymbol(ctx, name, functionDeclaration);
+      functionDeclaration->symbol = declareFunctionSymbol(ctx, name, functionDeclaration);
 
       if (ctx->token->code == '{') {
           if (id_idx != 0) {
@@ -2973,7 +2973,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
           }
         }
         AstValueDeclaration *valueDeclaration = createAstValueDeclaration(ctx, &coords, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
-        declareValueSymbol(ctx, name, valueDeclaration);
+        valueDeclaration->symbol = declareValueSymbol(ctx, name, valueDeclaration);
         declaration = createAstDeclaration(ctx, DK_VAR, name);
         declaration->variableDeclaration = valueDeclaration;
     }
