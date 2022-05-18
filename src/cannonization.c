@@ -578,6 +578,7 @@ static AstExpression *transformExpression(ParserContext *ctx, AstExpression *exp
 
   ExpressionType op2 = E_ERROR;
   AstExpressionList *args = NULL;
+  AstExpression *tmp = NULL;
 
   switch (expr->op) {
     case E_TERNARY:
@@ -586,8 +587,11 @@ static AstExpression *transformExpression(ParserContext *ctx, AstExpression *exp
       expr->ternaryExpr.ifFalse = transformExpression(ctx, expr->ternaryExpr.ifFalse);
       break;
     case E_CAST:
+      tmp = transformExpression(ctx, expr->castExpr.argument);
       if (typesEquals(expr->castExpr.type, expr->castExpr.argument->type))
-        return expr->castExpr.argument;
+        return tmp;
+      else
+        expr->castExpr.argument = tmp;
       break;
     case E_PAREN:
       return transformExpression(ctx, expr->parened);
