@@ -401,6 +401,8 @@ typedef struct _AstValueDeclaration {
   const char *name;
   TypeRef *type;
   SpecifierFlags flags;
+  struct _Symbol* symbol;
+
   union {
     struct {
       unsigned index; // VD_PARAMETER
@@ -418,6 +420,9 @@ typedef struct _AstFunctionDeclaration {
   unsigned parameterCount;
   AstValueDeclaration *parameters; // linkedList
   unsigned isVariadic : 1;
+
+  struct _Symbol *symbol;
+
 } AstFunctionDeclaration;
 
 
