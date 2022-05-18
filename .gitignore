@@ -14,3 +14,5 @@ test/hello.c
 ast.dump
 CCompiler.creator.user
 ast.canon.dump 
+*.o
+a.out
