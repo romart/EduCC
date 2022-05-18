@@ -8,6 +8,7 @@
 #include "parser.h"
 #include "mem.h"
 #include "sema.h"
+#include "codegen.h"
 
 #include "treeDump.h"
 #include "diagnostics.h"
@@ -3038,6 +3039,7 @@ static void initializeContext(ParserContext *ctx, unsigned lineNum) {
   ctx->memory.typeArena = createArena("Types Arena", DEFAULT_CHUNCK_SIZE);
   ctx->memory.stringArena = createArena("String Arena", DEFAULT_CHUNCK_SIZE);
   ctx->memory.diagnosticsArena = createArena("Diagnostic Arena", DEFAULT_CHUNCK_SIZE);
+  ctx->memory.codegenArena = createArena("Codegen Arena", DEFAULT_CHUNCK_SIZE);
 
   ctx->rootScope = ctx->currentScope = newScope(ctx, NULL);
 }
@@ -3058,6 +3060,7 @@ static void releaseContext(ParserContext *ctx) {
   releaseArena(ctx->memory.astArena);
   releaseArena(ctx->memory.stringArena);
   releaseArena(ctx->memory.diagnosticsArena);
+  releaseArena(ctx->memory.codegenArena);
 
   releaseHeap(ctx->locationInfo.linesPos);
 }
@@ -3114,6 +3117,7 @@ static void printMemoryStatistics(ParserContext *ctx) {
   printArenaStatistic(stdout, ctx->memory.astArena);
   printArenaStatistic(stdout, ctx->memory.typeArena);
   printArenaStatistic(stdout, ctx->memory.diagnosticsArena);
+  printArenaStatistic(stdout, ctx->memory.codegenArena);
   fflush(stdout);
 }
 
@@ -3133,12 +3137,12 @@ void compileFile(Configuration * config) {
 
       Boolean hasError = printDiagnostics(&context.diagnostics, config->verbose);
 
-      if (config->dumpFileName) {
-          dumpFile(astFile, config->dumpFileName);
-      }
-
       if (config->memoryStatistics) {
           printMemoryStatistics(&context);
+      }
+
+      if (config->dumpFileName) {
+          dumpFile(astFile, config->dumpFileName);
       }
 
       if (!hasError) {
@@ -3146,7 +3150,11 @@ void compileFile(Configuration * config) {
         if (config->canonDumpFileName) {
           dumpFile(astFile, config->canonDumpFileName);
         }
+
+        GeneratedFile *genFile = generateCodeForFile(&context, astFile);
       }
+
+
 
       releaseContext(&context);
 
