@@ -133,7 +133,7 @@ TypeRef *makeBitFieldType(ParserContext *ctx, TypeRef *storage, unsigned offset,
 TypeRef *makeErrorRef(ParserContext *ctx);
 
 
-int stringHashCode(const void *v);
-int stringCmp(const void *v1, const void *v2);
+int stringHashCode(intptr_t v);
+int stringCmp(intptr_t v1, intptr_t v2);
 
 #endif // __SEMA_H__
