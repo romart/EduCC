@@ -91,6 +91,9 @@ typedef enum _SymbolKind {
 typedef struct _Symbol {
     SymbolKind kind;
     const char* name; /** struct/union/enum is referenced via "$$name" or "|$name" or "#$enum"*/
+
+    unsigned symbolTableIndex;
+
     union {
         struct _AstFunctionDeclaration *function; // FunctionSymbol
         TypeDesc *typeDescriptor; // StructSymbol | UnionSymbol | EnumSymbol, struct S;

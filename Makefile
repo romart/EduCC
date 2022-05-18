@@ -25,7 +25,10 @@ SOURCES=\
     $(SRCDIR)/memory.c \
     $(SRCDIR)/diagnostics.c \
     $(SRCDIR)/evaluate.c \
+    $(SRCDIR)/instructions.c \
     $(SRCDIR)/cannonization.c \
+    $(SRCDIR)/codegen.c \
+    $(SRCDIR)/elf.c \
     $(GENERATED_SRC_DIR)/lex.yy.c
 
 OBJ=$(patsubst %.c,%.o,$(subst $(SRCDIR)/,$(OBJDIR)/, $(SOURCES)))
@@ -46,7 +49,7 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c $(DEPS)
 main: $(OBJ) 
 	mkdir -p ./$(BUILDDIR)
 	mkdir -p ./$(BINDIR)
-	$(CC) $(CFLAGS) -o $(BINDIR)/$@ $^ 
+	$(CC) $(CFLAGS) -o $(BINDIR)/$@ $^ -ludis86
 
 .PHONY: clean
 
