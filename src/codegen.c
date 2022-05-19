@@ -2385,6 +2385,31 @@ static writeObjFile(const char *sourceFileName, const char *objDir, uint8_t *buf
   fclose(output);
 }
 
+static void buildElfFile(GenerationContext *ctx, AstFile *astFile, GeneratedFile *genFile, ElfFile *elfFile) {
+
+  size_t elfFileSize = 0;
+
+  uint8_t *elfFileBytes = generateElfFile(elfFile, genFile, &elfFileSize);
+
+  writeObjFile(astFile->fileName, ctx->parserContext->config->objDirName, elfFileBytes, elfFileSize);
+
+  releaseHeap(elfFile->sections.asStruct.nullSection->start);
+  releaseHeap(elfFile->sections.asStruct.text->start);
+  releaseHeap(elfFile->sections.asStruct.reText->start);
+  releaseHeap(elfFile->sections.asStruct.data->start);
+  releaseHeap(elfFile->sections.asStruct.bss->start);
+  releaseHeap(elfFile->sections.asStruct.rodata->start);
+  releaseHeap(elfFile->sections.asStruct.rodataLocal->start);
+  releaseHeap(elfFile->sections.asStruct.reRodataLocal->start);
+  releaseHeap(elfFile->sections.asStruct.dataLocal->start);
+  releaseHeap(elfFile->sections.asStruct.reDataLocal->start);
+  releaseHeap(elfFile->sections.asStruct.symtab->start);
+  releaseHeap(elfFile->sections.asStruct.strtab->start);
+  releaseHeap(elfFile->sections.asStruct.shstrtab->start);
+
+  releaseHeap(elfFileBytes);
+}
+
 GeneratedFile *generateCodeForFile(ParserContext *pctx, AstFile *astFile) {
 
   Section nullSection = { "", SHT_NULL, 0x00, 0 };
@@ -2460,11 +2485,7 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, AstFile *astFile) {
     unit = unit->next;
   }
 
-  size_t elfFileSize = 0;
-
-  uint8_t *elfFileBytes = generateElfFile(&elfFile, file, &elfFileSize);
-
-  writeObjFile(astFile->fileName, pctx->config->objDirName, elfFileBytes, elfFileSize);
+  buildElfFile(&ctx, astFile, file, &elfFile);
 
   return file;
 }
