@@ -660,8 +660,10 @@ void emitArithConst(GeneratedFunction *f, enum Opcodes opcode, enum Registers r,
   }
 }
 
-void emitNot(GeneratedFunction *f, enum Registers reg) {
-
+void emitNot(GeneratedFunction *f, enum Registers reg, size_t size) {
+  emitTestRR(f, reg, reg, size);
+  emitSetccR(f, JC_EQ, R_ACC);
+  emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
 }
 
 void emitZeroReg(GeneratedFunction *f, enum Registers reg) {

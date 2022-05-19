@@ -241,7 +241,7 @@ void emitMoveCR(struct _GeneratedFunction *f, intptr_t c, enum Registers to, siz
 void emitArithRR(struct _GeneratedFunction *f, enum Opcodes opcode, enum Registers l, enum Registers r);
 void emitArithConst(struct _GeneratedFunction *f, enum Opcodes opcode, enum Registers r, int64_t c, size_t size);
 void emitArithAR(struct _GeneratedFunction *f, enum Opcodes opcode, enum Registers r, Address *addr, size_t size);
-void emitNot(struct _GeneratedFunction *f, enum Registers reg);
+void emitNot(struct _GeneratedFunction *f, enum Registers reg, size_t size);
 void emitZeroReg(struct _GeneratedFunction *f, enum Registers reg);
 
 void emitSetccR(struct _GeneratedFunction *f, enum JumpCondition cc, enum Registers reg);
