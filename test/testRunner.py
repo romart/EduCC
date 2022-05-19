@@ -145,7 +145,7 @@ def runCodegenTest(compiler, workingDir, dirname, name):
             exit_code = execution.wait()
             if exit_code != 0:
                 print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-                print(f"  Exection exit code is not 0 ({exit_code})")
+                print(f"  Execution exit code is not 0 ({exit_code})")
                 numOfFailedTests = numOfFailedTests + 1
             else:
                 print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
