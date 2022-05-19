@@ -272,7 +272,7 @@ void emitMoveAR(GeneratedFunction *f, Address* addr, enum Registers to, size_t s
 
   if (size == 2) emitByte(f, 0x66);
 
-  emitRex(f, to, addr->base, addr->index, TRUE);
+  emitRex(f, to, addr->base, addr->index, size > 4);
 
   uint8_t code = size == 1 ? 0x8A : 0x8B;
   emitByte(f, code);
@@ -284,7 +284,7 @@ void emitMoveRA(GeneratedFunction *f, enum Registers from, Address* addr, size_t
 
   if (size == 2) emitByte(f, 0x66);
 
-  emitRex(f, from, addr->base, addr->index, TRUE);
+  emitRex(f, from, addr->base, addr->index, size > 4);
 
   uint8_t code = size == 1 ? 0x88 : 0x89;
   emitByte(f, code);
