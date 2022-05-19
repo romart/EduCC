@@ -2357,8 +2357,8 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
 
 static writeObjFile(const char *sourceFileName, const char *objDir, uint8_t *buffer, size_t bufferSize) {
   size_t len = strlen(sourceFileName);
-  size_t dirLen = objDir ? strlen(objDir) + 1 : 0;
-  size_t bufferLen = dirLen + len + 1;
+  size_t dirLen = objDir ? strlen(objDir) : 0;
+  size_t bufferLen = dirLen + 1 + len + 1;
   char *outputName = alloca(bufferLen);
 
   unsigned i = 0;
@@ -2381,8 +2381,12 @@ static writeObjFile(const char *sourceFileName, const char *objDir, uint8_t *buf
 
   remove(outputName);
   FILE* output = fopen(outputName, "wb");
-  fwrite(buffer, bufferSize, 1, output);
-  fclose(output);
+  if (output) {
+    fwrite(buffer, bufferSize, 1, output);
+    fclose(output);
+  } else {
+    fprintf(stderr, "cannot open output file %s\n", outputName);
+  }
 }
 
 static void buildElfFile(GenerationContext *ctx, AstFile *astFile, GeneratedFile *genFile, ElfFile *elfFile) {
