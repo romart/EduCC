@@ -1927,8 +1927,15 @@ static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFun
 
     }
     default:
-      generateExpression(ctx, f, scope, cond);
-      return invertion ? JC_ZERO : JC_NOT_ZERO;
+      if (cond->op == EU_EXL) {
+        generateExpression(ctx, f, scope, cond->unaryExpr.argument);
+        emitTestRR(f, R_ACC, R_ACC, computeTypeSize(cond->type));
+        return invertion ? JC_NOT_ZERO : JC_ZERO;
+      } else {
+        generateExpression(ctx, f, scope, cond);
+        emitTestRR(f, R_ACC, R_ACC, computeTypeSize(cond->type));
+        return invertion ? JC_ZERO : JC_NOT_ZERO;
+      }
   }
 }
 
