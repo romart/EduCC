@@ -1661,8 +1661,8 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
           l = allocateLabel(ctx);
           putToHashMap(ctx->labelMap, (intptr_t)expression->label, (intptr_t)l);
       }
-      // TODO: implement label ref
-      emitMoveCR(f, 0, R_ACC, sizeof(intptr_t));
+      Address addr = { R_RIP, R_BAD, 0, 0, NULL, l };
+      emitLea(f, &addr, R_ACC);
       break;
 
     }
