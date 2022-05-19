@@ -521,6 +521,13 @@ static void bindLabel(GeneratedFunction *f, struct Label *l) {
       jump = jump->next;
   }
   l->jumps = NULL;
+  struct LabelRef *ref = l->refs;
+
+  while (ref) {
+    patchRefTo(f, ref->offset_cp, l->label_cp);
+    ref = ref->next;
+  }
+  l->refs = NULL;
 }
 
 static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression);
