@@ -102,19 +102,34 @@ def runCodegenTest(compiler, workingDir, dirname, name):
     expectedErrFilePath = dirname + '/' + name + '.err'
     expectedAstCanonFilePath = dirname + '/' + name + '.canon.txt'
 
+
     outputDir = workingDir + '/' + dirname
     if (not path.exists(outputDir)):
         os.makedirs(outputDir)
 
+    errFilePath = workingDir + '/' + dirname + '/' + name + '.err'
     objFileName = workingDir + '/' + dirname + '/' + name + '.o'
     binFileName = workingDir + '/' + dirname + '/' + name
 
+    if path.exists(objFileName):
+        os.remove(objFileName);
+
+    if path.exists(binFileName):
+        os.remove(binFileName);
+
+    err = open(errFilePath, 'w+')
     compialtionCommand = [compiler, "-oneline" , "-objDir", workingDir, testFilePath]
 #    print(compialtionCommand)
-    compilation = Popen(compialtionCommand, stdout=sys.stdout, stderr=sys.stderr)
+    compilation = Popen(compialtionCommand, stdout=sys.stdout, stderr=err)
     exit_code = compilation.wait()
 
-    if exit_code != 0:
+    if path.getsize(errFilePath) > 0:
+        print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
+        print(f"Errors in stderr")
+        with open(errFilePath, 'r') as f:
+            print(f.read())
+        numOfFailedTests = numOfFailedTests + 1
+    elif exit_code != 0:
         print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
         print(f"  Compilation crashed (exit code {exit_code})")
         numOfFailedTests = numOfFailedTests + 1
