@@ -1998,6 +1998,8 @@ static int generateLoopStatement(GenerationContext *ctx, GeneratedFunction *f, A
       bindLabel(f, &continueLabel);
       enum JumpCondition cc = generateCondition(ctx, f, scope, stmt->condition, FALSE);
       emitCondJump(f, &loopHead, cc);
+  } else {
+      emitJumpTo(f, &loopHead);
   }
 
   bindLabel(f, &loopTail);
