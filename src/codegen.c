@@ -2349,12 +2349,13 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
 static writeObjFile(const char *sourceFileName, const char *objDir, uint8_t *buffer, size_t bufferSize) {
   size_t len = strlen(sourceFileName);
   size_t dirLen = objDir ? strlen(objDir) + 1 : 0;
-  char *outputName = alloca(len + 1);
+  size_t bufferLen = dirLen + len + 1;
+  char *outputName = alloca(bufferLen);
 
   unsigned i = 0;
 
   if (objDir) {
-      strcpy(outputName, objDir);
+      strncpy(outputName, objDir, bufferLen);
       outputName[dirLen] = '/';
       i = dirLen + 1;
   }
