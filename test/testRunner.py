@@ -50,7 +50,93 @@ def updateExpectedFromActualIfNeed(marker, actualFile, expectedFile):
         result = open(actualFile).read()
         open(expectedFile, 'w+').write(result)
 
-def runTestForData(filePath, compiler, workingDir):
+
+def runParserTest(compiler, workingDir, dirname, name):
+    global numOfFailedTests
+    testFilePath = dirname + '/' + name + '.c'
+    expectedAstFilePath = dirname + '/' + name + '.txt'
+    expectedErrFilePath = dirname + '/' + name + '.err'
+    expectedAstCanonFilePath = dirname + '/' + name + '.canon.txt'
+    outputDir = workingDir + '/' + dirname
+
+    if (not path.exists(outputDir)):
+        os.makedirs(outputDir)
+
+    actualAstFilePath = workingDir + '/' + expectedAstFilePath
+    actualErrFilePath = workingDir + '/' + expectedErrFilePath
+    actualAstCanonFilePath = workingDir + '/' + expectedAstCanonFilePath
+
+    err = open(actualErrFilePath, 'w+')
+
+    # print(f"Run process: {compiler} -astDump {actualFilePath} {testFilePath}")
+    process = Popen([compiler, "-skipCodegen", "-oneline" , "-astDump", actualAstFilePath, "-astCanonDump", actualAstCanonFilePath, testFilePath], stdout=DEVNULL, stderr=err)
+    exit_code = process.wait()
+    if exit_code != 0:
+        print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
+        print(f"  Process crashed (exit code {exit_code})")
+        numOfFailedTests = numOfFailedTests + 1
+    else:
+        testOk = True
+        if (path.exists(expectedAstFilePath)):
+            testOk = compareFilesLineByLine("AstDump", testFilePath, actualAstFilePath, expectedAstFilePath)
+
+        if (testOk and path.exists(expectedErrFilePath)):
+            testOk = compareFilesLineByLine("Stderr", testFilePath, actualErrFilePath, expectedErrFilePath)
+
+        if (testOk and path.exists(actualAstCanonFilePath) and path.exists(expectedAstCanonFilePath)):
+            testOk = compareFilesLineByLine("AstCanonDump", testFilePath, actualAstCanonFilePath, expectedAstCanonFilePath)
+
+        if (testOk):
+            print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
+
+        updateExpectedFromActualIfNeed("AstDump", actualAstFilePath, expectedAstFilePath)
+        updateExpectedFromActualIfNeed("Stderr", actualErrFilePath, expectedErrFilePath)
+        if (path.exists(actualAstCanonFilePath)):
+            updateExpectedFromActualIfNeed("AstCanonDump", actualAstCanonFilePath, expectedAstCanonFilePath)
+
+
+def runCodegenTest(compiler, workingDir, dirname, name):
+    global numOfFailedTests
+    testFilePath = dirname + '/' + name + '.c'
+    expectedAstFilePath = dirname + '/' + name + '.txt'
+    expectedErrFilePath = dirname + '/' + name + '.err'
+    expectedAstCanonFilePath = dirname + '/' + name + '.canon.txt'
+
+    outputDir = workingDir + '/' + dirname
+    if (not path.exists(outputDir)):
+        os.makedirs(outputDir)
+
+    objFileName = workingDir + '/' + dirname + '/' + name + '.o'
+    binFileName = workingDir + '/' + dirname + '/' + name
+
+    compialtionCommand = [compiler, "-oneline" , "-objDir", workingDir, testFilePath]
+#    print(compialtionCommand)
+    compilation = Popen(compialtionCommand, stdout=sys.stdout, stderr=sys.stderr)
+    exit_code = compilation.wait()
+
+    if exit_code != 0:
+        print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
+        print(f"  Compilation crashed (exit code {exit_code})")
+        numOfFailedTests = numOfFailedTests + 1
+    else:
+        linkage = Popen(["gcc", objFileName, "-o" , binFileName], stdout=sys.stdout, stderr=sys.stderr)
+        exit_code = linkage.wait()
+        if exit_code != 0:
+            print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
+            print(f"  Linkage crashed (exit code {exit_code})")
+            numOfFailedTests = numOfFailedTests + 1
+        else:
+            execution = Popen([binFileName], stdout=sys.stdout, stderr=sys.stderr)
+            exit_code = execution.wait()
+            if exit_code != 0:
+                print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
+                print(f"  Exection exit code is not 0 ({exit_code})")
+                numOfFailedTests = numOfFailedTests + 1
+            else:
+                print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
+
+
+def runTestForData(filePath, compiler, workingDir, testMode):
     global numOfFailedTests
     # print(f"processing {filePath}")
     basename = os.path.basename(filePath)
@@ -60,46 +146,10 @@ def runTestForData(filePath, compiler, workingDir):
     # print(f"dirname: {dirname}, baseName: {basename}, suffix: {suffix}")
     name = basename[:index_of_dot]
     if (suffix == "c"):
-        testFilePath = dirname + '/' + name + '.c'
-        expectedAstFilePath = dirname + '/' + name + '.txt'
-        expectedErrFilePath = dirname + '/' + name + '.err'
-        expectedAstCanonFilePath = dirname + '/' + name + '.canon.txt'
-        outputDir = workingDir + '/' + dirname
-
-        if (not path.exists(outputDir)):
-            os.makedirs(outputDir)
-
-        actualAstFilePath = workingDir + '/' + expectedAstFilePath
-        actualErrFilePath = workingDir + '/' + expectedErrFilePath
-        actualAstCanonFilePath = workingDir + '/' + expectedAstCanonFilePath
-
-        err = open(actualErrFilePath, 'w+')
-
-        # print(f"Run process: {compiler} -astDump {actualFilePath} {testFilePath}")
-        process = Popen([compiler, "-skipCodegen", "-oneline" , "-astDump", actualAstFilePath, "-astCanonDump", actualAstCanonFilePath, testFilePath], stdout=DEVNULL, stderr=err)
-        exit_code = process.wait()
-        if exit_code != 0:
-            print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-            print(f"  Process crashed (exit code {exit_code})")
-            numOfFailedTests = numOfFailedTests + 1
+        if (testMode == 'p'):
+            runParserTest(compiler, workingDir, dirname, name)
         else:
-            testOk = True
-            if (path.exists(expectedAstFilePath)):
-                testOk = compareFilesLineByLine("AstDump", testFilePath, actualAstFilePath, expectedAstFilePath)
-            
-            if (testOk and path.exists(expectedErrFilePath)):
-                testOk = compareFilesLineByLine("Stderr", testFilePath, actualErrFilePath, expectedErrFilePath)
-
-            if (testOk and path.exists(actualAstCanonFilePath) and path.exists(expectedAstCanonFilePath)):
-                testOk = compareFilesLineByLine("AstCanonDump", testFilePath, actualAstCanonFilePath, expectedAstCanonFilePath)
-
-            if (testOk):
-                print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
-
-            updateExpectedFromActualIfNeed("AstDump", actualAstFilePath, expectedAstFilePath)
-            updateExpectedFromActualIfNeed("Stderr", actualErrFilePath, expectedErrFilePath)
-            if (path.exists(actualAstCanonFilePath)):
-                updateExpectedFromActualIfNeed("AstCanonDump", actualAstCanonFilePath, expectedAstCanonFilePath)
+            runCodegenTest(compiler, workingDir, dirname, name);
 
 
 
@@ -119,6 +169,9 @@ def main():
     compiler = ''
     workingDir = ''
     testPaths = []
+
+    testMode = ''
+
     while (arguments >= position):
         arg = sys.argv[position]
         if arg == '-comp':
@@ -129,6 +182,9 @@ def main():
             position = position + 1
         elif arg == '-p':
             testPaths.append(sys.argv[position + 1])
+            position = position + 1
+        elif arg == '-m':
+            testMode = sys.argv[position + 1];
             position = position + 1
         else:
             print(f"Unknown option \'${arg}\' at position {position:>6}")
@@ -143,13 +199,16 @@ def main():
         print(f"no test dir provided")
         exit(-1)
     
+    if testMode == '':
+        testMode = 'p';
+
     # print(f"compiler = {compiler}, workind dir = {workingDir}")
 
     for testPath in testPaths:
         path = Path(testPath)
         if path.exists():
             if path.is_dir():
-                walkDirectory(path, 0, lambda a: runTestForData(a, compiler, workingDir))
+                walkDirectory(path, 0, lambda a: runTestForData(a, compiler, workingDir, testMode))
 
     exit (numOfFailedTests)
 
