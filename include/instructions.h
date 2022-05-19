@@ -47,11 +47,17 @@ struct LabelJump {
   struct LabelJump *next;
 };
 
+struct LabelRef {
+  ptrdiff_t offset_cp;
+  struct LabelRef *next;
+};
+
 struct Label {
   const char *name;
   int binded;
   ptrdiff_t label_cp;
   struct LabelJump *jumps;
+  struct LabelRef *refs;
 };
 
 
@@ -215,6 +221,7 @@ typedef struct _Address  {
   int32_t imm;
 
   Relocation *reloc;
+  struct Label *label;
 } Address;
 
 struct _GeneratedFunction;
@@ -252,6 +259,7 @@ void emitCallLiteral(struct _GeneratedFunction *f, Relocation *reloc);
 void emitRet(struct _GeneratedFunction *f, uint16_t s);
 
 void patchJumpTo(struct _GeneratedFunction *f, ptrdiff_t inst_cp, size_t instSize, ptrdiff_t label_cp);
+void patchRefTo(struct _GeneratedFunction *f, ptrdiff_t literal_cp, ptrdiff_t label_cp);
 
 void emitMovxxRR(struct _GeneratedFunction *f, uint8_t opcode, enum Registers from, enum Registers to);
 void emitMovxxAR(struct _GeneratedFunction *f, uint8_t opcode, Address *from, enum Registers to);

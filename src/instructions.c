@@ -136,23 +136,54 @@ static void encodeAR(GeneratedFunction *f, Address *from, enum Registers to) {
   modrm.bits.regOp = register_encodings[to];
 
   if (from->base == R_RIP) {
-    assert(from->reloc);
 
     modrm.bits.rm = 0b101;
     modrm.bits.mod = 0b00;
 
     emitByte(f, modrm.v);
 
-    Relocation *reloc = from->reloc;
+    if (from->reloc) {
 
-    reloc->addend = -sizeof(int32_t);
-    reloc->applySectionOffset = f->section->pc - f->section->start;
+      Relocation *reloc = from->reloc;
 
-    // 0xDEADBEFF;
-    emitByte(f, 0xFF);
-    emitByte(f, 0xBE);
-    emitByte(f, 0xAD);
-    emitByte(f, 0x7E);
+      reloc->addend = -sizeof(int32_t);
+      reloc->applySectionOffset = f->section->pc - f->section->start;
+
+      // 0xDEADBEFF;
+      emitByte(f, 0xFF);
+      emitByte(f, 0xBE);
+      emitByte(f, 0xAD);
+      emitByte(f, 0x7E);
+    } else {
+      assert(from->label);
+
+      struct Label *l = from->label;
+
+      ptrdiff_t literalOffset = f->section->pc - f->section->start;
+
+      if (l->binded) {
+        ptrdiff_t fromOffset = literalOffset + sizeof(int32_t);
+        ptrdiff_t toOffset = l->label_cp;
+
+        int32_t delta = toOffset - fromOffset;
+
+        emitByte(f, (uint8_t) (delta >> 0));
+        emitByte(f, (uint8_t) (delta >> 8));
+        emitByte(f, (uint8_t) (delta >> 16));
+        emitByte(f, (uint8_t) (delta >> 24));
+      } else {
+        struct LabelRef *lr = areanAllocate(f->arena, sizeof (struct LabelRef));
+
+        emitByte(f, 0xFF);
+        emitByte(f, 0xBE);
+        emitByte(f, 0xAD);
+        emitByte(f, 0x7E);
+
+        lr->offset_cp = literalOffset;
+        lr->next = l->refs;
+        l->refs = lr;
+      }
+    }
 
     return;
   }
@@ -887,6 +918,19 @@ void emitJumpByReg(GeneratedFunction *f, enum Registers reg) {
   modrm.bits.rm = register_encodings[reg];
 
   emitByte(f, modrm.v);
+}
+
+void patchRefTo(GeneratedFunction *f, ptrdiff_t literal_cp, ptrdiff_t label_cp) {
+  ptrdiff_t fromOffset = literal_cp + sizeof(int32_t);
+  ptrdiff_t toOffset = label_cp;
+
+  int32_t delta = toOffset - fromOffset;
+  address literalAddress = f->section->start + literal_cp;
+
+  emitByte_pc(literalAddress++, (uint8_t) (delta >> 0));
+  emitByte_pc(literalAddress++, (uint8_t) (delta >> 8));
+  emitByte_pc(literalAddress++, (uint8_t) (delta >> 16));
+  emitByte_pc(literalAddress++, (uint8_t) (delta >> 24));
 }
 
 void patchJumpTo(GeneratedFunction *f, ptrdiff_t inst_cp, size_t instSize, ptrdiff_t label_cp) {
