@@ -2346,15 +2346,23 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
   return gen;
 }
 
-static writeObjFile(const char *sourceFileName, uint8_t *buffer, size_t bufferSize) {
+static writeObjFile(const char *sourceFileName, const char *objDir, uint8_t *buffer, size_t bufferSize) {
   size_t len = strlen(sourceFileName);
+  size_t dirLen = objDir ? strlen(objDir) + 1 : 0;
   char *outputName = alloca(len + 1);
 
   unsigned i = 0;
 
-  while (sourceFileName[i] != '.') {
-    outputName[i] = sourceFileName[i];
-    ++i;
+  if (objDir) {
+      strcpy(outputName, objDir);
+      outputName[dirLen] = '/';
+      i = dirLen + 1;
+  }
+
+  unsigned j = 0;
+
+  while (sourceFileName[j] != '.') {
+    outputName[i++] = sourceFileName[j++];
   }
 
   outputName[i++] = '.';
@@ -2446,7 +2454,7 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, AstFile *astFile) {
 
   uint8_t *elfFileBytes = generateElfFile(&elfFile, file, &elfFileSize);
 
-  writeObjFile(astFile->fileName, elfFileBytes, elfFileSize);
+  writeObjFile(astFile->fileName, pctx->config->objDirName, elfFileBytes, elfFileSize);
 
   return file;
 }
