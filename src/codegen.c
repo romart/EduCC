@@ -1266,7 +1266,13 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
 }
 
 static enum Opcodes selectIncDecOpcode(ExpressionType astOp, TypeRef *type) {
-
+  size_t size = computeTypeSize(type);
+  if (astOp == EU_POST_DEC || astOp == EU_PRE_DEC) {
+      return size > 4 ? OP_L_SUB : OP_L_SUB;
+  } else {
+      assert(astOp == EU_POST_INC || astOp == EU_PRE_INC);
+      return size > 4 ? OP_L_ADD : OP_L_ADD;
+  }
 }
 
 
