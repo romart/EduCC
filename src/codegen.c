@@ -1648,7 +1648,7 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
       break;
     case EU_EXL:
       generateExpression(ctx, f, scope, expression->unaryExpr.argument);
-      emitNot(f, R_ACC);
+      emitNot(f, R_ACC, computeTypeSize(expression->unaryExpr.argument->type));
       break;
     case EU_POST_INC:
     case EU_POST_DEC:
