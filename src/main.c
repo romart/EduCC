@@ -12,9 +12,26 @@ int main(int argc, char** argv) {
   for (i = 0; i < argc; ++i) {
     const char *arg = argv[i];
     if (strcmp("-astDump", arg) == 0) {
-      config.dumpFileName = argv[++i];
+        unsigned idx = ++i;
+        if (idx < argc) {
+          config.dumpFileName = argv[idx];
+        } else {
+          fprintf(stderr, "file name expected after '-astDump' option");
+        }
     } else if (strcmp("-astCanonDump", arg) == 0) {
-      config.canonDumpFileName = argv[++i];
+        unsigned idx = ++i;
+        if (idx < argc) {
+          config.canonDumpFileName = argv[idx];
+        } else {
+          fprintf(stderr, "file name expected after '-astCanonDump' option");
+        }
+    } else if (strcmp("-objDir", arg) == 0) {
+        unsigned idx = ++i;
+        if (idx < argc) {
+          config.objDirName = argv[idx];
+        } else {
+          fprintf(stderr, "directory name expected after '-objDir' option");
+        }
     } else if (strcmp("-oneline", arg) == 0) {
       config.verbose = 0;
     } else if (strcmp("-memstat", arg) == 0) {

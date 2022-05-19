@@ -13,8 +13,7 @@ typedef struct _Configuration {
   const char *fileToCompile;
   const char *dumpFileName;
   const char *canonDumpFileName;
-
-
+  const char *objDirName;
 
   unsigned errWarns: 1;
   unsigned logTokens: 1;
