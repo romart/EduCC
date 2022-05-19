@@ -76,7 +76,7 @@ def runTestForData(filePath, compiler, workingDir):
         err = open(actualErrFilePath, 'w+')
 
         # print(f"Run process: {compiler} -astDump {actualFilePath} {testFilePath}")
-        process = Popen([compiler, "-oneline" , "-astDump", actualAstFilePath, "-astCanonDump", actualAstCanonFilePath, testFilePath], stdout=DEVNULL, stderr=err)
+        process = Popen([compiler, "-skipCodegen", "-oneline" , "-astDump", actualAstFilePath, "-astCanonDump", actualAstCanonFilePath, testFilePath], stdout=DEVNULL, stderr=err)
         exit_code = process.wait()
         if exit_code != 0:
             print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
