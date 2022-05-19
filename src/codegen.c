@@ -2334,18 +2334,20 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
   releaseHashMap(labelMap);
   releaseHashMap(localSymbolMap);
 
-  fprintf(stdout, "<<< %s >>>\n", f->declaration->name);
-  address b = gen->section->start + gen->sectionOffset;
-  address e = gen->section->pc;
-  disassemble(stdout, b, e - b);
+  if (ctx->parserContext->config->verbose) {
+    fprintf(stdout, "<<< %s >>>\n", f->declaration->name);
+    address b = gen->section->start + gen->sectionOffset;
+    address e = gen->section->pc;
+    disassemble(stdout, b, e - b);
 
-  fprintf(stdout, "<<< bytes >>>\n");
+    fprintf(stdout, "<<< bytes >>>\n");
 
-  while (b != e) {
-      fprintf(stdout, "%.2x ", *b++);
+    while (b != e) {
+        fprintf(stdout, "%.2x ", *b++);
+    }
+
+    fprintf(stdout, "\n<<<>>>\n");
   }
-
-  fprintf(stdout, "\n<<<>>>\n");
 
   ctx->returnLabel = NULL;
 
