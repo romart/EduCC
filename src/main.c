@@ -21,6 +21,8 @@ int main(int argc, char** argv) {
       config.memoryStatistics = 1;
     } else if (strcmp("-logtokens", arg) == 0) {
       config.logTokens = 1;
+    } else if (strcmp("-skipCodegen", arg) == 0) {
+      config.skipCodegen = 1;
     } else {
       config.fileToCompile = argv[i];
       compileFile(&config);
