@@ -3151,7 +3151,9 @@ void compileFile(Configuration * config) {
           dumpFile(astFile, config->canonDumpFileName);
         }
 
-        GeneratedFile *genFile = generateCodeForFile(&context, astFile);
+        if (!config->skipCodegen) {
+          GeneratedFile *genFile = generateCodeForFile(&context, astFile);
+        }
       }
 
 
