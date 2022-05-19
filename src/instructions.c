@@ -698,6 +698,20 @@ static void emitShift(GeneratedFunction *f, uint8_t op1, uint8_t opImm, uint8_t 
 
 }
 
+void emitTestRR(GeneratedFunction *f, enum Registers l, enum Registers r, size_t s) {
+  emitRex(f, r, l, R_BAD, s > sizeof(int32_t));
+
+  emitByte(f, s == 1 ? 0x84 : 0x85);
+
+  ModRM rm = { 0 };
+
+  rm.bits.mod = 0b11;
+  rm.bits.rm = register_encodings[l];
+  rm.bits.regOp = register_encodings[r];
+
+  emitByte(f, rm.v);
+}
+
 void emitSar(GeneratedFunction *f, enum Registers r, int s) {
   emitShift(f, 0xD1, 0xC1, 7, r, s);
 }

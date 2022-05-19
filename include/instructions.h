@@ -246,6 +246,7 @@ void emitZeroReg(struct _GeneratedFunction *f, enum Registers reg);
 
 void emitSetccR(struct _GeneratedFunction *f, enum JumpCondition cc, enum Registers reg);
 
+void emitTestRR(struct _GeneratedFunction *f, enum Registers l, enum Registers r, size_t s);
 void emitSar(struct _GeneratedFunction *f, enum Registers r, int s);
 void emitShr(struct _GeneratedFunction *f, enum Registers r, int s);
 void emitShl(struct _GeneratedFunction *f, enum Registers r, int s);
