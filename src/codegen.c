@@ -566,11 +566,12 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
         if (isRealType(expr->type)) {
             Boolean isD = expr->type->descriptorDesc->typeId != T_F4;
             emitMovfpRA(f, R_FACC, dst, isD);
-        } else  if (isStructualType(expr->type)) {
+        } else if (isStructualType(expr->type)) {
             Address src = { R_ACC, R_BAD, 0, 0 };
             copyStructTo(f, expr->type, &src, dst);
         } else {
-          emitMoveRA(f, R_ACC, dst, typeSize);
+            if (expr->type->kind == TR_ARRAY) exprSize = sizeof(intptr_t);
+            emitMoveRA(f, R_ACC, dst, exprSize);
         }
       }
       return exprSize;
@@ -596,12 +597,13 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
   return 0;
 }
 
-static void emitLocalInitializer(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, int32_t typeSize, int32_t frameOffset, AstInitializer *initializer) {
+static void emitLocalInitializer(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, TypeRef* type, int32_t frameOffset, AstInitializer *initializer) {
   Address addr = { R_EBP, R_BAD, 0, frameOffset };
 
+  size_t typeSize = computeTypeSize(type);
   size_t emitted = emitInitializerImpl(ctx, f, scope, typeSize, &addr, initializer);
 
-  if (emitted < typeSize) {
+  if (isStructualType(type) && emitted < typeSize) {
     emitArithRR(f, OP_L_XOR, R_ACC, R_ACC);
     while (emitted < typeSize) {
       emitMoveRA(f, R_ACC, &addr, sizeof(intptr_t));
@@ -2040,7 +2042,7 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
             unsigned localOffset = frameOffset + typeSize;
             putToHashMap(ctx->localSymMap, (intptr_t)s, (intptr_t)(-localOffset));
             if (v->initializer) {
-                emitLocalInitializer(ctx, f, scope, typeSize, -localOffset, v->initializer);
+                emitLocalInitializer(ctx, f, scope, v->type, -localOffset, v->initializer);
             }
         } else {
           assert(v->flags.bits.isStatic);
