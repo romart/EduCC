@@ -146,9 +146,11 @@ enum Registers {
 
   R_ACC = R_EAX,
   R_TMP = R_EDX,
+  R_TMP2 = R_ESI,
 
   R_FACC = R_XMM0,
   R_FTMP = R_XMM1,
+  R_FTMP2 = R_XMM2,
 
   R_ARG_0 = R_EDI,
   R_ARG_1 = R_ESI,
