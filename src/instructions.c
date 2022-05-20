@@ -422,6 +422,8 @@ void emitDiv(GeneratedFunction *f, enum Registers l, enum Registers r, Boolean i
   }
   emitMoveRR(f, R_EDX, R_R9, isW ? 8 : 4);
 
+  emitArithRR(f, isW ? OP_L_XOR : OP_I_XOR, R_EDX, R_EDX);
+
   emitRex(f, R_BAD, r, R_BAD, isW);
 
   emitByte(f, 0xF7);
