@@ -519,6 +519,9 @@ static AstExpression *cannonizeRelativeExpression(ParserContext *ctx, AstExpress
       expr->binaryExpr.left = left;
       expr->binaryExpr.right = right;
       expr->op = swapOp(expr->op);
+  } else {
+      expr->binaryExpr.left = left;
+      expr->binaryExpr.right = right;
   }
 
   return expr;
