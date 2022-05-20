@@ -563,18 +563,31 @@ static AstExpression *resolveNameRef(ParserContext *ctx) {
     assert(s->kind == FunctionSymbol || s->kind == ValueSymbol);
     AstExpression *result = createNameRef(ctx, coords, name, s);
 
+    SpecifierFlags flags = { 0 };
+
     if (s->kind == ValueSymbol) {
-        result->type = s->variableDesc->type;
+        TypeRef *type = s->variableDesc->type;
+
+        if (type->kind == TR_ARRAY) {
+            flags.bits.isConst = 1;
+            result->type = makePointedType(ctx, flags, type->arrayTypeDesc.elementType);
+        } else {
+            result->type = makePointedType(ctx, flags, type);
+            if (!isStructualType(type)) {
+                result = createUnaryExpression(ctx, coords, EU_DEREF, result);
+                result->type = type;
+            }
+        }
     } else {
-        SpecifierFlags flags = { 0 };
+        assert(s->kind == FunctionSymbol);
         flags.bits.isConst = 1;
         result->type = makePointedType(ctx, flags, computeFunctionType(ctx, coords, s->function));
     }
 
     return result;
-  } else {
-    reportDiagnostic(ctx, DIAG_UNDECLARED_ID_USE, &ctx->token->coordinates, name);
   }
+
+  reportDiagnostic(ctx, DIAG_UNDECLARED_ID_USE, &ctx->token->coordinates, name);
   return createErrorExpression(ctx, coords);
 }
 

@@ -1031,22 +1031,6 @@ static void localVarAddress(GenerationContext *ctx, const Symbol *s, Address *ad
   addr->imm = offset;
 }
 
-static void loadValueTo(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, const Symbol *s, enum Registers result, Boolean isFP) {
-  Address addr = { 0 };
-  localVarAddress(ctx, s, &addr);
-  size_t typeSize = computeTypeSize(s->variableDesc->type);
-  if (isFP) {
-    emitMovfpAR(f, &addr, result, typeSize > 4);
-  } else {
-    emitMoveAR(f, &addr, result, typeSize);
-  }
-}
-
-static void loadValue(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, const Symbol *s) {
-  Boolean isFP = isRealType(s->variableDesc->type);
-  loadValueTo(ctx, f, scope, s, isFP ? R_FACC : R_ACC, isFP);
-}
-
 static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression, Address *addr) {
 
   if (expression->op == E_NAMEREF) {
@@ -1526,19 +1510,9 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
     case E_CONST:
       emitConst(ctx, f, &expression->constExpr, typeSize);
       break;
-    case E_NAMEREF: {
-        const Symbol *s = expression->nameRefExpr.s;
-        if (s->kind == ValueSymbol) {
-          AstValueDeclaration *v = s->variableDesc;
-          if (v->flags.bits.isLocal) {
-            loadValue(ctx, f, scope, s);
-            break;
-          }
-        }
-
-        translateAddress(ctx, f, scope, expression, &addr);
-        emitMoveAR(f, &addr, R_ACC, typeSize);
-      }
+    case E_NAMEREF:
+      translateAddress(ctx, f, scope, expression, &addr);
+      emitLea(f, &addr, R_ACC);
       break;
     case E_CALL:
       generateCall(ctx, f, scope, expression);
