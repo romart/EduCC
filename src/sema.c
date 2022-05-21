@@ -1417,10 +1417,10 @@ void verifyAndTransformCallAruments(ParserContext *ctx, Coordinates *coords, Typ
               if (isRealType(argType) && size == 4) {
                 TypeRef *doubleType = makePrimitiveType(ctx, T_F8, 0);
                 argument->expression = createCastExpression(ctx, &arg->coordinates, doubleType, arg);
-              } else if (size < 4) {
+              } else if (size < 8) {
                 assert(argType->kind == TR_VALUE);
                 TypeId typeId = argType->descriptorDesc->typeId;
-                TypeId toTypeId = typeId < T_S4 ? T_S4 : T_U4;
+                TypeId toTypeId = typeId < T_S8 ? T_S8 : T_U8;
                 TypeRef *toType = makePrimitiveType(ctx, toTypeId, 0);
                 argument->expression = createCastExpression(ctx, &arg->coordinates, toType, arg);
               }
