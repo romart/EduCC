@@ -872,7 +872,7 @@ void emitCondJump(GeneratedFunction *f, struct Label *l, enum JumpCondition cond
   ptrdiff_t instrOff = pc - s->start;
   if (l->binded) {
       address l_pc = s->start + l->label_cp;
-      ptrdiff_t d = pc - l_pc - 2;
+      ptrdiff_t d = l_pc - pc - 2;
       if ((ptrdiff_t)(int8_t)d == d) {
           emitByte(f, 0x70 | cond);
           emitByte(f, d);
