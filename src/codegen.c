@@ -825,6 +825,7 @@ static GeneratedVariable *generateVaribale(GenerationContext *ctx, AstValueDecla
   v->sectionOffset = offset;
   v->size = objectSize;
   v->symbol = d->symbol;
+  return v;
 }
 
 static TypeId approximateTypeId(TypeRef *type) {
