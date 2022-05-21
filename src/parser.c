@@ -923,8 +923,8 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
             result->type = computeTypeForUnaryOperator(ctx, &coords, argument->type, op);
             return result;
         case SIZEOF: {
-            Token *saved = ctx->token;
-            int token = nextToken(ctx)->code;
+            Token *saved = nextToken(ctx);
+            int token = saved->code;
             TypeRef *sizeType = NULL;
             if (token == '(') {
                 token = nextToken(ctx)->code;
