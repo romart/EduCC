@@ -828,21 +828,12 @@ static GeneratedVariable *generateVaribale(GenerationContext *ctx, AstValueDecla
   return v;
 }
 
-static TypeId approximateTypeId(TypeRef *type) {
-  if (type->kind == TR_POINTED) {
-      return T_U8;
-  } else {
-      assert(type->kind == TR_VALUE);
-      return type->descriptorDesc->typeId;
-  }
-}
-
 static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstCastExpression *cast) {
     TypeRef *fromType = cast->argument->type;
     TypeRef *toType = cast->type;
 
-    TypeId fromTypeId = approximateTypeId(fromType);
-    TypeId toTypeId = approximateTypeId(toType);
+    TypeId fromTypeId = typeToId(fromType);
+    TypeId toTypeId = typeToId(toType);
 
     generateExpression(ctx, f, scope, cast->argument);
 
