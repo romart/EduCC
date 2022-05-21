@@ -32,6 +32,10 @@ static TypeEqualityKind primitiveTypesEquality(TypeId t1, TypeId t2) {
   return TEK_NOT_EQUAL;
 }
 
+static Boolean isIntegerTypeId(TypeId tid) {
+  return T_S1 <= tid && tid <= T_U8;
+}
+
 static TypeEqualityKind typeDescriprorEquals(TypeDesc *d1, TypeDesc *d2) {
 
   if (d1->typeId == T_ERROR || d2->typeId == T_ERROR) return TEK_NOT_EQUAL;
@@ -47,6 +51,10 @@ static TypeEqualityKind typeDescriprorEquals(TypeDesc *d1, TypeDesc *d2) {
     } else {
         return TEK_NOT_EQUAL;
     }
+  }
+
+  if (d1->typeId == T_ENUM && isIntegerTypeId(d2->typeId) || d2->typeId == T_ENUM && isIntegerTypeId(d1->typeId)) {
+      return TEK_EQUAL;
   }
 
   if (d1->typeId == d2->typeId) return TEK_EQUAL;
