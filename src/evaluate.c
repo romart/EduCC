@@ -297,15 +297,15 @@ static AstConst* evalCast(ParserContext *ctx, TypeRef *toType, AstConst *arg) {
          arg->op = CK_INT_CONST;
          break;
        case T_F4:
-         arg->i = arg->op == CK_FLOAT_CONST ? (float)arg->f : (float)arg->i;
+         arg->f = arg->op == CK_FLOAT_CONST ? (float)arg->f : (float)arg->i;
          arg->op = CK_FLOAT_CONST;
          break;
        case T_F8:
-         arg->i = arg->op == CK_FLOAT_CONST ? (double)arg->f : (double)arg->i;
+         arg->f = arg->op == CK_FLOAT_CONST ? (double)arg->f : (double)arg->i;
          arg->op = CK_FLOAT_CONST;
          break;
        case T_F10: // TODO: storage is small a bit
-         arg->i = arg->op == CK_FLOAT_CONST ? (long double)arg->f : (long double)arg->i;
+         arg->f = arg->op == CK_FLOAT_CONST ? (long double)arg->f : (long double)arg->i;
          arg->op = CK_FLOAT_CONST;
          break;
        default:
@@ -313,7 +313,7 @@ static AstConst* evalCast(ParserContext *ctx, TypeRef *toType, AstConst *arg) {
      }
   }
 
-  return NULL;
+  return arg;
 }
 
 AstConst* eval(ParserContext *ctx, AstExpression* expression) {
