@@ -2103,8 +2103,9 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
         } else {
           assert(v->flags.bits.isStatic);
           GeneratedVariable *gv = generateVaribale(ctx, v);
-          gv->next = ctx->file->variables;
-          ctx->file->variables = gv;
+          v->gen = gv;
+          gv->next = ctx->file->staticVariables;
+          ctx->file->staticVariables = gv;
         }
 
         return typeSize;
