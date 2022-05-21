@@ -772,6 +772,8 @@ static Boolean hasRelocationsExpr(AstExpression *expr) {
   switch (expr->op) {
   case E_CONST: return expr->constExpr.op == CK_STRING_LITERAL ? TRUE : FALSE;
   case E_CAST: return hasRelocationsExpr(expr->castExpr.argument);
+  case E_PAREN: return hasRelocationsExpr(expr->parened);
+  case EU_MINUS: return FALSE;
   default: unreachable("unexpected expression in const initializer");
 
   }
@@ -940,7 +942,6 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
   size_t opSize = computeTypeSize(binOp->type);
   Boolean isFP = isRealType(left->type);
   Boolean isD = isFP && opSize > 4;
-
 
   // TODO: optimize memory operations
   generateExpression(ctx, f, scope, left);
@@ -1200,6 +1201,14 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
 
   size_t typeSize = computeTypeSize(lType);
 
+  size_t stackPending = 0;
+
+  if (rvalue->op == E_CALL && isStructualType(rType)) {
+      stackPending = ALIGN_SIZE(typeSize, 2 * sizeof(intptr_t));
+      emitArithConst(f, OP_L_SUB, R_ESP, stackPending, sizeof(intptr_t));
+  }
+
+
   if (!((addrExpr->op == E_NAMEREF || addrExpr->op == E_CONST) && op == EB_ASSIGN)) {
     if (isFP) {
       emitPushRegF(f, R_FACC, isD);
@@ -1219,6 +1228,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
       // a = b
 
       if (lType->kind == TR_BITFIELD) {
+          assert(stackPending == 0);
           assert(lvalue->op == EF_ARROW || lvalue->op == EF_DOT);
           AstStructDeclarator *decl = lvalue->fieldExpr.member;
 
@@ -1234,30 +1244,57 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
           }
           storeBitField(f, lType, R_TMP2, &addr);
       } else {
-          if (saved_acc) {
-            if (isFP) {
-              emitPopRegF(f, R_FTMP, isD);
-            } else {
-              emitPopReg(f, R_TMP); // load result
-            }
-          }
-
           if (isStructualType(lType)) {
+            emitPopReg(f, R_TMP2); // load result
+            if (stackPending) {
+                emitArithConst(f, OP_L_ADD, R_ESP, stackPending, sizeof(intptr_t));
+            }
+
             Address src = { 0 };
-            src.base = R_TMP;
+            src.base = R_TMP2;
             src.index = R_BAD;
+
             copyStructTo(f, lType, &src, &addr);
           } else {
-            emitStore(f, isFP ? R_FTMP : R_TMP, &addr, rTypeId);
-          }
+            if (isFP) {
+                emitPopRegF(f, R_FACC, isD);
+                emitStore(f, R_FACC, &addr, rTypeId);
+            } else {
+                enum Registers resultReg = R_BAD;
 
-          if (isFP) {
-            emitMoveRR(f, R_TMP, R_ACC, typeSize);
-          } else {
-            emitMovfpRR(f, R_FTMP, R_FACC, typeSize);
+                if (addr.base != R_ACC && addr.index != R_ACC) {
+                    resultReg = R_ACC;
+                } else if (addr.base == R_ACC) {
+                    switch (addr.index) {
+                    case R_BAD:
+                    case R_EBX:
+                    case R_EDX: resultReg = R_ECX; break;
+                    case R_ECX: resultReg = R_EBX; break;
+                    default: unreachable("Cannot pick a register");
+                    }
+                } else {
+                    assert(addr.index == R_ACC);
+                    switch (addr.base) {
+                    case R_BAD:
+                    case R_EBX:
+                    case R_EDX: resultReg = R_ECX; break;
+                    case R_ECX: resultReg = R_EBX; break;
+                    default: unreachable("Cannot pick a register");
+                    }
+                }
+
+                emitPopReg(f, resultReg);
+
+                emitStore(f, isFP ? R_FACC : resultReg, &addr, rTypeId);
+
+                if (resultReg != R_ACC) {
+                    emitMoveRR(f, R_TMP2, resultReg, max(4, typeSize));
+                }
+            }
           }
       }
   } else {
+    assert(stackPending == 0);
     if (lType->kind == TR_BITFIELD) {
         assert(lvalue->op == EF_ARROW || lvalue->op == EF_DOT);
         AstStructDeclarator *decl = lvalue->fieldExpr.member;
@@ -1277,26 +1314,17 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
         storeBitField(f, lType, R_ACC, &addr);
 
     } else {
-        Address addr2 = { 0 };
-        addr2.base = R_EBX;
-        addr2.index = R_BAD;
-
-        emitLoad(f, &addr, isFP ? R_FTMP : R_TMP, lTypeId);
-
-        if (saved_acc) {
-            if (isFP) {
-              emitPopRegF(f, R_FTMP2, isD);
-            } else {
-              emitPopReg(f, R_TMP2); // load result
-            }
-        }
-        emitArithRR(f, selectAssignOpcode(op, lType), isFP ? R_FTMP : R_TMP, isFP ? R_FTMP2 : R_TMP2);
-        emitStore(f, isFP ? R_FTMP : R_TMP, &addr, rTypeId);
-
         if (isFP) {
-          emitMoveRR(f, R_TMP, R_ACC, typeSize);
+            emitLoad(f, &addr, R_FACC, lTypeId);
+            emitPopRegF(f, R_FTMP, isD);
+            emitArithRR(f, selectAssignOpcode(op, lType), R_FACC, R_FTMP);
+            emitStore(f, R_FACC, &addr, rTypeId);
         } else {
-          emitMovfpRR(f, R_FTMP, R_FACC, typeSize);
+            emitLoad(f, &addr, R_TMP, lTypeId);
+            emitPopReg(f, R_TMP2);
+            emitArithRR(f, selectAssignOpcode(op, lType), R_TMP, R_TMP2);
+            emitStore(f, R_TMP, &addr, rTypeId);
+            emitMoveRR(f, R_TMP, R_ACC, typeSize);
         }
     }
   }
@@ -1352,6 +1380,11 @@ static void generatePostIncDec(GenerationContext *ctx, GeneratedFunction *f, Sco
     AstExpression *argument = expression->unaryExpr.argument;
 
     translateAddress(ctx, f, scope, argument->op == EU_DEREF ? argument->unaryExpr.argument : argument, &addr);
+    emitLea(f, &addr, R_EBX);
+
+    addr.base = R_EBX;
+    addr.index = R_BAD;
+    addr.imm = 0;
 
     TypeId tid = typeToId(type);
 
@@ -1462,7 +1495,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
 
     if (isStructualType(argType)) {
       Address addr = { 0 };
-      translateAddress(ctx, f, scope, arg, &addr);
+      translateAddress(ctx, f, scope, arg->op == EU_DEREF ? arg->unaryExpr.argument : arg, &addr);
       copyStructTo(f, argType, &addr, &dst);
     } else {
       generateExpression(ctx, f, scope, arg);
@@ -1511,7 +1544,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
 
   unsigned ir = 0, fr = 0;
 
-  for (i = 0; i < idx; ++i) {
+  for (i = 0; i < totalRegArg; ++i) {
       TypeRef *argType = r_types[i];
       size_t argSize = computeTypeSize(argType);
       if (isStructualType(argType)) {
@@ -2053,7 +2086,6 @@ static int generateForStatement(GenerationContext *ctx, GeneratedFunction *f, As
   ctx->breakLabel = &loopTail;
   ctx->continueLabel = stmt->modifier ? &continueLabel : &loopHead;
 
-
   bindLabel(f, &loopHead);
 
   if (stmt->condition) {
@@ -2136,21 +2168,22 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
   case SK_RETURN: {
       AstExpression *retExpr = stmt->jumpStmt.expression;
       if (retExpr) {
-          generateExpression(ctx, f, scope, retExpr);
-          if (isRealType(retExpr->type)) {
-              // make sure result is in xmm0
-          } else if (isStructualType(retExpr->type)) {
-              Address addr = { 0 };
-              addr.base = R_EBP;
-              addr.index = R_BAD;
-              addr.imm = f->returnStructOffset;
-              emitMoveAR(f, &addr, R_EDI, sizeof(intptr_t));
-              Address src = { 0 }, dst = { 0 };
-              src.index = dst.index = R_BAD;
-              src.base = R_ACC;
-              dst.base = R_EDI;
+          if (isStructualType(retExpr->type)) {
+            Address src = { 0 };
+            translateAddress(ctx, f, scope, retExpr->op == EU_DEREF ? retExpr->unaryExpr.argument : retExpr, &src);
 
-              copyStructTo(f, retExpr->type, &src, &dst);
+            Address addr = { 0 };
+            addr.base = R_EBP;
+            addr.index = R_BAD;
+            addr.imm = f->returnStructOffset;
+            emitMoveAR(f, &addr, R_EDI, sizeof(intptr_t));
+            Address dst = { 0 };
+            dst.index = R_BAD;
+            dst.base = R_EDI;
+
+            copyStructTo(f, retExpr->type, &src, &dst);
+          } else {
+            generateExpression(ctx, f, scope, retExpr);
           }
       }
       emitJumpTo(f, ctx->returnLabel);
