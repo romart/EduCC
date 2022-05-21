@@ -532,7 +532,11 @@ static void bindLabel(GeneratedFunction *f, struct Label *l) {
 
 static TypeId typeToId(TypeRef *type) {
   switch (type->kind) {
-  case TR_VALUE: return type->descriptorDesc->typeId;
+  case TR_VALUE: {
+        TypeId tid = type->descriptorDesc->typeId;
+        if (tid == T_ENUM) tid = T_S4;
+        return tid;
+  }
   case TR_POINTED:
   case TR_FUNCTION:
   case TR_ARRAY: return T_U8;
