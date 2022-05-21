@@ -2092,9 +2092,10 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
         const Symbol *s = v->symbol;
         assert(s);
         size_t typeSize = computeTypeSize(v->type);
+        size_t align = min(max(4, typeSize), sizeof(intptr_t));
 
         if (v->flags.bits.isLocal) {
-            unsigned localOffset = frameOffset + typeSize;
+            unsigned localOffset = ALIGN_SIZE(frameOffset + typeSize, align);
             putToHashMap(ctx->localSymMap, (intptr_t)s, (intptr_t)(-localOffset));
             if (v->initializer) {
                 emitLocalInitializer(ctx, f, scope, v->type, -localOffset, v->initializer);
@@ -2316,16 +2317,17 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
       assert(s);
 
       size_t typeSize = max(4, computeTypeSize(p->type));
+      size_t align = min(typeSize, sizeof(intptr_t));
 
       if (isRealType(type)) {
         if (fpRegParams >= R_FP_PARAM_COUNT) {
-            stackOffset = ALIGN_SIZE(stackOffset, typeSize);
+            stackOffset = ALIGN_SIZE(stackOffset, align);
             putToHashMap(localSymbolMap, (intptr_t)s, (intptr_t)stackOffset);
 
             stackOffset += typeSize;
         } else {
             regOffset += typeSize;
-            regOffset = ALIGN_SIZE(regOffset, typeSize);
+            regOffset = ALIGN_SIZE(regOffset, align);
             putToHashMap(localSymbolMap, (intptr_t)s, (intptr_t)(-regOffset));
 
             addr.imm = -regOffset;
@@ -2336,12 +2338,12 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
         }
       } else {
         if (isStructualType(type) || intRegParams >= R_PARAM_COUNT) {
-          stackOffset = ALIGN_SIZE(stackOffset, typeSize);
+          stackOffset = ALIGN_SIZE(stackOffset, align);;
           putToHashMap(localSymbolMap, (intptr_t)s, (intptr_t)stackOffset);
           stackOffset += typeSize;
         } else {
           regOffset += typeSize;
-          regOffset = ALIGN_SIZE(regOffset, typeSize);
+          regOffset = ALIGN_SIZE(regOffset, align);
           putToHashMap(localSymbolMap, (intptr_t)s, (intptr_t)(-regOffset));
           addr.imm = -regOffset;
 
