@@ -573,10 +573,8 @@ static AstExpression *resolveNameRef(ParserContext *ctx) {
             result->type = makePointedType(ctx, flags, type->arrayTypeDesc.elementType);
         } else {
             result->type = makePointedType(ctx, flags, type);
-            if (!isStructualType(type)) {
-                result = createUnaryExpression(ctx, coords, EU_DEREF, result);
-                result->type = type;
-            }
+            result = createUnaryExpression(ctx, coords, EU_DEREF, result);
+            result->type = type;
         }
     } else {
         assert(s->kind == FunctionSymbol);
