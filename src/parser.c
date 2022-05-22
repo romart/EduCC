@@ -733,7 +733,7 @@ postfix_expression
  */
 static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *scope) {
     AstExpression *left = parsePrimaryExpression(ctx, scope);
-    AstExpression *right = NULL;
+    AstExpression *right = NULL, *tmp = NULL;
 
     Coordinates coords = { 0 };
 
@@ -787,12 +787,11 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
         incdec:
             coords.endOffset  = ctx->token->coordinates.endOffset;
             TypeRef *argType = left->type;
-            checkExpressionIsAssignable(ctx, &ctx->token->coordinates, left, TRUE);
-            left = createUnaryExpression(ctx, &coords, op, left);
-
-            left->type = computeIncDecType(ctx, &coords, argType, op == EU_POST_DEC);
+            tmp = createUnaryExpression(ctx, &coords, op, left);
+            tmp->type = computeIncDecType(ctx, &coords, argType, op == EU_POST_DEC);
+            if (!isErrorType(tmp->type)) checkExpressionIsAssignable(ctx, &ctx->token->coordinates, left, TRUE);
             nextToken(ctx);
-            break;
+            return tmp;
         default: return left;
         }
     }
@@ -878,8 +877,8 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
         ue1:
             nextToken(ctx);
             argument = parseUnaryExpression(ctx, scope);
-            checkExpressionIsAssignable(ctx, &coords, argument, TRUE);
             TypeRef *type = computeIncDecType(ctx, &coords, argument->type, op == EB_ASG_SUB);
+            if (!isErrorType(type)) checkExpressionIsAssignable(ctx, &coords, argument, TRUE);
             coords.endOffset = argument->coordinates.endOffset;
             return createUnaryIncDecExpression(ctx, &coords, argument, type, op);
         case '&': op = EU_REF; goto ue2;
