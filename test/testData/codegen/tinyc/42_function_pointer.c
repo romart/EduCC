@@ -1,0 +1,31 @@
+
+
+struct _IO_FILE;
+typedef struct _IO_FILE FILE;
+
+extern int printf(const char *, ...);
+
+
+extern int fprintf (FILE *__stream,
+                    const char *__format, ...);
+
+extern FILE *stdout;
+
+int fred(int p)
+{
+   printf("yo %d\n", p);
+   return 42;
+}
+
+
+/* To test what this is supposed to test the destination function
+   (fprint here) must not be called directly anywhere in the test.  */
+
+int main()
+{
+   int (*f)(int) = &fred;
+   int (*fprintfptr)(FILE *, const char *, ...) = &fprintf;
+   fprintfptr(stdout, "%d\n", (*f)(24));
+
+   return 0;
+}
