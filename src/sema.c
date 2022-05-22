@@ -95,7 +95,7 @@ TypeEqualityKind typeEquality(TypeRef *t1, TypeRef *t2) {
   if (equality != TEK_UNKNOWN) return equality;
 
   if (t1->kind == TR_POINTED && t2->kind == TR_POINTED) {
-      equality = typeEquality(t1->pointedTo, t2->pointedTo);
+      equality = typeEquality(t1->pointedTo.toType, t2->pointedTo.toType);
       if (t1->flags.bits.isConst == t2->flags.bits.isConst) {
         if (equality == TEK_EQUAL) {
             return TEK_EQUAL;
@@ -297,7 +297,7 @@ TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, Coordinates *coord
   }
 
   if (arrayType->kind == TR_POINTED) {
-      return arrayType->pointedTo;
+      return arrayType->pointedTo.toType;
   }
 
   if (arrayType->kind == TR_ARRAY) {
@@ -315,7 +315,7 @@ TypeRef *computeFunctionReturnType(ParserContext *ctx, Coordinates *coords, Type
 
     TypeRef *calleType = _calleeType;
     if (_calleeType->kind == TR_POINTED) {
-        calleType = _calleeType->pointedTo;
+        calleType = _calleeType->pointedTo.toType;
     }
 
     if (calleType->kind != TR_FUNCTION) {
@@ -336,7 +336,7 @@ AstStructDeclarator *computeMemberDeclarator(ParserContext *ctx, Coordinates *co
 
   if (op == EF_ARROW) {
     if (_receiverType->kind == TR_POINTED) {
-        receiverType = _receiverType->pointedTo;
+        receiverType = _receiverType->pointedTo.toType;
     } else if (_receiverType->kind == TR_ARRAY) {
         receiverType = _receiverType->arrayTypeDesc.elementType;
     } else {
@@ -400,9 +400,9 @@ TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* co
   }
 
   if (isPointerLikeType(ifTrue)) {
-      TypeRef *pointedT = ifTrue->kind == TR_POINTED ? ifTrue->pointedTo : ifTrue->arrayTypeDesc.elementType;
+      TypeRef *pointedT = ifTrue->kind == TR_POINTED ? ifTrue->pointedTo.toType : ifTrue->arrayTypeDesc.elementType;
       if (isPointerLikeType(ifFalse)) {
-          TypeRef *pointedF = ifFalse->kind == TR_POINTED ? ifFalse->pointedTo : ifFalse->arrayTypeDesc.elementType;
+          TypeRef *pointedF = ifFalse->kind == TR_POINTED ? ifFalse->pointedTo.toType : ifFalse->arrayTypeDesc.elementType;
           if (!typesEquals(pointedT, pointedF)) { // TODO: could fail with array vs ponter
               reportDiagnostic(ctx, DIAG_POINTER_TYPE_MISMATCH, coords, ifTrue, ifFalse);
           }
@@ -417,7 +417,7 @@ TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* co
   }
 
   if (isPointerLikeType(ifFalse)) {
-      TypeRef *pointedF = ifFalse->kind == TR_POINTED ? ifFalse->pointedTo : ifFalse->arrayTypeDesc.elementType;
+      TypeRef *pointedF = ifFalse->kind == TR_POINTED ? ifFalse->pointedTo.toType : ifFalse->arrayTypeDesc.elementType;
       if (isIntegerType(ifTrue)) {
           reportDiagnostic(ctx, DIAG_POINTER_INT_MISMATCH_IN_COND, coords, ifTrue, ifFalse);
           return makePointedType(ctx, ifFalse->flags, pointedF);
@@ -431,7 +431,7 @@ TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* co
 }
 
 TypeRef *elementType(TypeRef *type) {
-  if (type->kind == TR_POINTED) return type->pointedTo;
+  if (type->kind == TR_POINTED) return type->pointedTo.toType;
   if (type->kind == TR_ARRAY) return type->arrayTypeDesc.elementType;
   return NULL;
 }
@@ -584,14 +584,14 @@ TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, TypeRef* lef
 TypeRef *computeIncDecType(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, Boolean isDec) {
   if (isErrorType(argumentType)) return argumentType;
 
-  if (argumentType->kind == TR_FUNCTION || argumentType->kind == TR_ARRAY || isStructualType(argumentType)) {
+  if (argumentType->kind == TR_FUNCTION || argumentType->kind == TR_ARRAY || argumentType->flags.bits.isConst || isStructualType(argumentType)) {
       enum DiagnosticId diag = isDec ? DIAG_CANNOT_DECREMENT : DIAG_CANNOT_INCREMENT;
       reportDiagnostic(ctx, diag, coords, argumentType);
       return makeErrorRef(ctx);
   }
 
   if (argumentType->kind == TR_POINTED) {
-      TypeRef *ptrType = argumentType->pointedTo;
+      TypeRef *ptrType = argumentType->pointedTo.toType;
       int typeSize = computeTypeSize(ptrType);
       if (typeSize == UNKNOWN_SIZE) {
           reportDiagnostic(ctx, DIAG_PTR_ARITH_INCOMPLETE_TYPE, coords, argumentType);
@@ -607,7 +607,7 @@ TypeRef *computeIncDecType(ParserContext *ctx, Coordinates *coords, TypeRef *arg
 
 static TypeRef *computeTypeForDerefOperator(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType) {
   if (argumentType->kind == TR_POINTED) {
-      return argumentType->pointedTo;
+      return argumentType->pointedTo.toType;
   }
 
   if (argumentType->kind == TR_ARRAY) {
@@ -673,9 +673,9 @@ Boolean isAssignableTypes(ParserContext *ctx, Coordinates *coords, TypeRef *to, 
   }
 
   if (to->kind == TR_POINTED) {
-      TypeRef *pLeft = to->pointedTo;
+      TypeRef *pLeft = to->pointedTo.toType;
       if (isPointerLikeType(from)) {
-          TypeRef *pointed = from->kind == TR_POINTED ? from->pointedTo : from->arrayTypeDesc.elementType;
+          TypeRef *pointed = from->kind == TR_POINTED ? from->pointedTo.toType : from->arrayTypeDesc.elementType;
           if (isVoidType(pLeft) || isVoidType(pointed)) {
               return TRUE;
           } else if (typesEquals(pLeft, pointed)) {
@@ -752,10 +752,10 @@ Boolean checkExpressionIsAssignable(ParserContext *ctx, Coordinates *coords, Ast
   expr = deparen(expr);
 
   switch (expr->op) {
-  case E_NAMEREF:
   case EF_ARROW:
   case EF_DOT:
   case EB_A_ACC:
+  case EU_DEREF:
       if (expr->type->flags.bits.isConst) {
           if (report) {
             reportDiagnostic(ctx, DIAG_ASSIGN_IN_CONST, coords, expr->type);
@@ -763,12 +763,13 @@ Boolean checkExpressionIsAssignable(ParserContext *ctx, Coordinates *coords, Ast
           return FALSE;
       }
       return TRUE;
-  case EU_DEREF:
-      if (expr->type->pointedTo->flags.bits.isConst) {
-          reportDiagnostic(ctx, DIAG_ASSIGN_IN_CONST, coords, expr->type);
-          return FALSE;
-      }
-      return TRUE;
+//  case EU_DEREF:
+//      if (expr->type->pointedTo->flags.bits.isConst) {
+//          reportDiagnostic(ctx, DIAG_ASSIGN_IN_CONST, coords, expr->type);
+//          return FALSE;
+//      }
+//      return TRUE;
+  case E_NAMEREF:
   default:
       reportDiagnostic(ctx, DIAG_EXPRESSION_IS_NOT_ASSIGNABLE, coords);
       return FALSE;
@@ -1374,7 +1375,7 @@ void verifyAndTransformCallAruments(ParserContext *ctx, Coordinates *coords, Typ
   if (isErrorType(functionType)) return;
 
   if (functionType->kind == TR_POINTED)
-    functionType = functionType->pointedTo;
+    functionType = functionType->pointedTo.toType;
 
   assert(functionType->kind == TR_FUNCTION);
 
@@ -1512,7 +1513,7 @@ void verifyGotoExpression(ParserContext *ctx, AstExpression *expr) {
   if (isErrorType(type)) return;
 
   // TODO: introduce special type for such pointers
-  if (type->kind == TR_POINTED && isVoidType(type->pointedTo)) {
+  if (type->kind == TR_POINTED && isVoidType(type->pointedTo.toType)) {
       return ;
   }
 
@@ -1772,6 +1773,7 @@ int computeTypeSize(TypeRef *type) {
   }
 
   if (type->kind == TR_POINTED) {
+      if (type->pointedTo.arrayType != NULL) return computeTypeSize(type->pointedTo.arrayType);
       return POINTER_TYPE_SIZE;
   }
 
@@ -1894,7 +1896,7 @@ TypeRef* makePointedType(ParserContext *ctx, SpecifierFlags flags, TypeRef *poin
     TypeRef *result = (TypeRef *)areanAllocate(ctx->memory.typeArena, sizeof(TypeRef));
     result->kind = TR_POINTED;
     result->flags.storage = flags.storage;
-    result->pointedTo = pointedTo;
+    result->pointedTo.toType = pointedTo;
     return result;
 }
 

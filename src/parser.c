@@ -571,6 +571,7 @@ static AstExpression *resolveNameRef(ParserContext *ctx) {
         if (type->kind == TR_ARRAY) {
             flags.bits.isConst = 1;
             result->type = makePointedType(ctx, flags, type->arrayTypeDesc.elementType);
+            result->type->pointedTo.arrayType = type;
         } else {
             result->type = makePointedType(ctx, flags, type);
             result = createUnaryExpression(ctx, coords, EU_DEREF, result);
@@ -808,8 +809,8 @@ static AstExpression *createUnaryIncDecExpression(ParserContext *ctx, Coordinate
     offset->type = type;
   } else if (isPointerLikeType(type)) {
     assert(type->kind == TR_POINTED);
-    TypeRef *ptr= type->pointedTo;
-    int64_t typeSize = isVoidType(ptr) ? 1 : computeTypeSize(type->pointedTo);
+    TypeRef *ptr= type->pointedTo.toType;
+    int64_t typeSize = isVoidType(ptr) ? 1 : computeTypeSize(type->pointedTo.toType);
     assert(typeSize != UNKNOWN_SIZE);
     offset = createAstConst(ctx, coords, CK_INT_CONST, &typeSize);
     offset->type = makePrimitiveType(ctx, T_S8, 0);
@@ -903,7 +904,7 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
                             }
                         } else if (s->kind == FunctionSymbol) {
                             if (argument->type->kind == TR_POINTED) {
-                                assert(argument->type->pointedTo->kind == TR_FUNCTION);
+                                assert(argument->type->pointedTo.toType->kind == TR_FUNCTION);
                                 // we are done here
                                 return argument;
                             }
