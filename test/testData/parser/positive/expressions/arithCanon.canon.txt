@@ -8,65 +8,65 @@ FILE test/testData/parser/positive/expressions/arithCanon.c
     signed int z = \
       50
     signed int a = \
-      x + 5
+      *x + 5
     signed int b = \
-      x
+      *x
     signed int c = \
-      -x
+      -*x
     signed int d = \
-      x
+      *x
     signed int e = \
-      x
+      *x
     signed int f = \
-      x * 2
+      *x * 2
     signed int h = \
-      x
+      *x
     signed int i = \
-      x
+      *x
     signed int j = \
-      5 / x
+      5 / *x
     signed int k = \
-      x / 5
+      *x / 5
     signed int r = \
-      x
+      *x
     signed int s = \
-      x
+      *x
     signed int aa = \
-      x + 12
+      *x + 12
     signed int bb = \
-      x - -2
+      *x - -2
     signed int cc = \
-      x + -2
+      *x + -2
     signed int dd = \
-      x - 12
+      *x - 12
     signed int ee = \
-      x * 35
+      *x * 35
     signed int ff = \
-      x / 5 * 7
+      *x / 5 * 7
     signed int gg = \
-      x * 5 / 7
+      *x * 5 / 7
     signed int hh = \
-      x / 35
+      *x / 35
     signed int ii = \
-      x % 5
+      *x % 5
     signed int jj = \
-      x % 5
+      *x % 5
     signed int aaa = \
-      x + y + 5
+      *x + *y + 5
     signed int bbb = \
-      x - y + 5
+      *x - *y + 5
     signed int ccc = \
-      x + y - 5
+      *x + *y - 5
     signed int ddd = \
-      x - y - 5
+      *x - *y - 5
     signed int eee = \
-      x * 5 * y
+      *x * 5 * *y
     signed int fff = \
-      x * 5 / y
+      *x * 5 / *y
     signed int ggg = \
-      x / 5 * y
+      *x / 5 * *y
     signed int hhh = \
-      x / 5 / y    
+      *x / 5 / *y    
   END
 ----
   FUN signed int testFloat 
@@ -78,64 +78,64 @@ FILE test/testData/parser/positive/expressions/arithCanon.c
     float z = \
       50.000000
     float a = \
-      5.000000 + x
+      5.000000 + *x
     float b = \
-      x
+      *x
     float c = \
-      -x
+      -*x
     float d = \
-      x
+      *x
     float e = \
-      x
+      *x
     float f = \
-      2.000000 * x
+      2.000000 * *x
     float h = \
-      x
+      *x
     float i = \
-      x
+      *x
     float j = \
-      5.000000 / x
+      5.000000 / *x
     float k = \
-      x / 5.000000
+      *x / 5.000000
     float r = \
-      x
+      *x
     float s = \
-      x
+      *x
     float aa = \
-      x + 12.000000
+      *x + 12.000000
     float bb = \
-      x - -2.000000
+      *x - -2.000000
     float cc = \
-      x + -2.000000
+      *x + -2.000000
     float dd = \
-      x - 12.000000
+      *x - 12.000000
     float ee = \
-      x * 35.000000
+      *x * 35.000000
     float ff = \
-      x / 5.000000 * 7.000000
+      *x / 5.000000 * 7.000000
     float gg = \
-      x * 5.000000 / 7.000000
+      *x * 5.000000 / 7.000000
     float hh = \
-      x / 35.000000
+      *x / 35.000000
     float aaa = \
-      x + 5.000000 + y
+      *x + 5.000000 + *y
     float bbb = \
-      x + 5.000000 - y
+      *x + 5.000000 - *y
     float ccc = \
-      x - 5.000000 + y
+      *x - 5.000000 + *y
     float ddd = \
-      x - 5.000000 - y
+      *x - 5.000000 - *y
     float eee = \
-      x * 5.000000 * y
+      *x * 5.000000 * *y
     float fff = \
-      x * 5.000000 / y
+      *x * 5.000000 / *y
     float ggg = \
-      x / 5.000000 * y
+      *x / 5.000000 * *y
     float hhh = \
-      x / 5.000000 / y    
+      *x / 5.000000 / *y    
   END
 ----
-  FUN void testShift
+  FUN void testShift 
   BEGIN
     signed int a = \
       10
@@ -144,35 +144,35 @@ FILE test/testData/parser/positive/expressions/arithCanon.c
     signed int c = \
       30
     signed int d = \
-      a >> b + c
+      *a >> *b + *c
     signed int e = \
-      a << b >> c
+      *a << *b >> *c
     signed int f = \
-      a >> b << c
+      *a >> *b << *c
     signed int g = \
-      a << b + c
+      *a << *b + *c
     signed int d = \
-      c >> b + 10
+      *c >> *b + 10
     signed int e = \
-      c << b >> 10
+      *c << *b >> 10
     signed int f = \
-      c >> b << 10
+      *c >> *b << 10
     signed int g = \
-      c << b + 10
+      *c << *b + 10
     signed int h = \
-      c >> c + 12
+      *c >> *c + 12
     signed int i = \
-      c << 12 >> c
+      *c << 12 >> *c
     signed int j = \
-      c >> 12 << c
+      *c >> 12 << *c
     signed int k = \
-      c << c + 12
+      *c << *c + 12
     signed int h = \
-      a >> 12
+      *a >> 12
     signed int i = \
-      a << 7 >> 5
+      *a << 7 >> 5
     signed int j = \
-      a >> 7 << 5
+      *a >> 7 << 5
     signed int k = \
-      a << 12
+      *a << 12    
   END

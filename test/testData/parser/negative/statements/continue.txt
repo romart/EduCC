@@ -6,8 +6,8 @@ FILE test/testData/parser/negative/statements/continue.c
     #0: signed int a
   BEGIN
     CONTINUE
-    WHILE (a)
-      a = foo(a)      
+    WHILE (*a)
+      *a = foo(*a)
     END_WHILE
     CONTINUE    
   END
@@ -17,8 +17,8 @@ FILE test/testData/parser/negative/statements/continue.c
   BEGIN
     CONTINUE
     DO
-      a = foo(a)      
-    WHILE (a)
+      *a = foo(*a)
+    WHILE (*a)
     CONTINUE    
   END
 ----
@@ -29,8 +29,8 @@ FILE test/testData/parser/negative/statements/continue.c
     signed int r = \
       0
     signed int i
-    FOR (i = 0; i < a; i += 1)
-      r += foo(i)
+    FOR (*i = 0; *i < *a; *i += 1)
+      *r += foo(*i)
     END_FOR
     CONTINUE    
   END

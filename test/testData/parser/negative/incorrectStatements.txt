@@ -2,9 +2,9 @@ FILE test/testData/parser/negative/incorrectStatements.c
   FUN signed int foo 
     #0: signed int a
   BEGIN
-    IF (a)
+    IF (*a)
     THEN
       (ERROR EXPR)
     END_IF
-    ((((((((ERROR EXPR((a)))((((a)))))))))))    
+    ((((((((ERROR EXPR((*a)))((((*a)))))))))))
   END

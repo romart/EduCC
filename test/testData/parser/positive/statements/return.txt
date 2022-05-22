@@ -2,19 +2,19 @@ FILE test/testData/parser/positive/statements/return.c
   FUN signed int testInt 
     #0: signed int a
   BEGIN
-    RETURN a    
+    RETURN *a
   END
 ----
   FUN float testFloat 
     #0: float f
   BEGIN
-    RETURN f    
+    RETURN *f
   END
 ----
   FUN *signed int testPtr 
     #0: *signed int ptr
   BEGIN
-    RETURN ptr    
+    RETURN *ptr
   END
 ----
   STRUCT S
@@ -24,5 +24,5 @@ FILE test/testData/parser/positive/statements/return.c
   FUN STRUCT S testStruct 
     #0: STRUCT S v
   BEGIN
-    RETURN v    
+    RETURN *v
   END

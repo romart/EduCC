@@ -6,10 +6,10 @@ test/testData/parser/negative/expressions/incdec.c:3:38: error: cannot increment
 test/testData/parser/negative/expressions/incdec.c:3:39: error: cannot decrement value of type 'signed int[10]'
 test/testData/parser/negative/expressions/incdec.c:3:40: error: cannot decrement value of type 'signed int[10]'
 test/testData/parser/negative/expressions/incdec.c:3:41: error: cannot increment value of type 'signed int[10]'
-test/testData/parser/negative/expressions/incdec.c:4:43: error: cannot assign to lvalue with const-qualified type 'C signed int'
-test/testData/parser/negative/expressions/incdec.c:4:44: error: cannot assign to lvalue with const-qualified type 'C signed int'
-test/testData/parser/negative/expressions/incdec.c:3:45: error: cannot assign to lvalue with const-qualified type 'C signed int'
-test/testData/parser/negative/expressions/incdec.c:3:46: error: cannot assign to lvalue with const-qualified type 'C signed int'
+test/testData/parser/negative/expressions/incdec.c:3:43: error: cannot increment value of type 'C signed int'
+test/testData/parser/negative/expressions/incdec.c:3:44: error: cannot decrement value of type 'C signed int'
+test/testData/parser/negative/expressions/incdec.c:3:45: error: cannot increment value of type 'C signed int'
+test/testData/parser/negative/expressions/incdec.c:3:46: error: cannot decrement value of type 'C signed int'
 test/testData/parser/negative/expressions/incdec.c:3:58: warning: expression result unused
 test/testData/parser/negative/expressions/incdec.c:3:59: warning: expression result unused
 test/testData/parser/negative/expressions/incdec.c:3:62: warning: expression result unused

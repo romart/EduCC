@@ -30,13 +30,13 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     signed int[10] arr
     signed char[10] carr
     signed int a = \
-      *(arr + i * 4)
+      *(arr + *i * 4)
     signed int b = \
       *(arr + 8)
     signed int c = \
       *(arr + 16)
     signed int d = \
-      *(carr + 0)
+      *carr
     signed int e = \
       *(carr + 9)
   END
@@ -45,38 +45,38 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
   BEGIN
     STRUCT S1 s1
     signed int a = \
-      *&s1
+      *s1
     signed int b = \
-      *(&s1 + 4)
+      *(s1 + 4)
   END
 ----
   FUN signed int testStructPointed1
     #0: *STRUCT S1 p_s1
   BEGIN
     signed int a = \
-      *p_s1
+      **p_s1
     signed int b = \
-      *(p_s1 + 4)
+      *(*p_s1 + 4)
   END
 ----
   FUN signed int testStructValued2
   BEGIN
     STRUCT S2 s2
     signed int a = \
-      *(&s2 + 4)
+      *(s2 + 4)
     signed int c = \
-      *(*(&s2 + 8) + 16)
+      *(*(s2 + 8) + 16)
   END
 ----
   FUN signed int testStructPointed2
     #0: *STRUCT S2 p_s2
   BEGIN
     signed int a = \
-      *p_s2
+      **p_s2
     signed int b = \
-      *(*(p_s2 + 8) + 16)
+      *(*(*p_s2 + 8) + 16)
     signed int c = \
-      *(p_s2 + 16)
+      *(*p_s2 + 16)
   END
 ----
   FUN signed int testStructValued3
@@ -84,15 +84,15 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
   BEGIN
     STRUCT S3 s3
     signed int b = \
-      *(&s3 + 4)
+      *(s3 + 4)
     signed int c = \
-      *(*(&s3 + 8) + 16)
+      *(*(s3 + 8) + 16)
     signed int d = \
-      *(i * 8 + &s3 + 4 + 32)
+      *(s3 + *i * 8 + 36)
     signed int e = \
-      *(*(*((i + 1) * 8 + &s3 + 112) + 8) + 4)
+      *(*(*(s3 + (*i + 1) * 8 + 112) + 8) + 4)
     signed int e = \
-      *(*(*((i + 1) * 8 + &s3 + 112) + 8) + 16)
+      *(*(*(s3 + (*i + 1) * 8 + 112) + 8) + 16)
   END
 ----
   FUN signed int testStructPointed3
@@ -100,15 +100,15 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     #1: signed int i
   BEGIN
     signed int b = \
-      *(p_s3 + 4)
+      *(*p_s3 + 4)
     signed int c = \
-      *(*(p_s3 + 8) + 16)
+      *(*(*p_s3 + 8) + 16)
     signed int d = \
-      *(*(p_s3 + 32) + i * 8 + 4)
+      *(*(*p_s3 + 32) + *i * 8 + 4)
     signed int e = \
-      *(*(*(*(p_s3 + 112) + (i + 1) * 8) + 8) + 4)
+      *(*(*(*(*p_s3 + 112) + (*i + 1) * 8) + 8) + 4)
     signed int e = \
-      *(*(*(*(p_s3 + 112) + (i + 1) * 8) + 8) + 16)
+      *(*(*(*(*p_s3 + 112) + (*i + 1) * 8) + 8) + 16)
   END
 ----
   FUN signed int testStructPointed4
@@ -116,19 +116,19 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     #1: signed int i
   BEGIN
     signed int f1 = \
-      *p_s4 >> 0 && 63
+      **p_s4 >> 0 && 63
     signed int f2 = \
-      *p_s4 >> 6 && 127
+      **p_s4 >> 6 && 127
     signed int b = \
-      *(p_s4 + 8)
+      *(*p_s4 + 8)
     signed int c = \
-      *(*(p_s4 + 12) + 16)
+      *(*(*p_s4 + 12) + 16)
     signed int d = \
-      *(p_s4 + i * 8 + 4 + 36)
+      *(*p_s4 + *i * 8 + 40)
     signed int e = \
-      *(*(*(p_s4 + (i + 15) * 8 + 116) + 8) + 4)
+      *(*(*(*p_s4 + (*i + 15) * 8 + 116) + 8) + 4)
     signed int e = \
-      *(*(*(p_s4 + (i + 15) * 8 + 116) + 8) + 16)
+      *(*(*(*p_s4 + (*i + 15) * 8 + 116) + 8) + 16)
   END
 ----
   FUN signed int testStructValued
@@ -136,23 +136,23 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
   BEGIN
     STRUCT S4 s4
     signed int a = \
-      *&s4 >> 0 && 63
+      *s4 >> 0 && 63
     signed int b = \
-      *&s4 >> 6 && 127
+      *s4 >> 6 && 127
     signed int c = \
-      *(&s4 + 4)
+      *(s4 + 4)
     signed int d = \
-      *(&s4 + 8)
+      *(s4 + 8)
     signed int e = \
-      *(*(&s4 + 12) + 16)
+      *(*(s4 + 12) + 16)
     signed int f = \
-      *(&s4 + 20)
+      *(s4 + 20)
     signed int g = \
-      *(&s4 + 28)
+      *(s4 + 28)
     signed int h = \
-      *(&s4 + 32)
+      *(s4 + 32)
     signed int j = \
-      *(&s4 + i * 8 + 4 + 36)
+      *(s4 + *i * 8 + 40)
     signed int k = \
-      *(*(*(*(&s4 + i * 8 + 116) + 8) + 8) + 16)
+      *(*(*(*(s4 + *i * 8 + 116) + 8) + 8) + 16)
   END

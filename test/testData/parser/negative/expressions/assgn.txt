@@ -5,12 +5,12 @@ FILE test/testData/parser/negative/expressions/assgn.c
     *signed int pa
     C signed int c
     *C signed int pc
-    a++ = a
-    a + a = a
-    &a = (*signed int)a
-    *pa = a
-    a -= 1 = a
-    0 = a
-    c = a
-    *pc = a    
+    (*a)++ = *a
+    *a + *a = *a
+    a = (*signed int)(*a)
+    **pa = *a
+    *a -= 1 = *a
+    0 = *a
+    *c = *a
+    **pc = *a
   END

@@ -12,7 +12,7 @@ FILE test/testData/parser/positive/enums.c
     double xxx = \
       14 + 15
     unsigned char xxxx = \
-      (double)xx + xxx
+      (double)(*xx) + *xxx
   END
 ----
   ENUM E2

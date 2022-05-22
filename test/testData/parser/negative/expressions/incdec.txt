@@ -14,53 +14,53 @@ FILE test/testData/parser/negative/expressions/incdec.c
     STRUCT S s
     *STRUCT S ps
     *STRUCT Incomplete incpt
-    a -= 1
-    b += 1
-    a--
-    b++
-    f++
-    f--
-    f -= 1.000000
-    f += 1.000000
-    pa++
-    pa--
-    pa += 4
-    pa -= 4
+    *a -= 1
+    *b += 1
+    (*a)--
+    (*b)++
+    (*f)++
+    (*f)--
+    *f -= 1.000000
+    *f += 1.000000
+    (*pa)++
+    (*pa)--
+    *pa += 4
+    *pa -= 4
     ERROR EXPR
     ERROR EXPR
-    s++
-    s--
+    (*s)++
+    (*s)--
     ar++
     ar--
     ERROR EXPR
     ERROR EXPR
-    c++
-    c--
-    c += 1
-    c -= 1
-    s.a++
-    s.a--
-    s.a += 1
-    s.a -= 1
-    ps->a++
-    ps->a--
-    ps->a += 1
-    ps->a -= 1
-    *pa++
-    *pa--
-    *pa -= 1
-    *pa += 1
-    *(pa -= 4)
-    *(pa += 4)
-    (*pa)++
-    (*pa)--
-    (*pa) -= 1
-    (*pa) += 1
-    (a + b)++
-    (a * b) -= 1
-    &a++
-    &a -= 4
-    (&a)++
-    incpt++
+    (*c)++
+    (*c)--
+    ERROR EXPR
+    ERROR EXPR
+    (*s).a++
+    (*s).a--
+    (*s).a += 1
+    (*s).a -= 1
+    (*ps)->a++
+    (*ps)->a--
+    (*ps)->a += 1
+    (*ps)->a -= 1
+    *(*pa)++
+    *(*pa)--
+    **pa -= 1
+    **pa += 1
+    *(*pa -= 4)
+    *(*pa += 4)
+    (**pa)++
+    (**pa)--
+    (**pa) -= 1
+    (**pa) += 1
+    (*a + *b)++
+    (*a * *b) -= 1
+    &(*a)++
+    a -= 4
+    (a)++
+    (*incpt)++
     ERROR EXPR
   END
