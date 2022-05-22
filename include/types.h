@@ -91,7 +91,10 @@ typedef struct _TypeRef {
     union {
         TypeDesc *descriptorDesc; // aka TypeConstructor
         FunctionTypeDescriptor functionTypeDesc;
-        struct _TypeRef *pointedTo; // aka UnderlyingType
+        struct {
+          struct _TypeRef *toType; // aka UnderlyingType
+          struct _TypeRef *arrayType; // array type derived from
+        } pointedTo;
         ArrayTypeDescriptor arrayTypeDesc;
         BitFieldTypeDescriptor bitFieldDesc;
     };

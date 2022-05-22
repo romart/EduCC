@@ -26,7 +26,7 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
   TypeRef *arrayType = base->type;
   assert(isPointerLikeType(arrayType));
   TypeRef *pointerType = arrayType->kind == TR_ARRAY ? makePointedType(ctx, arrayType->flags, arrayType->arrayTypeDesc.elementType) : arrayType;
-  TypeRef *elementType = pointerType->pointedTo;
+  TypeRef *elementType = pointerType->pointedTo.toType;
 
   size_t elementSize = computeTypeSize(elementType);
 
@@ -444,7 +444,7 @@ static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression
   offsetedPtr = cannonizeAddExpression(ctx, offsetedPtr);
 
   AstExpression *derefered = createUnaryExpression(ctx, &orig->coordinates, EU_DEREF, offsetedPtr);
-  derefered->type = ptrType->pointedTo;
+  derefered->type = ptrType->pointedTo.toType;
 
   if (memberType->kind == TR_BITFIELD && deBit) {
       // de-bit

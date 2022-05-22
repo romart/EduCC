@@ -1352,7 +1352,7 @@ static void generatePostIncDec(GenerationContext *ctx, GeneratedFunction *f, Sco
 
   Address addr = { 0 };
   size_t typeSize = computeTypeSize(type);
-  int64_t disp = type->kind == TR_POINTED ? computeTypeSize(type->pointedTo) : 1;
+  int64_t disp = type->kind == TR_POINTED ? computeTypeSize(type->pointedTo.toType) : 1;
   enum Opcodes opcode = selectIncDecOpcode(expression->op, type);
 
   if (type->kind == TR_BITFIELD) {
@@ -1408,8 +1408,8 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   AstExpressionList *args = expression->callExpr.arguments;
   TypeRef *type = expression->type;
   TypeRef *pcalleeType = callee->type;
-  assert(pcalleeType->kind == TR_POINTED);
-  TypeRef *calleeType = pcalleeType->pointedTo;
+  TypeRef *calleeType = pcalleeType->kind == TR_POINTED ? pcalleeType->pointedTo.toType : pcalleeType;
+//  assert(pcalleeType->kind == TR_POINTED);
   assert(calleeType->kind == TR_FUNCTION);
   TypeRef *returnType = calleeType->functionTypeDesc.returnType;
 
