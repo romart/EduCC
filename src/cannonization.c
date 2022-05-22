@@ -53,7 +53,8 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
       indexValue = createAstConst2(ctx, &indexValue->coordinates, indexValue->type, evaluated);
   }
   AstExpression *summed = createBinaryExpression(ctx, EB_ADD, pointerType, base, indexValue);
-  AstExpression *derefered = createUnaryExpression(ctx, &expr->coordinates, EU_DEREF, summed);
+  AstExpression *transformed = transformExpression(ctx, summed);
+  AstExpression *derefered = createUnaryExpression(ctx, &expr->coordinates, EU_DEREF, transformed);
   derefered->type = elementType;
 
   return derefered;
@@ -292,6 +293,7 @@ static AstExpression *cannonizeAddExpression(ParserContext *ctx, AstExpression *
     if (isPointerLikeType(l_left->type)) {
         left->binaryExpr.left = l_right;
         left->binaryExpr.right = right;
+        left->type = right->type;
         left->coordinates.startOffset = l_right->coordinates.startOffset;
         left->coordinates.endOffset = right->coordinates.endOffset;
         expr->binaryExpr.left = l_left;
