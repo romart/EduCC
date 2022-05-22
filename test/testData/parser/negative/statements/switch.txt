@@ -11,18 +11,18 @@ FILE test/testData/parser/negative/statements/switch.c
   FUN signed int testSwitchIntNegative 
     #0: signed int v
   BEGIN
-    SWITCH (v)
-      CASE 1: RETURN foo(v)
-      CASE 2: RETURN bar(v)
-      CASE 3: RETURN qux(v)
-      CASE 4: RETURN foo(v) + bar(v)
-      CASE 4: RETURN bar(v) + foo(v)
-      CASE 5: RETURN bar(v) + qux(v)
-      CASE 5: RETURN qux(v) + bar(v)
-      CASE 6: RETURN qux(v) + foo(v)
-      CASE 6: RETURN foo(v) + qux(v)
-      DEFAULT: RETURN foo(v) + bar(v) + qux(v)
-      DEFAULT: RETURN foo(v) + bar(v) + qux(v)      
+    SWITCH (*v)
+      CASE 1: RETURN foo(*v)
+      CASE 2: RETURN bar(*v)
+      CASE 3: RETURN qux(*v)
+      CASE 4: RETURN foo(*v) + bar(*v)
+      CASE 4: RETURN bar(*v) + foo(*v)
+      CASE 5: RETURN bar(*v) + qux(*v)
+      CASE 5: RETURN qux(*v) + bar(*v)
+      CASE 6: RETURN qux(*v) + foo(*v)
+      CASE 6: RETURN foo(*v) + qux(*v)
+      DEFAULT: RETURN foo(*v) + bar(*v) + qux(*v)
+      DEFAULT: RETURN foo(*v) + bar(*v) + qux(*v)
     END_SWITCH    
   END
 ----
@@ -38,16 +38,16 @@ FILE test/testData/parser/negative/statements/switch.c
   FUN signed int testSwitchEnumNegative 
     #0: ENUM E v
   BEGIN
-    SWITCH (v)
-      CASE -100: RETURN foo(v)
-      CASE -100: RETURN foo(v)
-      CASE -99: RETURN bar(v)
-      CASE -98: RETURN qux(v)
-      CASE -98: RETURN qux(v)
-      CASE -97: RETURN foo(v) + bar(v)
-      CASE -96: RETURN bar(v) + qux(v)
-      CASE -95: RETURN qux(v) + foo(v)
-      DEFAULT: RETURN foo(v) + bar(v) + qux(v)      
+    SWITCH (*v)
+      CASE -100: RETURN foo(*v)
+      CASE -100: RETURN foo(*v)
+      CASE -99: RETURN bar(*v)
+      CASE -98: RETURN qux(*v)
+      CASE -98: RETURN qux(*v)
+      CASE -97: RETURN foo(*v) + bar(*v)
+      CASE -96: RETURN bar(*v) + qux(*v)
+      CASE -95: RETURN qux(*v) + foo(*v)
+      DEFAULT: RETURN foo(*v) + bar(*v) + qux(*v)
     END_SWITCH    
   END
 ----
@@ -55,31 +55,31 @@ FILE test/testData/parser/negative/statements/switch.c
     #0: signed int v
     #1: signed int b
   BEGIN
-    CASE 0: RETURN bar(b)
-    SWITCH (v)
-      CASE 1: RETURN foo(b * b)
-      CASE 2: RETURN foo(b * b * b)      
+    CASE 0: RETURN bar(*b)
+    SWITCH (*v)
+      CASE 1: RETURN foo(*b * *b)
+      CASE 2: RETURN foo(*b * *b * *b)
     END_SWITCH
-    CASE 4: RETURN qux(b)    
+    CASE 4: RETURN qux(*b)
   END
 ----
   FUN signed int testDefaultOutOfSwitch 
     #0: signed int v
     #1: signed int b
   BEGIN
-    SWITCH (v)
-      CASE 1: RETURN foo(b * b)
-      CASE 2: RETURN foo(b * b * b)      
+    SWITCH (*v)
+      CASE 1: RETURN foo(*b * *b)
+      CASE 2: RETURN foo(*b * *b * *b)
     END_SWITCH
-    DEFAULT: RETURN qux(b)    
+    DEFAULT: RETURN qux(*b)
   END
 ----
   FUN signed int testSwitchArgFloat 
     #0: float a
     #1: STRUCT SX sa
   BEGIN
-    SWITCH (a)
-      DEFAULT: (signed int)a      
+    SWITCH (*a)
+      DEFAULT: (signed int)*a
     END_SWITCH    
   END
 ----
@@ -90,15 +90,15 @@ FILE test/testData/parser/negative/statements/switch.c
   FUN signed int testSwitchArgStruct 
     #0: STRUCT SX sa
   BEGIN
-    SWITCH (sa)
-      DEFAULT: sa.a      
+    SWITCH (*sa)
+      DEFAULT: (*sa).a
     END_SWITCH    
   END
 ----
   FUN signed int testSwitchArgPtr 
     #0: *signed int pa
   BEGIN
-    SWITCH (pa)
-      DEFAULT: *pa      
+    SWITCH (*pa)
+      DEFAULT: **pa
     END_SWITCH    
   END

@@ -9,12 +9,12 @@ FILE test/testData/parser/negative/statements/gotoLabels.c
     #0: signed int a
     #1: signed int b
   BEGIN
-    IF (a)
+    IF (*a)
     THEN
       bar("ss")
       GOTO bb      
     ELSE
-      IF (b)
+      IF (*b)
       THEN
         bar("lll")
         bb: bar("lfff")        
@@ -29,7 +29,7 @@ FILE test/testData/parser/negative/statements/gotoLabels.c
     #0: signed int a
     #1: signed int b
   BEGIN
-    IF (a)
+    IF (*a)
     THEN
       bar("ss")
       GOTO cc      
@@ -45,10 +45,10 @@ FILE test/testData/parser/negative/statements/gotoLabels.c
   BEGIN
     *void lptr = \
       &&cc
-    IF (a)
+    IF (*a)
     THEN
       bar("ss")
-      GOTO *lptr
+      GOTO **lptr
       
     ELSE
       bar("uuu")

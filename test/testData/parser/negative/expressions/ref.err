@@ -1,10 +1,10 @@
-test/testData/parser/negative/expressions/ref.c:3:15: warning: expression result unused
-test/testData/parser/negative/expressions/ref.c:3:16: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:4:15: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:4:16: warning: expression result unused
 test/testData/parser/negative/expressions/ref.c:3:17: warning: expression result unused
 test/testData/parser/negative/expressions/ref.c:3:19: error: cannot take the address of an rvalue of type 'signed int'
 test/testData/parser/negative/expressions/ref.c:3:19: warning: expression result unused
 test/testData/parser/negative/expressions/ref.c:3:21: error: address of register variable requested
-test/testData/parser/negative/expressions/ref.c:3:21: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:4:21: warning: expression result unused
 test/testData/parser/negative/expressions/ref.c:3:23: warning: expression result unused
 test/testData/parser/negative/expressions/ref.c:3:25: error: cannot take the address of an rvalue of type 'signed int'
 test/testData/parser/negative/expressions/ref.c:3:25: warning: expression result unused

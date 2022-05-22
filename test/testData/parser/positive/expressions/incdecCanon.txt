@@ -13,13 +13,13 @@ FILE test/testData/parser/positive/expressions/incdecCanon.c
     #1: **STRUCT S pptr
     #2: signed int x
   BEGIN
-    ptr[x]++
-    *ptr -= 1
-    *(ptr + 15 * 4) -= 1
-    pptr[x]++
-    *pptr -= 48
-    *(pptr + 10 * 8) -= 48
-    pptr[x]->n.x++
+    (*ptr)[*x]++
+    **ptr -= 1
+    *(*ptr + 15 * 4) -= 1
+    (*pptr)[*x]++
+    **pptr -= 48
+    *(*pptr + 10 * 8) -= 48
+    (*pptr)[*x]->n.x++
     **STRUCT Incpt incpt
-    incpt += 8
+    *incpt += 8
   END

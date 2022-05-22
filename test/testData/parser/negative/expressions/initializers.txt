@@ -97,7 +97,7 @@ FILE test/testData/parser/negative/expressions/initializers.c
   STRUCT SX sx1 = \
     INIT_BEGIN
       0
-      s0
+      *s0
       INIT_BEGIN
         0
       INIT_END
@@ -244,7 +244,7 @@ FILE test/testData/parser/negative/expressions/initializers.c
     a1
 ----
   float f = \
-    pa
+    *pa
 ----
   signed int[-1] a3
 ----
@@ -305,15 +305,15 @@ FILE test/testData/parser/negative/expressions/initializers.c
     *signed int pa = \
       a1
     float f = \
-      pa
+      *pa
     signed int i2 = \
-      f2
+      *f2
     signed int i3 = \
-      s2
+      *s2
     STRUCT SX sx2 = \
       INIT_BEGIN
         0
-        s0
+        *s0
         INIT_BEGIN
           0
         INIT_END

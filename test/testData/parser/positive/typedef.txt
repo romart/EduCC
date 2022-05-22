@@ -25,6 +25,6 @@ FILE test/testData/parser/positive/typedef.c
       fopen("test.txt", "r")
     yylex()
     signed int t_t = \
-      x + yyin
+      *x + *yyin
     RETURN 0    
   END

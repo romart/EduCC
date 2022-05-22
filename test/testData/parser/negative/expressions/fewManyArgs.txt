@@ -6,11 +6,11 @@ FILE test/testData/parser/negative/expressions/fewManyArgs.c
   FUN signed int many 
     #0: signed int a
   BEGIN
-    foo(a, a, a)    
+    foo(*a, *a, *a)
   END
 ----
   FUN signed int few 
     #0: signed int a
   BEGIN
-    foo(a)    
+    foo(*a)
   END

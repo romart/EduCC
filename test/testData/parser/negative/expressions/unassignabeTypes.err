@@ -28,15 +28,24 @@ test/testData/parser/negative/expressions/unassignabeTypes.c:6:57: error: assign
 test/testData/parser/negative/expressions/unassignabeTypes.c:6:58: error: assigning to 'STRUCT S2' from incompatible type '*float'
 test/testData/parser/negative/expressions/unassignabeTypes.c:6:59: error: assigning to 'STRUCT S2' from incompatible type '*STRUCT S1'
 test/testData/parser/negative/expressions/unassignabeTypes.c:6:60: error: assigning to 'STRUCT S2' from incompatible type '*STRUCT S2'
-test/testData/parser/negative/expressions/unassignabeTypes.c:7:62: error: array type 'signed int[20]' is not assignable
-test/testData/parser/negative/expressions/unassignabeTypes.c:7:63: error: array type 'signed int[20]' is not assignable
-test/testData/parser/negative/expressions/unassignabeTypes.c:7:64: error: array type 'signed int[20]' is not assignable
-test/testData/parser/negative/expressions/unassignabeTypes.c:7:65: error: array type 'signed int[20]' is not assignable
-test/testData/parser/negative/expressions/unassignabeTypes.c:7:66: error: array type 'signed int[20]' is not assignable
-test/testData/parser/negative/expressions/unassignabeTypes.c:7:67: error: array type 'signed int[20]' is not assignable
-test/testData/parser/negative/expressions/unassignabeTypes.c:7:68: error: array type 'signed int[20]' is not assignable
-test/testData/parser/negative/expressions/unassignabeTypes.c:7:69: error: array type 'signed int[20]' is not assignable
-test/testData/parser/negative/expressions/unassignabeTypes.c:7:70: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:62: error: expression is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:62: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:63: error: expression is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:63: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:64: error: expression is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:64: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:65: error: expression is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:65: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:66: error: expression is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:66: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:67: error: expression is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:67: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:68: error: expression is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:68: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:69: error: expression is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:69: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:70: error: expression is not assignable
+test/testData/parser/negative/expressions/unassignabeTypes.c:7:70: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
 test/testData/parser/negative/expressions/unassignabeTypes.c:6:72: warning: incompatible integer to pointer conversion assigning to '*signed int' from 'signed int'
 test/testData/parser/negative/expressions/unassignabeTypes.c:6:73: error: assigning to '*signed int' from incompatible type 'float'
 test/testData/parser/negative/expressions/unassignabeTypes.c:6:75: error: assigning to '*signed int' from incompatible type 'STRUCT S1'

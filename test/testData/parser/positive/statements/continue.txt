@@ -8,15 +8,15 @@ FILE test/testData/parser/positive/statements/continue.c
   BEGIN
     signed int i = \
       0
-    FOR (; i < a; i += 1)
-      IF (a > b)
+    FOR (; *i < *a; *i += 1)
+      IF (*a > *b)
       THEN
-        foo(a - b)
+        foo(*a - *b)
         CONTINUE        
       END_IF
-      foo(b)
-      foo(a)
-      forTest(b, b - a)      
+      foo(*b)
+      foo(*a)
+      forTest(*b, *b - *a)
     END_FOR    
   END
 ----
@@ -26,17 +26,17 @@ FILE test/testData/parser/positive/statements/continue.c
   BEGIN
     signed int i = \
       0
-    WHILE (i < a)
-      IF (a > b)
+    WHILE (*i < *a)
+      IF (*a > *b)
       THEN
-        foo(a - b)
-        i += 1
+        foo(*a - *b)
+        *i += 1
         CONTINUE        
       END_IF
-      foo(b)
-      foo(a)
-      whileTest(b, b - a)
-      a -= 1
+      foo(*b)
+      foo(*a)
+      whileTest(*b, *b - *a)
+      *a -= 1
     END_WHILE    
   END
 ----
@@ -47,15 +47,15 @@ FILE test/testData/parser/positive/statements/continue.c
     signed int i = \
       0
     DO
-      IF (a > b)
+      IF (*a > *b)
       THEN
-        foo(a - b)
-        i += 1
+        foo(*a - *b)
+        *i += 1
         CONTINUE        
       END_IF
-      foo(b)
-      foo(a)
-      whileTest(b, b - a)
-      a -= 1
-    WHILE (i < b)    
+      foo(*b)
+      foo(*a)
+      whileTest(*b, *b - *a)
+      *a -= 1
+    WHILE (*i < *b)
   END

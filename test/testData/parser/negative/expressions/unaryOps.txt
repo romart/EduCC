@@ -22,97 +22,97 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
   FUN void testAmp 
   BEGIN
     R signed int ri
-    &ri
-    &i
-    &f
-    &pi
-    &pf
-    &arr
-    &s
-    &ps
-    &vp
+    ri
+    i
+    f
+    pi
+    pf
+    arr
+    s
+    ps
+    vp
   END
 ----
   FUN void testStar 
   BEGIN
-    *i
-    *f
-    *pi
-    *pf
+    **i
+    **f
+    **pi
+    **pf
     *arr
-    *s
-    *ps
-    *vp
+    **s
+    **ps
+    **vp
   END
 ----
   FUN void testPlus 
   BEGIN
-    +i
-    +f
-    +pi
-    +pf
+    +*i
+    +*f
+    +*pi
+    +*pf
     +arr
-    +s
-    +ps
-    +vp
+    +*s
+    +*ps
+    +*vp
   END
 ----
   FUN void testMinus 
   BEGIN
-    -i
-    -f
-    -pi
-    -pf
+    -*i
+    -*f
+    -*pi
+    -*pf
     -arr
-    -s
-    -ps    
-    -vp
+    -*s
+    -*ps
+    -*vp
   END
 ----
   FUN void testExl 
   BEGIN
-    !i
-    !f
-    !pi
-    !pf
+    !*i
+    !*f
+    !*pi
+    !*pf
     !arr
-    !s
-    !ps    
-    !vp
+    !*s
+    !*ps
+    !*vp
   END
 ----
   FUN void testTilda 
   BEGIN
-    ~i
-    ~f
-    ~pi
-    ~pf
+    ~*i
+    ~*f
+    ~*pi
+    ~*pf
     ~arr
-    ~s
-    ~ps    
-    ~vp
+    ~*s
+    ~*ps
+    ~*vp
   END
 ----
   FUN void testInc 
   BEGIN
-    i += 1
-    f += 1.000000
-    pi += 4
-    pf += 4
+    *i += 1
+    *f += 1.000000
+    *pi += 4
+    *pf += 4
     ERROR EXPR
     ERROR EXPR
-    ps += 8
-    vp += 1
+    *ps += 8
+    *vp += 1
   END
 ----
   FUN void testDec 
   BEGIN
-    i -= 1
-    f -= 1.000000
-    pi -= 4
-    pf -= 4
+    *i -= 1
+    *f -= 1.000000
+    *pi -= 4
+    *pf -= 4
     ERROR EXPR
     ERROR EXPR
-    ps -= 8
-    vp -= 1
+    *ps -= 8
+    *vp -= 1
   END

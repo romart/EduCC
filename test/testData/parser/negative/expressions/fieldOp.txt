@@ -29,7 +29,7 @@ FILE test/testData/parser/negative/expressions/fieldOp.c
     ERROR EXPR
     ERROR EXPR
     ERROR EXPR
-    s.good
+    (*s).good
     ERROR EXPR
     ERROR EXPR
     ERROR EXPR
@@ -49,6 +49,6 @@ FILE test/testData/parser/negative/expressions/fieldOp.c
     ERROR EXPR
     ERROR EXPR
     ERROR EXPR
-    ps->good
+    (*ps)->good
     ERROR EXPR
   END

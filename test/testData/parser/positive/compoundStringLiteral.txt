@@ -14,7 +14,7 @@ FILE test/testData/parser/positive/compoundStringLiteral.c
     signed int l0 = \
       s0 , 1
     signed int l1 = \
-      s1 , 8
+      *s1 , 8
     signed int l2 = \
       s2 , 4
     signed int l3 = \
