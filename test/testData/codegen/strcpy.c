@@ -1,5 +1,5 @@
 
-char *strcpy(char *dst, char *src) {
+char *strcpy(char *dst, const char *src) {
   while (*src != 0)
      *dst++ = *src++;
 
