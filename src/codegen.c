@@ -1546,8 +1546,12 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   saddr.index = R_BAD;
 
   if (callee->op != E_NAMEREF) {
-      generateExpression(ctx, f, scope, callee);
-      emitMoveRR(f, R_ACC, R_TMP, sizeof(intptr_t));
+      if (pcalleeType->kind == TR_FUNCTION && callee->op == EU_DEREF) {
+        generateExpression(ctx, f, scope, callee->unaryExpr.argument);
+      } else {
+        generateExpression(ctx, f, scope, callee);
+      }
+      emitMoveRR(f, R_ACC, R_EBX, sizeof(intptr_t));
   }
 
   unsigned ir = 0, fr = 0;
@@ -1590,7 +1594,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
 
     emitCallLiteral(f, newReloc);
   } else {
-    emitCall(f, R_TMP);
+    emitCall(f, R_EBX);
   }
 
   if (alignedStackSize) {
