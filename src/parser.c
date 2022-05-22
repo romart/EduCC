@@ -892,6 +892,9 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
             argument = parseCastExpression(ctx, scope);
             coords.endOffset = argument->coordinates.endOffset;
             if (op == EU_REF) {
+                if (argument->op == EU_DEREF) {
+                  argument = argument->unaryExpr.argument;
+                }
                 if (argument->op == E_NAMEREF) {
                     Symbol *s = argument->nameRefExpr.s;
                     if (s) {
@@ -901,6 +904,7 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
                                 // int *y = &x;
                                 reportDiagnostic(ctx, DIAG_REGISTER_ADDRESS, &coords);
                             }
+                            return argument;
                         } else if (s->kind == FunctionSymbol) {
                             if (argument->type->kind == TR_POINTED) {
                                 assert(argument->type->pointedTo.toType->kind == TR_FUNCTION);
