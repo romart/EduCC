@@ -1106,18 +1106,20 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
       // [(base + index * scale) + imm]
       // TODO
       generateExpression(ctx, f, scope, l);
-      emitMoveRR(f, R_ACC, R_EBX, sizeof(intptr_t));
-      addr->base = R_EBX;
+      emitPushReg(f, R_ACC);
       generateExpression(ctx, f, scope, r);
+      emitPopReg(f, R_EBX);
+      addr->base = R_EBX;
       emitMoveRR(f, R_ACC, R_ECX, sizeof(intptr_t));
       addr->index = R_ECX;
       addr->scale = 0;
     } else if (r->op == EB_ADD) {
       // [base + (index * scale + imm)]
       generateExpression(ctx, f, scope, l);
-      emitMoveRR(f, R_ACC, R_EBX, sizeof(intptr_t));
-      addr->base = R_EBX;
+      emitPushReg(f, R_ACC);
       generateExpression(ctx, f, scope, r);
+      emitPopReg(f, R_EBX);
+      addr->base = R_EBX;
       emitMoveRR(f, R_ACC, R_ECX, sizeof(intptr_t));
       addr->index = R_ECX;
       addr->scale = 0;
@@ -1134,8 +1136,7 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
             AstExpression *idxs = r->op == EB_MUL ? r : l;
             AstExpression *expr = idxs == r ? l : r;
             generateExpression(ctx, f, scope, expr);
-            emitMoveRR(f, R_ACC, R_EBX, sizeof(intptr_t));
-            addr->base = R_EBX;
+            emitPushReg(f, R_ACC);
             AstExpression *ml = idxs->binaryExpr.left;
             AstExpression *mr = idxs->binaryExpr.right;
             if (mr->op == E_CONST) {
@@ -1151,25 +1152,32 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
                   case 4: addr->scale = 2; break;
                   case 8: addr->scale = 3; break;
                   }
+                  emitPopReg(f, R_EBX);
+                  addr->base = R_EBX;
                   emitMoveRR(f, R_ACC, R_ECX, sizeof(intptr_t));
                   addr->index = R_ECX;
                 } else {
                   generateExpression(ctx, f, scope, idxs);
+                  emitPopReg(f, R_EBX);
+                  addr->base = R_EBX;
                   addr->scale = 0;
                   addr->index = R_ACC;
                 }
             } else {
                 generateExpression(ctx, f, scope, idxs);
+                emitPopReg(f, R_EBX);
+                addr->base = R_EBX;
                 addr->scale = 0;
                 addr->index = R_ACC;
             }
         } else {
             // [expr1 + expr2]
             generateExpression(ctx, f, scope, l);
-            emitMoveRR(f, R_ACC, R_EBX, sizeof(intptr_t));
-            addr->base = R_EBX;
+            emitPushReg(f, R_ACC);
             generateExpression(ctx, f, scope, r);
-            addr->base = R_ACC;
+            emitPopReg(f, R_EBX);
+            addr->base = R_EBX;
+            addr->index = R_ACC;
         }
     }
 
