@@ -261,6 +261,10 @@ Boolean isPointerLikeType(TypeRef *type) {
   return type->kind == TR_POINTED || type->kind == TR_ARRAY;
 }
 
+Boolean isArrayish(TypeRef *type) {
+  return type->kind == TR_ARRAY || type->kind == TR_POINTED && type->pointedTo.arrayType != NULL;
+}
+
 static Boolean isScalarType(TypeRef *type) {
   return type->kind == TR_POINTED || isPrimitiveType(type);
 }
