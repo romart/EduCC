@@ -39,6 +39,11 @@ typedef struct _Token {
     struct _Token *next;
 } Token;
 
+Token *nextToken(ParserContext *ctx);
+Token *tokenizeFile(ParserContext *ctx, const char *fileName, unsigned *lineNum);
+
+char *allocateString(ParserContext *ctx, size_t size);
+
 struct _Scope;
 
 typedef struct _DefinedLabel {
@@ -61,12 +66,18 @@ typedef struct _UsedLabel {
   struct _UsedLabel *next;
 } UsedLabel;
 
+struct LocationInfo {
+  const char *fileName;
+  unsigned lineno;
+  unsigned lineCount;
+  unsigned *linesPos;
+  struct LocationInfo *next;
+};
+
 typedef struct _ParserContext {
     Configuration *config;
 
     AstFile* parsedFile;
-
-    yyscan_t scanner;
 
     struct _Scope* rootScope;
     struct _Scope* currentScope;
@@ -89,12 +100,7 @@ typedef struct _ParserContext {
 
     Diagnostics diagnostics;
 
-    struct {
-      YYLTYPE position;
-      unsigned lineno;
-      unsigned lineCount;
-      unsigned *linesPos;
-    } locationInfo;
+    struct LocationInfo *locationInfo;
 
     struct {
       unsigned inLoop: 1;
