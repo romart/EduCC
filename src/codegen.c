@@ -1318,6 +1318,10 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
             emitArithRR(f, selectAssignOpcode(op, lType), R_FACC, R_FTMP);
             emitStore(f, R_FACC, &addr, rTypeId);
         } else {
+            if (addr.reloc) {
+                emitLea(f, &addr, R_EBX);
+                addr.base = R_EBX; addr.reloc = NULL;
+            }
             emitLoad(f, &addr, R_TMP, lTypeId);
             emitPopReg(f, R_TMP2);
             emitArithRR(f, selectAssignOpcode(op, lType), R_TMP, R_TMP2);
