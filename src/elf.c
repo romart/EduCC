@@ -212,7 +212,6 @@ static unsigned serializeTextRelocs(Section *section, Relocation *relocs) {
   unsigned count = 0;
 
   while (relocs) {
-
       Elf64_Rela rela =  { 0 };
 
       if (relocs->kind == RK_SYMBOL) {
@@ -278,19 +277,12 @@ size_t computeSectionsSize(ElfFile *elfFile, unsigned sectionCount, size_t offse
 
     if (!s) continue;
 
-//    if (idx == 4) {
-//        printf("LJJ");
-//      }
-
     unsigned align = s->align;
     size_t aligned = align ? ALIGN_SIZE(size, align) : size;
     size_t delta = aligned - size;
     size_t thisSize = s->pc - s->start;
 
     size += delta;
-
-    s->debugOffset = size;
-
     size += thisSize;
   }
 
@@ -308,15 +300,10 @@ static uint8_t *serializeSections(ElfFile *elfFile, unsigned sectionCount, uint8
 
       if (!s) continue;
 
-//      if (idx == 4) {
-//          printf("LJJ");
-//        }
-
       unsigned align = s->align & ~1;
 
       ptrdiff_t currentOffset = tmp - buffer;
 
-//      intptr_t alignOffset = align ? ALIGN_PTR(tmp, align) : 0;
       intptr_t alignOffset = align ? ALIGN_SIZE(currentOffset, align) : currentOffset;
 
       ptrdiff_t delta = alignOffset - currentOffset;
@@ -324,10 +311,6 @@ static uint8_t *serializeSections(ElfFile *elfFile, unsigned sectionCount, uint8
       uint8_t *sectionAddress = tmp + delta;
 
       ptrdiff_t sectionOffset = sectionAddress - buffer;
-
-//      if (sectionOffset != s->debugOffset) {
-//          printf("LLL");
-//      }
 
       size_t sectionSize = s->pc - s->start;
 
@@ -345,7 +328,6 @@ static uint8_t *serializeSections(ElfFile *elfFile, unsigned sectionCount, uint8
 
   ptrdiff_t off = ALIGN_SIZE(tmp - buffer, sizeof(intptr_t));
 
-//  ptrdiff_t off = ALIGN_PTR(tmp, sizeof(intptr_t));
   return buffer + off;
 }
 
