@@ -968,9 +968,9 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
       emitPushReg(f, R_ACC); // save result
     }
 
-    if (right->op == E_NAMEREF || right->op == EU_DEREF) {
+    if (right->op == EU_DEREF) {
       Address addr = { 0 };
-      translateAddress(ctx, f, scope, right->op == EU_DEREF ? right->unaryExpr.argument : right, &addr);
+      translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
       if (isFP) {
         emitPopRegF(f, R_FACC, isD);
       } else {
@@ -1978,9 +1978,9 @@ static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFun
           else
             emitPushReg(f, R_ACC);
 
-          if (right->op == E_NAMEREF || right->op == EU_DEREF) {
+          if (right->op == EU_DEREF) {
               Address addr = { 0 };
-              translateAddress(ctx, f, scope, right->op == EU_DEREF ? right->unaryExpr.argument : right, &addr);
+              translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
               if (isFP)
                 emitPopRegF(f, R_FACC, isD);
               else
