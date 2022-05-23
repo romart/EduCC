@@ -53,7 +53,9 @@ int fileno(FILE *stream);
 
 "\"\""                  { return(EMPTY_STRING_LITERAL); }
 "\""                    { BEGIN(STRING); }
-<STRING>[^\"\n]*        { return(STRING_LITERAL); }
+<STRING>"\\\""          { return(STRING_LITERAL); }
+<STRING>"\\"            { return(STRING_LITERAL); }
+<STRING>[^\\\"\n]*      { return(STRING_LITERAL); }
 <STRING>"\n"            { BEGIN(INITIAL); return(DANGLING_NEWLINE); }
 <STRING>"\""            { BEGIN(INITIAL); }
 
