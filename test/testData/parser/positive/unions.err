@@ -1,2 +1,1 @@
 test/testData/parser/positive/unions.c:4:34: warning: declaration does not declare anything
-test/testData/parser/positive/unions.c:1:26: error: redefinition of 'U'

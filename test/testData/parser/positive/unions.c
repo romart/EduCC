@@ -23,7 +23,7 @@ union U2 {
   } s;
 };
 
-union U {
+union U3 {
   int a, b, c, d;
   int x;
   struct SS {
