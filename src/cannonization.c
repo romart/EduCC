@@ -32,7 +32,7 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
 
   TypeRef *indexType = makePrimitiveType(ctx, T_U8, 0);
 
-  Boolean isFlat = base->op == EF_DOT || base->op == EB_A_ACC;
+  Boolean isFlat = base->op == EF_DOT || base->op == EB_A_ACC && isArrayish(base->type);
 
   base = transformExpression(ctx, base);
   index = transformExpression(ctx, index);
