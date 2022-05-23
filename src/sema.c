@@ -1767,7 +1767,7 @@ TypeDesc builtInTypeDescriptors[] = {
 
     { T_F4, "float", 4, NULL },
     { T_F8, "double", 8, NULL },
-    { T_F10, "long double", 10, NULL }
+    { T_F10, "long double", 16, NULL }
 };
 
 
