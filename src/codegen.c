@@ -1995,7 +1995,7 @@ static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFun
               else
                 emitPopReg(f, R_TMP);
 
-              emitArithRR(f, opcode, isFP ? R_FTMP : R_TMP, isFP ? R_FACC : R_ACC);
+              emitArithRR(f, opcode, isFP ? R_FACC : R_ACC, isFP ? R_FTMP : R_TMP);
           }
 
       }
