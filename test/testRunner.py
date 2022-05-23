@@ -98,12 +98,9 @@ def runParserTest(compiler, workingDir, dirname, name):
 def runCodegenTest(compiler, workingDir, dirname, name):
     global numOfFailedTests
     testFilePath = dirname + '/' + name + '.c'
-    expectedAstFilePath = dirname + '/' + name + '.txt'
-    expectedErrFilePath = dirname + '/' + name + '.err'
-    expectedAstCanonFilePath = dirname + '/' + name + '.canon.txt'
-
 
     outputDir = workingDir + '/' + dirname
+
     if (not path.exists(outputDir)):
         os.makedirs(outputDir)
 
