@@ -1005,18 +1005,8 @@ static void generateLogicalBinary(GenerationContext *ctx, GeneratedFunction *f, 
 
   cc = generateCondition(ctx, f, scope, binOp->binaryExpr.right, FALSE);
 
-  switch (binOp->binaryExpr.right->op) {
-    case EB_GE:
-    case EB_LE:
-    case EB_LT:
-    case EB_GT:
-    case EB_NE:
-    case EB_EQ:
-      emitSetccR(f, cc, R_ACC);
-      emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
-    default:
-      break;
-  }
+  emitSetccR(f, cc, R_ACC);
+  emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
 
   emitJumpTo(f, &endB);
   bindLabel(f, &elseB);
