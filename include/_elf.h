@@ -37,9 +37,6 @@ typedef struct _Section {
   struct _Relocation *reloc;
 
   Elf64_Sym *symbol;
-
-  ptrdiff_t debugOffset;
-
 } Section;
 
 struct ElfFileSection {
