@@ -127,6 +127,8 @@ EnumConstant *createEnumConst(ParserContext *ctx, Coordinates *coords, const cha
 
     result->coordinates.startOffset = coords->startOffset;
     result->coordinates.endOffset = coords->endOffset;
+    result->coordinates.fileName = coords->fileName;
+
     result->name = name;
     result->value = value;
 
@@ -159,6 +161,8 @@ AstStructDeclarator* createStructDeclarator(ParserContext *ctx, Coordinates *coo
 
     result->coordinates.startOffset = coords->startOffset;
     result->coordinates.endOffset = coords->endOffset;
+    result->coordinates.fileName = coords->fileName;
+
     result->offset = offset;
 
     result->name = name;
@@ -172,6 +176,7 @@ AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, Coordinates *coords,
 
     result->coordinates.startOffset = coords->startOffset;
     result->coordinates.endOffset = coords->endOffset;
+    result->coordinates.fileName = coords->fileName;
 
     result->kind = kind;
     result->name = name;
@@ -186,6 +191,7 @@ AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, Coordinates *
 
     result->coordinates.startOffset = coords->startOffset;
     result->coordinates.endOffset = coords->endOffset;
+    result->coordinates.fileName = coords->fileName;
 
     result->kind = kind;
     result->name = name;
@@ -231,6 +237,7 @@ AstInitializer *createAstInitializer(ParserContext *ctx, Coordinates *coords, In
 
     result->coordinates.startOffset = coords->startOffset;
     result->coordinates.endOffset = coords->endOffset;
+    result->coordinates.fileName = coords->fileName;
 
     result->kind = kind;
 
@@ -250,6 +257,7 @@ AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, Coordinate
 
   result->coordinates.startOffset = coords->startOffset;
   result->coordinates.endOffset = coords->endOffset;
+  result->coordinates.fileName = coords->fileName;
 
   result->flags.storage = flags;
   result->name = name;
@@ -277,6 +285,7 @@ static AstExpression *allocAstExpression(ParserContext *ctx, Coordinates *coords
 
   result->coordinates.startOffset = coords->startOffset;
   result->coordinates.endOffset = coords->endOffset;
+  result->coordinates.fileName = coords->fileName;
 
   return result;
 }
@@ -286,6 +295,7 @@ static AstStatement *allocAstStatement(ParserContext *ctx, Coordinates *coords) 
 
   result->coordinates.startOffset = coords->startOffset;
   result->coordinates.endOffset = coords->endOffset;
+  result->coordinates.fileName = coords->fileName;
 
   return result;
 }
@@ -341,7 +351,7 @@ AstExpression *createCastExpression(ParserContext *ctx, Coordinates *coords, Typ
 }
 
 AstExpression *createTernaryExpression(ParserContext *ctx, TypeRef *type, AstExpression *cond, AstExpression *t, AstExpression* f) {
-    Coordinates coords = { cond->coordinates.startOffset, f->coordinates.endOffset };
+    Coordinates coords = { cond->coordinates.startOffset, f->coordinates.endOffset, cond->coordinates.fileName };
     AstExpression *result = allocAstExpression(ctx, &coords);
     result->op = E_TERNARY;
     result->ternaryExpr.condition = cond;
@@ -352,7 +362,7 @@ AstExpression *createTernaryExpression(ParserContext *ctx, TypeRef *type, AstExp
 }
 
 AstExpression *createBinaryExpression(ParserContext *ctx, ExpressionType op, TypeRef *type, AstExpression *left, AstExpression *right) {
-    Coordinates coords = { left->coordinates.startOffset, right->coordinates.endOffset };
+    Coordinates coords = { left->coordinates.startOffset, right->coordinates.endOffset, left->coordinates.fileName };
     AstExpression *result = allocAstExpression(ctx, &coords);
     result->op = op;
     result->binaryExpr.left = left;

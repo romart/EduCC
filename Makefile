@@ -29,6 +29,7 @@ SOURCES=\
     $(SRCDIR)/cannonization.c \
     $(SRCDIR)/codegen.c \
     $(SRCDIR)/elf.c \
+    $(SRCDIR)/lexer.c \
     $(GENERATED_SRC_DIR)/lex.yy.c
 
 OBJ=$(patsubst %.c,%.o,$(subst $(SRCDIR)/,$(OBJDIR)/, $(SOURCES)))

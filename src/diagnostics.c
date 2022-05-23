@@ -36,19 +36,32 @@ static char *allocMessageString(ParserContext *ctx, size_t size) {
   return (char *)areanAllocate(ctx->memory.diagnosticsArena, sizeof(char) * size);
 }
 
-static void computeLineAndCollumn(ParserContext *ctx, int _pos, int *line, int *col, int *lineStartOffset) {
+static struct LocationInfo *findLocationInfo(ParserContext *ctx, const char *fileName) {
+  struct LocationInfo *locInfo = ctx->locationInfo;
+
+  while (locInfo) {
+      if (strcmp(fileName, locInfo->fileName) == 0) break;
+  }
+
+  return locInfo;
+}
+
+static void computeLineAndCollumn(ParserContext *ctx, const char *fileName, int _pos, int *line, int *col, int *lineStartOffset) {
   if (_pos < 0) {
       *line = NO_LOC;
       *col = NO_LOC;
       return;
   }
 
-  unsigned *lineMap = ctx->locationInfo.linesPos;
+  struct LocationInfo *locInfo = findLocationInfo(ctx, fileName);
+
+
+  unsigned *lineMap = locInfo->linesPos;
   assert(lineMap != NULL);
 
   unsigned pos = (unsigned)_pos;
 
-  unsigned lineMax = ctx->locationInfo.lineno;
+  unsigned lineMax = locInfo->lineno;
   unsigned lineNum = 0;
   unsigned lineOffset = 0;
   unsigned previousLine = 0;
@@ -200,10 +213,10 @@ void reportDiagnostic(ParserContext *ctx, enum DiagnosticId diag, Coordinates *l
     newDiagnostic->message = "<cannot render a diagnostic message>";
   }
 
-  newDiagnostic->location.file = ctx->parsedFile->fileName;
+  newDiagnostic->location.file = location->fileName;
 
-  computeLineAndCollumn(ctx, location->startOffset, &newDiagnostic->location.lineStart, &newDiagnostic->location.colStart, &newDiagnostic->location.lineStartOffset);
-  computeLineAndCollumn(ctx, location->endOffset, &newDiagnostic->location.lineEnd, &newDiagnostic->location.colEnd, &newDiagnostic->location.lineEndOffset);
+  computeLineAndCollumn(ctx, location->fileName, location->startOffset, &newDiagnostic->location.lineStart, &newDiagnostic->location.colStart, &newDiagnostic->location.lineStartOffset);
+  computeLineAndCollumn(ctx, location->fileName, location->endOffset, &newDiagnostic->location.lineEnd, &newDiagnostic->location.colEnd, &newDiagnostic->location.lineEndOffset);
 
   if (ctx->diagnostics.tail) {
       ctx->diagnostics.tail->next = newDiagnostic;

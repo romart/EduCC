@@ -208,7 +208,7 @@ typedef int64_const_t (*int_binary_evaluate)(int64_const_t, int64_const_t);
 
 typedef int (*evaluateChecker)(int64_const_t, int64_const_t);
 
-static Coordinates noCoords = { -1, -1 };
+static Coordinates noCoords = { -1, -1, NULL };
 
 static AstConst *evaluateUnaryConst(ParserContext *ctx, AstConst *expr, int_unary_evaluate eInt, float_unary_evaluate eFloat) {
   if (expr->op == CK_FLOAT_CONST) {
