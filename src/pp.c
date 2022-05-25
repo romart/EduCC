@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include "pp.h"
 #include "parser.h"
@@ -111,6 +112,10 @@ Boolean isSpacesBetween(const Token *l, const Token *r) {
   return r->coordinates.startOffset - l->coordinates.endOffset > 0;
 }
 
+Boolean hasSpace(const Token *t) {
+  return t->coordinates.startOffset > 0 && isspace(t->pos[-1]);
+}
+
 
 static Boolean isVarargPosition(const Token *t) {
   return t->text && strcmp("__VA_ARGS__", t->text) == 0;
@@ -161,7 +166,11 @@ static Token *stringToken(ParserContext *ctx, Coordinates *coords, const char *s
   Token *r = allocToken(ctx);
 
   r->code = r->rawCode = STRING_LITERAL;
-  r->text = s;
+  r->text = r->pos = s;
+
+//  r->coordinates.locInfo = NULL;
+//  r->coordinates.startOffset = 0;
+//  r->coordinates.endOffset = strlen(s);
 
   return r;
 }
@@ -173,7 +182,7 @@ Token *stringifySequence(ParserContext *ctx, Token *s) {
   size_t bufferSize = 0;
 
   while (t) {
-      if (p && isSpacesBetween(p, t)) {
+      if (p && hasSpace(t)) {
           ++bufferSize;
       }
       bufferSize += t->coordinates.endOffset - t->coordinates.startOffset;
@@ -189,7 +198,7 @@ Token *stringifySequence(ParserContext *ctx, Token *s) {
   unsigned idx = 0;
 
   while (t) {
-      if (p && isSpacesBetween(p, t)) {
+      if (p && hasSpace(t)) {
           b[idx++] = ' ';
       }
 
@@ -247,17 +256,27 @@ Token *concatTokens(ParserContext *ctx, Token *l, Token *r) {
   }
 
   // lex/flex requires input buffer be double-terminated
-  buffer[i++] = 0;
-  buffer[i++] = 0;
+  buffer[j++] = 0;
+  buffer[j++] = 0;
 
   LocationInfo *locInfo = allocateMacroLocationInfo(l->coordinates.locInfo->fileName, buffer, bufferSize, l->coordinates.startOffset, r->coordinates.endOffset);
 
   locInfo->next = ctx->locationInfo;
   ctx->locationInfo = locInfo;
 
-  Token *t = tokenizeBuffer(ctx, locInfo, NULL);
+  Token *s = tokenizeBuffer(ctx, locInfo, NULL);
+  Token *t = s, *p = NULL;
 
-  return t;
+  while (t->code) {
+      p = t;
+      t = t->next;
+  }
+
+  if (p) {
+    p->next = NULL;
+  }
+
+  return s;
 }
 
 static Token *findArgument(const Token *arg, MacroArg *args) {
@@ -285,6 +304,8 @@ static Token *findAndCopyArgument(ParserContext *ctx, const Token *t, MacroArg *
 
   Token *tmp = NULL;
 
+  if (args == NULL) return NULL;
+
   if (isVarargPosition(t)) {
     if (vararg) {
       return copySequence(ctx, vararg->value);
@@ -295,7 +316,7 @@ static Token *findAndCopyArgument(ParserContext *ctx, const Token *t, MacroArg *
   } else if ((tmp = findArgument(t, args)) != NULL) {
       return copySequence(ctx, tmp);
   } else {
-      return copyToken(ctx, t);
+      return NULL;
   }
 }
 
@@ -329,16 +350,21 @@ Token *replaceMacro(ParserContext *ctx, const Token *macro, Token **macroNextPtr
   Token *n = macro->next;
 
   MacroArg *first = NULL, *cur = NULL;
-  MacroArg *vararg = NULL;
+  MacroArg *vararg = NULL, *va_cur = NULL;
 
   Token *macroNext = macro->next;
 
   if (def->isFunctional) {
     int depth = 0;
-    if (n && n->rawCode == '(' && !isSpacesBetween(macro, n)) {
+    if (n && n->rawCode == '(' && !hasSpace(n)) {
       MacroParam *p = def->params;
       n = n->next;
-      Token *argStart = n;
+      Token *argStart = NULL;
+
+      if (n && n->rawCode != ')') {
+          argStart = n;
+      }
+
       Token *pt = argStart;
 
       while (n) {
@@ -351,32 +377,34 @@ Token *replaceMacro(ParserContext *ctx, const Token *macro, Token **macroNextPtr
               }
 
               if (code == ')' || code == ',') {
-                pt->next = NULL;
 
-                MacroArg *tmp = allocateMacroArg(ctx, p, argStart);
+                if (argStart) {
 
-                if (p) {
-                  p = p->next;
-                } else if (vararg == NULL) {
-                    vararg = tmp;
-                    if (!def->isVararg) {
-                        reportDiagnostic(ctx, DIAG_PP_TOO_MANY_ARGUMENTS, &argStart->coordinates);
+                  MacroArg *tmp = allocateMacroArg(ctx, p, argStart);
+                  argStart = NULL;
+
+                  if (p) {
+                    pt->next = NULL;
+                    p = p->next;
+                    if (first) {
+                      cur->next = tmp;
+                    } else {
+                      first = tmp;
                     }
-                }
+                  } else if (vararg == NULL) {
+                      vararg = tmp;
+                      if (!def->isVararg) {
+                          reportDiagnostic(ctx, DIAG_PP_TOO_MANY_ARGUMENTS, &argStart->coordinates);
+                      }
+                  }
 
-                if (first) {
-                  cur->next = tmp;
-                } else {
-                  first = tmp;
+                  cur = tmp;
+                  n = nn;
                 }
-
-                cur = tmp;
-                n = nn;
               }
 
-
-
               if (code == ')') {
+                  pt->next = NULL;
                   macroNext = nn;
                   break;
               }
@@ -388,12 +416,17 @@ Token *replaceMacro(ParserContext *ctx, const Token *macro, Token **macroNextPtr
                   ++depth;
               }
           }
+
+          if (argStart == NULL) {
+              pt = argStart = n;
+          }
+
           pt = n;
           n = nn;
       }
 
       if (p) {
-          reportDiagnostic(ctx, DIAG_PP_TOO_MANY_ARGUMENTS, &macro->coordinates);
+          reportDiagnostic(ctx, DIAG_PP_TOO_FEW_ARGUMENTS, &macro->coordinates);
       }
     } else {
         // function-like macro as an identifier
@@ -404,66 +437,128 @@ Token *replaceMacro(ParserContext *ctx, const Token *macro, Token **macroNextPtr
   const Token *body = def->body;
   Token *evalBody = NULL, *bcur = NULL;
 
-  if (def->isFunctional) {
-      const Token *b = body;
-      const Token *pb = NULL;
+  Boolean isFuncional = def->isFunctional;
 
-      while (b) {
+  const Token *b = body;
+  const Token *pb = NULL;
 
-          Token *tmp = findAndCopyArgument(ctx, b, first, vararg, def->isVararg);
-
-          if (pb && pb->rawCode == '#') {
-            if (tmp) {
-              tmp = stringifySequence(ctx, tmp);
+  while (b) {
+      if (isFuncional && b->rawCode == '#') {
+        Token *next = b->next;
+        if (next) {
+          Token *arg = findAndCopyArgument(ctx, next, first, vararg, def->isVararg);
+          if (arg) {
+            Token *evaluated = stringifySequence(ctx, arg);
+            if (evalBody) {
+                bcur = bcur->next = evaluated;
             } else {
-               // TODO report
-            }
-          } else if (isTokenConcat(b)) {
-            const Token *dsh = b->next;
-            assert(dsh);
-            const Token *nn = dsh->next;
-            Token *l = tmp, *r = NULL;
-
-            if (nn) {
-                r = findAndCopyArgument(ctx, nn, first, vararg, def->isVararg);
-                if (r == NULL) {
-                    r = copyToken(ctx, nn);
-                }
+                bcur = evalBody = evaluated;
             }
 
-            if (r == NULL) {
-                // TODO report
-                r = emptyToken(ctx);
-            }
-
-            tmp = concatTokens(ctx, l, r);
-          } else if (b->rawCode == DSHARP) {
-              // report
+            b = next->next;
+            continue;
           }
-
-          tmp = replaceTokenSequence(ctx, tmp);
-
-          if (evalBody) {
-              bcur->next = tmp;
-          } else {
-              evalBody = tmp;
-          }
-
-          bcur = findLastToken(tmp);
-          pb = b;
-          b = b->next;
+        }
       }
-  } else {
-      evalBody = copySequence(ctx, body);
+
+      if (b->next && b->next->rawCode == DSHARP) {
+
+        Token *lhs = findAndCopyArgument(ctx, b, first, vararg, def->isVararg);
+
+        if (lhs == NULL) {
+            lhs = copyToken(ctx, b);
+        }
+
+        Token *sharpsharp = b->next;
+
+        const Token *origRhs = sharpsharp->next;
+
+        if (origRhs) {
+          Token *rhs = findAndCopyArgument(ctx, origRhs, first, vararg, def->isVararg);
+          if (rhs == NULL) {
+              rhs = copyToken(ctx, origRhs);
+          }
+
+          Token *evaluated = concatTokens(ctx, lhs, rhs);
+          if (evalBody) {
+              bcur->next = evaluated;
+          } else {
+              evalBody = evaluated;
+          }
+
+          bcur = findLastToken(evaluated);
+          b = origRhs->next;
+          continue;
+        } else {
+            // report error: '##' cannot appear at either end of a macro expansion
+            break;
+        }
+      }
+      if (b->rawCode == DSHARP) {
+          // a##b##c
+          Token *next = b->next;
+
+          if (next == NULL) {
+            // report error: '##' cannot appear at either begin or end of a macro expansion
+            break;
+          }
+
+          if (evalBody == NULL) {
+            // report error: '##' cannot appear at either begin or end of a macro expansion
+            break;
+          }
+
+          Token *lhs = bcur;
+          Token *rhs = findAndCopyArgument(ctx, next, first, vararg, def->isVararg);
+
+          if (rhs == NULL) {
+              rhs = copyToken(ctx, next);
+          }
+
+          Token *evaluated = concatTokens(ctx, lhs, rhs);
+
+          Token *i = evalBody;
+
+          while (i) {
+              if (i->next == bcur) break;
+              i = i->next;
+          }
+
+          if (i) {
+              i->next = evaluated;
+          } else {
+              evalBody = evaluated;
+          }
+
+          bcur = findLastToken(evaluated);
+          b = next->next;
+
+          continue;
+      }
+
+      Token *arg = findAndCopyArgument(ctx, b, first, vararg, def->isVararg);
+
+      Token *evaluated = NULL;
+      if (arg) {
+        evaluated = replaceTokenSequence(ctx, arg);
+      } else {
+        evaluated = copyToken(ctx, b);
+      }
+
+      if (evalBody) {
+          bcur->next = evaluated;
+      } else {
+          evalBody = evaluated;
+      }
+
+      bcur = findLastToken(evaluated);
+      b = b->next;
   }
 
-  Token *pped = replaceTokenSequence(ctx, evalBody);
 
-  assert(pped != NULL);
+  findLastToken(evalBody)->next = macroNext;
 
-  *macroNextPtr = macroNext;
-
-  return pped;
+  return replaceMacro(ctx, evalBody, macroNextPtr);
 }
 
 static Token *parseInclude(ParserContext *ctx, Token *token) {
@@ -501,9 +596,6 @@ static Token *parseInclude(ParserContext *ctx, Token *token) {
     if (isMacro(ctx, token->text)) {
       Token *d;
       Token *rToken = replaceMacro(ctx, token, &d);
-      if (rToken != token) {
-          findLastToken(rToken)->next = d;
-      }
       return parseInclude(ctx, rToken);
     } else {
       reportDiagnostic(ctx, DIAG_EXPECTED_FILENAME, &token->coordinates);
@@ -559,7 +651,7 @@ static Token *defineMacro(ParserContext *ctx, Token *token) {
   Boolean isVarags = FALSE;
   Boolean isFunctional = FALSE;
 
-  if (n && n->rawCode == '(' && !isSpacesBetween(token, n)) { // it's functional macro
+  if (n && n->rawCode == '(' && !hasSpace(n)) { // it's functional macro
 
     isFunctional = TRUE;
     n = n->next;
@@ -660,10 +752,7 @@ static Token *simplifyTokenSequence(ParserContext *ctx, Token *token) {
         }
       } else if (cur->rawCode == IDENTIFIER) {
           Token *d;
-          Token *replaced = replaceMacro(ctx, cur, &d);
-          if (cur != replaced) {
-              findLastToken(replaced)->next = d;
-          }
+          cur = replaceMacro(ctx, cur, &d);
 
           if (last) last->next = cur;
           else token = cur;
@@ -692,6 +781,7 @@ static AstExpression *parsePPExpression(ParserContext *ctx, Token *start) {
 
 static int evaluateTokenSequence(ParserContext *ctx, Token *token) {
 
+  token = replaceTokenSequence(ctx, token);
   token = simplifyTokenSequence(ctx, token);
 
   AstExpression *expr = parsePPExpression(ctx, token);
