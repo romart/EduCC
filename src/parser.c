@@ -2818,7 +2818,7 @@ static void printMemoryStatistics(ParserContext *ctx) {
   fflush(stdout);
 }
 
-Boolean isSpacesBetween(const Token *l, const Token *r);
+Boolean hasSpace(const Token *t);
 
 static const char *joinToStringTokenSequence(ParserContext *ctx, Token *s) {
   Token *t = s, *p = NULL;
@@ -2826,15 +2826,18 @@ static const char *joinToStringTokenSequence(ParserContext *ctx, Token *s) {
   size_t bufferSize = 0;
 
   while (t) {
-      if (p && isSpacesBetween(p, t)) {
+      if (p && hasSpace(t)) {
           ++bufferSize;
       }
 
-      int diff = t->coordinates.endOffset - t->coordinates.startOffset;
-      if (diff < 0) {
-          printf("KKK");
+      if (t->code == STRING_LITERAL) {
+        ++bufferSize; // "..
+        bufferSize += strlen(t->text);
+        ++bufferSize; // .."
+      } else {
+        int diff = t->coordinates.endOffset - t->coordinates.startOffset;
+        bufferSize += diff;
       }
-      bufferSize += diff;
       p = t;
       t = t->next;
   }
@@ -2847,13 +2850,21 @@ static const char *joinToStringTokenSequence(ParserContext *ctx, Token *s) {
   unsigned idx = 0;
 
   while (t) {
-      if (p && isSpacesBetween(p, t)) {
+      if (p && hasSpace(t)) {
           b[idx++] = ' ';
       }
 
-      size_t tokenLength = t->coordinates.endOffset - t->coordinates.startOffset;
-      memcpy(&b[idx], t->pos, tokenLength);
-      idx += tokenLength;
+      if (t->code == STRING_LITERAL) {
+        b[idx++] = '"';
+        size_t l = strlen(t->text);
+        memcpy(&b[idx], t->text, l);
+        idx += l;
+        b[idx++] = '"';
+      } else {
+        size_t tokenLength = t->coordinates.endOffset - t->coordinates.startOffset;
+        memcpy(&b[idx], t->pos, tokenLength);
+        idx += tokenLength;
+      }
 
       p = t;
       t = t->next;
