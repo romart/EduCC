@@ -2713,6 +2713,7 @@ static void initializeContext(ParserContext *ctx) {
   ctx->anonSymbolsCounter = 0;
 
   ctx->memory.tokenArena = createArena("Tokens Arena", DEFAULT_CHUNCK_SIZE);
+  ctx->memory.macroArena = createArena("Macros Arena", DEFAULT_CHUNCK_SIZE);
   ctx->memory.astArena = createArena("AST Arena", DEFAULT_CHUNCK_SIZE);
   ctx->memory.typeArena = createArena("Types Arena", DEFAULT_CHUNCK_SIZE);
   ctx->memory.stringArena = createArena("String Arena", DEFAULT_CHUNCK_SIZE);
@@ -2720,6 +2721,8 @@ static void initializeContext(ParserContext *ctx) {
   ctx->memory.codegenArena = createArena("Codegen Arena", DEFAULT_CHUNCK_SIZE);
 
   ctx->rootScope = ctx->currentScope = newScope(ctx, NULL);
+
+  ctx->macroMap = createHashMap(DEFAULT_MAP_CAPACITY, stringHashCode, stringCmp);
 }
 
 static void releaseContext(ParserContext *ctx) {
@@ -2732,6 +2735,7 @@ static void releaseContext(ParserContext *ctx) {
   }
 
   releaseArena(ctx->memory.tokenArena);
+  releaseArena(ctx->memory.macroArena);
   releaseArena(ctx->memory.typeArena);
   releaseArena(ctx->memory.astArena);
   releaseArena(ctx->memory.stringArena);
@@ -2752,6 +2756,8 @@ static void releaseContext(ParserContext *ctx) {
 
       locInfo = next;
   }
+
+  releaseHashMap(ctx->macroMap);
 }
 
 static Boolean printDiagnostics(Diagnostics *diagnostics, Boolean verbose) {
