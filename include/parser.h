@@ -20,6 +20,7 @@ typedef struct _Configuration {
   unsigned verbose: 1;
   unsigned memoryStatistics: 1;
   unsigned skipCodegen: 1;
+  unsigned ppOutput: 1;
 } Configuration;
 
 
