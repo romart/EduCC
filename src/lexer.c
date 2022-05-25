@@ -482,7 +482,14 @@ Token *nextToken(ParserContext *ctx) {
   }
 
   if (next->rawCode == IDENTIFIER) {
-      next = replaceMacro(ctx, next);
+      Token *d;
+      Token *rnext = replaceMacro(ctx, next, &d);
+      if (rnext != next) {
+        findLastToken(rnext)->next = d;
+        next = rnext;
+      }
+      if (prev) prev->next = next;
+
   }
 
   if (next->rawCode == IDENTIFIER) {

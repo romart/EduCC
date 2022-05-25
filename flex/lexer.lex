@@ -59,7 +59,7 @@ int fileno(FILE *stream);
 <STRING>"\n"            { BEGIN(INITIAL); return(DANGLING_NEWLINE); }
 <STRING>"\""            { BEGIN(INITIAL); }
 
-"\\{WS}*\n"               { return (DANGLING_NEWLINE); }
+"\\\n"               { return (DANGLING_NEWLINE); }
 
 "#"                        { return '#'; }
 "##"                       { return(DSHARP); }

@@ -107,8 +107,8 @@ static Boolean isMacro(ParserContext *ctx, const char *id) {
   return isInHashMap(ctx->macroMap, (intptr_t)id);
 }
 
-static Boolean isSpacesBetween(const Token *l, const Token *r) {
-  return r->coordinates.startOffset - l->coordinates.endOffset > 1;
+Boolean isSpacesBetween(const Token *l, const Token *r) {
+  return r->coordinates.startOffset - l->coordinates.endOffset > 0;
 }
 
 
@@ -166,6 +166,7 @@ static Token *stringToken(ParserContext *ctx, Coordinates *coords, const char *s
   return r;
 }
 
+
 Token *stringifySequence(ParserContext *ctx, Token *s) {
   Token *t = s, *p = NULL;
 
@@ -175,7 +176,7 @@ Token *stringifySequence(ParserContext *ctx, Token *s) {
       if (p && isSpacesBetween(p, t)) {
           ++bufferSize;
       }
-      bufferSize += strlen(t->text);
+      bufferSize += t->coordinates.endOffset - t->coordinates.startOffset;
       p = t;
       t = t->next;
   }
@@ -304,19 +305,21 @@ static Token* replaceTokenSequence(ParserContext *ctx, Token* s) {
 
   while (t) {
       Token *l = NULL;
-      Token *tmp = replaceMacro(ctx, t);
+      Token *tmp = replaceMacro(ctx, t, &l);
 
       if (p) p->next = tmp;
       else s = tmp;
-      p = tmp;
-      t = t->next;
+
+      p = t != tmp ? findLastToken(tmp) : t;
+      t = l;
   }
 
   return s;
 }
 
-Token *replaceMacro(ParserContext *ctx, const Token *macro) {
+Token *replaceMacro(ParserContext *ctx, const Token *macro, Token **macroNextPtr) {
 
+  *macroNextPtr = macro->next;
   if (macro->rawCode != IDENTIFIER) return (Token*)macro;
 
   MacroDefinition *def = (MacroDefinition *)getFromHashMap(ctx->macroMap, (intptr_t)macro->text);
@@ -329,7 +332,6 @@ Token *replaceMacro(ParserContext *ctx, const Token *macro) {
   MacroArg *vararg = NULL;
 
   Token *macroNext = macro->next;
-
 
   if (def->isFunctional) {
     int depth = 0;
@@ -459,7 +461,7 @@ Token *replaceMacro(ParserContext *ctx, const Token *macro) {
 
   assert(pped != NULL);
 
-  findLastToken(pped)->next = macroNext;
+  *macroNextPtr = macroNext;
 
   return pped;
 }
@@ -497,7 +499,11 @@ static Token *parseInclude(ParserContext *ctx, Token *token) {
     tail = skipPPTokens(ctx, last->next);
   } else if (token->rawCode == IDENTIFIER) {
     if (isMacro(ctx, token->text)) {
-      Token *rToken = replaceMacro(ctx, token);
+      Token *d;
+      Token *rToken = replaceMacro(ctx, token, &d);
+      if (rToken != token) {
+          findLastToken(rToken)->next = d;
+      }
       return parseInclude(ctx, rToken);
     } else {
       reportDiagnostic(ctx, DIAG_EXPECTED_FILENAME, &token->coordinates);
@@ -653,7 +659,11 @@ static Token *simplifyTokenSequence(ParserContext *ctx, Token *token) {
           reportDiagnostic(ctx, DIAG_MACRO_NAME_IS_ID, n ? &n->coordinates : &token->coordinates);
         }
       } else if (cur->rawCode == IDENTIFIER) {
-          cur = replaceMacro(ctx, cur);
+          Token *d;
+          Token *replaced = replaceMacro(ctx, cur, &d);
+          if (cur != replaced) {
+              findLastToken(replaced)->next = d;
+          }
 
           if (last) last->next = cur;
           else token = cur;
