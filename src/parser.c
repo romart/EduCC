@@ -2818,6 +2818,63 @@ static void printMemoryStatistics(ParserContext *ctx) {
   fflush(stdout);
 }
 
+Boolean isSpacesBetween(const Token *l, const Token *r);
+
+static const char *joinToStringTokenSequence(ParserContext *ctx, Token *s) {
+  Token *t = s, *p = NULL;
+
+  size_t bufferSize = 0;
+
+  while (t) {
+      if (p && isSpacesBetween(p, t)) {
+          ++bufferSize;
+      }
+
+      int diff = t->coordinates.endOffset - t->coordinates.startOffset;
+      if (diff < 0) {
+          printf("KKK");
+      }
+      bufferSize += diff;
+      p = t;
+      t = t->next;
+  }
+  ++bufferSize;
+
+  char *b = allocateString(ctx, bufferSize);
+
+  t = s;
+  p = NULL;
+  unsigned idx = 0;
+
+  while (t) {
+      if (p && isSpacesBetween(p, t)) {
+          b[idx++] = ' ';
+      }
+
+      size_t tokenLength = t->coordinates.endOffset - t->coordinates.startOffset;
+      memcpy(&b[idx], t->pos, tokenLength);
+      idx += tokenLength;
+
+      p = t;
+      t = t->next;
+  }
+
+  b[idx] = '\0';
+
+  return b;
+}
+
+
+
+static void printPPOutput(ParserContext *ctx) {
+  ctx->token = ctx->firstToken;
+  while (ctx->token->code) {
+      nextToken(ctx);
+  }
+
+  fprintf(stdout, "%s\n", joinToStringTokenSequence(ctx, ctx->firstToken));
+}
+
 void compileFile(Configuration * config) {
   unsigned lineNum = 0;
   ParserContext context = { 0 };
@@ -2833,6 +2890,13 @@ void compileFile(Configuration * config) {
   }
 
   context.firstToken = startToken;
+
+  if (config->ppOutput) {
+      printDiagnostics(&context.diagnostics, config->verbose);
+      printPPOutput(&context);
+      return;
+  }
+
 
   AstFile *astFile = parseFile(&context);
 
