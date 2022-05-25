@@ -106,5 +106,17 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, PTR_ARITH_EMPTY_TYPE, "arithmetic on pointer to an empty aggregate"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, UNUSED_EXPR_RES, "expression result unused"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, INT_PTR_COMPARISON, "comparison between pointer and integer ('%tr' and '%tr')"), \
-  DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, ORDEDER_INT_PTR_COMPARISON, "ordered comparison between pointer and integer ('%tr' and '%tr')")
-
+  DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, ORDEDER_INT_PTR_COMPARISON, "ordered comparison between pointer and integer ('%tr' and '%tr')"), \
+  DIAGNOSTIC_DEF(ERROR, PP, INVALID_PP_DIRECTIVE, "invalid preprocessor directive %tk"), \
+  DIAGNOSTIC_DEF(ERROR, PP, EXPECTED_FILENAME, "expected \"FILENAME\" or <FILENAME>"), \
+  DIAGNOSTIC_DEF(ERROR, PP, INCLUDE_FILE_NOT_FOUND, "'%s' file not found"), \
+  DIAGNOSTIC_DEF(WARNING, PP, EXTRA_TOKENS, "extra tokens at end of #include directive"), \
+  DIAGNOSTIC_DEF(ERROR, PP, MACRO_NAME_IS_ID, "macro name must be an identifier"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_ERROR, "%s"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_CANNOT_EVALUATE, "cannot evaluate expression"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_WITHOUT_IF, "#%s without #if"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_UNTERMINATED_COND_DIRECTIVE, "unterminated conditional directive"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_INVALID_TOKEN_MACRO_PARAM, "invalid token in macro parameter list"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_MISSING_PAREN_IN_PARAMS, "missing ')' in macro parameter list"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_TOO_MANY_ARGUMENTS, "too many arguments provided to function-like macro invocation"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_TOO_FEW_ARGUMENTS, "too few arguments provided to function-like macro invocation")
