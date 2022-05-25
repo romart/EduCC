@@ -472,7 +472,6 @@ Token *nextToken(ParserContext *ctx) {
     if (rawToken != DANGLING_NEWLINE && rawToken != NEWLINE) {
         break;
     }
-    if (cur) cur->next = next->next;
 
     prev = next;
     next = next->next;

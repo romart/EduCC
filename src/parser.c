@@ -323,10 +323,12 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
             char *buffer = allocateString(ctx, length + 1);
             const char *literal = buffer;
 
-            while (first->code == STRING_LITERAL) {
-                unsigned l = (first->coordinates.endOffset - first->coordinates.startOffset - 2);
-                strncpy(buffer, first->text, l);
-                buffer += l;
+            while (first != last->next) {
+                if (first->code == STRING_LITERAL) {
+                  unsigned l = (first->coordinates.endOffset - first->coordinates.startOffset - 2);
+                  strncpy(buffer, first->text, l);
+                  buffer += l;
+                }
                 first = first->next;
             }
 
