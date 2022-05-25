@@ -3,6 +3,7 @@
 
 #include "parser.h"
 #include "sema.h"
+#include "pp.h"
 #include "lex.h"
 
 
@@ -262,6 +263,34 @@ void parseNumber(ParserContext *ctx, Token *token) {
   }
 }
 
+static Token *preprocessFile(ParserContext *ctx, Token *s, Token *tail) {
+  Token *t = s, *p = NULL;
+
+  while (t) {
+    if (t->code == '#' && (!p || p->code == NEWLINE)) {
+      Token *pp = preprocess(ctx, t);
+      if (pp != t) {
+          t = pp;
+          if (p) {
+              p->next = t;
+          } else {
+              s = t;
+          }
+          continue;
+      }
+    }
+
+    p = t;
+    t = t->next;
+  }
+
+  if (p)
+    p->next = tail;
+  else
+    s = tail;
+
+  return s;
+}
 
 
 
@@ -426,8 +455,7 @@ Token *tokenizeFile(ParserContext *ctx, const char *fileName, Token *tail) {
 
   Token *s = tokenizeBuffer(ctx, locInfo, tail);
 
-  return s;
-//  return preprocessFile(ctx, s, tail);
+  return preprocessFile(ctx, s, tail);
 }
 
 Token *findLastToken(Token *t);
@@ -454,9 +482,9 @@ Token *nextToken(ParserContext *ctx) {
       return prev;
   }
 
-//  if (next->rawCode == IDENTIFIER) {
-//      next = replaceMacro(ctx, next);
-//  }
+  if (next->rawCode == IDENTIFIER) {
+      next = replaceMacro(ctx, next);
+  }
 
   if (next->rawCode == IDENTIFIER) {
       if (isTypeName(ctx, next->text, ctx->currentScope)) {

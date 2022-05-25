@@ -100,6 +100,7 @@ typedef struct _ParserContext {
 
     struct {
       Arena *tokenArena;
+      Arena *macroArena;
       Arena *astArena;
       Arena *typeArena;
       Arena *stringArena;

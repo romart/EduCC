@@ -30,6 +30,7 @@ SOURCES=\
     $(SRCDIR)/codegen.c \
     $(SRCDIR)/elf.c \
     $(SRCDIR)/lexer.c \
+    $(SRCDIR)/pp.c \
     $(GENERATED_SRC_DIR)/lex.yy.c
 
 OBJ=$(patsubst %.c,%.o,$(subst $(SRCDIR)/,$(OBJDIR)/, $(SOURCES)))

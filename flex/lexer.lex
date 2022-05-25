@@ -59,11 +59,10 @@ int fileno(FILE *stream);
 <STRING>"\n"            { BEGIN(INITIAL); return(DANGLING_NEWLINE); }
 <STRING>"\""            { BEGIN(INITIAL); }
 
-"#"                     { BEGIN(PP); }
-<PP>[^\n\\]*            { return(PP_TOKEN); }
-<PP>"\\"+(WS)*\n        { return NEWLINE; }
-<PP>"\n"                { BEGIN(INITIAL); return NEWLINE; }
+"\\{WS}*\n"               { return (DANGLING_NEWLINE); }
 
+"#"                        { return '#'; }
+"##"                       { return(DSHARP); }
 
 "break"					{ return(BREAK); }
 "case"					{ return(CASE); }
@@ -161,7 +160,7 @@ int fileno(FILE *stream);
 "^"					{ return '^'; }
 "|"					{ return '|'; }
 "?"					{ return '?'; }
-
+"\\"                                    { return '\\'; }
 \n					{ return NEWLINE; }
 {WS}+				{ }
 .           { return(BAD_CHARACTER); }
