@@ -11,7 +11,7 @@ typedef struct _ParserContext ParserContext;
 typedef struct _Coordinates {
   int startOffset;
   int endOffset;
-  const char *fileName;
+  struct _LocationInfo *locInfo;
 } Coordinates;
 
 #define EXPR_TYPES \

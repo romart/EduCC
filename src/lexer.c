@@ -21,7 +21,7 @@ static const char* copyLiteralString(ParserContext *ctx, yyscan_t scanner) {
     return r;
 }
 
-static Token *allocToken(ParserContext *ctx) {
+Token *allocToken(ParserContext *ctx) {
   return (Token *)areanAllocate(ctx->memory.tokenArena, sizeof(Token));
 }
 
@@ -140,7 +140,7 @@ static int parseCharSymbol(ParserContext *ctx, Coordinates *coords, const char *
 }
 
 
-static void parseNumber(ParserContext *ctx, Token *token) {
+void parseNumber(ParserContext *ctx, Token *token) {
   int code = token->rawCode;
   assert(code == I_CONSTANT_RAW || code == F_CONSTANT_RAW);
 
@@ -264,55 +264,99 @@ static void parseNumber(ParserContext *ctx, Token *token) {
 
 
 
-Token *tokenizeFile(ParserContext *ctx, const char *fileName, unsigned *lineNum) {
+
+static char *readFileToBuffer(const char *fileName, size_t *bufferSize) {
 
   FILE* opened = fopen(fileName, "r");
 
   if (opened == NULL) return NULL;
 
+  fseek(opened, 0L, SEEK_END);
+  size_t size = ftell(opened);
+
+  rewind(opened);
+
+  char *b = heapAllocate(size + 2);
+
+  size_t readed = fread(b, 1, size, opened);
+
+  assert(readed == size);
+
+  fclose(opened);
+
+  *bufferSize = size + 2;
+
+  return b;
+}
+
+static unsigned countLinesInBuffer(const char *buffer) {
+  unsigned result = 1;
+  unsigned idx = 0;
+
+  while (buffer[idx]) {
+    int ch = buffer[idx++];
+    if(ch == '\n') {
+      result++;
+    }
+  }
+
+  return result;
+}
+
+Token *tokenizeBuffer(ParserContext *ctx, LocationInfo *locInfo, Token *tail) {
   yyscan_t scanner;
 
   yylex_init(&scanner);
 
-  Token *start = NULL, *current;
+  const char *buffer = locInfo->buffer;
+  unsigned *linesPos = locInfo->kind == LIK_FILE ? locInfo->fileInfo.linesPos : NULL;
+
+  YY_BUFFER_STATE bs = yy_scan_buffer((char*)buffer, locInfo->bufferSize, scanner);
 
   int token = -1;
   YYSTYPE dummy = 0;
-  int endOffset;
+  int endOffset, startOffset;
   YYLTYPE position = 0;
-
-  unsigned lineCount = 1;
-
-  yyset_in(opened, scanner);
+  Token *start = NULL, *current = NULL, *prev = NULL;
 
   do {
       token = yylex(&dummy, &position, scanner);
-
-      endOffset = position;
-      Token *tmp = allocToken(ctx);
-
       size_t tokenLength = yyget_leng(scanner);
+      endOffset = position;
+      startOffset = endOffset - tokenLength;
+
+      Token *tmp = allocToken(ctx);
 
       tmp->code = tmp->rawCode = token;
 
-      tmp->coordinates.fileName = fileName;
-      tmp->coordinates.endOffset = endOffset;
-      tmp->coordinates.startOffset = endOffset - tokenLength;
-
-      if (token == IDENTIFIER)  {
-          tmp->text = copyLiteralString(ctx, scanner);
-      } else if (token == I_CONSTANT_RAW || token == F_CONSTANT_RAW) {
+      if (token == I_CONSTANT_RAW || token == F_CONSTANT_RAW) {
           tmp->text = copyLiteralString(ctx, scanner);
       } else if (token == STRING_LITERAL) {
-          tmp->coordinates.startOffset -= 1; // "..
-          tmp->coordinates.endOffset += 1; // .."
+          startOffset -= 1; // "..
+          endOffset += 1; // .."
           tmp->text = copyLiteralString(ctx, scanner);
       } else if (token == EMPTY_STRING_LITERAL) {
           tmp->code = STRING_LITERAL;
           tmp->text = "";
+      } else if (token > LAST_SIMPLE_TOKEN) {
+          tmp->text = copyLiteralString(ctx, scanner);
       }
 
-      if (token == NEWLINE || token == DANGLING_NEWLINE) ++lineCount;
+      tmp->pos = &buffer[startOffset];
+      tmp->coordinates.startOffset = startOffset;
+      tmp->coordinates.endOffset = endOffset;
+      tmp->coordinates.locInfo = locInfo;
+
+      if (token == I_CONSTANT_RAW || token == F_CONSTANT_RAW) {
+          parseNumber(ctx, tmp);
+      }
+
+      if (token == NEWLINE || token == DANGLING_NEWLINE) {
+          if (linesPos) {
+            assert(locInfo->fileInfo.lineno < locInfo->fileInfo.lineCount);
+            linesPos[locInfo->fileInfo.lineno++] = endOffset;
+          }
+      }
 
       if (!start) {
           start = tmp;
@@ -320,18 +364,73 @@ Token *tokenizeFile(ParserContext *ctx, const char *fileName, unsigned *lineNum)
           current->next = tmp;
       }
 
+      prev = current;
       current = tmp;
   } while (token);
 
+
+  yy_delete_buffer(bs, scanner);
   yylex_destroy(scanner);
 
-  fclose(opened);
-
-  *lineNum = lineCount;
+  current->next = tail;
 
   return start;
 }
 
+LocationInfo *allocateFileLocationInfo(const char *fileName, const char *buffer, size_t buffeSize, unsigned lineCount) {
+  LocationInfo *locInfo = heapAllocate(sizeof(LocationInfo));
+
+  locInfo->kind = LIK_FILE;
+
+  locInfo->fileInfo.linesPos = heapAllocate(sizeof(unsigned) * lineCount);
+  locInfo->fileInfo.linesPos[locInfo->fileInfo.lineno++] = 0;
+  locInfo->fileInfo.lineCount = lineCount;
+
+  locInfo->fileName = fileName;
+
+  locInfo->buffer = buffer;
+  locInfo->bufferSize = buffeSize;
+
+  return locInfo;
+}
+
+LocationInfo *allocateMacroLocationInfo(const char *fileName, const char *buffer, size_t buffeSize, int startOffset, int endOffset) {
+  LocationInfo *locInfo = heapAllocate(sizeof(LocationInfo));
+
+  locInfo->kind = LIK_MACRO;
+
+  locInfo->macroInfo.startOffset = startOffset;
+  locInfo->macroInfo.endOffset = endOffset;
+
+  locInfo->fileName = fileName;
+  locInfo->buffer = buffer;
+  locInfo->bufferSize = buffeSize;
+
+  return locInfo;
+}
+
+Token *tokenizeFile(ParserContext *ctx, const char *fileName, Token *tail) {
+
+  size_t bufferSize = 0;
+
+  char *buffer = readFileToBuffer(fileName, &bufferSize);
+
+  if (buffer == NULL) return NULL;
+
+  unsigned lineCount = countLinesInBuffer(buffer);
+
+  LocationInfo *locInfo = allocateFileLocationInfo(fileName, buffer, bufferSize, lineCount);
+
+  locInfo->next = ctx->locationInfo;
+  ctx->locationInfo = locInfo;
+
+  Token *s = tokenizeBuffer(ctx, locInfo, tail);
+
+  return s;
+//  return preprocessFile(ctx, s, tail);
+}
+
+Token *findLastToken(Token *t);
 
 Token *nextToken(ParserContext *ctx) {
 
@@ -342,23 +441,22 @@ Token *nextToken(ParserContext *ctx) {
   while (next) {
     int rawToken = next->rawCode;
 
-    if (rawToken == DANGLING_NEWLINE || rawToken == NEWLINE) {
-        struct LocationInfo *locInfo = ctx->locationInfo;
-        assert(strcmp(locInfo->fileName, next->coordinates.fileName) == 0);
-        assert(locInfo->lineno < locInfo->lineCount);
-        locInfo->linesPos[locInfo->lineno++] = next->coordinates.endOffset;
-    } else break;
-
+    if (rawToken != DANGLING_NEWLINE && rawToken != NEWLINE) {
+        break;
+    }
     if (cur) cur->next = next->next;
+
     prev = next;
     next = next->next;
   }
 
-  if (!next) return NULL;
-
-  if (next->code == '#' && (!prev || prev->code == NEWLINE)) {
-      // looks like a PP-directive
+  if (!next) {
+      return prev;
   }
+
+//  if (next->rawCode == IDENTIFIER) {
+//      next = replaceMacro(ctx, next);
+//  }
 
   if (next->rawCode == IDENTIFIER) {
       if (isTypeName(ctx, next->text, ctx->currentScope)) {
@@ -370,9 +468,10 @@ Token *nextToken(ParserContext *ctx) {
           next->value.iv = enumerator->value;
         }
       }
-  } else if (next->rawCode == I_CONSTANT_RAW || next->rawCode == F_CONSTANT_RAW) {
-    parseNumber(ctx, next);
   }
+
+  assert(next->rawCode != I_CONSTANT_RAW || next->code != I_CONSTANT_RAW);
+  assert(next->rawCode != F_CONSTANT_RAW || next->code != F_CONSTANT_RAW);
 
   if (ctx->config->logTokens) {
     char buffer[1024];

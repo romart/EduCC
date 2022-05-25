@@ -36,8 +36,8 @@ static char *allocMessageString(ParserContext *ctx, size_t size) {
   return (char *)areanAllocate(ctx->memory.diagnosticsArena, sizeof(char) * size);
 }
 
-static struct LocationInfo *findLocationInfo(ParserContext *ctx, const char *fileName) {
-  struct LocationInfo *locInfo = ctx->locationInfo;
+static LocationInfo *findLocationInfo(ParserContext *ctx, const char *fileName) {
+  LocationInfo *locInfo = ctx->locationInfo;
 
   while (locInfo) {
       if (strcmp(fileName, locInfo->fileName) == 0) break;
@@ -46,22 +46,28 @@ static struct LocationInfo *findLocationInfo(ParserContext *ctx, const char *fil
   return locInfo;
 }
 
-static void computeLineAndCollumn(ParserContext *ctx, const char *fileName, int _pos, int *line, int *col, int *lineStartOffset) {
+static void computeLineAndCollumn(ParserContext *ctx, LocationInfo *locInfo, int _pos, int *line, int *col, int *lineStartOffset) {
   if (_pos < 0) {
       *line = NO_LOC;
       *col = NO_LOC;
       return;
   }
 
-  struct LocationInfo *locInfo = findLocationInfo(ctx, fileName);
+  if (locInfo->kind == LIK_MACRO) {
+      *line = NO_LOC;
+      *col = _pos;
+      *lineStartOffset = 0;
+      return;
+  }
 
+  assert(locInfo->kind == LIK_FILE);
 
-  unsigned *lineMap = locInfo->linesPos;
+  unsigned *lineMap = locInfo->fileInfo.linesPos;
   assert(lineMap != NULL);
 
   unsigned pos = (unsigned)_pos;
 
-  unsigned lineMax = locInfo->lineno;
+  unsigned lineMax = locInfo->fileInfo.lineno;
   unsigned lineNum = 0;
   unsigned lineOffset = 0;
   unsigned previousLine = 0;
@@ -85,7 +91,7 @@ const Severity *getSeverity(enum DiagSeverityKind id) {
   return &severities[id];
 }
 
-void reportDiagnostic(ParserContext *ctx, enum DiagnosticId diag, Coordinates *location, ...) {
+void reportDiagnostic(ParserContext *ctx, enum DiagnosticId diag, const Coordinates *location, ...) {
   Diagnostic *newDiagnostic = allocDiagnostic(ctx);
   char buffer[1024] = { 0 };
 
@@ -213,10 +219,10 @@ void reportDiagnostic(ParserContext *ctx, enum DiagnosticId diag, Coordinates *l
     newDiagnostic->message = "<cannot render a diagnostic message>";
   }
 
-  newDiagnostic->location.file = location->fileName;
+  newDiagnostic->location.file = location->locInfo->fileName;
 
-  computeLineAndCollumn(ctx, location->fileName, location->startOffset, &newDiagnostic->location.lineStart, &newDiagnostic->location.colStart, &newDiagnostic->location.lineStartOffset);
-  computeLineAndCollumn(ctx, location->fileName, location->endOffset, &newDiagnostic->location.lineEnd, &newDiagnostic->location.colEnd, &newDiagnostic->location.lineEndOffset);
+  computeLineAndCollumn(ctx, location->locInfo, location->startOffset, &newDiagnostic->location.lineStart, &newDiagnostic->location.colStart, &newDiagnostic->location.lineStartOffset);
+  computeLineAndCollumn(ctx, location->locInfo, location->endOffset, &newDiagnostic->location.lineEnd, &newDiagnostic->location.colEnd, &newDiagnostic->location.lineEndOffset);
 
   if (ctx->diagnostics.tail) {
       ctx->diagnostics.tail->next = newDiagnostic;
