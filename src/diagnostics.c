@@ -219,10 +219,11 @@ void reportDiagnostic(ParserContext *ctx, enum DiagnosticId diag, const Coordina
     newDiagnostic->message = "<cannot render a diagnostic message>";
   }
 
-  newDiagnostic->location.file = location->locInfo->fileName;
-
-  computeLineAndCollumn(ctx, location->locInfo, location->startOffset, &newDiagnostic->location.lineStart, &newDiagnostic->location.colStart, &newDiagnostic->location.lineStartOffset);
-  computeLineAndCollumn(ctx, location->locInfo, location->endOffset, &newDiagnostic->location.lineEnd, &newDiagnostic->location.colEnd, &newDiagnostic->location.lineEndOffset);
+  if (location) {
+    newDiagnostic->location.file = location->locInfo->fileName;
+    computeLineAndCollumn(ctx, location->locInfo, location->startOffset, &newDiagnostic->location.lineStart, &newDiagnostic->location.colStart, &newDiagnostic->location.lineStartOffset);
+    computeLineAndCollumn(ctx, location->locInfo, location->endOffset, &newDiagnostic->location.lineEnd, &newDiagnostic->location.colEnd, &newDiagnostic->location.lineEndOffset);
+  }
 
   if (ctx->diagnostics.tail) {
       ctx->diagnostics.tail->next = newDiagnostic;
