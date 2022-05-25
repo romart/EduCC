@@ -483,13 +483,8 @@ Token *nextToken(ParserContext *ctx) {
 
   if (next->rawCode == IDENTIFIER) {
       Token *d;
-      Token *rnext = replaceMacro(ctx, next, &d);
-      if (rnext != next) {
-        findLastToken(rnext)->next = d;
-        next = rnext;
-      }
+      next = replaceMacro(ctx, next, &d);
       if (prev) prev->next = next;
-
   }
 
   if (next->rawCode == IDENTIFIER) {
