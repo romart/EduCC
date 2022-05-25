@@ -71,7 +71,7 @@ struct _Coordinates;
 
 void printDiagnostic(FILE *output, Diagnostic *diagnostic, Boolean verbose);
 
-void reportDiagnostic(struct _ParserContext *ctx, enum DiagnosticId diag, struct _Coordinates *location, ...);
+void reportDiagnostic(struct _ParserContext *ctx, enum DiagnosticId diag, const struct _Coordinates *location, ...);
 
 const Severity *getSeverity(enum DiagSeverityKind id);
 

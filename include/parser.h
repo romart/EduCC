@@ -23,15 +23,12 @@ typedef struct _Configuration {
 } Configuration;
 
 
-void compileFile(Configuration * config);
-void cannonizeAstFile(ParserContext *ctx, AstFile *file);
-AstConst* eval(ParserContext *ctx, AstExpression* expression);
-
 typedef struct _Token {
     Coordinates coordinates;
     int code;
     int rawCode;
     const char *text;
+    const char *pos;
     union {
       int64_t iv;
       double dv;
@@ -39,10 +36,6 @@ typedef struct _Token {
     struct _Token *next;
 } Token;
 
-Token *nextToken(ParserContext *ctx);
-Token *tokenizeFile(ParserContext *ctx, const char *fileName, unsigned *lineNum);
-
-char *allocateString(ParserContext *ctx, size_t size);
 
 struct _Scope;
 
@@ -66,13 +59,31 @@ typedef struct _UsedLabel {
   struct _UsedLabel *next;
 } UsedLabel;
 
-struct LocationInfo {
-  const char *fileName;
-  unsigned lineno;
-  unsigned lineCount;
-  unsigned *linesPos;
-  struct LocationInfo *next;
+enum LocationInfoKind {
+  LIK_FILE,
+  LIK_MACRO
 };
+
+typedef struct _LocationInfo {
+  const char *fileName;
+  const char *buffer;
+  size_t bufferSize;
+  enum LocationInfoKind kind;
+
+  union {
+    struct {
+      unsigned *linesPos;
+      unsigned lineno;
+      unsigned lineCount;
+    } fileInfo;
+    struct {
+      int startOffset;
+      int endOffset;
+    } macroInfo;
+  };
+
+  struct _LocationInfo *next;
+} LocationInfo;
 
 typedef struct _ParserContext {
     Configuration *config;
@@ -100,7 +111,7 @@ typedef struct _ParserContext {
 
     Diagnostics diagnostics;
 
-    struct LocationInfo *locationInfo;
+    LocationInfo *locationInfo;
 
     struct {
       unsigned inLoop: 1;
@@ -116,6 +127,26 @@ typedef struct _ParserContext {
 
     TypeRef *functionReturnType;
 
+    HashMap *macroMap;
+
 } ParserContext;
+
+
+Token *nextToken(ParserContext *ctx);
+
+Token *tokenizeFile(ParserContext *ctx, const char *fileName, Token *tail);
+Token *tokenizeBuffer(ParserContext *ctx, LocationInfo *locInfo, Token *tail);
+
+LocationInfo *allocateFileLocationInfo(const char *fileName, const char *buffer, size_t buffeSize, unsigned lineCount);
+LocationInfo *allocateMacroLocationInfo(const char *fileName, const char *buffer, size_t buffeSize, int startOffset, int endOffset);
+
+char *allocateString(ParserContext *ctx, size_t size);
+Token *allocToken(ParserContext *ctx);
+
+
+void compileFile(Configuration * config);
+void cannonizeAstFile(ParserContext *ctx, AstFile *file);
+AstConst* eval(ParserContext *ctx, AstExpression* expression);
+AstExpression* parseConditionalExpression(ParserContext *ctx, struct _Scope* scope);
 
 #endif // __PARSER_H__

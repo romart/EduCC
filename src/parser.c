@@ -198,7 +198,6 @@ static int isSpecifierQualifierList(int token) {
 
 static AstExpression* parseExpression(ParserContext *ctx, struct _Scope* scope);
 static AstExpression* parseCastExpression(ParserContext *ctx, struct _Scope* scope);
-static AstExpression* parseConditionalExpression(ParserContext *ctx, struct _Scope* scope);
 static AstExpression* parseAssignmentExpression(ParserContext *ctx, struct _Scope* scope);
 
 static AstConst* parseConstExpression(ParserContext *ctx, struct _Scope* scope) {
@@ -218,7 +217,7 @@ static Boolean parseAsIntConst(ParserContext *ctx, int64_t *result) {
     int eo = ctx->token->coordinates.endOffset;
     if (expr == NULL) return FALSE;
     if (expr->op != CK_INT_CONST) {
-        Coordinates coords = { so, eo, ctx->token->coordinates.fileName };
+        Coordinates coords = { so, eo, ctx->token->coordinates.locInfo };
         reportDiagnostic(ctx, DIAG_EXPECTED_INTEGER_CONST_EXPR, &coords);
         return FALSE;
     }
@@ -414,8 +413,7 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
 
     for (;;) {
         AstExpressionList *arguments = NULL;
-        coords.fileName = left->coordinates.fileName;
-        coords.startOffset = left->coordinates.startOffset;
+        coords = left->coordinates;
         switch (ctx->token->code) {
         case '[': // '[' expression ']'
             nextToken(ctx);
@@ -918,7 +916,7 @@ conditional_expression
     : logical_or_expression
     | logical_or_expression '?' expression ':' conditional_expression
  */
-static AstExpression* parseConditionalExpression(ParserContext *ctx, struct _Scope* scope) {
+AstExpression* parseConditionalExpression(ParserContext *ctx, struct _Scope* scope) {
     AstExpression* left = parseLogicalOrExpression(ctx, scope);
 
     if (ctx->token->code == '?') {
@@ -2373,7 +2371,7 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                     AstDeclaration *declaration = NULL;
                     if (specifiers.flags.bits.isTypedef) {
                         if (initializer != NULL) {
-                            Coordinates coords3 = { eqPos, coords2.endOffset, coords2.fileName };
+                            Coordinates coords3 = { eqPos, coords2.endOffset, coords2.locInfo };
                             reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &coords3);
                         }
                         declareTypeDef(ctx, name, type);
@@ -2613,7 +2611,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
 
     if (initializer != NULL) {
         if (isTypeDefDeclaration || funDeclarator) {
-            Coordinates coords3 = { eqPos,  initializer->coordinates.endOffset, initializer->coordinates.fileName };
+            Coordinates coords3 = { eqPos,  initializer->coordinates.endOffset, initializer->coordinates.locInfo };
             reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &coords3);
         }
     }
@@ -2740,12 +2738,16 @@ static void releaseContext(ParserContext *ctx) {
   releaseArena(ctx->memory.diagnosticsArena);
   releaseArena(ctx->memory.codegenArena);
 
-  struct LocationInfo *locInfo = ctx->locationInfo;
+  LocationInfo *locInfo = ctx->locationInfo;
 
   while (locInfo) {
-      struct LocationInfo *next = locInfo->next;
+      LocationInfo *next = locInfo->next;
 
-      releaseHeap(locInfo->linesPos);
+
+      releaseHeap((void*)locInfo->buffer);
+      if (locInfo->kind == LIK_FILE) {
+        releaseHeap(locInfo->fileInfo.linesPos);
+      }
       releaseHeap(locInfo);
 
       locInfo = next;
@@ -2808,18 +2810,6 @@ static void printMemoryStatistics(ParserContext *ctx) {
   fflush(stdout);
 }
 
-static void allocateLocationInfo(ParserContext *ctx, const char *fileName, unsigned lineNum) {
-  struct LocationInfo *locInfo = heapAllocate(sizeof(struct LocationInfo));
-
-  locInfo->linesPos = heapAllocate(sizeof(unsigned) * lineNum);
-
-  locInfo->linesPos[locInfo->lineno++] = 0;
-  locInfo->lineCount = lineNum;
-  locInfo->fileName = fileName;
-  locInfo->next = ctx->locationInfo;
-  ctx->locationInfo = locInfo;
-}
-
 void compileFile(Configuration * config) {
   unsigned lineNum = 0;
   ParserContext context = { 0 };
@@ -2827,7 +2817,7 @@ void compileFile(Configuration * config) {
 
   initializeContext(&context);
 
-  Token *startToken = tokenizeFile(&context, config->fileToCompile, &lineNum);
+  Token *startToken = tokenizeFile(&context, config->fileToCompile, NULL);
 
   if (!startToken) {
       fprintf(stderr, "Cannot open file %s\n", config->fileToCompile);
@@ -2835,7 +2825,6 @@ void compileFile(Configuration * config) {
   }
 
   context.firstToken = startToken;
-  allocateLocationInfo(&context, config->fileToCompile, lineNum);
 
   AstFile *astFile = parseFile(&context);
 
