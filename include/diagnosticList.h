@@ -119,4 +119,6 @@
   DIAGNOSTIC_DEF(ERROR, PP, PP_INVALID_TOKEN_MACRO_PARAM, "invalid token in macro parameter list"), \
   DIAGNOSTIC_DEF(ERROR, PP, PP_MISSING_PAREN_IN_PARAMS, "missing ')' in macro parameter list"), \
   DIAGNOSTIC_DEF(ERROR, PP, PP_TOO_MANY_ARGUMENTS, "too many arguments provided to function-like macro invocation"), \
-  DIAGNOSTIC_DEF(ERROR, PP, PP_TOO_FEW_ARGUMENTS, "too few arguments provided to function-like macro invocation")
+  DIAGNOSTIC_DEF(ERROR, PP, PP_TOO_FEW_ARGUMENTS, "too few arguments provided to function-like macro invocation"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_WRONG_CONCAT_OP_PLACE, "'##' cannot appear at either begin or end of a macro expansion"), \
+  DIAGNOSTIC_DEF(WARNING, PP, PP_MACRO_REDEFINED, "'%s' redefined")
