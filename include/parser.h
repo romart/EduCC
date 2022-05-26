@@ -24,12 +24,16 @@ typedef struct _Configuration {
 } Configuration;
 
 
+struct _Hideset;
+
 typedef struct _Token {
     Coordinates coordinates;
     int code;
     int rawCode;
     const char *text;
     const char *pos;
+
+    struct _Hideset *hs;
     union {
       int64_t iv;
       double dv;
