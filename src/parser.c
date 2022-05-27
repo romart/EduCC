@@ -2820,17 +2820,21 @@ static void printMemoryStatistics(ParserContext *ctx) {
 
 Boolean hasSpace(const Token *t);
 
-static const char *joinToStringTokenSequence(ParserContext *ctx, Token *s) {
+const char *joinToStringTokenSequence(ParserContext *ctx, Token *s) {
   Token *t = s, *p = NULL;
 
   size_t bufferSize = 0;
 
+  char buffer[128] = { 0 };
+
   while (t) {
-      if (p && hasSpace(t)) {
+      if (p && t->pos && hasSpace(t)) {
           ++bufferSize;
       }
 
-      if (t->code == STRING_LITERAL) {
+      if (t->pos == NULL && t->code == I_CONSTANT) {
+        bufferSize += snprintf(buffer, sizeof buffer, "%ld", t->value.iv);
+      } else if (t->code == STRING_LITERAL) {
         ++bufferSize; // "..
         bufferSize += strlen(t->text);
         ++bufferSize; // .."
@@ -2850,11 +2854,13 @@ static const char *joinToStringTokenSequence(ParserContext *ctx, Token *s) {
   unsigned idx = 0;
 
   while (t) {
-      if (p && hasSpace(t)) {
+      if (p && t->pos && hasSpace(t)) {
           b[idx++] = ' ';
       }
 
-      if (t->code == STRING_LITERAL) {
+      if (t->pos == NULL && t->code == I_CONSTANT) {
+          idx += snprintf(&b[idx], bufferSize - idx, "%ld", t->value.iv);
+      } else if (t->code == STRING_LITERAL) {
         b[idx++] = '"';
         size_t l = strlen(t->text);
         memcpy(&b[idx], t->text, l);
