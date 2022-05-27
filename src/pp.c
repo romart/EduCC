@@ -851,6 +851,11 @@ static Token *defineMacro(ParserContext *ctx, Token *token) {
       return token;
   }
 
+  if (strcmp("defined", token->text) == 0) {
+      reportDiagnostic(ctx, DIAG_PP_DEFINED_NOT_A_NAME, &token->coordinates);
+      return token;
+  }
+
   Token *last = findLastPPToken(ctx, token);
 
   Token *tail = last->next;
