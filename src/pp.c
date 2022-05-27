@@ -592,7 +592,7 @@ Token *replaceMacro(ParserContext *ctx, const Token *macro, Token **macroNextPtr
         if (origRhs) {
           MacroArg *rhsA = findAndCopyArgument(ctx, origRhs, argHead.next, vararg, def);
           Token *rhs = NULL;
-          if (lhsA == NULL) {
+          if (rhsA == NULL) {
               rhs = copyToken(ctx, origRhs);
           } else {
               rhs = rhsA->value ? copySequence(ctx, rhsA->value) : NULL;
