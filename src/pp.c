@@ -5,6 +5,9 @@
 #include <ctype.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <libgen.h>
+#include <unistd.h>
+#include <linux/limits.h>
 
 #include "pp.h"
 #include "parser.h"
@@ -786,16 +789,56 @@ static Token *expandMacro(ParserContext *ctx, const Token *macro, Boolean evalDe
   return macroNext;
 }
 
+static const char *findIncludePath(ParserContext *ctx, const char *includeName, Boolean isdquoted) {
+
+  if (isdquoted && includeName[0] != '/') {
+      char *copy = strdup(ctx->config->fileToCompile);
+      char *dir = dirname(copy);
+      size_t l = strlen(dir) + 1 + strlen(includeName) + 1;
+      char *path = heapAllocate(l);
+      snprintf(path, l, "%s/%s", dir, includeName);
+      if (access(path, F_OK) == 0) {
+          char *result = allocateString(ctx, l);
+          strncpy(result, path, l);
+          releaseHeap(dir);
+          releaseHeap(path);
+          return result;
+      }
+  }
+
+  if (includeName[0] == '/') return includeName;
+
+
+  static char pathBuffer[PATH_MAX] = { 0 };
+
+  IncludePath *includePath = ctx->config->includePath;
+
+  while (includePath) {
+      int len = snprintf(pathBuffer, PATH_MAX, "%s/%s", includePath->path, includeName);
+      if (access(pathBuffer, F_OK) == 0) {
+          char *result = allocateString(ctx, len + 1);
+          strncpy(result, pathBuffer, len + 1);
+          return result;
+      }
+
+      includePath = includePath->next;
+  }
+
+  return NULL;
+}
+
 static Token *parseInclude(ParserContext *ctx, Token *token) {
   const char *fileName = NULL;
   Token *tail = NULL;
   char b[1024];
+  Boolean dquoted = FALSE;
   Coordinates coords = { 0 };
   coords.locInfo = token->coordinates.locInfo;
   if (token->rawCode == STRING_LITERAL) {
     coords = token->coordinates;
     fileName = token->text;
     tail = skipPPTokens(ctx, token->next);
+    dquoted = TRUE;
   } else if (token->rawCode == '<') {
     Token *last = token;
     Token *tmp = token;
@@ -830,7 +873,9 @@ static Token *parseInclude(ParserContext *ctx, Token *token) {
     return token;
   }
 
-  Token *includeTokens = tokenizeFile(ctx, fileName, NULL);
+  fileName = findIncludePath(ctx, fileName, dquoted);
+
+  Token *includeTokens = fileName ? tokenizeFile(ctx, fileName, NULL) : NULL;
 
   if (includeTokens == NULL) {
     reportDiagnostic(ctx, DIAG_INCLUDE_FILE_NOT_FOUND, &coords, fileName);

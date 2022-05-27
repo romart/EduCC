@@ -40,8 +40,17 @@ int main(int argc, char** argv) {
       config.logTokens = 1;
     } else if (strcmp("-skipCodegen", arg) == 0) {
       config.skipCodegen = 1;
-    }  else if (strcmp("-E", arg) == 0) {
+    } else if (strcmp("-E", arg) == 0) {
       config.ppOutput = 1;
+    } else if (strncmp("-I", arg, 2) == 0) {
+        IncludePath *ip = heapAllocate(sizeof(IncludePath));
+        if (arg[2]) {
+          ip->path = &arg[2];
+        } else {
+          ip->path = argv[++i];
+        }
+        ip->next = config.includePath;
+        config.includePath = ip;
     } else {
       config.fileToCompile = argv[i];
       compileFile(&config);
