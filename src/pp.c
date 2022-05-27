@@ -3,6 +3,8 @@
 #include <assert.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <time.h>
+#include <sys/stat.h>
 
 #include "pp.h"
 #include "parser.h"
@@ -18,10 +20,15 @@ typedef struct _MacroParam {
   struct _MacroParam *next;
 } MacroParam;
 
+typedef Token *(macroHandler)(ParserContext *, const Token *);
+
 typedef struct _MacroDefinition {
   const char *name;
   MacroParam *params;
   Token *body;
+
+  macroHandler *handler;
+
   Boolean isVararg;
   Boolean isFunctional;
 } MacroDefinition;
@@ -282,6 +289,32 @@ Token *findLastToken(Token *t) {
   return t;
 }
 
+static size_t renderTokenToBuffer(char *buffer, Token *t) {
+
+  unsigned i = 0;
+
+  size_t len = t->coordinates.endOffset - t->coordinates.startOffset;
+
+  if (t->pos == 0) {
+      if (t->rawCode == I_CONSTANT_RAW) {
+          return sprintf(buffer, "%ld", t->value.iv);
+      }
+
+      if (t->rawCode == STRING_LITERAL) {
+          return sprintf(buffer, "%s", t->text);
+      }
+
+      return 0;
+  } else {
+    while (i < len) {
+        buffer[i] = t->pos[i];
+        ++i;
+    }
+  }
+
+  return i;
+}
+
 Token *concatTokens(ParserContext *ctx, Token *l, Token *r) {
 
   size_t bufferSize = 0;
@@ -310,14 +343,8 @@ Token *concatTokens(ParserContext *ctx, Token *l, Token *r) {
 
   unsigned i = 0, j = 0;
 
-  while (i < llen) {
-      buffer[j++] = l->pos[i++];
-  }
-
-  i = 0;
-  while (i < rlen) {
-      buffer[j++] = r->pos[i++];
-  }
+  j += renderTokenToBuffer(&buffer[j], l);
+  j += renderTokenToBuffer(&buffer[j], r);
 
   // lex/flex requires input buffer be double-terminated
   buffer[j++] = 0;
@@ -503,6 +530,12 @@ static Token *expandMacro(ParserContext *ctx, const Token *macro, Boolean evalDe
         }
       }
       return (Token*)macro;
+  }
+
+  if (def->handler) {
+      Token *r = def->handler(ctx, macro);
+      r->next = macro->next;
+      return r;
   }
 
   if (hidesetContains(macro->hs, def->name)) return (Token*)macro;
@@ -1196,6 +1229,137 @@ static Token *handleDirecrive(ParserContext *ctx, Token *token) {
     reportDiagnostic(ctx, DIAG_INVALID_PP_DIRECTIVE, &directiveToken->coordinates, directiveToken);
     return directiveToken;
   }
+}
+
+
+static Token *fileMacroHandler(ParserContext *ctx, const Token *t) {
+
+  return stringToken(ctx, &t->coordinates, t->coordinates.locInfo->fileName);
+}
+
+static Token *lineMacroHandler(ParserContext *ctx, const Token *t) {
+
+  unsigned lineNum;
+  unsigned lineMax = t->coordinates.locInfo->fileInfo.lineno;
+  unsigned *lineMap = t->coordinates.locInfo->fileInfo.linesPos;
+  unsigned pos = t->coordinates.startOffset;
+
+  for (lineNum = 0; lineNum < lineMax; ++lineNum) {
+      unsigned lineOffset = lineMap[lineNum];
+      if (pos < lineOffset) break;
+  }
+
+  --lineNum;
+
+  return constToken(ctx, lineNum, t);
+}
+
+static Token *counterMacroHandler(ParserContext *ctx, const Token *t) {
+  static int cnt = 0;
+
+  Token *r = constToken(ctx, cnt++, t);
+  char buffer[10] = {  0 };
+
+  int size = sprintf(buffer, "%ld", r->value.iv);
+  r->coordinates.startOffset = 0;
+  r->coordinates.endOffset = size;
+
+  return r;
+}
+
+static Token *timestampMacroHandler(ParserContext *ctx, const Token *t) {
+  struct stat st;
+
+  if (stat(t->coordinates.locInfo->fileName, &st) != 0)
+    return stringToken(ctx, &t->coordinates, "??? ??? ?? ??:??:?? ????");
+
+  char buf[32] = { 0 };
+
+  ctime_r(&st.st_mtime, buf);
+
+  size_t l = strlen(buf);
+
+  buf[24] = '\0';
+
+  char *s = allocateString(ctx, l);
+  strncpy(s, buf, l);
+
+  return stringToken(ctx, &t->coordinates, s);
+}
+
+static Token *constLongToken(ParserContext *ctx, int64_t v, Token *t) {
+  Token *r = allocToken(ctx);
+
+  r->coordinates = t->coordinates;
+  r->code = L_CONSTANT;
+  r->rawCode = I_CONSTANT_RAW;
+  r->value.iv = v;
+
+  return r;
+}
+
+
+static MacroDefinition __file_macro = { "__FILE__", NULL, NULL, &fileMacroHandler, FALSE, FALSE };
+static MacroDefinition __line_macro = { "__LINE__", NULL, NULL, &lineMacroHandler, FALSE, FALSE };
+static MacroDefinition __counter_macro = { "__COUNTER__", NULL, NULL, &counterMacroHandler, FALSE, FALSE };
+static MacroDefinition __timestamt_macro = { "__TIMESTAMP__", NULL, NULL, &timestampMacroHandler, FALSE, FALSE };
+
+
+static MacroDefinition *defineBuiltinMacro(ParserContext *ctx, const char *name, Token *t) {
+  MacroDefinition *def = allocateMacroDef(ctx, name, NULL, t, FALSE, FALSE);
+
+  putToHashMap(ctx->macroMap, (intptr_t)name, (intptr_t)def);
+
+}
+
+static const char *dateString() {
+  const char nodate[] = "??? ?? ????";
+  static char buffer[sizeof nodate] = { 0 };
+
+  static char mon[][4] = {
+     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  };
+
+
+  time_t now = time(NULL);
+  struct tm *tm = localtime(&now);
+
+  snprintf(buffer, sizeof buffer, "%s %02d %d", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
+
+  return buffer;
+}
+
+static const char *timeString() {
+  const char notime[] = "??:??:??";
+  static char buffer[sizeof notime] = { 0 };
+
+
+  time_t now = time(NULL);
+  struct tm *tm = localtime(&now);
+
+  snprintf(buffer, sizeof buffer, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min, tm->tm_sec);
+
+  return buffer;
+}
+
+void initializeProprocessor(ParserContext *ctx) {
+
+  putToHashMap(ctx->macroMap, (intptr_t)__file_macro.name, (intptr_t)&__file_macro);
+  putToHashMap(ctx->macroMap, (intptr_t)__line_macro.name, (intptr_t)&__line_macro);
+  putToHashMap(ctx->macroMap, (intptr_t)__counter_macro.name, (intptr_t)&__counter_macro);
+  putToHashMap(ctx->macroMap, (intptr_t)__timestamt_macro.name, (intptr_t)&__timestamt_macro);
+
+  Token dummy = { 0 };
+
+  defineBuiltinMacro(ctx, "__STDC__", constToken(ctx, 1, &dummy));
+  defineBuiltinMacro(ctx, "__STDC_VERSION__", constLongToken(ctx, 199409L, &dummy));
+  defineBuiltinMacro(ctx, "__STDC_HOSTED__", constLongToken(ctx, 199409L, &dummy));
+
+  defineBuiltinMacro(ctx, "_LP64", constToken(ctx, 1, &dummy));
+
+  defineBuiltinMacro(ctx, "__DATE__", stringToken(ctx, &dummy.coordinates, dateString()));
+  defineBuiltinMacro(ctx, "__TIME__", stringToken(ctx, &dummy.coordinates, timeString()));
 }
 
 Token *preprocessFile(ParserContext *ctx, Token *s, Token *tail) {

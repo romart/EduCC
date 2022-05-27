@@ -8,6 +8,7 @@
 struct _ParserContext;
 struct _Token;
 
+void initializeProprocessor(struct _ParserContext *ctx);
 struct _Token *preprocessFile(struct _ParserContext *ctx, struct _Token *s, struct _Token *tail);
 
 #endif // __PP_H__
