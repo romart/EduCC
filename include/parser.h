@@ -8,12 +8,19 @@
 #include "mem.h"
 #include "diagnostics.h"
 
+typedef struct _IncludePath {
+  const char *path;
+  struct _IncludePath *next;
+} IncludePath;
+
 typedef struct _Configuration {
 
   const char *fileToCompile;
   const char *dumpFileName;
   const char *canonDumpFileName;
   const char *objDirName;
+
+  IncludePath *includePath;
 
   unsigned errWarns: 1;
   unsigned logTokens: 1;
