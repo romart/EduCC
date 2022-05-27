@@ -184,7 +184,7 @@ static void joinToString(char *buffer, size_t size, Token *b, Token *e) {
 }
 
 static Token *findLastPPToken(ParserContext *ctx, Token *token) {
-  Token *cur = token, *last = NULL;
+  Token *cur = token, *last = token;
 
   while (cur->rawCode) {
       if (cur->rawCode == DANGLING_NEWLINE) {
@@ -1172,11 +1172,13 @@ static Token *handleDirecrive(ParserContext *ctx, Token *token) {
   } else if (!strcmp("ifndef", directive)) {
     return ifndef(ctx, directiveToken->next);
   } else if (!strcmp("elif", directive)) {
-    return elif(ctx, directiveToken->next);
+    reportDiagnostic(ctx, DIAG_PP_WITHOUT_IF, &directiveToken->coordinates, "elif");
+    return directiveToken->next;
   } else if (!strcmp("else", directive)) {
-    return _else(ctx, directiveToken->next);
+    reportDiagnostic(ctx, DIAG_PP_WITHOUT_IF, &directiveToken->coordinates, "else");
+    return directiveToken->next;
   } else if (!strcmp("endif", directive)) {
-    reportDiagnostic(ctx, DIAG_PP_WITHOUT_IF, &token->coordinates, "elif");
+    reportDiagnostic(ctx, DIAG_PP_WITHOUT_IF, &directiveToken->coordinates, "endif");
     return directiveToken->next;
   } else if (!strcmp("line", directive)) {
 
