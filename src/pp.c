@@ -10,6 +10,8 @@
 #include "tree.h"
 
 
+static Token *expandMacro(ParserContext *ctx, const Token *macro);
+
 typedef struct _MacroParam {
   const char *name;
   struct _MacroParam *next;
@@ -215,16 +217,6 @@ static Boolean isVarargPosition(const Token *t) {
   return t->text && strcmp("__VA_ARGS__", t->text) == 0;
 }
 
-
-static Token *emptyToken(ParserContext *ctx) {
-  Token *r = allocToken(ctx);
-
-  r->code = r->rawCode = IDENTIFIER;
-  r->text = "";
-
-  return r;
-}
-
 static Token *stringToken(ParserContext *ctx, Coordinates *coords, const char *s) {
   Token *r = allocToken(ctx);
 
@@ -392,13 +384,33 @@ static MacroArg *findAndCopyArgument(ParserContext *ctx, const Token *t, MacroAr
   return findArgument(t, args);
 }
 
-static Token* replaceTokenSequence(ParserContext *ctx, Token* s) {
+static Token* expandEvaluatedSequence(ParserContext *ctx, Token* s) {
+  Token *t = s;
+  Token *p = NULL;
+
+  while (t && t->hs) {
+      Token *tmp = expandMacro(ctx, t);
+
+      if (p) p->next = tmp;
+      else s = tmp;
+
+      if (tmp != t) {
+          t = tmp;
+      } else {
+          p = t;
+          t= t->next;
+      }
+  }
+
+  return s;
+}
+
+static Token* expandSequence(ParserContext *ctx, Token* s) {
   Token *t = s;
   Token *p = NULL;
 
   while (t) {
-      Token *l;
-      Token *tmp = replaceMacro(ctx, t, &l);
+      Token *tmp = expandMacro(ctx, t);
 
       if (p) p->next = tmp;
       else s = tmp;
@@ -448,9 +460,8 @@ static MacroArg *readMacroArgument(ParserContext *ctx, Token *s, MacroParam *p, 
   return allocateMacroArg(ctx, p, argStart);
 }
 
-Token *replaceMacro(ParserContext *ctx, const Token *macro, Token **macroNextPtr) {
+static Token *expandMacro(ParserContext *ctx, const Token *macro) {
 
-  *macroNextPtr = macro->next;
   if (macro->rawCode != IDENTIFIER) return (Token*)macro;
 
   MacroDefinition *def = (MacroDefinition *)getFromHashMap(ctx->macroMap, (intptr_t)macro->text);
@@ -686,7 +697,7 @@ Token *replaceMacro(ParserContext *ctx, const Token *macro, Token **macroNextPtr
         Token *argValue = arg->value;
         if (argValue) {
           argValue = copySequence(ctx, argValue);
-          evaluated = replaceTokenSequence(ctx, argValue);
+          evaluated = expandSequence(ctx, argValue);
         } else {
           b = b->next;
           continue;
@@ -711,7 +722,7 @@ Token *replaceMacro(ParserContext *ctx, const Token *macro, Token **macroNextPtr
 
   if (evalBody) {
     findLastToken(evalBody)->next = macroNext;
-    evalBody = replaceTokenSequence(ctx, evalBody);
+    evalBody = expandEvaluatedSequence(ctx, evalBody);
     return evalBody;
   }
 
@@ -751,8 +762,7 @@ static Token *parseInclude(ParserContext *ctx, Token *token) {
     tail = skipPPTokens(ctx, last->next);
   } else if (token->rawCode == IDENTIFIER) {
     if (isMacro(ctx, token->text)) {
-      Token *d;
-      Token *rToken = replaceMacro(ctx, token, &d);
+      Token *rToken = expandMacro(ctx, token);
       return parseInclude(ctx, rToken);
     } else {
       reportDiagnostic(ctx, DIAG_EXPECTED_FILENAME, &token->coordinates);
@@ -912,8 +922,7 @@ static Token *simplifyTokenSequence(ParserContext *ctx, Token *token) {
           reportDiagnostic(ctx, DIAG_MACRO_NAME_IS_ID, n ? &n->coordinates : &token->coordinates);
         }
       } else if (cur->rawCode == IDENTIFIER) {
-          Token *d;
-          cur = replaceMacro(ctx, cur, &d);
+          cur = expandMacro(ctx, cur);
 
           if (last) last->next = cur;
           else token = cur;
@@ -942,7 +951,7 @@ static AstExpression *parsePPExpression(ParserContext *ctx, Token *start) {
 
 static int evaluateTokenSequence(ParserContext *ctx, Token *token) {
 
-  token = replaceTokenSequence(ctx, token);
+  token = expandSequence(ctx, token);
   token = simplifyTokenSequence(ctx, token);
 
   AstExpression *expr = parsePPExpression(ctx, token);
@@ -1076,7 +1085,7 @@ static Token *endif(ParserContext *ctx, Token *token) {
   return token;
 }
 
-Token *preprocess(ParserContext *ctx, Token *token) {
+static Token *handleDirecrive(ParserContext *ctx, Token *token) {
 
   YYSTYPE dummy = 0;
 
@@ -1127,4 +1136,41 @@ Token *preprocess(ParserContext *ctx, Token *token) {
     reportDiagnostic(ctx, DIAG_INVALID_PP_DIRECTIVE, &directiveToken->coordinates, directiveToken);
     return directiveToken;
   }
+}
+
+Token *preprocessFile(ParserContext *ctx, Token *s, Token *tail) {
+  Token *t = s, *p = NULL;
+
+  while (t) {
+    if (t->rawCode == '#' && (!p || p->rawCode == NEWLINE)) {
+      Token *pp = handleDirecrive(ctx, t);
+      if (pp != t) {
+          t = pp;
+          if (p) {
+              p->next = t;
+          } else {
+              s = t;
+          }
+          continue;
+      }
+    } else if (t->rawCode == IDENTIFIER) {
+      Token *d;
+      Token *n = expandMacro(ctx, t);
+      if (p) p->next = n;
+      if (t != n) {
+        t = n;
+        continue;
+      }
+    }
+
+    p = t;
+    t = t->next;
+  }
+
+  if (p)
+    p->next = tail;
+  else
+    s = tail;
+
+  return s;
 }
