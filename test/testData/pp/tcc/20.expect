@@ -2,8 +2,8 @@
 
 
 
- X1 printk(KERN_WARNING "pipapo",bla);
- X2 printk(KERN_WARNING "bla",foo);
+ X1 printk(KERN_WARNING "pipapo", bla);
+ X2 printk(KERN_WARNING "bla", foo);
 
 
  X2twoopq
