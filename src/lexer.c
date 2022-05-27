@@ -263,37 +263,6 @@ void parseNumber(ParserContext *ctx, Token *token) {
   }
 }
 
-static Token *preprocessFile(ParserContext *ctx, Token *s, Token *tail) {
-  Token *t = s, *p = NULL;
-
-  while (t) {
-    if (t->code == '#' && (!p || p->code == NEWLINE)) {
-      Token *pp = preprocess(ctx, t);
-      if (pp != t) {
-          t = pp;
-          if (p) {
-              p->next = t;
-          } else {
-              s = t;
-          }
-          continue;
-      }
-    }
-
-    p = t;
-    t = t->next;
-  }
-
-  if (p)
-    p->next = tail;
-  else
-    s = tail;
-
-  return s;
-}
-
-
-
 static char *readFileToBuffer(const char *fileName, size_t *bufferSize) {
 
   FILE* opened = fopen(fileName, "r");
@@ -479,12 +448,6 @@ Token *nextToken(ParserContext *ctx) {
 
   if (!next) {
       return prev;
-  }
-
-  if (next->rawCode == IDENTIFIER) {
-      Token *d;
-      next = replaceMacro(ctx, next, &d);
-      if (prev) prev->next = next;
   }
 
   if (next->rawCode == IDENTIFIER) {

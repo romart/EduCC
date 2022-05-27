@@ -2878,11 +2878,6 @@ static const char *joinToStringTokenSequence(ParserContext *ctx, Token *s) {
 
 
 static void printPPOutput(ParserContext *ctx) {
-  ctx->token = ctx->firstToken;
-  while (ctx->token->code) {
-      nextToken(ctx);
-  }
-
   fprintf(stdout, "%s\n", joinToStringTokenSequence(ctx, ctx->firstToken));
 }
 
