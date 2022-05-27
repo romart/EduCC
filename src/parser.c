@@ -2725,6 +2725,8 @@ static void initializeContext(ParserContext *ctx) {
   ctx->rootScope = ctx->currentScope = newScope(ctx, NULL);
 
   ctx->macroMap = createHashMap(DEFAULT_MAP_CAPACITY, stringHashCode, stringCmp);
+
+  initializeProprocessor(ctx);
 }
 
 static void releaseContext(ParserContext *ctx) {
