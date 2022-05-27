@@ -127,5 +127,13 @@ enum DiagnosticId {
 #define DIAGNOSTIC_DEF(s, type, id, fmt) DIAG_##id
   DIAGNOSTICS,
   DIAG_TOTAL_COUNT
+#undef DIAGNOSTIC_DEF
 };
+
+static DiagnosticDescriptor descriptors[] = {
+#define DIAGNOSTIC_DEF(s, type, id, fmt) { DSK_##s, IDT_##type, DIAG_##id, #id, fmt }
+  DIAGNOSTICS
+#undef DIAGNOSTIC_DEF
+};
+
 
