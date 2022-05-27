@@ -148,6 +148,43 @@ def runCodegenTest(compiler, workingDir, dirname, name):
                 print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
 
 
+def runPPTest(compiler, workingDir, dirname, name):
+    global numOfFailedTests
+    testFilePath = dirname + '/' + name + '.c'
+    expectFilePath = dirname + '/' + name + '.expect'
+
+    outputDir = workingDir + '/' + dirname
+
+    if (not path.exists(outputDir)):
+        os.makedirs(outputDir)
+
+    actualFilePath = outputDir + '/' + name + '.actual'
+
+    if path.exists(actualFilePath):
+        os.remove(actualFilePath);
+
+    out = open(actualFilePath, 'w+')
+
+    compialtionCommand = [compiler, "-E", testFilePath]
+#    print(compialtionCommand)
+    compilation = Popen(compialtionCommand, stdout=out, stderr=sys.stderr)
+    exit_code = compilation.wait()
+
+    if exit_code != 0:
+        print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
+        print(f"  Compilation crashed (exit code {exit_code})")
+        numOfFailedTests = numOfFailedTests + 1
+    else:
+        testOk = True
+        if (path.exists(expectFilePath)):
+            testOk = compareFilesLineByLine("preprocessed", testFilePath, actualFilePath, expectFilePath)
+
+        if (testOk):
+            print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
+
+        updateExpectedFromActualIfNeed("preprocessed", actualFilePath, expectFilePath)
+
+
 def runTestForData(filePath, compiler, workingDir, testMode):
     global numOfFailedTests
     # print(f"processing {filePath}")
@@ -160,8 +197,10 @@ def runTestForData(filePath, compiler, workingDir, testMode):
     if (suffix == "c"):
         if (testMode == 'p'):
             runParserTest(compiler, workingDir, dirname, name)
+        elif testMode == 'pp':
+            runPPTest(compiler, workingDir, dirname, name)
         else:
-            runCodegenTest(compiler, workingDir, dirname, name);
+            runCodegenTest(compiler, workingDir, dirname, name)
 
 
 
