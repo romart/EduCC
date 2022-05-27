@@ -512,7 +512,7 @@ static Token *expandMacro(ParserContext *ctx, const Token *macro) {
 
   Hideset *evalhs = hidesetUnion(ctx, macrohs, allocateHideset(ctx, def->name));
 
-  const Token *body = def->body;
+  Token *body = def->body;
 
   if (!def->isFunctional) {
       body = addHideset(ctx, body, evalhs);
@@ -520,12 +520,10 @@ static Token *expandMacro(ParserContext *ctx, const Token *macro) {
 
   Token evalHead = { 0 };
   Token *evalCur = &evalHead;
-  Token *evalBody = NULL, *bcur = NULL;
 
   Boolean isFuncional = def->isFunctional;
 
-  const Token *b = body;
-  const Token *pb = NULL;
+  Token *b = body;
 
   while (b) {
       if (isFuncional && b->rawCode == '#') {
@@ -535,11 +533,7 @@ static Token *expandMacro(ParserContext *ctx, const Token *macro) {
           if (arg) {
             Token *argValue = arg->value;
             Token *evaluated = argValue ? stringifySequence(ctx, argValue) : stringToken(ctx, &next->coordinates, "");
-            if (evalBody) {
-                bcur = bcur->next = evaluated;
-            } else {
-                bcur = evalBody = evaluated;
-            }
+            evalCur = evalCur->next = evaluated;
 
             b = next->next;
             continue;
@@ -560,11 +554,7 @@ static Token *expandMacro(ParserContext *ctx, const Token *macro) {
                       b = next->next;
                   } else {
                       Token *evaluated = copyToken(ctx, b);
-                      if (evalBody) {
-                          bcur = bcur->next = evaluated;
-                      } else {
-                          bcur = evalBody = evaluated;
-                      }
+                      evalCur = evalCur->next = evaluated;
                       b = next;
                   }
                   continue;
@@ -584,7 +574,6 @@ static Token *expandMacro(ParserContext *ctx, const Token *macro) {
         }
 
         Token *sharpsharp = b->next;
-
         Token *origRhs = sharpsharp->next;
 
         if (origRhs) {
@@ -608,13 +597,9 @@ static Token *expandMacro(ParserContext *ctx, const Token *macro) {
               evaluated = concatTokens(ctx, lhs, rhs);
           }
 
-          if (evalBody) {
-              bcur->next = evaluated;
-          } else {
-              evalBody = evaluated;
-          }
+          evalCur->next = evaluated;
+          evalCur = findLastToken(evaluated);
 
-          bcur = findLastToken(evaluated);
           b = origRhs->next;
           continue;
         } else {
@@ -636,7 +621,7 @@ static Token *expandMacro(ParserContext *ctx, const Token *macro) {
             break;
           }
 
-          Token *lhs = bcur;
+          Token *lhs = evalCur;
           MacroArg *rhsA = findArgument(next, argHead.next);
           Token *rhs = NULL;
 
@@ -647,10 +632,10 @@ static Token *expandMacro(ParserContext *ctx, const Token *macro) {
           }
 
           Token *evaluated = NULL;
-          if (rhs == NULL && lhs == NULL) {
+          if (rhs == NULL && lhs == &evalHead) {
               b = next->next;
               continue;
-          } else if (lhs == NULL) {
+          } else if (lhs == &evalHead) {
               evaluated = rhs;
           } else  if (rhs == NULL) {
               evaluated = lhs;
@@ -658,20 +643,16 @@ static Token *expandMacro(ParserContext *ctx, const Token *macro) {
               evaluated = concatTokens(ctx, lhs, rhs);
           }
 
-          Token *i = evalBody;
+          Token *i = &evalHead;
 
-          while (i) {
-              if (i->next == bcur) break;
+          while (i->next) {
+              if (i->next == evalCur) break;
               i = i->next;
           }
 
-          if (i) {
-              i->next = evaluated;
-          } else {
-              evalBody = evaluated;
-          }
+          i->next = evaluated;
+          evalCur = findLastToken(evaluated);
 
-          bcur = findLastToken(evaluated);
           b = next->next;
 
           continue;
@@ -693,24 +674,19 @@ static Token *expandMacro(ParserContext *ctx, const Token *macro) {
         evaluated = copyToken(ctx, b);
       }
 
-      if (evalBody) {
-          bcur->next = evaluated;
-      } else {
-          evalBody = evaluated;
-      }
+      evalCur->next = evaluated;
+      evalCur = findLastToken(evaluated);
 
-      bcur = findLastToken(evaluated);
       b = b->next;
   }
 
   if (def->isFunctional) {
-    evalBody = addHideset(ctx, evalBody, evalhs);
+    evalHead.next = addHideset(ctx, evalHead.next, evalhs);
   }
 
-  if (evalBody) {
-    findLastToken(evalBody)->next = macroNext;
-    evalBody = expandEvaluatedSequence(ctx, evalBody);
-    return evalBody;
+  if (evalHead.next) {
+    findLastToken(evalHead.next)->next = macroNext;
+    return expandEvaluatedSequence(ctx, evalHead.next);
   }
 
   return macroNext;
