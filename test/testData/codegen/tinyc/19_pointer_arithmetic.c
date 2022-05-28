@@ -1,6 +1,5 @@
-int printf(const char * __format, ...);
+#include <stdio.h>
 
-void* NULL = (void*)0x0;
 
 int main()
 {

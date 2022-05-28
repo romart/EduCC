@@ -1,4 +1,4 @@
-extern int printf(const char *, ...);
+#include <stdio.h>
 
 
 static int fred = 1234;

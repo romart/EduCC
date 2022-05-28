@@ -1,6 +1,6 @@
 
 
-int printf(const char * __format, ...);
+#include <stdio.h>
 
 
 int main()

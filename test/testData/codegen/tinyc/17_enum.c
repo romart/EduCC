@@ -1,4 +1,4 @@
-int printf(const char * __format, ...);
+#include <stdio.h>
 
 enum fred
 {

@@ -1,15 +1,6 @@
 
 
-struct _IO_FILE;
-typedef struct _IO_FILE FILE;
-
-extern int printf(const char *, ...);
-
-
-extern int fprintf (FILE *__stream,
-                    const char *__format, ...);
-
-extern FILE *stdout;
+#include <stdio.h>
 
 int fred(int p)
 {

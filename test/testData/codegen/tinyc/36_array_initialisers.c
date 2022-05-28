@@ -1,4 +1,4 @@
-int printf(const char * __format, ...);
+#include <stdio.h>
 
 //extern int Array3[10];
 int Array3[] = { 12, 34, };
