@@ -3,11 +3,22 @@
 #include "parser.h"
 
 
+static IncludePath *allocIncludePath(const char *path, IncludePath *next) {
+  IncludePath *ip = heapAllocate(sizeof(IncludePath));
+  ip->path = path;
+  ip->next = next;
+  return ip;
+}
+
 int main(int argc, char** argv) {
   if (argc < 2) return -1;
   argc--; argv++;
   unsigned i;
   Configuration config = { 0 };
+
+  config.includePath = allocIncludePath("/usr/include", NULL);
+  config.includePath = allocIncludePath("sdk/include", config.includePath);
+
   config.verbose = 1;
   for (i = 0; i < argc; ++i) {
     const char *arg = argv[i];
@@ -43,14 +54,7 @@ int main(int argc, char** argv) {
     } else if (strcmp("-E", arg) == 0) {
       config.ppOutput = 1;
     } else if (strncmp("-I", arg, 2) == 0) {
-        IncludePath *ip = heapAllocate(sizeof(IncludePath));
-        if (arg[2]) {
-          ip->path = &arg[2];
-        } else {
-          ip->path = argv[++i];
-        }
-        ip->next = config.includePath;
-        config.includePath = ip;
+      config.includePath = allocIncludePath(arg[2] ? &arg[2] : argv[++i], config.includePath);
     } else {
       config.fileToCompile = argv[i];
       compileFile(&config);
