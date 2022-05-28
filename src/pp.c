@@ -1295,8 +1295,6 @@ static Token *lineMacroHandler(ParserContext *ctx, const Token *t) {
       if (pos < lineOffset) break;
   }
 
-  --lineNum;
-
   return constToken(ctx, lineNum, t);
 }
 
