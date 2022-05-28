@@ -1,5 +1,7 @@
-#ifndef __STDDEF_H__
-#define __STDDEF_H__
+#ifndef __STDDEF_H
+#define __STDDEF_H
+
+#include <basic.h>
 
 #define NULL ((void *)0)
 
@@ -10,4 +12,4 @@ typedef long max_align_t;
 
 #define offsetof(type, member) ((size_t)&(((type *)0)->member))
 
-#endif // __STDDEF_H__
+#endif // __STDDEF_H

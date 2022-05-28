@@ -1,5 +1,7 @@
-#ifndef __STDARG_H__
-#define __STDARG_H__
+#ifndef __STDARG_H
+#define __STDARG_H
+
+#include <basic.h>
 
 typedef struct {
   unsigned int gp_offset;
@@ -17,31 +19,38 @@ typedef va_list __gnuc_va_list;
 
 #define va_end(ap)
 
-static void *__va_arg_mem(__va_elem *ap, int sz, int align) {
-  void *p = ap->overflow_arg_area;
-//  if (align > 8)
-//    p = (p + 15) / 16 * 16;
-  ap->overflow_arg_area = ((unsigned long)p + sz + 7) / 8 * 8;
-  return p;
-}
+void *__va_arg_mem(__va_elem *ap, int sz, int align);
 
-static void *__va_arg_gp(__va_elem *ap, int sz, int align) {
-  if (ap->gp_offset >= 48)
-    return __va_arg_mem(ap, sz, align);
 
-  void *r = ap->reg_save_area + ap->gp_offset;
-  ap->gp_offset += 8;
-  return r;
-}
+//static void *__va_arg_mem(__va_elem *ap, int sz, int align) {
+//  void *p = ap->overflow_arg_area;
+////  if (align > 8)
+////    p = (p + 15) / 16 * 16;
+//  ap->overflow_arg_area = ((unsigned long)p + sz + 7) / 8 * 8;
+//  return p;
+//}
 
-static void *__va_arg_fp(__va_elem *ap, int sz, int align) {
-  if (ap->fp_offset >= 112)
-    return __va_arg_mem(ap, sz, align);
+void *__va_arg_gp(__va_elem *ap, int sz, int align);
 
-  void *r = ap->reg_save_area + ap->fp_offset;
-  ap->fp_offset += 8;
-  return r;
-}
+//static void *__va_arg_gp(__va_elem *ap, int sz, int align) {
+//  if (ap->gp_offset >= 48)
+//    return __va_arg_mem(ap, sz, align);
+
+//  void *r = ap->reg_save_area + ap->gp_offset;
+//  ap->gp_offset += 8;
+//  return r;
+//}
+
+void *__va_arg_fp(__va_elem *ap, int sz, int align);
+
+//static void *__va_arg_fp(__va_elem *ap, int sz, int align) {
+//  if (ap->fp_offset >= 112)
+//    return __va_arg_mem(ap, sz, align);
+
+//  void *r = ap->reg_save_area + ap->fp_offset;
+//  ap->fp_offset += 8;
+//  return r;
+//}
 
 #define va_arg(ap, ty)                                                  \
   ({                                                                    \
@@ -54,4 +63,4 @@ static void *__va_arg_fp(__va_elem *ap, int sz, int align) {
 #define va_copy(dest, src) ((dest)[0] = (src)[0])
 
 
-#endif /* __STDARG_H__ */
+#endif // __STDARG_H
