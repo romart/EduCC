@@ -182,12 +182,13 @@ static void joinToString(char *buffer, size_t size, Token *b, Token *e) {
           buffer[ptr++] = (char)b->rawCode;
           --size;
       } else if (b->rawCode != NEWLINE) {
-          unsigned t = snprintf(buffer, size, "%s", b->text);
+          unsigned t = snprintf(&buffer[ptr], size, "%s", b->text);
           ptr += t;
           size -= t;
       } else {
           break;
       }
+      b = b->next;
   }
 
   buffer[ptr] = '\0';
@@ -848,14 +849,14 @@ static Token *parseInclude(ParserContext *ctx, Token *token) {
       tmp = tmp->next;
     }
 
-    if (last->rawCode != '>') {
+    if (tmp->rawCode != '>') {
         return last;
     }
 
     coords.startOffset = token->coordinates.startOffset;
     coords.endOffset = last->coordinates.endOffset;
 
-    joinToString(b, sizeof b, token->next, last);
+    joinToString(b, sizeof b, token->next, tmp);
 
     fileName = b;
 
