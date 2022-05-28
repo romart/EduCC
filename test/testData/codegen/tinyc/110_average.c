@@ -1,4 +1,4 @@
-extern int printf(const char *, ...);
+#include <stdio.h>
 
 typedef struct
 {

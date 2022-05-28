@@ -1,4 +1,4 @@
-extern int printf(const char *, ...);
+#include <stdio.h>
 
 enum fred { a, b, c };
 
