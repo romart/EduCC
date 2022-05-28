@@ -314,7 +314,7 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
 
             while (ctx->token->code == STRING_LITERAL) {
                 last = ctx->token;
-                length += (ctx->token->coordinates.endOffset - ctx->token->coordinates.startOffset - 2);
+                length += strlen(ctx->token->text);
                 nextToken(ctx);
             }
 
@@ -325,7 +325,7 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
 
             while (first != last->next) {
                 if (first->code == STRING_LITERAL) {
-                  unsigned l = (first->coordinates.endOffset - first->coordinates.startOffset - 2);
+                  unsigned l = strlen(first->text);
                   strncpy(buffer, first->text, l);
                   buffer += l;
                 }
