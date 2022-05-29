@@ -248,6 +248,15 @@ Boolean isIntegerType(TypeRef *type) {
   return FALSE;
 }
 
+Boolean isUnsignedType(TypeRef *type) {
+  if (type->kind == TR_VALUE) {
+    TypeId typeId = type->descriptorDesc->typeId;
+    if (T_U1 <= typeId && typeId < T_U8)
+      return TRUE;
+  }
+  return FALSE;
+}
+
 static Boolean isPrimitiveType(TypeRef *type) {
   if (type->kind == TR_VALUE) {
     TypeId typeId = type->descriptorDesc->typeId;
