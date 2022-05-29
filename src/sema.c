@@ -1017,6 +1017,8 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *ele
       } else {
         initializer->expression = createErrorExpression(ctx, coords);
       }
+      initializer->slotType = elementType;
+      initializer->offset = *counter * computeTypeSize(elementType);
       (*counter)++;
       return initializer;
   } else {
@@ -1033,12 +1035,16 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *ele
 
               AstInitializer *transformed = finalizeArrayInitializer(ctx, elementType, inner->initializer, arraySize, counter, isTopLevel);
               unwindInitializer(ctx, transformed, elementType, &head, &tail, &count);
+              transformed->slotType = elementType;
+              transformed->offset = *counter * computeTypeSize(elementType);
 
               inner = inner->next;
           }
           AstInitializer *result = createAstInitializer(ctx, coords, IK_LIST);
           result->initializerList = head;
           result->numOfInitializers = count;
+          result->slotType = elementType;
+          result->offset = *counter * computeTypeSize(elementType);
           return result;
         } else {
           reportDiagnostic(ctx, DIAG_SCALAR_INIT_EMPTY, coords);
@@ -1048,6 +1054,8 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *ele
         }
     } else {
       AstInitializer *result = finalizeInitializer(ctx, elementType, initializer, isTopLevel);
+      result->slotType = elementType;
+      result->offset = *counter * computeTypeSize(elementType);
       (*counter)++;
       return result;
     }
@@ -1072,6 +1080,8 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
         initializer->expression = createErrorExpression(ctx, coords);
       }
       *pmember = member->next;
+      initializer->slotType = memberType;
+      initializer->offset = member->declarator->offset;
       return initializer;
   } else {
       assert(initializer->kind == IK_LIST);
@@ -1090,6 +1100,9 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
                 AstInitializer *transformed = finalizeStructMember(ctx, &member, inner->initializer, isTopLevel);
                 unwindInitializer(ctx, transformed, memberType, &head, &tail, &count);
 
+                transformed->slotType = memberType;
+                transformed->offset = member->declarator->offset;
+
                 inner = inner->next;
             }
 
@@ -1106,14 +1119,33 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
             result->expression = createErrorExpression(ctx, coords);
           }
           *pmember = member;
+          result->slotType = memberType;
+          result->offset = member->declarator->offset;
           return result;
       } else {
           AstInitializer *result = finalizeInitializer(ctx, memberType, initializer, isTopLevel);
+          result->slotType = memberType;
+          result->offset = member->declarator->offset;
           *pmember = member->next;
           return result;
       }
   }
   return NULL;
+}
+
+static AstExpression *parenIfNeeded(ParserContext *ctx, AstExpression *expr) {
+  switch (expr->op) {
+    case E_CONST:
+    case E_NAMEREF:
+    case E_CALL:
+    case E_PAREN:
+    case E_ERROR:
+    case EB_COMMA:
+    case EB_A_ACC:
+      return expr;
+    default:
+      return createParenExpression(ctx, &expr->coordinates, expr);
+  }
 }
 
 AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer *initializer, Boolean isTopLevel) {
@@ -1147,7 +1179,13 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
         if (isTopLevel && !isCompileTimeConstant(expr)) {
             reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, coords);
         }
-        isAssignableTypes(ctx, coords, valueType, expr->type, TRUE);
+        isAssignableTypes(ctx, coords, valueType, expr->type, expr, TRUE);
+        if (!typesEquals(valueType, expr->type)) {
+            initializer->expression = createCastExpression(ctx, &expr->coordinates, valueType, parenIfNeeded(ctx, expr));
+        }
+
+        initializer->slotType = valueType;
+        initializer->offset = 0;
       }
       return initializer;
   } else {
@@ -1219,21 +1257,6 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
       }
   }
   return NULL;
-}
-
-static AstExpression *parenIfNeeded(ParserContext *ctx, AstExpression *expr) {
-  switch (expr->op) {
-    case E_CONST:
-    case E_NAMEREF:
-    case E_CALL:
-    case E_PAREN:
-    case E_ERROR:
-    case EB_COMMA:
-    case EB_A_ACC:
-      return expr;
-    default:
-      return createParenExpression(ctx, &expr->coordinates, expr);
-  }
 }
 
 AstExpression *transformTernaryExpression(ParserContext *ctx, AstExpression *expr) {
