@@ -455,17 +455,40 @@ static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression
       u_int64_t mask = ~(~0LLu << w);
       u_int64_t s = memberType->bitFieldDesc.offset;
 
-      // (x >> s) & mask
+      Boolean isU = isUnsignedType(storageType);
 
-      AstExpression *shiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &s);
-      shiftConst->type = makePrimitiveType(ctx, T_S4, 0);
+      AstExpression *extracted = NULL;
 
-      AstExpression *shifted = createBinaryExpression(ctx, EB_RHS, storageType, derefered, shiftConst);
+      if (isU) {
 
-      AstExpression *maskConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &mask);
-      maskConst->type = storageType;
+        // (x >> s) & mask
+        AstExpression *shiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &s);
+        shiftConst->type = makePrimitiveType(ctx, T_S4, 0);
 
-      return createBinaryExpression(ctx, EB_ANDAND, storageType, shifted, maskConst);
+        AstExpression *shifted = createBinaryExpression(ctx, EB_RHS, storageType, derefered, shiftConst);
+
+        AstExpression *maskConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &mask);
+        maskConst->type = storageType;
+
+        extracted = createBinaryExpression(ctx, EB_AND, storageType, shifted, maskConst);
+      } else {
+        size_t W = computeTypeSize(storageType) * 8;
+
+        u_int64_t l = W - (w + s);
+
+        AstExpression *lshiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &l);
+        lshiftConst->type = makePrimitiveType(ctx, T_S4, 0);
+
+        AstExpression *lShifted = createBinaryExpression(ctx, EB_LHS, storageType, derefered, lshiftConst);
+
+        u_int64_t r = W - w;
+
+        AstExpression *rshiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &r);
+        rshiftConst->type = makePrimitiveType(ctx, T_S4, 0);
+
+        extracted = createBinaryExpression(ctx, EB_RHS, storageType, lShifted, rshiftConst);
+      }
+      return createBitExtendExpression(ctx, storageType, w, isU, extracted);
   }
 
   return derefered;

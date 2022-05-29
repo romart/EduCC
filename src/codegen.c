@@ -1066,7 +1066,6 @@ static void storeBitField(GeneratedFunction *f, TypeRef *t, enum Registers from,
   int s = t->bitFieldDesc.offset;
   int w = t->bitFieldDesc.width;
 
-
   TypeRef *storageType = t->bitFieldDesc.storageType;
   int size = computeTypeSize(storageType);
 
@@ -1074,17 +1073,22 @@ static void storeBitField(GeneratedFunction *f, TypeRef *t, enum Registers from,
 
   emitLoad(f, addr, R_TMP, storageTypeId);
 
-  u_int64_t mask = ~(~0LLu << w) << s;
 
+  emitArithConst(f, size > 4 ? OP_L_AND : OP_I_AND, from, ~(~0LLu << w), size);
+  if (s != 0) {
+    emitShl(f, from, s);
+  }
+
+  u_int64_t mask = ~(~(~0LLu << w) << s);
   emitArithConst(f, size > 4 ? OP_L_AND : OP_I_AND, R_TMP, mask, size);
-
-  emitShl(f, from, s);
 
   emitArithRR(f, size > 4 ? OP_L_OR : OP_I_OR, R_TMP, from);
 
   emitStore(f, R_TMP, addr, storageTypeId);
 
-  emitShr(f, from, s);
+  if (s) {
+    emitShr(f, from, s);
+  }
 }
 
 static void localVarAddress(GenerationContext *ctx, const Symbol *s, Address *addr) {
