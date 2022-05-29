@@ -55,9 +55,7 @@ typedef struct _GenerationContext {
 
   Relocation *relocations;
 
-  HashMap *localSymMap;
   HashMap *labelMap;
-
 
   struct Label *returnLabel;
   struct Label *continueLabel;
@@ -85,15 +83,18 @@ static GeneratedFile *allocateGenFile(GenerationContext *ctx) {
 
 static GeneratedFunction *allocateGenFunction(GenerationContext *ctx) {
   GeneratedFunction *f = areanAllocate(ctx->codegenArena, sizeof (GeneratedFunction));
-  f->returnStructOffset = -1;
+  f->returnStructAddressOffset = -1;
   f->arena = ctx->codegenArena;
   f->section = ctx->text;
   f->sectionOffset = (ctx->text->pc - ctx->text->start);
   return f;
 }
 
-static GeneratedVariable *allocateGenVarialbe(GenerationContext *ctx) {
+static GeneratedVariable *allocateGenVarialbe(GenerationContext *ctx, AstValueDeclaration *d) {
   GeneratedVariable *v = areanAllocate(ctx->codegenArena, sizeof (GeneratedVariable));
+  v->name = d->name;
+  v->symbol = d->symbol;
+  d->gen = v;
   return v;
 }
 
@@ -1087,10 +1088,9 @@ static void storeBitField(GeneratedFunction *f, TypeRef *t, enum Registers from,
 }
 
 static void localVarAddress(GenerationContext *ctx, const Symbol *s, Address *addr) {
-  int64_t offset = (int64_t)getFromHashMap(ctx->localSymMap, (intptr_t)s);
   addr->base = R_EBP;
   addr->index = R_BAD;
-  addr->imm = offset;
+  addr->imm = s->variableDesc->gen->baseOffset;
 }
 
 static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression, Address *addr) {
@@ -1446,7 +1446,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   TypeRef *r_types[R_PARAM_COUNT + R_FP_PARAM_COUNT] = { NULL };
 
 
-  unsigned frameOffset = f->frameOffset + f->frameSize; //ALIGN_SIZE(f->frameOffset + f->localsSize + f->argsSize, sizeof(intptr_t));
+  unsigned frameOffset = f->frameSize; //ALIGN_SIZE(f->frameOffset + f->localsSize + f->argsSize, sizeof(intptr_t));
   assert(ALIGN_SIZE(frameOffset, 16) == frameOffset);
 
   unsigned idx = 0;
@@ -1822,40 +1822,7 @@ static size_t generateLabel(GenerationContext *ctx, GeneratedFunction *f, AstLab
   return generateStatement(ctx, f, label->body, scope, frameOffset);
 }
 
-static void pushCalleeSaveRegisters(GeneratedFunction *f) {
-  emitPushReg(f, R_R15);
-  emitPushReg(f, R_R14);
-  emitPushReg(f, R_R13);
-  emitPushReg(f, R_R12);
-  emitPushReg(f, R_EBX);
-}
 
-static void pushFrame(GenerationContext *ctx, GeneratedFunction *f, unsigned paramCount) {
-
-  // pushq %rbp
-  emitPushReg(f, R_EBP);
-  // movq %rsp, %rbp
-  emitMoveRR(f, R_ESP, R_EBP, sizeof(intptr_t));
-  pushCalleeSaveRegisters(f);
-}
-
-static void popCalleSaveRegisters(GeneratedFunction *f) {
-  emitPopReg(f, R_EBX);
-  emitPopReg(f, R_R12);
-  emitPopReg(f, R_R13);
-  emitPopReg(f, R_R14);
-  emitPopReg(f, R_R15);
-}
-
-static void popFrame(GenerationContext *ctx, GeneratedFunction *f) {
-  // movq %rbp, %rsp
-  // popq %rbp
-
-  if (f->frameSize)
-    emitArithConst(f, OP_L_ADD, R_ESP, f->frameSize, sizeof(intptr_t));
-  popCalleSaveRegisters(f);
-  emitPopReg(f, R_EBP);
-}
 
 static void emitReturn(GenerationContext *ctx, GeneratedFunction *f) {
   // movq $result, %rax
@@ -2162,10 +2129,9 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
         size_t align = min(max(4, typeSize), sizeof(intptr_t));
 
         if (v->flags.bits.isLocal) {
-            unsigned localOffset = ALIGN_SIZE(frameOffset + typeSize, align);
-            putToHashMap(ctx->localSymMap, (intptr_t)s, (intptr_t)(-localOffset));
+            assert(v->gen);
             if (v->initializer) {
-                emitLocalInitializer(ctx, f, scope, v->type, -localOffset, v->initializer);
+                emitLocalInitializer(ctx, f, scope, v->type, v->gen->baseOffset, v->initializer);
             }
         } else {
           assert(v->flags.bits.isStatic);
@@ -2207,15 +2173,10 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
             Address src = { 0 };
             translateAddress(ctx, f, scope, retExpr->op == EU_DEREF ? retExpr->unaryExpr.argument : retExpr, &src);
 
-            Address addr = { 0 };
-            addr.base = R_EBP;
-            addr.index = R_BAD;
-            addr.imm = f->returnStructOffset;
+            Address addr = { R_EBP, R_BAD, 0, f->returnStructAddressOffset, NULL, NULL };
             emitMoveAR(f, &addr, R_EDI, sizeof(intptr_t));
-            Address dst = { 0 };
-            dst.index = R_BAD;
-            dst.base = R_EDI;
 
+            Address dst = { R_EDI, R_BAD, 0, 0, NULL, NULL };
             copyStructTo(f, retExpr->type, &src, &dst);
           } else {
             generateExpression(ctx, f, scope, retExpr);
@@ -2268,76 +2229,137 @@ static int generateBlock(GenerationContext *ctx, GeneratedFunction *f, AstBlock 
   return 0;
 }
 
-static size_t computeLocalSizeForStatement(AstStatement *stmt);
+static void pushCalleeSaveRegisters(GeneratedFunction *f) {
+  emitPushReg(f, R_R15);
+  emitPushReg(f, R_R14);
+  emitPushReg(f, R_R13);
+  emitPushReg(f, R_R12);
+  emitPushReg(f, R_EBX);
+}
 
-static size_t computeLocalSizeForBlock(AstBlock *block) {
-  AstStatementList *stmt = block->stmts;
-  size_t result = 0;
-  size_t currentScopeSize = 0;
-  while (stmt) {
-    size_t stmtSize = computeLocalSizeForStatement(stmt->stmt);
-    if (stmt->stmt->statementKind == SK_DECLARATION) {
-        currentScopeSize += stmtSize;
-        result = currentScopeSize;
+static void pushFrame(GenerationContext *ctx, GeneratedFunction *f) {
+
+  // pushq %rbp
+  emitPushReg(f, R_EBP);
+  // movq %rsp, %rbp
+  emitMoveRR(f, R_ESP, R_EBP, sizeof(intptr_t));
+}
+
+const static enum Registers calleeSave[] = { R_R15, R_R14, R_R13, R_R12, R_EBX };
+
+static void popCalleSaveRegisters(GeneratedFunction *f) {
+
+  int32_t baseOffset = f->savedRegOffset;
+  emitMoveRR(f, R_EBP, R_ESP, sizeof(intptr_t));
+  emitArithConst(f, OP_L_SUB, R_ESP, -baseOffset, sizeof(intptr_t));
+
+  unsigned count = sizeof calleeSave / sizeof calleeSave[0];
+  int32_t i = 0;
+  for (i = count - 1; i >= 0; --i) {
+      emitPopReg(f, calleeSave[i]);
+  }
+}
+
+static void popFrame(GenerationContext *ctx, GeneratedFunction *f) {
+  // movq %rbp, %rsp
+  // popq %rbp
+
+  popCalleSaveRegisters(f);
+  emitPopReg(f, R_EBP);
+}
+
+static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, AstFunctionDefinition *f) {
+  AstValueDeclaration *param = f->declaration->parameters;
+  AstValueDeclaration *local = f->locals;
+  TypeRef *returnType = f->declaration->returnType;
+
+  unsigned intRegParams = 0;
+  unsigned fpRegParams = 0;
+
+  int32_t baseOffset = 0; // from rbp;
+  int32_t stackParamOffset = sizeof(intptr_t) + sizeof(intptr_t); // rbp itself + return pc
+
+  unsigned i = 0;
+  for (i = 0; i < sizeof(calleeSave)/sizeof(calleeSave[0]); ++i) {
+      emitPushReg(g, calleeSave[i]);
+      baseOffset += sizeof(intptr_t);
+  }
+
+  g->savedRegOffset = -baseOffset;
+
+  if (f->declaration->isVariadic) {
+      // save xmm regs too
+  }
+
+  baseOffset += sizeof(intptr_t);
+  int32_t allocaOffset = g->allocaOffset = -baseOffset;
+
+  Address addr = { R_EBP, R_BAD, 0, 0, NULL, NULL };
+
+  if (isStructualType(returnType)) {
+      baseOffset += sizeof(intptr_t);
+      g->returnStructAddressOffset = addr.imm = -baseOffset;
+      emitMoveRA(g, intArgumentRegs[intRegParams++], &addr, sizeof(intptr_t));
+  }
+
+  for (; param; param = param->next) {
+    TypeRef *paramType = param->type;
+    GeneratedVariable *gp = allocateGenVarialbe(ctx, param);
+    size_t size = max(sizeof(int32_t), computeTypeSize(paramType));
+    size_t align = min(size, sizeof(intptr_t));
+
+    if (isStructualType(paramType) && size > sizeof(intptr_t)) {
+        int32_t alignedOffset = ALIGN_SIZE(stackParamOffset, align);
+        gp->baseOffset = alignedOffset;
+        stackParamOffset = alignedOffset + size;
+    } else if (isRealType(paramType)) {
+        if (fpRegParams < R_FP_PARAM_COUNT) {
+            baseOffset += size;
+            baseOffset = ALIGN_SIZE(baseOffset, align);
+            gp->baseOffset = addr.imm = -baseOffset;
+            emitMovfpRA(g, fpArgumentRegs[fpRegParams++], &addr, size > 4);
+        } else {
+            int32_t alignedOffset = ALIGN_SIZE(stackParamOffset, align);
+            gp->baseOffset = alignedOffset;
+            stackParamOffset = alignedOffset + size;
+        }
     } else {
-        size_t scopeSize = currentScopeSize + stmtSize;
-        result = max(scopeSize, result);
+        if (intRegParams < R_PARAM_COUNT) {
+            baseOffset += size;
+            baseOffset = ALIGN_SIZE(baseOffset, align);
+            gp->baseOffset = addr.imm = -baseOffset;
+            emitMoveRA(g, intArgumentRegs[intRegParams++], &addr, size);
+        } else {
+            int32_t alignedOffset = ALIGN_SIZE(stackParamOffset, align);
+            gp->baseOffset = alignedOffset;
+            stackParamOffset = alignedOffset + size;
+        }
     }
-    stmt = stmt->next;
   }
 
-  return result;
-}
+  for (; local; local = local->next) {
+      TypeRef *localType = local->type;
+      GeneratedVariable *gp = allocateGenVarialbe(ctx, local);
+      size_t size = computeTypeSize(localType);
+      size_t align = min(size, sizeof(intptr_t));
 
-static size_t computeLocalSizeForStatement(AstStatement *stmt) {
-  size_t resulkt = 0;
-  switch (stmt->statementKind) {
-  case SK_BLOCK:
-      return computeLocalSizeForBlock(&stmt->block);
-  case SK_DECLARATION: {
-      AstDeclaration *d = stmt->declStmt.declaration;
-      if (d->kind == DK_VAR) {
-        AstValueDeclaration *v = d->variableDeclaration;
-        return computeTypeSize(v->type);
-      }
-  }
-  case SK_EMPTY:
-  case SK_EXPR_STMT:
-  case SK_GOTO_L:
-  case SK_GOTO_P:
-  case SK_RETURN:
-  case SK_BREAK:
-  case SK_CONTINUE:
-      break;
-  case SK_LABEL:
-      return computeLocalSizeForStatement(stmt->labelStmt.body);
-  case SK_IF:
-      return max(computeLocalSizeForStatement(stmt->ifStmt.thenBranch), stmt->ifStmt.elseBranch ? computeLocalSizeForStatement(stmt->ifStmt.elseBranch) : -1);
-  case SK_SWITCH:
-      return computeLocalSizeForStatement(stmt->switchStmt.body);
-  case SK_WHILE:
-  case SK_DO_WHILE:
-      return computeLocalSizeForStatement(stmt->loopStmt.body);
-  case SK_FOR:
-      return computeLocalSizeForStatement(stmt->forStmt.body);
-  default:
-      unreachable("Unreachable");
-      break;
+      baseOffset += size;
+      baseOffset = ALIGN_SIZE(baseOffset, align);
+      gp->baseOffset = -baseOffset;
   }
 
-  return 0;
-}
+  emitArithRR(g, OP_L_XOR, R_ACC, R_ACC);
+  addr.imm = allocaOffset;
+  emitMoveRA(g, R_ACC, &addr, sizeof(intptr_t));
 
-static size_t computeLocalsSize(AstFunctionDefinition *f) {
-  return computeLocalSizeForStatement(f->body);
+  int32_t frameSize = ALIGN_SIZE(baseOffset, 2 * sizeof(intptr_t));
+
+  g->frameSize = frameSize;
+
+  return frameSize;
 }
 
 static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDefinition *f) {
-  HashMap *localSymbolMap = createHashMap(DEFAULT_MAP_CAPACITY, &symbolHashCode, &symbolEquals);
-
-  size_t localsSize = computeLocalsSize(f);
-
-  ctx->localSymMap = localSymbolMap;
   HashMap *labelMap = createHashMap(DEFAULT_MAP_CAPACITY, &stringHashCode, &stringCmp);
   ctx->labelMap = labelMap;
 
@@ -2352,104 +2374,33 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
   gen->symbol = f->declaration->symbol;
   gen->name = f->declaration->name;
 
-  TypeRef * returnType = f->declaration->returnType;
-  AstValueDeclaration *p = f->declaration->parameters;
-  unsigned intRegParams = 0;
-  unsigned fpRegParams = 0;
+  pushFrame(ctx, gen);
 
-  int stackParamAreaOffset = sizeof(intptr_t) + sizeof(intptr_t);
-  int calleeSavedRegsArea = 5 * sizeof(intptr_t);
-  int regsParamAreaOffset = calleeSavedRegsArea + localsSize;
-  int regOffset = regsParamAreaOffset;
-  int stackOffset = stackParamAreaOffset;
+  size_t frameSize = allocateLocalSlots(ctx, gen, f);
 
-  gen->frameOffset = calleeSavedRegsArea;
+  size_t delta = frameSize + gen->savedRegOffset;
 
-  // TODO: variadic functions
-  pushFrame(ctx, gen, f->declaration->parameterCount);
-
-  Address addr = { 0 };
-  addr.base = R_EBP;
-  addr.index = R_BAD;
-
-  if (isStructualType(returnType)) {
-    regOffset += sizeof(intptr_t);
-    addr.imm = gen->returnStructOffset = - regOffset;
-    emitMoveRA(gen, intArgumentRegs[intRegParams], &addr, sizeof(intptr_t));
-    ++intRegParams;
-  }
-
-  while (p) {
-      assert(p->kind == VD_PARAMETER);
-      const Symbol *s = (const Symbol *)getFromHashMap(f->scope->symbols, (intptr_t)p->name);
-      TypeRef *type = p->type;
-      assert(s);
-
-      size_t typeSize = max(4, computeTypeSize(p->type));
-      size_t align = min(typeSize, sizeof(intptr_t));
-
-      if (isRealType(type)) {
-        if (fpRegParams >= R_FP_PARAM_COUNT) {
-            stackOffset = ALIGN_SIZE(stackOffset, align);
-            putToHashMap(localSymbolMap, (intptr_t)s, (intptr_t)stackOffset);
-
-            stackOffset += typeSize;
-        } else {
-            regOffset += typeSize;
-            regOffset = ALIGN_SIZE(regOffset, align);
-            putToHashMap(localSymbolMap, (intptr_t)s, (intptr_t)(-regOffset));
-
-            addr.imm = -regOffset;
-
-            emitMovfpRA(gen, fpArgumentRegs[fpRegParams], &addr, typeSize > sizeof(float));
-
-            ++fpRegParams;
-        }
-      } else {
-        if (isStructualType(type) || intRegParams >= R_PARAM_COUNT) {
-          stackOffset = ALIGN_SIZE(stackOffset, align);;
-          putToHashMap(localSymbolMap, (intptr_t)s, (intptr_t)stackOffset);
-          stackOffset += typeSize;
-        } else {
-          regOffset += typeSize;
-          regOffset = ALIGN_SIZE(regOffset, align);
-          putToHashMap(localSymbolMap, (intptr_t)s, (intptr_t)(-regOffset));
-          addr.imm = -regOffset;
-
-          emitMoveRA(gen, intArgumentRegs[intRegParams], &addr, typeSize);
-          ++intRegParams;
-        }
-      }
-
-      p = p->next;
-  }
-
-  size_t alignedSize = ALIGN_SIZE(regOffset, 2 * sizeof(intptr_t));
-
-  gen->frameSize = alignedSize - calleeSavedRegsArea;
-
-  if (gen->frameSize)
-    emitArithConst(gen, OP_L_SUB, R_ESP, gen->frameSize, sizeof(intptr_t));
-
-  gen->argsSize = regOffset - regsParamAreaOffset;
-  gen->localsSize = localsSize;
+  if (frameSize)
+    emitArithConst(gen, OP_L_SUB, R_ESP, delta, sizeof(intptr_t));
 
   generateBlock(ctx, gen, &f->body->block, 0);
 
   bindLabel(gen, &returnLabel);
-  if (isStructualType(returnType)) {
-      addr.base = R_EBP;
-      addr.imm = gen->returnStructOffset;
+
+  TypeRef * returnType = f->declaration->returnType;
+  size_t returnTypeSize = computeTypeSize(returnType);
+  if (isStructualType(returnType) && returnTypeSize > sizeof(intptr_t)) {
+      Address addr = { R_EBP, R_BAD, 0, gen->returnStructAddressOffset, NULL, NULL };
       emitMoveAR(gen, &addr, R_EAX, sizeof(intptr_t));
   }
+
   popFrame(ctx, gen);
   emitReturn(ctx, gen);
 
   gen->bodySize = (gen->section->pc - gen->section->start) - gen->sectionOffset;
 
-  ctx->labelMap = ctx->localSymMap = NULL;
+  ctx->labelMap = NULL;
   releaseHashMap(labelMap);
-  releaseHashMap(localSymbolMap);
 
   if (ctx->parserContext->config->verbose) {
     fprintf(stdout, "<<< %s >>>\n", f->declaration->name);

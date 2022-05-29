@@ -43,7 +43,9 @@ typedef struct _GeneratedFunction {
   size_t frameOffset;
   size_t frameSize;
 
-  int returnStructOffset;
+  int32_t allocaOffset;
+  int32_t returnStructAddressOffset;
+  int32_t savedRegOffset;
 
   size_t bodySize;
 
@@ -64,7 +66,7 @@ typedef struct _GeneratedVariable {
   ptrdiff_t sectionOffset;
   size_t size;
 
-  unsigned char *initializer;
+  int32_t baseOffset;
 
   struct _Symbol *symbol;
 
