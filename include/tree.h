@@ -3,6 +3,7 @@
 #ifndef __TREE_H__
 #define __TREE_H__ 1
 
+#include "common.h"
 #include "utils.h"
 #include "types.h"
 
@@ -296,6 +297,8 @@ typedef struct _AstInitializerList {
 typedef struct _AstInitializer {
     Coordinates coordinates;
     InitializerKind kind; // expression | list of initializers
+    TypeRef *slotType;
+    int32_t offset;
     union {
       AstExpression *expression;
       struct {

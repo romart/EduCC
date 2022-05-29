@@ -582,7 +582,7 @@ static void emitStore(GeneratedFunction *f, enum Registers from, Address *to, Ty
 static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression);
 static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *cond, Boolean invertion);
 static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression, Address *addr);
-
+static void storeBitField(GeneratedFunction *f, TypeRef *t, enum Registers from, Address *addr);
 
 static void copyStructTo(GeneratedFunction *f, TypeRef *type, Address *src, Address *dst) {
 
@@ -604,26 +604,35 @@ static void copyStructTo(GeneratedFunction *f, TypeRef *type, Address *src, Addr
 static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, int32_t typeSize, Address *dst, AstInitializer *initializer) {
   size_t emitted = 0;
 
+
+
   switch (initializer->kind) {
   case IK_EXPRESSION: {
       AstExpression *expr = initializer->expression;
       size_t exprSize = computeTypeSize(expr->type);
+      TypeRef *slotType = initializer->slotType;
+      size_t slotSize = computeTypeSize(slotType);
+      int32_t offset = initializer->offset;
+      Address addr = *dst;
+      addr.imm += offset;
 
       generateExpression(ctx, f, scope, initializer->expression);
 
-      if (typeSize > 0) {
-        if (isRealType(expr->type)) {
-            Boolean isD = expr->type->descriptorDesc->typeId != T_F4;
-            emitMovfpRA(f, R_FACC, dst, isD);
-        } else if (isStructualType(expr->type)) {
+      if (typeSize) {
+        if (isRealType(slotType)) {
+            Boolean isD = slotSize > sizeof(float);
+            emitMovfpRA(f, R_FACC, &addr, isD);
+        } else if (isStructualType(slotType)) {
             Address src = { R_ACC, R_BAD, 0, 0 };
-            copyStructTo(f, expr->type, &src, dst);
+            copyStructTo(f, expr->type, &src, &addr);
+        } else if (slotType->kind == TR_BITFIELD) {
+          storeBitField(f, slotType, R_ACC, &addr);
+          // TODO:
         } else {
-            if (expr->type->kind == TR_ARRAY) exprSize = sizeof(intptr_t);
-            emitMoveRA(f, R_ACC, dst, exprSize);
+            emitMoveRA(f, R_ACC, &addr, slotSize);
         }
       }
-      return exprSize;
+      return slotSize;
     }
     break;
     case IK_LIST: {
@@ -633,7 +642,6 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
 
             typeSize -= tmp;
             emitted += tmp;
-            dst->imm += tmp;
             inits = inits->next;
         }
     }
