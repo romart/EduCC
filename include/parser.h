@@ -139,6 +139,7 @@ typedef struct _ParserContext {
     } labels;
 
     TypeRef *functionReturnType;
+    AstValueDeclaration *locals;
 
     HashMap *macroMap;
 

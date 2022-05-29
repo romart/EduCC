@@ -455,6 +455,7 @@ typedef struct _AstDeclaration {
 typedef struct _AstFunctionDefinition { // _AstFunctionDefinition
   AstFunctionDeclaration *declaration;
   AstStatement *body;
+  AstValueDeclaration *locals;
   struct _Scope *scope;
 } AstFunctionDefinition;
 
