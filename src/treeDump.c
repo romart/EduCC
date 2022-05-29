@@ -86,6 +86,13 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
        result += fprintf(output, ")");
        break;
     }
+    case E_BIT_EXTEND: {
+        result += fprintf(output, "(");
+        result += fprintf(output, "%d <-- %d # ", expr->extendExpr.isUnsigned ? 0 : 1, expr->extendExpr.w);
+        result += wrapIfNeeded(output, op, expr->extendExpr.argument, FALSE);
+        result += fprintf(output, ")");
+        break;
+    }
     case E_CAST: {
         AstCastExpression *castExpr = &expr->castExpr;
         result += fprintf(output, "(");
