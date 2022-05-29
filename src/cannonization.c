@@ -703,6 +703,7 @@ static AstExpression *transformExpression(ParserContext *ctx, AstExpression *exp
       return cannonizeAssignmentExpression(ctx, expr);
     case E_LABEL_REF:
     case E_NAMEREF:
+    case E_BIT_EXTEND:
     case E_CONST:
       break;
     case E_ERROR:

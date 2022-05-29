@@ -821,13 +821,31 @@ static GeneratedVariable *generateVaribale(GenerationContext *ctx, AstValueDecla
       ++filled;
   }
 
-  GeneratedVariable *v = allocateGenVarialbe(ctx);
-  v->name = d->name;
+  GeneratedVariable *v = allocateGenVarialbe(ctx, d);
   v->section = section;
   v->sectionOffset = offset;
   v->size = objectSize;
-  v->symbol = d->symbol;
   return v;
+}
+
+static void generateBitExtend(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *extend) {
+  unsigned w = extend->extendExpr.w;
+  Boolean isU = extend->extendExpr.isUnsigned;
+  TypeId id = typeToId(extend->type);
+
+  generateExpression(ctx, f, scope, extend->extendExpr.argument);
+
+  uint8_t opcode = 0;
+
+  if (w <= 16) {
+
+    if (w <= 8) {
+        opcode = isU ? 0xB6 : 0xBE;
+    } else if (w <= 16) {
+        opcode = isU ? 0xB7 : 0xBF;
+    }
+    emitMovxxRR(f, opcode, R_ACC, R_ACC);
+  }
 }
 
 static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstCastExpression *cast) {
@@ -1633,6 +1651,9 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
 
         bindLabel(f, &endLabel);
       }
+      break;
+    case E_BIT_EXTEND:
+      generateBitExtend(ctx, f, scope, expression);
       break;
     case E_CAST:
       generateCast(ctx, f, scope, &expression->castExpr);

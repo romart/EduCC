@@ -342,6 +342,18 @@ AstExpression *createErrorExpression(ParserContext *ctx, Coordinates *coords) {
   return result;
 }
 
+AstExpression *createBitExtendExpression(ParserContext *ctx, TypeRef *type, unsigned w, Boolean isU, AstExpression *argument) {
+  AstExpression* result = allocAstExpression(ctx, &argument->coordinates);
+
+  result->op = E_BIT_EXTEND;
+  result->type = type;
+  result->extendExpr.argument = argument;
+  result->extendExpr.isUnsigned = isU;
+  result->extendExpr.w = w;
+
+  return result;
+}
+
 AstExpression *createCastExpression(ParserContext *ctx, Coordinates *coords, TypeRef *typeRef, AstExpression *argument) {
     AstExpression *result = allocAstExpression(ctx, coords);
     result->op = E_CAST;

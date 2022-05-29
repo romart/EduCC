@@ -18,6 +18,7 @@ typedef struct _Coordinates {
   DEF_EXPRESSION_OP(E_CONST, 17), \
   DEF_EXPRESSION_OP(E_TERNARY, 3), \
   DEF_EXPRESSION_OP(E_CAST, 14), \
+  DEF_EXPRESSION_OP(E_BIT_EXTEND, 14), \
   DEF_EXPRESSION_OP(E_NAMEREF, 17), \
   DEF_EXPRESSION_OP(E_CALL, 16), \
   DEF_EXPRESSION_OP(E_PAREN, 17), \
@@ -124,6 +125,12 @@ typedef struct _AstCastExpression {
   struct _AstExpression* argument;
 } AstCastExpression;
 
+typedef struct _AstBitExtendExpression {
+  unsigned w;
+  Boolean isUnsigned;
+  struct _AstExpression *argument;
+} AstBitExtendExpression;
+
 typedef struct _AstNameRef {
   const char* name;
   struct _Symbol *s;
@@ -155,6 +162,7 @@ typedef struct _AstExpression {
     AstBinaryExpression binaryExpr;
     AstTernaryExpression ternaryExpr;
     AstCastExpression castExpr;
+    AstBitExtendExpression extendExpr;
     AstNameRef nameRefExpr;
     AstCallExpression callExpr;
     AstFieldExpression fieldExpr;
@@ -505,6 +513,7 @@ AstFile *createAstFile(ParserContext *ctx);
 AstExpression* createAstConst(ParserContext *ctx, Coordinates *coords, ConstKind type, void* value);
 AstExpression* createAstConst2(ParserContext *ctx, Coordinates *coords, TypeRef *type, AstConst *cnst);
 AstExpression *createCastExpression(ParserContext *ctx, Coordinates *coords, TypeRef *typeRef, AstExpression *argument);
+AstExpression *createBitExtendExpression(ParserContext *ctx, TypeRef *type, unsigned w, Boolean isU, AstExpression *argument);
 AstExpression *createTernaryExpression(ParserContext *ctx, TypeRef *type, AstExpression *cond, AstExpression *t, AstExpression* f);
 AstExpression *createBinaryExpression(ParserContext *ctx, ExpressionType op, TypeRef *type, AstExpression *left, AstExpression *right);
 AstExpression *createUnaryExpression(ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *argument);
