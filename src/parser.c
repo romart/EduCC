@@ -2387,6 +2387,9 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                         declaration->variableDeclaration = valueDeclaration;
                         if (!valueDeclaration->flags.bits.isStatic) {
                             valueDeclaration->flags.bits.isLocal = 1;
+                            valueDeclaration->next = ctx->locals;
+                            ctx->locals = valueDeclaration;
+
                         }
                         valueDeclaration->symbol = declareValueSymbol(ctx, name, valueDeclaration);
                     }
@@ -2686,6 +2689,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
       functionScope = newScope(ctx, ctx->currentScope);
   }
 
+  ctx->locals = NULL;
   ctx->functionReturnType = functionDeclaration ? functionDeclaration->returnType : makeErrorRef(ctx);
 
   ctx->currentScope = functionScope;
@@ -2697,6 +2701,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
   if (functionDeclaration) {
     AstFunctionDefinition *definition = createFunctionDefinition(ctx, functionDeclaration, functionScope, body);
     definition->scope = functionScope;
+    definition->locals = ctx->locals;
 
     AstTranslationUnit *newUnit = createTranslationUnit(ctx, NULL, definition);
     addToFile(file, newUnit);
