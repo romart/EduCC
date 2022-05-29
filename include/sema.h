@@ -40,6 +40,7 @@ Boolean isPointerLikeType(TypeRef *type);
 Boolean isRealType(TypeRef *type);
 Boolean isStructualType(TypeRef *type);
 Boolean isArrayish(TypeRef *type);
+Boolean isUnsignedType(TypeRef *type);
 
 Boolean isAssignableTypes(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, AstExpression *fromExpr, Boolean init);
 
