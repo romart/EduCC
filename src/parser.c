@@ -695,7 +695,7 @@ static AstExpression* parseMultiplicativeExpression(ParserContext *ctx, struct _
         Coordinates coords = ctx->token->coordinates;
         nextToken(ctx);
         AstExpression* tmp = parseCastExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, op);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result, tmp, op);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, op, resultType, result, tmp));
         tokenCode = ctx->token->code;
     }
@@ -718,7 +718,7 @@ static AstExpression* parseAdditiveExpression(ParserContext *ctx, struct _Scope*
         Coordinates coords = ctx->token->coordinates;
         nextToken(ctx);
         AstExpression* tmp = parseMultiplicativeExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, op);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result, tmp, op);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, op, resultType, result, tmp));
         tokenCode = ctx->token->code;
     }
@@ -740,7 +740,7 @@ static AstExpression* parseShiftExpression(ParserContext *ctx, struct _Scope* sc
         Coordinates coords = ctx->token->coordinates;
         nextToken(ctx);
         AstExpression* tmp = parseAdditiveExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, op);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result, tmp, op);
         result = createBinaryExpression(ctx, op, resultType, result, tmp);
         tokenCode = ctx->token->code;
     }
@@ -777,7 +777,7 @@ static AstExpression* parseRelationalExpression(ParserContext *ctx, struct _Scop
         Coordinates coords = ctx->token->coordinates;
         nextToken(ctx);
         AstExpression* tmp = parseShiftExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, op);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result, tmp, op);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, op, resultType, result, tmp));
     }
 
@@ -811,7 +811,7 @@ static AstExpression* parseEqualityExpression(ParserContext *ctx, struct _Scope*
         Coordinates coords = ctx->token->coordinates;
         nextToken(ctx);
         AstExpression* tmp = parseRelationalExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, op);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result, tmp, op);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, op, resultType, result, tmp));
     }
 
@@ -830,7 +830,7 @@ static AstExpression* parseAndExpression(ParserContext *ctx, struct _Scope* scop
         Coordinates coords = ctx->token->coordinates;
         nextToken(ctx);
         AstExpression* tmp = parseEqualityExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, EB_AND);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result, tmp, EB_AND);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, EB_AND, resultType, result, tmp));
     }
 
@@ -849,7 +849,7 @@ static AstExpression* parseExcOrExpression(ParserContext *ctx, struct _Scope* sc
         Coordinates coords = ctx->token->coordinates;
         nextToken(ctx);
         AstExpression* tmp = parseAndExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, EB_XOR);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result, tmp, EB_XOR);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, EB_XOR, resultType, result, tmp));
     }
 
@@ -868,7 +868,7 @@ static AstExpression* parseIncOrExpression(ParserContext *ctx, struct _Scope* sc
         Coordinates coords = ctx->token->coordinates;
         nextToken(ctx);
         AstExpression* tmp = parseExcOrExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, EB_OR);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result, tmp, EB_OR);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, EB_OR, resultType, result, tmp));
     }
 
@@ -887,7 +887,7 @@ static AstExpression* parseLogicalAndExpression(ParserContext *ctx, struct _Scop
         Coordinates coords = ctx->token->coordinates;
         nextToken(ctx);
         AstExpression* tmp = parseIncOrExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, EB_ANDAND);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result, tmp, EB_ANDAND);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, EB_ANDAND, resultType, result, tmp));
     }
 
@@ -906,7 +906,7 @@ static AstExpression* parseLogicalOrExpression(ParserContext *ctx, struct _Scope
         Coordinates coords = ctx->token->coordinates;
         nextToken(ctx);
         AstExpression* tmp = parseLogicalAndExpression(ctx, scope);
-        TypeRef *resultType = computeBinaryType(ctx, &coords, result->type, tmp->type, EB_OROR);
+        TypeRef *resultType = computeBinaryType(ctx, &coords, result, tmp, EB_OROR);
         result = transformBinaryExpression(ctx, createBinaryExpression(ctx, EB_OROR, resultType, result, tmp));
     }
 
@@ -953,7 +953,7 @@ static AstExpression* parseAssignmentExpression(ParserContext *ctx, struct _Scop
         coords.endOffset = right->coordinates.endOffset;
 
         ExpressionType op = assignOpTokenToEB(tokenCode);
-        TypeRef *resultType = computeAssignmentTypes(ctx, &coords, op, left->type, right->type);
+        TypeRef *resultType = computeAssignmentTypes(ctx, &coords, op, left, right);
         AstExpression *result = createBinaryExpression(ctx, op, resultType, left, right);
         return transformAssignExpression(ctx, result);
     }
@@ -2266,7 +2266,7 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         consume(ctx, ';');
         stmt = createJumpStatement(ctx, &coords, SK_RETURN);
         if (expr) {
-          isAssignableTypes(ctx, &coords, ctx->functionReturnType, expr->type, FALSE);
+          isAssignableTypes(ctx, &coords, ctx->functionReturnType, expr->type, expr, FALSE);
         }
         stmt->jumpStmt.expression = expr;
         return stmt;
@@ -2404,7 +2404,9 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                 } while (nextTokenIf(ctx, ','));
             } else {
                 // TODO: typedef int;
-                reportDiagnostic(ctx, DIAG_DECLARES_NOTHING, &specifiers.coordinates);
+                if (specifiers.defined == NULL)  {
+                  reportDiagnostic(ctx, DIAG_DECLARES_NOTHING, &specifiers.coordinates);
+                }
             }
 
             consume(ctx, ';');

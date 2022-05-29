@@ -22,9 +22,9 @@ AstStructDeclarator *computeMemberDeclarator(ParserContext *ctx, Coordinates *co
 TypeRef *computeFunctionReturnType(ParserContext *ctx, Coordinates *coords, TypeRef *calleeType);
 TypeRef *computeIncDecType(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, Boolean isDec);
 TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, ExpressionType op);
-TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, TypeRef* left, TypeRef *right, ExpressionType op);
+TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, AstExpression* left, AstExpression *right, ExpressionType op);
 TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op);
-TypeRef *computeAssignmentTypes(ParserContext *ctx, Coordinates *coords, ExpressionType op, TypeRef *left, TypeRef *right);
+TypeRef *computeAssignmentTypes(ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *left, AstExpression *right);
 TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op);
 TypeRef *computeFunctionType(ParserContext *ctx, Coordinates *coords, AstFunctionDeclaration *declaration);
 
@@ -41,7 +41,7 @@ Boolean isRealType(TypeRef *type);
 Boolean isStructualType(TypeRef *type);
 Boolean isArrayish(TypeRef *type);
 
-Boolean isAssignableTypes(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, Boolean init);
+Boolean isAssignableTypes(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, AstExpression *fromExpr, Boolean init);
 
 void verifyGotoExpression(ParserContext *ctx, AstExpression *expr);
 
