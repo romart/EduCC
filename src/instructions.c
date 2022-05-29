@@ -689,8 +689,8 @@ static void emitShift(GeneratedFunction *f, uint8_t op1, uint8_t opImm, uint8_t 
   emitByte(f, s == 1 ? op1 : opImm);
 
   ModRM modrm = { 0 };
-  modrm.bits.regOp = register_encodings[r];
-  modrm.bits.rm = digit;
+  modrm.bits.regOp = digit;
+  modrm.bits.rm = register_encodings[r];
   modrm.bits.mod = 0b11;
   emitByte(f, modrm.v);
 

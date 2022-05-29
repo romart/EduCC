@@ -262,12 +262,12 @@ static enum Opcodes selectOpcode(ExpressionType astOp, TypeRef *type) {
       assert(isIntegerType(type));
       id = type->descriptorDesc->typeId;
       switch (id) {
-        case T_U8: return OP_L_SAR;
+        case T_U8: return OP_L_SHR;
         case T_U4:
         case T_U2:
-        case T_U1: return OP_I_SAR;
-        case T_S8: return OP_L_SHR;
-        default:  return OP_I_SHR;
+        case T_U1: return OP_I_SHR;
+        case T_S8: return OP_L_SAR;
+        default:  return OP_I_SAR;
       }
     case EB_AND:
       assert(isIntegerType(type));
