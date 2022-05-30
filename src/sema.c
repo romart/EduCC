@@ -1099,6 +1099,7 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
   AstStructMember *member  = *pmember;
   assert(member->kind == SM_DECLARATOR);
   TypeRef *memberType = member->declarator->typeRef;
+  int32_t memberOffset = member->declarator->offset;
   if (initializer->kind == IK_EXPRESSION) {
       AstExpression *expr = initializer->expression;
       if (expr) {
@@ -1111,7 +1112,7 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
       }
       *pmember = member->next;
       initializer->slotType = memberType;
-      initializer->offset = member->declarator->offset;
+      initializer->offset = memberOffset;
       return initializer;
   } else {
       assert(initializer->kind == IK_LIST);
@@ -1127,11 +1128,12 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
                     continue;
                 }
                 TypeRef *memberType = member->declarator->typeRef;
+                int32_t memberOffset = member->declarator->offset;
                 AstInitializer *transformed = finalizeStructMember(ctx, &member, inner->initializer, isTopLevel);
                 unwindInitializer(ctx, transformed, memberType, &head, &tail, &count);
 
                 transformed->slotType = memberType;
-                transformed->offset = member->declarator->offset;
+                transformed->offset = memberOffset;
 
                 inner = inner->next;
             }
@@ -1150,12 +1152,12 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
           }
           *pmember = member;
           result->slotType = memberType;
-          result->offset = member->declarator->offset;
+          result->offset = memberOffset;
           return result;
       } else {
           AstInitializer *result = finalizeInitializer(ctx, memberType, initializer, isTopLevel);
           result->slotType = memberType;
-          result->offset = member->declarator->offset;
+          result->offset = memberOffset;
           *pmember = member->next;
           return result;
       }
