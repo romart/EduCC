@@ -1044,17 +1044,34 @@ static void loadBitField(GeneratedFunction *f, TypeRef *t, Address *addr, enum R
   int s = t->bitFieldDesc.offset;
   int w = t->bitFieldDesc.width;
 
-
   TypeRef *storageType = t->bitFieldDesc.storageType;
-  int size = computeTypeSize(storageType);
+  size_t size = computeTypeSize(storageType);
+  size_t W = size * 8;
 
   emitLoad(f, addr, to, typeToId(storageType));
 
-  emitShr(f, to, s);
+  u_int64_t l = W - (w + s);
+  u_int64_t r = W - w;
 
-  u_int64_t mask = ~(~0LLu << w);
+  Boolean isU = isUnsignedType(storageType);
 
-  emitArithConst(f, size > 4 ? OP_L_AND : OP_I_AND, to, mask, size);
+  enum Opcodes lshift = size > 4 ? OP_L_SHL : OP_I_SHL;
+  enum Opcodes rshift = size > 4 ? (isU ? OP_L_SHR : OP_L_SAR) : (isU ? OP_I_SHR : OP_I_SAR);
+
+  emitArithConst(f, lshift, to, l, size);
+  emitArithConst(f, rshift, to, r, size);
+
+  if (size < 4) {
+      uint8_t opcode = 0;
+      if (size == 1) {
+          opcode = isU ? 0xB6 : 0xBE;
+      }
+
+      if (size == 2) {
+          opcode = isU ? 0xB7 : 0xBF;
+      }
+      emitMovxxRR(f, opcode, to, to);
+  }
 }
 
 static void storeBitField(GeneratedFunction *f, TypeRef *t, enum Registers from, Address *addr) {
