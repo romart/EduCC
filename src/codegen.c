@@ -605,8 +605,6 @@ static void copyStructTo(GeneratedFunction *f, TypeRef *type, Address *src, Addr
 static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, int32_t typeSize, Address *dst, AstInitializer *initializer) {
   size_t emitted = 0;
 
-
-
   switch (initializer->kind) {
   case IK_EXPRESSION: {
       AstExpression *expr = initializer->expression;
@@ -619,7 +617,7 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
 
       generateExpression(ctx, f, scope, initializer->expression);
 
-      if (typeSize) {
+      if ((offset + slotSize) <= typeSize) {
         if (isRealType(slotType)) {
             Boolean isD = slotSize > sizeof(float);
             emitMovfpRA(f, R_FACC, &addr, isD);
@@ -630,7 +628,7 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
           storeBitField(f, slotType, R_ACC, &addr);
           // TODO:
         } else {
-            emitMoveRA(f, R_ACC, &addr, slotSize);
+          emitMoveRA(f, R_ACC, &addr, slotSize);
         }
       }
       return slotSize;
@@ -641,7 +639,6 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
         while (inits) {
             size_t tmp = emitInitializerImpl(ctx, f, scope, typeSize, dst, inits->initializer);
 
-            typeSize -= tmp;
             emitted += tmp;
             inits = inits->next;
         }
