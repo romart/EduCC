@@ -2,7 +2,7 @@ FILE test/testData/parser/negative/expressions/sizeof.c
   FUN void testSizeOf 
   BEGIN
     signed int a = \
-      ERROR EXPR
+      (signed int)ERROR EXPR
     signed int b = \
-      ERROR EXPR    
+      (signed int)ERROR EXPR    
   END

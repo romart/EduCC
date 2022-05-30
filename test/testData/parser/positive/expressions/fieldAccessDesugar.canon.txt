@@ -23,7 +23,7 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     STRUCT S3 s3 #4
   STRUCT_END
 ----
-  FUN signed int testArrayPrimitive
+  FUN signed int testArrayPrimitive 
   BEGIN
     signed int i = \
       0
@@ -36,39 +36,39 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     signed int c = \
       *(arr + 16)
     signed int d = \
-      *carr
+      (signed int)*carr
     signed int e = \
-      *(carr + 9)
+      (signed int)*(carr + 9)    
   END
 ----
-  FUN signed int testStructValued1
+  FUN signed int testStructValued1 
   BEGIN
     STRUCT S1 s1
     signed int a = \
       *s1
     signed int b = \
-      *(s1 + 4)
+      *(s1 + 4)    
   END
 ----
-  FUN signed int testStructPointed1
+  FUN signed int testStructPointed1 
     #0: *STRUCT S1 p_s1
   BEGIN
     signed int a = \
       **p_s1
     signed int b = \
-      *(*p_s1 + 4)
+      *(*p_s1 + 4)    
   END
 ----
-  FUN signed int testStructValued2
+  FUN signed int testStructValued2 
   BEGIN
     STRUCT S2 s2
     signed int a = \
       *(s2 + 4)
     signed int c = \
-      *(*(s2 + 8) + 16)
+      *(*(s2 + 8) + 16)    
   END
 ----
-  FUN signed int testStructPointed2
+  FUN signed int testStructPointed2 
     #0: *STRUCT S2 p_s2
   BEGIN
     signed int a = \
@@ -76,10 +76,10 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     signed int b = \
       *(*(*p_s2 + 8) + 16)
     signed int c = \
-      *(*p_s2 + 16)
+      *(*p_s2 + 16)    
   END
 ----
-  FUN signed int testStructValued3
+  FUN signed int testStructValued3 
     #0: signed int i
   BEGIN
     STRUCT S3 s3
@@ -92,10 +92,10 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     signed int e = \
       *(*(*(s3 + (*i + 1) * 8 + 112) + 8) + 4)
     signed int e = \
-      *(*(*(s3 + (*i + 1) * 8 + 112) + 8) + 16)
+      *(*(*(s3 + (*i + 1) * 8 + 112) + 8) + 16)    
   END
 ----
-  FUN signed int testStructPointed3
+  FUN signed int testStructPointed3 
     #0: *STRUCT S3 p_s3
     #1: signed int i
   BEGIN
@@ -108,17 +108,17 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     signed int e = \
       *(*(*(*(*p_s3 + 112) + (*i + 1) * 8) + 8) + 4)
     signed int e = \
-      *(*(*(*(*p_s3 + 112) + (*i + 1) * 8) + 8) + 16)
+      *(*(*(*(*p_s3 + 112) + (*i + 1) * 8) + 8) + 16)    
   END
 ----
-  FUN signed int testStructPointed4
+  FUN signed int testStructPointed4 
     #0: *STRUCT S4 p_s4
     #1: signed int i
   BEGIN
     signed int f1 = \
-      **p_s4 >> 0 && 63
+      (signed int)(**p_s4 << 26 >> 26)
     signed int f2 = \
-      **p_s4 >> 6 && 127
+      (signed int)(**p_s4 << 19 >> 25)
     signed int b = \
       *(*p_s4 + 8)
     signed int c = \
@@ -128,17 +128,17 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     signed int e = \
       *(*(*(*p_s4 + (*i + 15) * 8 + 116) + 8) + 4)
     signed int e = \
-      *(*(*(*p_s4 + (*i + 15) * 8 + 116) + 8) + 16)
+      *(*(*(*p_s4 + (*i + 15) * 8 + 116) + 8) + 16)    
   END
 ----
-  FUN signed int testStructValued
+  FUN signed int testStructValued 
     #0: signed int i
   BEGIN
     STRUCT S4 s4
     signed int a = \
-      *s4 >> 0 && 63
+      (signed int)(*s4 << 26 >> 26)
     signed int b = \
-      *s4 >> 6 && 127
+      (signed int)(*s4 << 19 >> 25)
     signed int c = \
       *(s4 + 4)
     signed int d = \
@@ -154,5 +154,5 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     signed int j = \
       *(s4 + *i * 8 + 40)
     signed int k = \
-      *(*(*(*(s4 + *i * 8 + 116) + 8) + 8) + 16)
+      *(*(*(*(s4 + *i * 8 + 116) + 8) + 8) + 16)    
   END

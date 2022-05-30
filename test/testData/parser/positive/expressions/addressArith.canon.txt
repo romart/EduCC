@@ -17,7 +17,7 @@ FILE test/testData/parser/positive/expressions/addressArith.c
     *signed int ptr3 = \
       *p + 20
     *signed int ptr4 = \
-      *p + *x * 4 + 20
+      *p + *x * 4 + 20    
   END
 ----
   FUN void voidPtrTestPlus 
@@ -31,7 +31,7 @@ FILE test/testData/parser/positive/expressions/addressArith.c
     *void ptr3 = \
       *p + 5
     *void ptr4 = \
-      *p + *x + 5
+      *p + *x + 5    
   END
 ----
   FUN void structPtrTestPlus 
@@ -45,7 +45,7 @@ FILE test/testData/parser/positive/expressions/addressArith.c
     *STRUCT S1 ptr3 = \
       *p + 480
     *STRUCT S1 ptr4 = \
-      *p + *x * 96 + 480
+      *p + *x * 96 + 480    
   END
 ----
   FUN void intPtrTestMinus 
@@ -59,7 +59,7 @@ FILE test/testData/parser/positive/expressions/addressArith.c
     *signed int ptr3 = \
       *p - -4
     *signed int ptr4 = \
-      *p - (*x * 4 - 4)
+      *p - (*x * 4 - 4)    
   END
 ----
   FUN void voidPtrTestMinus 
@@ -73,7 +73,7 @@ FILE test/testData/parser/positive/expressions/addressArith.c
     *void ptr3 = \
       *p + -1
     *void ptr4 = \
-      *p - (*x + 1)
+      *p - (*x + 1)    
   END
 ----
   FUN void structPtrTestMinus 
@@ -88,7 +88,7 @@ FILE test/testData/parser/positive/expressions/addressArith.c
     *STRUCT S1 ptr3 = \
       *p + -96
     *STRUCT S1 ptr4 = \
-      *p - (*x * 96 - 96)
+      *p - (*x * 96 - 96)    
   END
 ----
   FUN void intPtrTestDiff 
@@ -97,17 +97,17 @@ FILE test/testData/parser/positive/expressions/addressArith.c
     #2: **signed int pp
   BEGIN
     signed int a = \
-      (*p1 - *p2) / 4
+      (signed int)((*p1 - *p2) / 4)
     signed int[10] arr
     signed int b = \
-      (arr - *p1) / 4
+      (signed int)((arr - *p1) / 4)
     signed int c = \
-      (*p2 - arr) / 4
+      (signed int)((*p2 - arr) / 4)
     (*signed int)[10] p_arr
     signed int d = \
-      (p_arr - *pp) / 8
+      (signed int)((p_arr - *pp) / 8)
     signed int e = \
-      (*pp - p_arr) / 8
+      (signed int)((*pp - p_arr) / 8)    
   END
 ----
   FUN void voidPtrTestDiff 
@@ -116,12 +116,12 @@ FILE test/testData/parser/positive/expressions/addressArith.c
     #2: **void pp
   BEGIN
     signed int a = \
-      *p1 - *p2
+      (signed int)(*p1 - *p2)
     **void ppx
     signed int d = \
-      (*ppx - *pp) / 8
+      (signed int)((*ppx - *pp) / 8)
     signed int e = \
-      (*pp - *ppx) / 8
+      (signed int)((*pp - *ppx) / 8)    
   END
 ----
   FUN void structPtrTestDiff 
@@ -130,26 +130,26 @@ FILE test/testData/parser/positive/expressions/addressArith.c
     #2: **STRUCT S1 pp
   BEGIN
     signed int a = \
-      (*p1 - *p2) / 96
+      (signed int)((*p1 - *p2) / 96)
     STRUCT S1[10] arr
     signed int b = \
-      (arr - *p1) / 96
+      (signed int)((arr - *p1) / 96)
     signed int c = \
-      (*p2 - arr) / 96
+      (signed int)((*p2 - arr) / 96)
     (*STRUCT S1)[10] p_arr
     signed int d = \
-      (p_arr - *pp) / 8
+      (signed int)((p_arr - *pp) / 8)
     signed int e = \
-      (*pp - p_arr) / 8
+      (signed int)((*pp - p_arr) / 8)
     **STRUCT S3 ps3_1
     **STRUCT S3 ps3_2
     (*STRUCT S3)[10] arr_s3
     signed int f = \
-      (*ps3_2 - *ps3_1) / 8
+      (signed int)((*ps3_2 - *ps3_1) / 8)
     signed int g = \
-      (arr_s3 - *ps3_1) / 8
+      (signed int)((arr_s3 - *ps3_1) / 8)
     signed int h = \
-      (*ps3_2 - arr_s3) / 8
+      (signed int)((*ps3_2 - arr_s3) / 8)
     signed int j = \
-      (*p1 - (*p2 + *a * 96 + *b * 96)) / 96
+      (signed int)((*p1 - (*p2 + *a * 96 + *b * 96)) / 96)    
   END
