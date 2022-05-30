@@ -22,21 +22,21 @@ FILE test/testData/parser/positive/expressions/numericalConsts.c
   FUN void testWchar 
   BEGIN
     signed int w1 = \
-      97
+      (signed int)97
     signed int w2 = \
-      0
+      (signed int)0
     signed int w3 = \
-      7
+      (signed int)7
     signed int w4 = \
-      92
+      (signed int)92
     signed int w5 = \
-      39
+      (signed int)39
     signed int w5 = \
-      34
+      (signed int)34
     signed int w0555 = \
-      365
+      (signed int)365
     signed int w7fff = \
-      32767    
+      (signed int)32767    
   END
 ----
   FUN signed int testInteger 
@@ -54,17 +54,17 @@ FILE test/testData/parser/positive/expressions/numericalConsts.c
     signed int BB = \
       581
     signed int l = \
-      21142341
+      (signed int)21142341
     signed int l2 = \
-      21142341
+      (signed int)21142341
     unsigned int ul1 = \
-      21142341
+      (unsigned int)21142341
     unsigned int ul2 = \
-      21142341
+      (unsigned int)21142341
     unsigned int ul3 = \
-      21142341
+      (unsigned int)21142341
     unsigned int ul4 = \
-      21142341
+      (unsigned int)21142341
     unsigned int ul5 = \
       21142341
     unsigned int ul6 = \
@@ -78,21 +78,21 @@ FILE test/testData/parser/positive/expressions/numericalConsts.c
     signed long ll2 = \
       123222222
     unsigned long ull1 = \
-      123222222
+      (unsigned long)123222222
     unsigned long ull2 = \
-      123222222
+      (unsigned long)123222222
     unsigned long ull3 = \
-      123222222
+      (unsigned long)123222222
     unsigned long ull4 = \
-      123222222
+      (unsigned long)123222222
     unsigned long ull5 = \
-      123222222
+      (unsigned long)123222222
     unsigned long ull6 = \
-      123222222
+      (unsigned long)123222222
     unsigned long ull7 = \
-      123222222
+      (unsigned long)123222222
     unsigned long ull8 = \
-      123222222    
+      (unsigned long)123222222    
   END
 ----
   FUN signed int testFloatingPoint 

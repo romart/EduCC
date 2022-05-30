@@ -241,15 +241,15 @@ FILE test/testData/parser/negative/expressions/initializers.c
   signed int[20] a1
 ----
   *signed int pa = \
-    a1
+    (*signed int)a1
 ----
   float f = \
-    *pa
+    (float)(*pa)
 ----
   signed int[-1] a3
 ----
   signed int[20] a4 = \
-    0
+    (signed int[20])0
 ----
   (signed int[20])[] b2 = \
     INIT_BEGIN
@@ -303,13 +303,13 @@ FILE test/testData/parser/negative/expressions/initializers.c
     signed int[-1] a2 = \
       a1
     *signed int pa = \
-      a1
+      (*signed int)a1
     float f = \
-      *pa
+      (float)(*pa)
     signed int i2 = \
-      *f2
+      (signed int)(*f2)
     signed int i3 = \
-      *s2
+      (signed int)(*s2)
     STRUCT SX sx2 = \
       INIT_BEGIN
         0
