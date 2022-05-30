@@ -422,8 +422,6 @@ static AstExpression *cannonizeSubExpression(ParserContext *ctx, AstExpression *
   return cannonizeBinaryExpression(ctx, expr);
 }
 
-
-
 static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression *receiver, AstStructDeclarator *member, AstExpression *orig, Boolean deBit) {
   AstExpression *offset = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &member->offset);
   offset->type = makePrimitiveType(ctx, T_U8, 0);
@@ -459,36 +457,21 @@ static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression
 
       AstExpression *extracted = NULL;
 
-      if (isU) {
+      size_t W = computeTypeSize(storageType) * 8;
 
-        // (x >> s) & mask
-        AstExpression *shiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &s);
-        shiftConst->type = makePrimitiveType(ctx, T_S4, 0);
+      u_int64_t l = W - (w + s);
 
-        AstExpression *shifted = createBinaryExpression(ctx, EB_RHS, storageType, derefered, shiftConst);
+      AstExpression *lshiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &l);
+      lshiftConst->type = makePrimitiveType(ctx, T_S4, 0);
 
-        AstExpression *maskConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &mask);
-        maskConst->type = storageType;
+      AstExpression *lShifted = createBinaryExpression(ctx, EB_LHS, storageType, derefered, lshiftConst);
 
-        extracted = createBinaryExpression(ctx, EB_AND, storageType, shifted, maskConst);
-      } else {
-        size_t W = computeTypeSize(storageType) * 8;
+      u_int64_t r = W - w;
 
-        u_int64_t l = W - (w + s);
+      AstExpression *rshiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &r);
+      rshiftConst->type = makePrimitiveType(ctx, T_S4, 0);
 
-        AstExpression *lshiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &l);
-        lshiftConst->type = makePrimitiveType(ctx, T_S4, 0);
-
-        AstExpression *lShifted = createBinaryExpression(ctx, EB_LHS, storageType, derefered, lshiftConst);
-
-        u_int64_t r = W - w;
-
-        AstExpression *rshiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &r);
-        rshiftConst->type = makePrimitiveType(ctx, T_S4, 0);
-
-        extracted = createBinaryExpression(ctx, EB_RHS, storageType, lShifted, rshiftConst);
-      }
-      return createBitExtendExpression(ctx, storageType, w, isU, extracted);
+      return createBinaryExpression(ctx, EB_RHS, storageType, lShifted, rshiftConst);
   }
 
   return derefered;
