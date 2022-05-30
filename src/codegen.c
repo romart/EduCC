@@ -1219,7 +1219,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
   TypeRef *rType = rvalue->type;
   Address addr = { 0 };
 
-  AstExpression *addrExpr = lType->kind == TR_BITFIELD ? lvalue->fieldExpr.recevier : lvalue;
+  AstExpression *addrExpr = lvalue;
   Boolean saved_acc = FALSE;
   TypeId lTypeId = typeToId(lType);
   TypeId rTypeId = typeToId(rType);
@@ -1324,10 +1324,8 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
   } else {
     assert(stackPending == 0);
     if (lType->kind == TR_BITFIELD) {
-        assert(lvalue->op == EF_ARROW || lvalue->op == EF_DOT);
-        AstStructDeclarator *decl = lvalue->fieldExpr.member;
+        TypeRef *storageType = lType->bitFieldDesc.storageType;
 
-        addr.imm += decl->offset;
         emitLea(f, &addr, R_EBX);
 
         addr.base = R_EBX;
@@ -1337,7 +1335,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
         loadBitField(f, lType, &addr, R_ACC);
         emitPopReg(f, R_TMP);
 
-        emitArithRR(f, selectAssignOpcode(op, lType), R_ACC, R_TMP);
+        emitArithRR(f, selectAssignOpcode(op, storageType), R_ACC, R_TMP);
 
         storeBitField(f, lType, R_ACC, &addr);
 
@@ -1967,7 +1965,10 @@ static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFun
 
       generateExpression(ctx, f, scope, left);
 
-      enum Opcodes opcode = selectByType(left->type, OP_L_CMP, OP_F_CMP, OP_D_CMP, OP_I_CMP, OP_L_CMP);
+      TypeRef *lType = left->type;
+      if (lType->kind == TR_BITFIELD) lType = lType->bitFieldDesc.storageType;
+
+      enum Opcodes opcode = selectByType(lType, OP_L_CMP, OP_F_CMP, OP_D_CMP, OP_I_CMP, OP_L_CMP);
 
       if (right->op == E_CONST) {
           uint64_t cnst = right->constExpr.i;
