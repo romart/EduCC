@@ -541,7 +541,10 @@ static AstExpression *cannonizeAssignmentExpression(ParserContext *ctx, AstExpre
 
   if (lhs->type->kind == TR_BITFIELD) {
       // we will properly de-sugar in codegen
-      lhs->fieldExpr.recevier = transformExpression(ctx, lhs->fieldExpr.recevier);
+      TypeRef *bfType = lhs->type;
+      assert(lhs->op == EF_DOT || lhs->op == EF_ARROW);
+      lhs = lhs->op == EF_DOT ? cannonizeDotExpression(ctx, lhs, FALSE) : cannonizeArrowExpression(ctx, lhs, FALSE);
+      lhs->type = bfType;
   } else {
       lhs = transformExpression(ctx, lhs);
   }
@@ -593,6 +596,39 @@ static AstExpression *cannonizeShiftExpression(ParserContext *ctx, AstExpression
   return expr;
 }
 
+static AstExpression *cannonizePostIncDec(ParserContext *ctx, AstExpression *expr) {
+  TypeRef *type = expr->type;
+
+  int64_t delta = isPointerLikeType(type) ? computeTypeSize(type->pointedTo.toType) : 1;
+
+  // x++ -> (x += delta) - delta
+  // x-- -> (x -= delta) + delta
+
+  AstExpression *argument = expr->unaryExpr.argument;
+
+  if (type->kind == TR_BITFIELD) {
+      assert(argument->op == EF_DOT || argument->op == EF_ARROW);
+      argument = argument->op == EF_DOT ? cannonizeDotExpression(ctx, argument, FALSE) : cannonizeArrowExpression(ctx, argument, FALSE);
+  } else {
+      argument = transformExpression(ctx, argument);
+  }
+
+  ExpressionType asg_op = expr->op == EU_POST_DEC ? EB_ASG_SUB : EB_ASG_ADD;
+  ExpressionType snd_op = expr->op == EU_POST_DEC ? EB_ADD : EB_SUB;
+
+  AstExpression *deltaConst = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &delta);
+  deltaConst->type = isPointerLikeType(type) ? makePrimitiveType(ctx, T_S8, 0) : type;
+  argument->type = type;
+
+  AstExpression *asg = createBinaryExpression(ctx, asg_op, type, argument, deltaConst);
+
+  if (type->kind == TR_BITFIELD) {
+      type = type->bitFieldDesc.storageType;
+  }
+
+  return createBinaryExpression(ctx, snd_op, type, asg, deltaConst);
+}
+
 static AstExpression *transformExpression(ParserContext *ctx, AstExpression *expr) {
 
   AstConst *evaluated = eval(ctx, expr);
@@ -629,10 +665,11 @@ static AstExpression *transformExpression(ParserContext *ctx, AstExpression *exp
       }
       break;
 
-    case EU_PRE_INC:
     case EU_POST_INC:
-    case EU_PRE_DEC:
     case EU_POST_DEC:
+      return cannonizePostIncDec(ctx, expr);
+    case EU_PRE_INC:
+    case EU_PRE_DEC:
       expr->unaryExpr.argument = transformExpression(ctx, expr->unaryExpr.argument);
       break;
     case EU_DEREF: op2 = EU_REF; goto dr;

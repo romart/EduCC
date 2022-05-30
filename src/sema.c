@@ -164,6 +164,9 @@ TypeRef *commonPrimitiveType(ParserContext *ctx, TypeRef *a, TypeRef *b) {
 
   // TODO: should const qualifier be taken into account?
 
+  if (a->kind == TR_BITFIELD) a = a->bitFieldDesc.storageType;
+  if (b->kind == TR_BITFIELD) b = b->bitFieldDesc.storageType;
+
   assert(a->kind == TR_VALUE);
   assert(b->kind == TR_VALUE);
 
@@ -1355,8 +1358,8 @@ AstExpression *transformBinaryExpression(ParserContext *ctx, AstExpression *expr
       return expr;
   }
 
-  assert(left->type->kind == TR_VALUE);
-  assert(right->type->kind == TR_VALUE);
+  assert(left->type->kind == TR_VALUE || left->type->kind == TR_BITFIELD);
+  assert(right->type->kind == TR_VALUE || right->type->kind == TR_BITFIELD);
 
   TypeRef *commonType = commonPrimitiveType(ctx, left->type, right->type);
 
