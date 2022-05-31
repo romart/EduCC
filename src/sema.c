@@ -205,7 +205,7 @@ TypeRef *commonPrimitiveType(ParserContext *ctx, TypeRef *a, TypeRef *b) {
   int sOff = sId - T_S1;
   int uOff = uId - T_U1;
 
-  return uOff > sOff ? uT : sT;
+  return sOff> uOff  ? sT : uT;
 }
 
 TypeCastabilityKind typeCastability(TypeRef *to, TypeRef *from) {
