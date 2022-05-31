@@ -187,7 +187,8 @@ enum Registers {
   OPCODE_DEF(OR, "or", I, 2), \
   OPCODE_DEF(XOR, "xor", I, 2), \
   OPCODE_DEF(CMP, "cmp", I, 2), \
-  OPCODE_DEF(FCMP, "fcmp", F, 2)
+  OPCODE_DEF(FOCMP, "focmp", F, 2), \
+  OPCODE_DEF(FUCMP, "fucmp", F, 2)
 
 enum Opcodes {
   #define OPCODE_DEF(m, _, __, ___) OP_##m

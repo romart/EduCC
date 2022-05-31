@@ -103,11 +103,15 @@ static void emitRex(GeneratedFunction *f, enum Registers rReg, enum Registers bR
 
 void emitPushReg(GeneratedFunction *f, enum Registers reg) {
 
+  f->stackOffset += sizeof(intptr_t);
+
   emitRex(f, R_BAD, reg, R_BAD, FALSE);
   emitByte(f, 0x50 + register_encodings[reg]);
 }
 
 void emitPopReg(GeneratedFunction *f, enum Registers reg) {
+  f->stackOffset -= sizeof(intptr_t);
+
   emitRex(f, R_BAD, reg, R_BAD, FALSE);
   emitByte(f, 0x58 + register_encodings[reg]);
 }
@@ -281,7 +285,6 @@ void emitMoveAR(GeneratedFunction *f, Address* addr, enum Registers to, size_t s
 }
 
 void emitMoveRA(GeneratedFunction *f, enum Registers from, Address* addr, size_t size) {
-
   if (size == 2) emitByte(f, 0x66);
 
   emitRex(f, from, addr->base, addr->index, size > 4);
@@ -489,8 +492,9 @@ void emitShiftRR(GeneratedFunction *f, uint8_t code, uint8_t digit, enum Registe
   }
 }
 
-void emitSimpleFPArithRR(GeneratedFunction *f, uint8_t prefix, uint8_t opcode1, uint8_t opcode2, enum Registers l, enum Registers r) {
-  emitByte(f, prefix);
+void emitSimpleFPArithRR(GeneratedFunction *f, int16_t prefix, uint8_t opcode1, uint8_t opcode2, enum Registers l, enum Registers r) {
+
+  if (prefix >= 0) emitByte(f, (uint8_t)prefix);
 
   emitRex(f, l, r, R_BAD, FALSE);
 
@@ -530,8 +534,8 @@ static void emitSimpleArithAR(GeneratedFunction *f, uint8_t code, int16_t code2,
   encodeAR(f, addr, register_encodings[r]);
 }
 
-static void emitSimpleFPArithAR(GeneratedFunction *f, uint8_t prefix, uint8_t opcode1, uint8_t opcode2, enum Registers r, Address *addr, size_t size) {
-  emitByte(f, prefix);
+static void emitSimpleFPArithAR(GeneratedFunction *f, int16_t prefix, uint8_t opcode1, uint8_t opcode2, enum Registers r, Address *addr, size_t size) {
+  if (prefix >= 0) emitByte(f, (uint8_t)prefix);
 
   emitRex(f, r, addr->base, addr->index, size == 8);
 
@@ -554,11 +558,12 @@ void emitArithAR(GeneratedFunction *f, enum Opcodes opcode, enum Registers r, Ad
     case OP_SDIV: return emitSimpleArithA(f, 0xF7, 7, addr, size);
     case OP_UDIV: return emitSimpleArithA(f, 0xF7, 6, addr, size);
 
-    case OP_FADD: return emitSimpleFPArithAR(f, 0xF3, 0x0F, 0x58, r, addr, size);
-    case OP_FSUB: return emitSimpleFPArithAR(f, 0xF3, 0x0F, 0x5C, r, addr, size);
-    case OP_FMUL: return emitSimpleFPArithAR(f, 0xF3, 0x0F, 0x59, r, addr, size);
-    case OP_FDIV: return emitSimpleFPArithAR(f, 0xF3, 0x0F, 0x5E, r, addr, size);
-    case OP_FCMP: return emitSimpleFPArithAR(f, 0xF3, 0x0F, 0xC2, r, addr, size);
+    case OP_FADD: return emitSimpleFPArithAR(f, size == 8 ? 0xF2 : 0xF3, 0x0F, 0x58, r, addr, size);
+    case OP_FSUB: return emitSimpleFPArithAR(f, size == 8 ? 0xF2 : 0xF3, 0x0F, 0x5C, r, addr, size);
+    case OP_FMUL: return emitSimpleFPArithAR(f, size == 8 ? 0xF2 : 0xF3, 0x0F, 0x59, r, addr, size);
+    case OP_FDIV: return emitSimpleFPArithAR(f, size == 8 ? 0xF2 : 0xF3, 0x0F, 0x5E, r, addr, size);
+    case OP_FOCMP: return emitSimpleFPArithAR(f, size == 8 ? 0x66 : -1, 0x0F, 0x2F, r, addr, size); // comiss/comisd
+    case OP_FUCMP: return emitSimpleFPArithAR(f, size == 8 ? 0x66 : -1, 0x0F, 0x2E, r, addr, size); // ucomiss/ucomisd
 
     case OP_SHR:
     case OP_SAR:
@@ -595,7 +600,8 @@ void emitArithRR(GeneratedFunction *f, enum Opcodes opcode, enum Registers l, en
   case OP_FMUL: return emitSimpleFPArithRR(f, size == 8 ? 0xF2 : 0xF3, 0x0F, 0x59, l, r);
   case OP_FDIV: return emitSimpleFPArithRR(f, size == 8 ? 0xF2 : 0xF3, 0x0F, 0x5E, l, r);
   case OP_FMOD: unreachable("TODO");
-  case OP_FCMP: return emitSimpleFPArithRR(f, size == 8 ? 0xF2 : 0xF3, 0x0F, 0xC2, l, r);
+  case OP_FOCMP: return emitSimpleFPArithRR(f, size == 8 ? 0x66 : -1, 0x0F, 0x2F, l, r); // comiss/comisd
+  case OP_FUCMP: return emitSimpleFPArithRR(f, size == 8 ? 0x66 : -1, 0x0F, 0x2E, l, r); // ucomiss/ucomisd
 
   default: unreachable("unreachable");
     }
