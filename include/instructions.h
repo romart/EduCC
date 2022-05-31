@@ -169,42 +169,25 @@ enum Registers {
 };
 
 #define OPCODES \
-  OPCODE_DEF(I_ADD, "addl", I, 2), \
-  OPCODE_DEF(L_ADD, "addq", L, 2), \
-  OPCODE_DEF(F_ADD, "fadd", F, 2), \
-  OPCODE_DEF(D_ADD, "dadd", D, 2), \
-  OPCODE_DEF(I_SUB, "subl", I, 2), \
-  OPCODE_DEF(L_SUB, "subq", L, 2), \
-  OPCODE_DEF(F_SUB, "fsub", F, 2), \
-  OPCODE_DEF(D_SUB, "dsub", D, 2), \
-  OPCODE_DEF(I_MUL, "mull", I, 2), \
-  OPCODE_DEF(L_MUL, "mulq", L, 2), \
-  OPCODE_DEF(F_MUL, "fmul", F, 2), \
-  OPCODE_DEF(D_MUL, "dmul", D, 2), \
-  OPCODE_DEF(I_DIV, "divl", I, 2), \
-  OPCODE_DEF(L_DIV, "divq", L, 2), \
-  OPCODE_DEF(F_DIV, "fdiv", F, 2), \
-  OPCODE_DEF(D_DIV, "ddiv", D, 2), \
-  OPCODE_DEF(I_MOD, "modl", I, 2), \
-  OPCODE_DEF(L_MOD, "modq", L, 2), \
-  OPCODE_DEF(F_MOD, "fmod", F, 2), \
-  OPCODE_DEF(D_MOD, "dmod", D, 2), \
-  OPCODE_DEF(I_SHR, "shrl", L, 2), \
-  OPCODE_DEF(L_SHR, "shrq", L, 2), \
-  OPCODE_DEF(I_SAR, "sarl", L, 2), \
-  OPCODE_DEF(L_SAR, "sarq", L, 2), \
-  OPCODE_DEF(I_SHL, "shll", L, 2), \
-  OPCODE_DEF(L_SHL, "shlq", L, 2), \
-  OPCODE_DEF(I_AND, "andl", I, 2), \
-  OPCODE_DEF(L_AND, "andq", L, 2), \
-  OPCODE_DEF(I_OR, "orl", I, 2), \
-  OPCODE_DEF(L_OR, "orq", L, 2), \
-  OPCODE_DEF(I_XOR, "xorl", I, 2), \
-  OPCODE_DEF(L_XOR, "xorq", L, 2), \
-  OPCODE_DEF(I_CMP, "cmpl", I, 2), \
-  OPCODE_DEF(L_CMP, "cmpq", L, 2), \
-  OPCODE_DEF(F_CMP, "fcmp", F, 2), \
-  OPCODE_DEF(D_CMP, "dcmp", D, 2)
+  OPCODE_DEF(ADD, "add", I, 2), \
+  OPCODE_DEF(FADD, "fadd", F, 2), \
+  OPCODE_DEF(SUB, "sub", I, 2), \
+  OPCODE_DEF(FSUB, "fsub", F, 2), \
+  OPCODE_DEF(SMUL, "smul", I, 2), \
+  OPCODE_DEF(UMUL, "umul", I, 2), \
+  OPCODE_DEF(FMUL, "fmul", F, 2), \
+  OPCODE_DEF(SDIV, "sdiv", I, 2), \
+  OPCODE_DEF(UDIV, "udiv", L, 2), \
+  OPCODE_DEF(FDIV, "fdiv", F, 2), \
+  OPCODE_DEF(FMOD, "fmod", F, 2), \
+  OPCODE_DEF(SHR, "shr", L, 2), \
+  OPCODE_DEF(SAR, "sar", L, 2), \
+  OPCODE_DEF(SHL, "shl", L, 2), \
+  OPCODE_DEF(AND, "and", I, 2), \
+  OPCODE_DEF(OR, "or", I, 2), \
+  OPCODE_DEF(XOR, "xor", I, 2), \
+  OPCODE_DEF(CMP, "cmp", I, 2), \
+  OPCODE_DEF(FCMP, "fcmp", F, 2)
 
 enum Opcodes {
   #define OPCODE_DEF(m, _, __, ___) OP_##m
@@ -240,19 +223,20 @@ void emitMoveAR(struct _GeneratedFunction *f, Address* addr, enum Registers to, 
 void emitMoveRA(struct _GeneratedFunction *f, enum Registers from, Address* addr, size_t size);
 void emitMoveCR(struct _GeneratedFunction *f, intptr_t c, enum Registers to, size_t size);
 
-void emitArithRR(struct _GeneratedFunction *f, enum Opcodes opcode, enum Registers l, enum Registers r);
+void emitArithRR(struct _GeneratedFunction *f, enum Opcodes opcode, enum Registers l, enum Registers r, size_t size);
 void emitArithConst(struct _GeneratedFunction *f, enum Opcodes opcode, enum Registers r, int64_t c, size_t size);
 void emitArithAR(struct _GeneratedFunction *f, enum Opcodes opcode, enum Registers r, Address *addr, size_t size);
 void emitNot(struct _GeneratedFunction *f, enum Registers reg, size_t size);
+void emitNegR(struct _GeneratedFunction *f, enum Registers reg, size_t size);
+void emitNegA(struct _GeneratedFunction *f, Address *addr, size_t size);
 void emitZeroReg(struct _GeneratedFunction *f, enum Registers reg);
 
 void emitSetccR(struct _GeneratedFunction *f, enum JumpCondition cc, enum Registers reg);
 
 void emitTestRR(struct _GeneratedFunction *f, enum Registers l, enum Registers r, size_t s);
-void emitSar(struct _GeneratedFunction *f, enum Registers r, int s);
-void emitShr(struct _GeneratedFunction *f, enum Registers r, int s);
-void emitShl(struct _GeneratedFunction *f, enum Registers r, int s);
-void emitBitwiseNot(struct _GeneratedFunction *f, enum Registers reg);
+
+void emitBitwiseNotR(struct _GeneratedFunction *f, enum Registers reg, size_t size);
+void emitBitwiseNotA(struct _GeneratedFunction *f, Address *addr, size_t size);
 
 void emitJumpTo(struct _GeneratedFunction *f, struct Label *l);
 void emitJumpByReg(struct _GeneratedFunction *f, enum Registers reg);
@@ -266,12 +250,12 @@ void patchRefTo(struct _GeneratedFunction *f, ptrdiff_t literal_cp, ptrdiff_t la
 
 void emitMovxxRR(struct _GeneratedFunction *f, uint8_t opcode, enum Registers from, enum Registers to);
 void emitMovxxAR(struct _GeneratedFunction *f, uint8_t opcode, Address *from, enum Registers to);
-void emitConvertWDQ(struct _GeneratedFunction *f, uint8_t opSize);
+void emitConvertWDQ(struct _GeneratedFunction *f, uint8_t opcode, uint8_t opSize);
 void emitConvertFP(struct _GeneratedFunction *f, uint8_t prefix, uint8_t opcode, enum Registers from, enum Registers to, Boolean isW);
 
-void emitMovfpRR(struct _GeneratedFunction *f, enum Registers from, enum Registers to, Boolean isD);
-void emitMovfpRA(struct _GeneratedFunction *f, enum Registers from, Address *to, Boolean isD);
-void emitMovfpAR(struct _GeneratedFunction *f, Address *from, enum Registers to, Boolean isD);
+void emitMovfpRR(struct _GeneratedFunction *f, enum Registers from, enum Registers to, size_t size);
+void emitMovfpRA(struct _GeneratedFunction *f, enum Registers from, Address *to, size_t size);
+void emitMovfpAR(struct _GeneratedFunction *f, Address *from, enum Registers to, size_t size);
 
 void emitMovdq(struct _GeneratedFunction *f, uint8_t prefix, uint8_t opcode, uint8_t opcode2, enum Registers from, enum Registers to, Boolean isW);
 void emitCmovRR(struct _GeneratedFunction *f, enum JumpCondition cc, enum Registers from, enum Registers to, Boolean isW);

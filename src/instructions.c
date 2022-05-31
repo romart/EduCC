@@ -130,10 +130,10 @@ void emitMoveRR(GeneratedFunction *f, enum Registers from, enum Registers to, si
 }
 
 
-static void encodeAR(GeneratedFunction *f, Address *from, enum Registers to) {
+static void encodeAR(GeneratedFunction *f, Address *from, uint8_t regOp) {
   ModRM modrm = { 0 };
 
-  modrm.bits.regOp = register_encodings[to];
+  modrm.bits.regOp = regOp & 0x7;
 
   if (from->base == R_RIP) {
 
@@ -194,7 +194,7 @@ static void encodeAR(GeneratedFunction *f, Address *from, enum Registers to) {
       // [%reg + disp]
       enum Registers reg = from->base;
       int32_t disp = from->imm;
-      if ((uint32_t)(uint8_t)disp == disp) {
+      if ((int32_t)(int8_t)disp == disp) {
           modrm.bits.mod = 1;
       } else {
           modrm.bits.mod = 2;
@@ -265,7 +265,7 @@ void emitLea(GeneratedFunction *f, Address *from, enum Registers to) {
 
   emitByte(f, 0x8d);
 
-  encodeAR(f, from, to);
+  encodeAR(f, from, register_encodings[to]);
 }
 
 void emitMoveAR(GeneratedFunction *f, Address* addr, enum Registers to, size_t size) {
@@ -277,7 +277,7 @@ void emitMoveAR(GeneratedFunction *f, Address* addr, enum Registers to, size_t s
   uint8_t code = size == 1 ? 0x8A : 0x8B;
   emitByte(f, code);
 
-  encodeAR(f, addr, to);
+  encodeAR(f, addr, register_encodings[to]);
 }
 
 void emitMoveRA(GeneratedFunction *f, enum Registers from, Address* addr, size_t size) {
@@ -289,7 +289,7 @@ void emitMoveRA(GeneratedFunction *f, enum Registers from, Address* addr, size_t
   uint8_t code = size == 1 ? 0x88 : 0x89;
   emitByte(f, code);
 
-  encodeAR(f, addr, from);
+  encodeAR(f, addr, register_encodings[from]);
 }
 
 void emitMoveCR_Reloc(GeneratedFunction *f, Relocation *reloc, enum Registers reg) {
@@ -366,13 +366,15 @@ void emitSetccR(GeneratedFunction *f, enum JumpCondition cc, enum Registers reg)
   emitByte(f, rm.v);
 }
 
-static void emitSimpleArithRC(GeneratedFunction *f, uint8_t  opcode, uint8_t opcode8, uint8_t digit, enum Registers r, int64_t c, Boolean isW) {
-  emitRex(f, r, R_BAD, R_BAD, isW);
+static void emitSimpleArithRC(GeneratedFunction *f, uint8_t  opcode, uint8_t opcode8, uint8_t digit, enum Registers r, int64_t c, size_t size) {
 
+  if (size == 2) emitByte(f, 0x66);
+
+  emitRex(f, r, R_BAD, R_BAD, size == 8);
 
   ModRM rm = { 0 };
 
-  rm.bits.regOp = digit;
+  rm.bits.regOp = digit & 0x7;
   rm.bits.mod = 0b11;
   rm.bits.rm = register_encodings[r];
 
@@ -387,10 +389,12 @@ static void emitSimpleArithRC(GeneratedFunction *f, uint8_t  opcode, uint8_t opc
   }
 }
 
-void emitSimpleArithRR(GeneratedFunction *f, uint8_t code, enum Registers l, enum Registers r, Boolean isW) {
-  emitRex(f, r, l, R_BAD, isW);
+void emitSimpleArithRR(GeneratedFunction *f, uint8_t code, enum Registers l, enum Registers r, size_t size) {
+  if (size == 2) emitByte(f, 0x66);
 
-  emitByte(f, code);
+  emitRex(f, r, l, R_BAD, size == 8);
+
+  emitByte(f, size == 1 ? code - 1 : code);
 
   ModRM modrm = { 0 };
 
@@ -401,8 +405,34 @@ void emitSimpleArithRR(GeneratedFunction *f, uint8_t code, enum Registers l, enu
   emitByte(f, modrm.v);
 }
 
-void emitMul(GeneratedFunction *f, enum Registers l, enum Registers r, Boolean isW) {
-  emitRex(f, R_BAD, r, R_BAD, isW);
+void emitSimpleArithR(GeneratedFunction *f, uint8_t code, uint8_t digit, enum Registers r, size_t size) {
+  if (size == 2) emitByte(f, 0x66);
+  emitRex(f, R_BAD, r, R_BAD, size == 8);
+
+  emitByte(f, size == 1 ? code - 1 : code);
+
+  ModRM modrm = { 0 };
+  modrm.bits.mod = 0b11;
+  modrm.bits.rm = register_encodings[r];
+  modrm.bits.regOp = digit & 0x7;
+
+  emitByte(f, modrm.v);
+}
+
+void emitSimpleArithA(GeneratedFunction *f, uint8_t code, uint8_t digit, Address *addr, size_t size) {
+  if (size == 2) emitByte(f, 0x66);
+
+  emitRex(f, R_BAD, addr->base, addr->index, size == 8);
+
+  emitByte(f, size == 1 ? code - 1 : code);
+
+  encodeAR(f, addr, digit);
+}
+
+void emitSMulR(GeneratedFunction *f, enum Registers l, enum Registers r, size_t size) {
+  if (size == 2) emitByte(f, 0x66);
+
+  emitRex(f, R_BAD, r, R_BAD, size == 8);
 
   emitByte(f, 0x0F);
   emitByte(f, 0xAF);
@@ -416,53 +446,39 @@ void emitMul(GeneratedFunction *f, enum Registers l, enum Registers r, Boolean i
   emitByte(f, rm.v);
 }
 
-void emitDiv(GeneratedFunction *f, enum Registers l, enum Registers r, Boolean isW, Boolean isMod) {
-  if (l != R_EAX) {
-      emitMoveRR(f, l, R_EAX, isW ? 8 : 4);
-  }
-  emitMoveRR(f, R_EDX, R_R9, isW ? 8 : 4);
+void emitSMulAR(GeneratedFunction *f, Address *addr, enum Registers r, size_t size) {
+  if (size == 2) emitByte(f, 0x66);
 
-  emitArithRR(f, isW ? OP_L_XOR : OP_I_XOR, R_EDX, R_EDX);
+  emitRex(f, R_BAD, r, R_BAD, size == 8);
 
-  emitRex(f, R_BAD, r, R_BAD, isW);
-
-  emitByte(f, 0xF7);
+  emitByte(f, 0x0F);
+  emitByte(f, 0xAF);
 
   ModRM rm = { 0 };
 
-  rm.bits.regOp = 6;
-  rm.bits.mod = 0b11;
-  rm.bits.rm = register_encodings[r];
-
-  emitByte(f, rm.v);
-
-  if (isMod) {
-      emitMoveRR(f, R_EDX, R_EAX, isW ? 8 : 4);
-  }
-
-  emitMoveRR(f, R_R9, R_EDX, isW ? 8 : 4);
-
-
+  encodeAR(f, addr, register_encodings[r]);
 }
 
 void emitShiftRC(GeneratedFunction *f, uint8_t code, uint8_t digit, enum Registers r, int64_t c, Boolean isW) {
 
 }
 
-void emitShiftRR(GeneratedFunction *f, uint8_t code, uint8_t digit, enum Registers l, enum Registers r, Boolean isW) {
+void emitShiftRR(GeneratedFunction *f, uint8_t code, uint8_t digit, enum Registers l, enum Registers r, size_t size) {
 
   if (r != R_ECX) {
       emitPushReg(f, R_ECX);
-      emitMoveRR(f, r, R_ECX, isW ? 8 : 4);
+      emitMoveRR(f, r, R_ECX, size);
   }
 
-  emitRex(f, R_BAD, l, R_BAD, isW);
+  if (size == 2) emitByte(f, 0x66);
 
-  emitByte(f, code);
+  emitRex(f, R_BAD, l, R_BAD, size == 8);
+
+  emitByte(f, size == 1 ? code : code - 1);
 
   ModRM rm = { 0 };
 
-  rm.bits.regOp = digit;
+  rm.bits.regOp = digit & 7;
   rm.bits.mod = 0b11;
   rm.bits.rm = register_encodings[l];
 
@@ -498,72 +514,57 @@ void emitSimpleFPArightRA(GeneratedFunction *f, uint8_t prefix, uint8_t opcode1,
   emitByte(f, opcode1);
   emitByte(f, opcode2);
 
-  encodeAR(f, addr, r);
+  encodeAR(f, addr, register_encodings[r]);
 }
 
-static void emitSimpleArithAR(GeneratedFunction *f, uint8_t prefix, uint8_t code, uint8_t code2, enum Registers r, Address *addr, size_t size) {
-  if (prefix) emitByte(f, prefix);
+static void emitSimpleArithAR(GeneratedFunction *f, uint8_t code, int16_t code2, enum Registers r, Address *addr, size_t size) {
 
-  emitRex(f, r, addr->base, addr->scale, size > 4);
+  if (size == 2) emitByte(f, 0x66);
 
-  emitByte(f, code);
+  emitRex(f, r, addr->base, addr->scale, size == 8);
 
-  if (code2) emitByte(f, code2);
+  emitByte(f, size == 1 ? code - 1 : code);
 
-  encodeAR(f, addr, r);
+  if (code2 >= 0) emitByte(f, (uint8_t)code2);
+
+  encodeAR(f, addr, register_encodings[r]);
 }
 
-void emitSimpleFPArithAR(GeneratedFunction *f, uint8_t prefix, uint8_t opcode1, uint8_t opcode2, enum Registers r, Address *addr, Boolean isW) {
+static void emitSimpleFPArithAR(GeneratedFunction *f, uint8_t prefix, uint8_t opcode1, uint8_t opcode2, enum Registers r, Address *addr, size_t size) {
   emitByte(f, prefix);
 
-  emitRex(f, r, addr->base, addr->index, isW);
+  emitRex(f, r, addr->base, addr->index, size == 8);
 
   emitByte(f, opcode1);
   emitByte(f, opcode2);
 
-  encodeAR(f, addr, r);
+  encodeAR(f, addr, register_encodings[r]);
 }
 
 void emitArithAR(GeneratedFunction *f, enum Opcodes opcode, enum Registers r, Address *addr, size_t size) {
   switch (opcode) {
-    case OP_I_ADD: return emitSimpleArithAR(f, 0x00, 0x03, 0x00, r, addr, 4);
-    case OP_L_ADD: return emitSimpleArithAR(f, 0x00, 0x03, 0x00, r, addr, 8);
-    case OP_I_SUB: return emitSimpleArithAR(f, 0x00, 0x2B, 0x00, r, addr, 4);
-    case OP_L_SUB: return emitSimpleArithAR(f, 0x00, 0x2B, 0x00, r, addr, 8);
-    case OP_I_AND: return emitSimpleArithAR(f, 0x00, 0x23, 0x00, r, addr, 4);
-    case OP_L_AND: return emitSimpleArithAR(f, 0x00, 0x23, 0x00, r, addr, 8);
-    case OP_I_OR:  return emitSimpleArithAR(f, 0x00, 0x0B, 0x00, r, addr, 4);
-    case OP_L_OR:  return emitSimpleArithAR(f, 0x00, 0x0B, 0x00, r, addr, 8);
-    case OP_I_XOR: return emitSimpleArithAR(f, 0x00, 0x33, 0x00, r, addr, 4);
-    case OP_L_XOR: return emitSimpleArithAR(f, 0x00, 0x33, 0x00, r, addr, 8);
-    case OP_I_MUL: return emitSimpleArithAR(f, 0x00, 0x0F, 0xAF, r, addr, 4);
-    case OP_L_MUL: return emitSimpleArithAR(f, 0x00, 0x0F, 0xAF, r, addr, 8);
-    case OP_I_CMP: return emitSimpleArithAR(f, 0x00, 0x3B, 0x00, r, addr, 4);
-    case OP_L_CMP: return emitSimpleArithAR(f, 0x00, 0x3B, 0x00, r, addr, 8);
+    case OP_ADD: return emitSimpleArithAR(f, 0x03, -1, r, addr, size);
+    case OP_SUB: return emitSimpleArithAR(f, 0x2B, -1, r, addr, size);
+    case OP_AND: return emitSimpleArithAR(f, 0x23, -1, r, addr, size);
+    case OP_OR:  return emitSimpleArithAR(f, 0x0B, -1, r, addr, size);
+    case OP_XOR: return emitSimpleArithAR(f, 0x33, -1, r, addr, size);
+    case OP_CMP:  return emitSimpleArithAR(f, 0x3B, -1, r, addr, size);
+    case OP_SMUL: return emitSimpleArithAR(f, 0x0F, 0xAF, r, addr, size);
+    case OP_UMUL: assert(r == R_EAX); return emitSimpleArithA(f, 0xF7, 4, addr, size);
+    case OP_SDIV: return emitSimpleArithA(f, 0xF7, 7, addr, size);
+    case OP_UDIV: return emitSimpleArithA(f, 0xF7, 6, addr, size);
 
-    case OP_F_ADD: return emitSimpleFPArithAR(f, 0xF3, 0x0F, 0x58, r, addr, FALSE);
-    case OP_D_ADD: return emitSimpleFPArithAR(f, 0xF2, 0x0F, 0x58, r, addr, TRUE);
-    case OP_F_SUB: return emitSimpleFPArithAR(f, 0xF3, 0x0F, 0x5C, r, addr, FALSE);
-    case OP_D_SUB: return emitSimpleFPArithAR(f, 0xF2, 0x0F, 0x5C, r, addr, TRUE);
-    case OP_F_MUL: return emitSimpleFPArithAR(f, 0xF3, 0x0F, 0x59, r, addr, FALSE);
-    case OP_D_MUL: return emitSimpleFPArithAR(f, 0xF2, 0x0F, 0x59, r, addr, TRUE);
-    case OP_F_DIV: return emitSimpleFPArithAR(f, 0xF3, 0x0F, 0x5E, r, addr, FALSE);
-    case OP_D_DIV: return emitSimpleFPArithAR(f, 0xF2, 0x0F, 0x5E, r, addr, TRUE);
-    case OP_F_CMP: return emitSimpleFPArithAR(f, 0xF3, 0x0F, 0xC2, r, addr, FALSE);
-    case OP_D_CMP: return emitSimpleFPArithAR(f, 0xF2, 0x0F, 0xC2, r, addr, TRUE);
+    case OP_FADD: return emitSimpleFPArithAR(f, 0xF3, 0x0F, 0x58, r, addr, size);
+    case OP_FSUB: return emitSimpleFPArithAR(f, 0xF3, 0x0F, 0x5C, r, addr, size);
+    case OP_FMUL: return emitSimpleFPArithAR(f, 0xF3, 0x0F, 0x59, r, addr, size);
+    case OP_FDIV: return emitSimpleFPArithAR(f, 0xF3, 0x0F, 0x5E, r, addr, size);
+    case OP_FCMP: return emitSimpleFPArithAR(f, 0xF3, 0x0F, 0xC2, r, addr, size);
 
-    case OP_I_SHR:
-    case OP_L_SHR:
-    case OP_I_SAR:
-    case OP_L_SAR:
-    case OP_I_SHL:
-    case OP_L_SHL:
-    case OP_I_DIV:
-    case OP_L_DIV:
-    case OP_I_MOD:
-    case OP_L_MOD:
+    case OP_SHR:
+    case OP_SAR:
+    case OP_SHL:
       emitMoveAR(f, addr, R_R8, size);
-      emitArithRR(f, opcode, r, R_R8);
+      emitArithRR(f, opcode, r, R_R8, size);
       break;
     default:
       // TODO:
@@ -571,47 +572,30 @@ void emitArithAR(GeneratedFunction *f, enum Opcodes opcode, enum Registers r, Ad
   }
 }
 
-void emitArithRR(GeneratedFunction *f, enum Opcodes opcode, enum Registers l, enum Registers r) {
-  enum OpcWidth w = op_width[opcode];
-
+void emitArithRR(GeneratedFunction *f, enum Opcodes opcode, enum Registers l, enum Registers r, size_t size) {
   switch (opcode) {
-  case OP_I_ADD: return emitSimpleArithRR(f, 0x01, l, r, FALSE);
-  case OP_L_ADD: return emitSimpleArithRR(f, 0x01, l, r, TRUE);
-  case OP_I_SUB: return emitSimpleArithRR(f, 0x29, l, r, FALSE);
-  case OP_L_SUB: return emitSimpleArithRR(f, 0x29, l, r, TRUE);
-  case OP_I_AND: return emitSimpleArithRR(f, 0x21, l, r, FALSE);
-  case OP_L_AND: return emitSimpleArithRR(f, 0x21, l, r, TRUE);
-  case OP_I_OR:  return emitSimpleArithRR(f, 0x09, l, r, FALSE);
-  case OP_L_OR:  return emitSimpleArithRR(f, 0x09, l, r, TRUE);
-  case OP_I_XOR: return emitSimpleArithRR(f, 0x31, l, r, FALSE);
-  case OP_L_XOR: return emitSimpleArithRR(f, 0x31, l, r, TRUE);
-  case OP_I_MUL: return emitMul(f, l, r, FALSE);
-  case OP_L_MUL: return emitMul(f, l, r, TRUE);
-  case OP_I_DIV: return emitDiv(f, l, r, FALSE, FALSE);
-  case OP_L_DIV: return emitDiv(f, l, r, TRUE, FALSE);
-  case OP_I_MOD: return emitDiv(f, l, r, FALSE, TRUE);
-  case OP_L_MOD: return emitDiv(f, l, r, TRUE, TRUE);
-  case OP_I_SHR: return emitShiftRR(f, 0xD3, 5, l, r, FALSE);
-  case OP_L_SHR: return emitShiftRR(f, 0xD3, 5, l, r, TRUE);
-  case OP_I_SAR: return emitShiftRR(f, 0xD3, 7, l, r, FALSE);
-  case OP_L_SAR: return emitShiftRR(f, 0xD3, 7, l, r, TRUE);
-  case OP_I_SHL: return emitShiftRR(f, 0xD3, 4, l, r, FALSE);
-  case OP_L_SHL: return emitShiftRR(f, 0xD3, 4, l, r, TRUE);
-  case OP_I_CMP: return emitSimpleArithRR(f, 0x3B, l, r, FALSE);
-  case OP_L_CMP: return emitSimpleArithRR(f, 0x3B, l, r, TRUE);
+  case OP_ADD: return emitSimpleArithRR(f, 0x01, l, r, size);
+  case OP_SUB: return emitSimpleArithRR(f, 0x29, l, r, size);
+  case OP_AND: return emitSimpleArithRR(f, 0x21, l, r, size);
+  case OP_OR:  return emitSimpleArithRR(f, 0x09, l, r, size);
+  case OP_XOR: return emitSimpleArithRR(f, 0x31, l, r, size);
+  case OP_CMP: return emitSimpleArithRR(f, 0x39, l, r, size);
+
+  case OP_SMUL: return emitSMulR(f, l, r, size);
+  case OP_UMUL: assert(l == R_EAX); return emitSimpleArithR(f, 0xF7, 4, r, size);
+  case OP_SDIV: return emitSimpleArithR(f, 0xF7, 7, r, size);
+  case OP_UDIV: return emitSimpleArithR(f, 0xF7, 6, r, size);
+  case OP_SHR: return emitShiftRR(f, 0xD3, 5, l, r, size);
+  case OP_SAR: return emitShiftRR(f, 0xD3, 7, l, r, size);
+  case OP_SHL: return emitShiftRR(f, 0xD3, 4, l, r, size);
+
   // FP
-
-  case OP_F_ADD: return emitSimpleFPArithRR(f, 0xF3, 0x0F, 0x58, l, r);
-  case OP_D_ADD: return emitSimpleFPArithRR(f, 0xF2, 0x0F, 0x58, l, r);
-  case OP_F_SUB: return emitSimpleFPArithRR(f, 0xF3, 0x0F, 0x5C, l, r);
-  case OP_D_SUB: return emitSimpleFPArithRR(f, 0xF2, 0x0F, 0x5C, l, r);
-  case OP_F_MUL: return emitSimpleFPArithRR(f, 0xF3, 0x0F, 0x59, l, r);
-  case OP_D_MUL: return emitSimpleFPArithRR(f, 0xF2, 0x0F, 0x59, l, r);
-  case OP_F_DIV: return emitSimpleFPArithRR(f, 0xF3, 0x0F, 0x5E, l, r);
-  case OP_D_DIV: return emitSimpleFPArithRR(f, 0xF2, 0x0F, 0x5E, l, r);
-  case OP_F_CMP: return emitSimpleFPArithRR(f, 0xF3, 0x0F, 0xC2, l, r);
-  case OP_D_CMP: return emitSimpleFPArithRR(f, 0xF2, 0x0F, 0xC2, l, r);
-
+  case OP_FADD: return emitSimpleFPArithRR(f, size == 8 ? 0xF2 : 0xF3, 0x0F, 0x58, l, r);
+  case OP_FSUB: return emitSimpleFPArithRR(f, size == 8 ? 0xF2 : 0xF3, 0x0F, 0x5C, l, r);
+  case OP_FMUL: return emitSimpleFPArithRR(f, size == 8 ? 0xF2 : 0xF3, 0x0F, 0x59, l, r);
+  case OP_FDIV: return emitSimpleFPArithRR(f, size == 8 ? 0xF2 : 0xF3, 0x0F, 0x5E, l, r);
+  case OP_FMOD: unreachable("TODO");
+  case OP_FCMP: return emitSimpleFPArithRR(f, size == 8 ? 0xF2 : 0xF3, 0x0F, 0xC2, l, r);
 
   default: unreachable("unreachable");
     }
@@ -621,41 +605,30 @@ void emitArithRR(GeneratedFunction *f, enum Opcodes opcode, enum Registers l, en
 void emitArithConst(GeneratedFunction *f, enum Opcodes opcode, enum Registers r, int64_t c, size_t size) {
   if ((uint64_t)(uint32_t)c != (uint32_t)c) {
     emitMoveCR(f, c, R_R8, size);
-    emitArithRR(f, opcode, r, R_R8);
+    emitArithRR(f, opcode, r, R_R8, size);
   } else {
       switch (opcode) {
-      case OP_I_ADD: return emitSimpleArithRC(f, 0x81, 0x83, 0, r, c, FALSE);
-      case OP_L_ADD: return emitSimpleArithRC(f, 0x81, 0x83, 0, r, c, TRUE);
-      case OP_I_SUB: return emitSimpleArithRC(f, 0x81, 0x83, 5, r, c, FALSE);
-      case OP_L_SUB: return emitSimpleArithRC(f, 0x81, 0x83, 5, r, c, TRUE);
-      case OP_I_AND: return emitSimpleArithRC(f, 0x81, 0x83, 4, r, c, FALSE);
-      case OP_L_AND: return emitSimpleArithRC(f, 0x81, 0x83, 4, r, c, TRUE);
-      case OP_I_OR:  return emitSimpleArithRC(f, 0x81, 0x83, 1, r, c, FALSE);
-      case OP_L_OR:  return emitSimpleArithRC(f, 0x81, 0x83, 1, r, c, TRUE);
-      case OP_I_XOR: return emitSimpleArithRC(f, 0x81, 0x83, 6, r, c, FALSE);
-      case OP_L_XOR: return emitSimpleArithRC(f, 0x81, 0x83, 6, r, c, TRUE);
-      case OP_I_SHR: return emitSimpleArithRC(f, 0x00, 0xC1, 5, r, c, FALSE);
-      case OP_L_SHR: return emitSimpleArithRC(f, 0x00, 0xC1, 5, r, c, TRUE);
-      case OP_I_SAR: return emitSimpleArithRC(f, 0x00, 0xC1, 7, r, c, FALSE);
-      case OP_L_SAR: return emitSimpleArithRC(f, 0x00, 0xC1, 7, r, c, TRUE);
-      case OP_I_SHL: return emitSimpleArithRC(f, 0x00, 0xC1, 4, r, c, FALSE);
-      case OP_L_SHL: return emitSimpleArithRC(f, 0x00, 0xC1, 4, r, c, TRUE);
+      case OP_ADD: return emitSimpleArithRC(f, 0x81, 0x83, 0, r, c, size);
+      case OP_SUB: return emitSimpleArithRC(f, 0x81, 0x83, 5, r, c, size);
+      case OP_AND: return emitSimpleArithRC(f, 0x81, 0x83, 4, r, c, size);
+      case OP_OR:  return emitSimpleArithRC(f, 0x81, 0x83, 1, r, c, size);
+      case OP_XOR: return emitSimpleArithRC(f, 0x81, 0x83, 6, r, c, size);
+      case OP_SHR: return emitSimpleArithRC(f, 0x00, 0xC1, 5, r, c, size);
+      case OP_SAR: return emitSimpleArithRC(f, 0x00, 0xC1, 7, r, c, size);
+      case OP_SHL: return emitSimpleArithRC(f, 0x00, 0xC1, 4, r, c, size);
 //      case OP_I_SHR: return emitShiftRC(f, 0xD3, 5, r, c, FALSE);
 //      case OP_L_SHR: return emitShiftRC(f, 0xD3, 5, r, c, TRUE);
 //      case OP_I_SAR: return emitShiftRC(f, 0xD3, 7, r, c, FALSE);
 //      case OP_L_SAR: return emitShiftRC(f, 0xD3, 7, r, c, TRUE);
 //      case OP_I_SHL: return emitShiftRC(f, 0xD3, 4, r, c, FALSE);
 //      case OP_L_SHL: return emitShiftRC(f, 0xD3, 4, r, c, TRUE);
-      case OP_I_CMP: return emitSimpleArithRC(f, 0x81, 0x83, 7, r, c, FALSE);
-      case OP_L_CMP: return emitSimpleArithRC(f, 0x81, 0x83, 7, r, c, TRUE);
-      case OP_I_MUL:
-      case OP_L_MUL:
-      case OP_I_DIV:
-      case OP_L_DIV:
-      case OP_I_MOD:
-      case OP_L_MOD:
+      case OP_CMP: return emitSimpleArithRC(f, 0x81, 0x83, 7, r, c, size);
+      case OP_SMUL:
+      case OP_UMUL:
+      case OP_SDIV:
+      case OP_UDIV:
           emitMoveCR(f, c, R_R8, size);
-          emitArithRR(f, opcode, r, R_R8);
+          emitArithRR(f, opcode, r, R_R8, size);
           break;
       default: unreachable("unreachable");
         }
@@ -666,6 +639,15 @@ void emitNot(GeneratedFunction *f, enum Registers reg, size_t size) {
   emitTestRR(f, reg, reg, size);
   emitSetccR(f, JC_EQ, R_ACC);
   emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
+}
+
+void emitNegR(GeneratedFunction *f, enum Registers reg, size_t size) {
+  emitSimpleArithR(f, 0xF7, 3, reg, size);
+}
+
+
+void emitNegA(GeneratedFunction *f, Address *addr, size_t size) {
+  emitSimpleArithA(f, 0xF7, 3, addr, size);
 }
 
 void emitZeroReg(GeneratedFunction *f, enum Registers reg) {
@@ -701,6 +683,9 @@ static void emitShift(GeneratedFunction *f, uint8_t op1, uint8_t opImm, uint8_t 
 }
 
 void emitTestRR(GeneratedFunction *f, enum Registers l, enum Registers r, size_t s) {
+
+  if (s == 2) emitByte(f, 0x66);
+
   emitRex(f, r, l, R_BAD, s > sizeof(int32_t));
 
   emitByte(f, s == 1 ? 0x84 : 0x85);
@@ -726,29 +711,24 @@ void emitShl(GeneratedFunction *f, enum Registers r, int s) {
   emitShift(f, 0xD1, 0xC1, 4, r, s);
 }
 
-void emitBitwiseNot(GeneratedFunction *f, enum Registers reg) {
-  // not %rax
-  emitRex(f, reg, R_BAD, R_BAD, FALSE);
-
-  emitByte(f, 0xF7);
-
-  ModRM modrm = { 0 };
-  modrm.bits.mod = 0b11;
-  modrm.bits.regOp = 2;
-  modrm.bits.rm = register_encodings[reg];
-  emitByte(f, modrm.v);
+void emitBitwiseNotR(GeneratedFunction *f, enum Registers reg, size_t size) {
+  emitSimpleArithR(f, 0xF7, 2, reg, size);
 }
 
-void emitMovfpRR(GeneratedFunction *f, enum Registers from, enum Registers to, Boolean isD) {
-  emitSimpleFPArithRR(f, isD ? 0xF2 : 0xF3, 0x0F, 0x10, to, from);
+void emitBitwiseNotA(GeneratedFunction *f, Address *addr, size_t size) {
+  emitSimpleArithA(f, 0xF7, 2, addr, size);
 }
 
-void emitMovfpRA(GeneratedFunction *f, enum Registers from, Address *to, Boolean isD) {
-  emitSimpleFPArightRA(f, isD ? 0xF2 : 0xF3, 0x0F, 0x11, from, to);
+void emitMovfpRR(GeneratedFunction *f, enum Registers from, enum Registers to, size_t size) {
+  emitSimpleFPArithRR(f, size == 8 ? 0xF2 : 0xF3, 0x0F, 0x10, to, from);
 }
 
-void emitMovfpAR(GeneratedFunction *f, Address *from, enum Registers to, Boolean isD) {
-  emitSimpleFPArightRA(f, isD ? 0xF2 : 0xF3, 0x0F, 0x10, to, from);
+void emitMovfpRA(GeneratedFunction *f, enum Registers from, Address *to, size_t size) {
+  emitSimpleFPArightRA(f, size == 8 ? 0xF2 : 0xF3, 0x0F, 0x11, from, to);
+}
+
+void emitMovfpAR(GeneratedFunction *f, Address *from, enum Registers to, size_t size) {
+  emitSimpleFPArightRA(f, size == 8 ? 0xF2 : 0xF3, 0x0F, 0x10, to, from);
 }
 
 void emitMovxxRR(GeneratedFunction *f, uint8_t opcode, enum Registers from, enum Registers to) {
@@ -774,7 +754,7 @@ void emitMovxxAR(GeneratedFunction *f, uint8_t opcode, Address *from, enum Regis
 
   emitByte(f, opcode);
 
-  encodeAR(f, from, to);
+  encodeAR(f, from, register_encodings[to]);
 }
 
 void emitMovdq(GeneratedFunction *f, uint8_t prefix, uint8_t opcode, uint8_t opcode2, enum Registers r1, enum Registers r2, Boolean isW) {
@@ -794,14 +774,14 @@ void emitMovdq(GeneratedFunction *f, uint8_t prefix, uint8_t opcode, uint8_t opc
   emitByte(f, modrm.v);
 }
 
-void emitConvertWDQ(GeneratedFunction *f, uint8_t opSize) {
+void emitConvertWDQ(GeneratedFunction *f, uint8_t opcode, uint8_t opSize) {
   switch (opSize) {
-    case 16: emitByte(f, 0x66);
-    case 32: emitByte(f, 0x98);
+    case 2: emitByte(f, 0x66);
+    case 4: emitByte(f, opcode); //, 0x98);
       break;
-    case 64:
+    case 8:
       emitRex(f, R_BAD, R_BAD, R_BAD, TRUE);
-      emitByte(f, 0x98);
+      emitByte(f, opcode);//, 0x98);
       break;
     default:
       unreachable("Unexptected operand size");
@@ -826,8 +806,6 @@ void emitConvertFP(GeneratedFunction *f, uint8_t prefix, uint8_t opcode, enum Re
   emitByte(f, modrm.v);
 
 }
-
-
 
 static void emitByte_pc(address p, uint8_t b) {
    *(uint8_t*)p = b;

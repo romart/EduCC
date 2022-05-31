@@ -131,7 +131,7 @@ void emitPushRegF(GeneratedFunction *f, enum Registers r, Boolean isD) {
   addr.imm = -size;
 
   emitMovfpRA(f, r, &addr, TRUE);
-  emitArithConst(f, OP_L_SUB, R_ESP, size, size);
+  emitArithConst(f, OP_SUB, R_ESP, size, sizeof (intptr_t));
 }
 
 void emitPopRegF(GeneratedFunction *f, enum Registers r, Boolean isD) {
@@ -142,7 +142,7 @@ void emitPopRegF(GeneratedFunction *f, enum Registers r, Boolean isD) {
   addr.imm = 0;
 
   emitMovfpAR(f, &addr, r, TRUE);
-  emitArithConst(f, OP_L_ADD, R_ESP, size, size);
+  emitArithConst(f, OP_ADD, R_ESP, size, sizeof (intptr_t));
 }
 
 void emitByte(GeneratedFunction *f, uint8_t b) {
@@ -244,44 +244,25 @@ static enum Opcodes selectByType(TypeRef *type, enum Opcodes p, enum Opcodes f, 
 
 static enum Opcodes selectOpcode(ExpressionType astOp, TypeRef *type) {
   TypeId id = T_ERROR;
+
   switch (astOp) {
     case EB_ADD:
-      return selectByType(type, OP_L_ADD, OP_F_ADD, OP_D_ADD, OP_I_ADD, OP_L_ADD);
+      return isRealType(type) ? OP_FADD : OP_ADD;
     case EB_SUB:
-      return selectByType(type, OP_L_SUB, OP_F_SUB, OP_D_SUB, OP_I_SUB, OP_L_SUB);
+      return isRealType(type) ? OP_FSUB : OP_SUB;
     case EB_MUL:
-      return selectByType(type, OP_L_MUL, OP_F_MUL, OP_D_MUL, OP_I_MUL, OP_L_MUL);
+      return isRealType(type) ? OP_FMUL : OP_SMUL;
     case EB_MOD:
-      return selectByType(type, OP_L_MOD,  OP_F_MOD, OP_D_MOD, OP_I_MOD, OP_L_MOD);
+      assert(isRealType(type));
+      return OP_FMOD;
     case EB_DIV:
-      return selectByType(type, OP_L_DIV, OP_F_DIV, OP_D_DIV, OP_I_DIV, OP_L_DIV);
-    case EB_LHS:
-      assert(isIntegerType(type));
-      id = type->descriptorDesc->typeId;
-      return id == T_S8 || id == T_U8 ? OP_L_SHL : OP_I_SHL;
-    case EB_RHS:
-      assert(isIntegerType(type));
-      id = type->descriptorDesc->typeId;
-      switch (id) {
-        case T_U8: return OP_L_SHR;
-        case T_U4:
-        case T_U2:
-        case T_U1: return OP_I_SHR;
-        case T_S8: return OP_L_SAR;
-        default:  return OP_I_SAR;
-      }
-    case EB_AND:
-      assert(isIntegerType(type));
-      id = type->descriptorDesc->typeId;
-      return id == T_S8 || id == T_U8 ? OP_L_AND : OP_I_AND;
-    case EB_OR:
-      assert(isIntegerType(type));
-      id = type->descriptorDesc->typeId;
-      return id == T_S8 || id == T_U8 ? OP_L_OR : OP_I_OR;
-    case EB_XOR:
-      assert(isIntegerType(type));
-      id = type->descriptorDesc->typeId;
-      return id == T_S8 || id == T_U8 ? OP_L_XOR : OP_I_XOR;
+      assert(isRealType(type));
+      return OP_FDIV;
+    case EB_LHS: return OP_SHL;
+    case EB_RHS: return isUnsignedType(type) ? OP_SHR : OP_SAR;
+    case EB_AND: return OP_AND;
+    case EB_OR: return OP_OR;
+    case EB_XOR: return OP_XOR;
 
     default: unreachable("Unknown expression op");
   }
@@ -659,7 +640,7 @@ static void emitLocalInitializer(GenerationContext *ctx, GeneratedFunction *f, S
   size_t emitted = emitInitializerImpl(ctx, f, scope, typeSize, &addr, initializer);
 
   if (isStructualType(type) && emitted < typeSize) {
-    emitArithRR(f, OP_L_XOR, R_ACC, R_ACC);
+    emitArithRR(f, OP_XOR, R_ACC, R_ACC, sizeof (intptr_t));
     while (emitted < typeSize) {
       emitMoveRA(f, R_ACC, &addr, sizeof(intptr_t));
       addr.imm += sizeof(intptr_t);
@@ -896,7 +877,7 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
               unreachable("long double conversions are not implemented yet");
             }
         }
-        emitConvertWDQ(f, 32); // cwde
+        emitConvertWDQ(f, 0x98, 4); // cwde
     } else if (toTypeId == T_U2) {
         if (fromTypeId >= T_F4) {
             if (fromTypeId == T_F4) {
@@ -909,18 +890,19 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
         }
         emitMovxxRR(f, 0xB7, R_EAX, R_EAX); // movzx
     } else if (toTypeId == T_S4 || toTypeId == T_U4) {
-        if (fromTypeId >= T_F4) {
-            if (fromTypeId == T_F4) {
-              emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE); // cvttss2si eax,xmm0
-            } else if (fromTypeId == T_F8) {
-              emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE); // cvttsd2si eax,xmm0
-            } else {
-              unreachable("long double conversions are not implemented yet");
-            }
+        switch (fromTypeId) {
+        case T_S1: emitMovxxRR(f, 0xBE, R_EAX, R_EAX); break; // movsx
+        case T_U1: emitMovxxRR(f, 0xB6, R_EAX, R_EAX); break; // movzx
+        case T_S2: emitMovxxRR(f, 0xBF, R_EAX, R_EAX); break; // movsx
+        case T_U2: emitMovxxRR(f, 0xB7, R_EAX, R_EAX); break; // movzx
+        case T_F4: emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE); break;// cvttss2si eax,xmm0
+        case T_F8: emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE); break; // cvttsd2si eax,xmm0
+        case T_F10: unreachable("long double conversions are not implemented yet");
+        default: break;
         }
     } else if (toTypeId == T_S8 || toTypeId == T_U8) {
         if (fromTypeId < T_U4) {
-            emitConvertWDQ(f, 64); // cdqe
+            emitConvertWDQ(f, 0x98, 8); // cdqe
         } else if (fromTypeId >= T_F4) {
             if (toTypeId == T_S8) {
                 if (fromTypeId == T_F4) {
@@ -1008,13 +990,91 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
       if (isFP) {
         emitMovfpRR(f, R_FACC, R_FTMP, isD);
         emitPopRegF(f, R_FACC, isD);
-        emitArithRR(f, opcode, R_FACC, R_FTMP);
+        emitArithRR(f, opcode, R_FACC, R_FTMP, opSize);
       } else {
         emitMoveRR(f, R_ACC, R_TMP, opSize);
         emitPopReg(f, R_ACC);
-        emitArithRR(f, opcode, R_ACC, R_TMP);
+        emitArithRR(f, opcode, R_ACC, R_TMP, opSize);
       }
     }
+  }
+}
+
+static void generateMul(GenerationContext *ctx, GeneratedFunction *f, AstExpression *binOp, Scope *scope) {
+  TypeRef *type = binOp->type;
+  if (isRealType(type)) return generateBinary(ctx, f, binOp, scope);
+
+  Boolean isU = isUnsignedType(type);
+  size_t opSize = computeTypeSize(type);
+
+  generateExpression(ctx, f, scope, binOp->binaryExpr.left);
+
+  emitPushReg(f, R_ACC);
+
+  AstExpression *right = binOp->binaryExpr.right;
+
+  if (right->op == EU_DEREF) {
+      Address addr = { 0 };
+      translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
+      emitPopReg(f, R_ACC);
+      emitArithAR(f, isU ? OP_UMUL : OP_SMUL, R_ACC, &addr, opSize);
+  } else {
+      generateExpression(ctx, f, scope, right);
+      emitPopReg(f, R_TMP2);
+      emitArithRR(f, isU ? OP_UMUL : OP_SMUL, R_ACC, R_TMP2, opSize);
+  }
+}
+
+static void generateDiv(GenerationContext *ctx, GeneratedFunction *f, AstExpression *binOp, Scope *scope) {
+  TypeRef *type = binOp->type;
+  if (isRealType(type)) return generateBinary(ctx, f, binOp, scope);
+
+  Boolean isMod = binOp->op == EB_MOD;
+  size_t opSize = computeTypeSize(type);
+
+  Boolean isU = isUnsignedType(type);
+  AstExpression *left = binOp->binaryExpr.left;
+  Boolean isLU = isUnsignedType(left->type);
+
+  generateExpression(ctx, f, scope, left);
+
+  emitPushReg(f, R_ACC);
+
+  AstExpression *right = binOp->binaryExpr.right;
+  Boolean isRU = isUnsignedType(right->type);
+
+  enum Opcodes opcode;
+  if (right->op == EU_DEREF) {
+      Address addr = { 0 };
+      translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
+      emitPopReg(f, R_ACC);
+
+      if (isU) {
+        emitArithRR(f, OP_XOR, R_EDX, R_EDX, opSize);
+        opcode = OP_UDIV;
+      } else {
+        emitConvertWDQ(f, 0x99, opSize);
+        opcode = OP_SDIV;
+      }
+      emitArithAR(f, OP_SDIV, R_ACC, &addr, opSize);
+  } else {
+      generateExpression(ctx, f, scope, right);
+      emitMoveRR(f, R_ACC, R_TMP2, opSize);
+      emitPopReg(f, R_ACC);
+
+      if (isU) {
+        emitArithRR(f, OP_XOR, R_EDX, R_EDX, opSize);
+        opcode = OP_UDIV;
+      } else {
+        emitConvertWDQ(f, 0x99, opSize);
+        opcode = OP_SDIV;
+      }
+
+      emitArithRR(f, opcode, R_ACC, R_TMP2, opSize);
+  }
+
+  if (isMod) {
+      emitMoveRR(f, R_EDX, R_ACC, opSize);
   }
 }
 
@@ -1055,11 +1115,8 @@ static void loadBitField(GeneratedFunction *f, TypeRef *t, Address *addr, enum R
 
   Boolean isU = isUnsignedType(storageType);
 
-  enum Opcodes lshift = size > 4 ? OP_L_SHL : OP_I_SHL;
-  enum Opcodes rshift = size > 4 ? (isU ? OP_L_SHR : OP_L_SAR) : (isU ? OP_I_SHR : OP_I_SAR);
-
-  emitArithConst(f, lshift, to, l, size);
-  emitArithConst(f, rshift, to, r, size);
+  emitArithConst(f, OP_SHL, to, l, size);
+  emitArithConst(f, isU ? OP_SHR : OP_SAR, to, r, size);
 
   if (size < 4) {
       uint8_t opcode = 0;
@@ -1088,15 +1145,15 @@ static void storeBitField(GeneratedFunction *f, TypeRef *t, enum Registers from,
   emitLoad(f, addr, R_TMP, storageTypeId);
 
 
-  emitArithConst(f, size > 4 ? OP_L_AND : OP_I_AND, from, ~(~0LLu << w), size);
+  emitArithConst(f, OP_AND, from, ~(~0LLu << w), size);
   if (s != 0) {
     emitShl(f, from, s);
   }
 
   u_int64_t mask = ~(~(~0LLu << w) << s);
-  emitArithConst(f, size > 4 ? OP_L_AND : OP_I_AND, R_TMP, mask, size);
+  emitArithConst(f, OP_AND, R_TMP, mask, size);
 
-  emitArithRR(f, size > 4 ? OP_L_OR : OP_I_OR, R_TMP, from);
+  emitArithRR(f, OP_OR, R_TMP, from, size);
 
   emitStore(f, R_TMP, addr, storageTypeId);
 
@@ -1247,7 +1304,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
 
   if (rvalue->op == E_CALL && isStructualType(rType)) {
       stackPending = ALIGN_SIZE(typeSize, 2 * sizeof(intptr_t));
-      emitArithConst(f, OP_L_SUB, R_ESP, stackPending, sizeof(intptr_t));
+      emitArithConst(f, OP_SUB, R_ESP, stackPending, sizeof(intptr_t));
   }
 
 
@@ -1289,7 +1346,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
           if (isStructualType(lType)) {
             emitPopReg(f, R_TMP2); // load result
             if (stackPending) {
-                emitArithConst(f, OP_L_ADD, R_ESP, stackPending, sizeof(intptr_t));
+                emitArithConst(f, OP_ADD, R_ESP, stackPending, sizeof(intptr_t));
             }
 
             Address src = { 0 };
@@ -1349,7 +1406,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
         loadBitField(f, lType, &addr, R_ACC);
         emitPopReg(f, R_TMP);
 
-        emitArithRR(f, selectAssignOpcode(op, storageType), R_ACC, R_TMP);
+        emitArithRR(f, selectAssignOpcode(op, storageType), R_ACC, R_TMP, typeSize);
 
         storeBitField(f, lType, R_ACC, &addr);
 
@@ -1357,7 +1414,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
         if (isFP) {
             emitLoad(f, &addr, R_FACC, lTypeId);
             emitPopRegF(f, R_FTMP, isD);
-            emitArithRR(f, selectAssignOpcode(op, lType), R_FACC, R_FTMP);
+            emitArithRR(f, selectAssignOpcode(op, lType), R_FACC, R_FTMP, typeSize);
             emitStore(f, R_FACC, &addr, rTypeId);
         } else {
             if (addr.reloc) {
@@ -1366,7 +1423,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
             }
             emitLoad(f, &addr, R_TMP, lTypeId);
             emitPopReg(f, R_TMP2);
-            emitArithRR(f, selectAssignOpcode(op, lType), R_TMP, R_TMP2);
+            emitArithRR(f, selectAssignOpcode(op, lType), R_TMP, R_TMP2, typeSize);
             emitStore(f, R_TMP, &addr, rTypeId);
             emitMoveRR(f, R_TMP, R_ACC, typeSize);
         }
@@ -1374,13 +1431,97 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
   }
 }
 
+
+static void generateAssignDiv(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
+  assert(expression->op == EB_ASG_DIV || EB_ASG_MOD);
+
+  TypeRef *type = expression->type;
+
+  if (isRealType(type)) return generateAssign(ctx, f, scope, expression);
+
+  AstExpression *lvalue = expression->binaryExpr.left;
+  AstExpression *rvalue = expression->binaryExpr.right;
+
+  generateExpression(ctx, f, scope, rvalue);
+
+  emitPushReg(f, R_ACC);
+
+  TypeRef *lType = lvalue->type;
+  TypeRef *rType = rvalue->type;
+  Address addr = { 0 };
+
+  AstExpression *addrExpr = lvalue;
+  Boolean saved_acc = FALSE;
+  TypeId lTypeId = typeToId(lType);
+  TypeId rTypeId = typeToId(rType);
+
+  size_t typeSize = computeTypeSize(type);
+  Boolean isU = isUnsignedType(type);
+
+  if (rvalue->op == EU_DEREF) {
+      translateAddress(ctx, f, scope, rvalue->unaryExpr.argument, &addr);
+  } else {
+      // TODO: probably it's illegal
+      translateAddress(ctx, f, scope, rvalue, &addr);
+  }
+
+  enum Opcodes opcode;
+  if (lType->kind == TR_BITFIELD) {
+      TypeRef *storageType = lType->bitFieldDesc.storageType;
+
+      loadBitField(f, lType, &addr, R_ACC);
+      emitPopReg(f, R_TMP);
+
+      if (isU) {
+        emitArithRR(f, OP_XOR, R_EDX, R_EDX, typeSize);
+        opcode = OP_UDIV;
+      } else {
+        emitConvertWDQ(f, 0x99, typeSize);
+        opcode = OP_SDIV;
+      }
+
+      emitArithRR(f, opcode, R_ACC, R_TMP2, typeSize);
+
+      enum Registers result = R_ACC;
+
+      if (expression->op == EB_ASG_MOD) {
+          emitMoveRR(f, R_EDX, R_ACC, typeSize);
+          result = R_EDX;
+      }
+
+      storeBitField(f, lType, result, &addr);
+  } else {
+      emitLoad(f, &addr, R_ACC, rTypeId);
+      emitPopReg(f, R_TMP2);
+
+      if (isU) {
+        emitArithRR(f, OP_XOR, R_EDX, R_EDX, typeSize);
+        opcode = OP_UDIV;
+      } else {
+        emitConvertWDQ(f, 0x99, typeSize);
+        opcode = OP_SDIV;
+      }
+
+      emitArithRR(f, opcode, R_ACC, R_TMP2, typeSize);
+
+      enum Registers result = R_ACC;
+
+      if (expression->op == EB_ASG_MOD) {
+          emitMoveRR(f, R_EDX, R_ACC, typeSize);
+          result = R_EDX;
+      }
+
+      emitStore(f, result, &addr, rTypeId);
+  }
+}
+
 static enum Opcodes selectIncDecOpcode(ExpressionType astOp, TypeRef *type) {
   size_t size = computeTypeSize(type);
   if (astOp == EU_POST_DEC || astOp == EU_PRE_DEC) {
-      return size > 4 ? OP_L_SUB : OP_L_SUB;
+      return OP_SUB;
   } else {
       assert(astOp == EU_POST_INC || astOp == EU_PRE_INC);
-      return size > 4 ? OP_L_ADD : OP_L_ADD;
+      return OP_ADD;
   }
 }
 
@@ -1519,7 +1660,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   unsigned totalRegArg = intRegArgs + fpRegArgs;
 
   if (alignedStackSize)
-    emitArithConst(f, OP_L_SUB, R_ESP, alignedStackSize, sizeof(intptr_t));
+    emitArithConst(f, OP_SUB, R_ESP, alignedStackSize, sizeof(intptr_t));
 
   while (args) {
     AstExpression *arg = args->expression;
@@ -1615,7 +1756,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   if (fpRegArgs) {
     emitMoveCR(f, fpRegArgs, R_ACC, sizeof(int32_t));
   } else {
-    emitArithRR(f, OP_L_XOR, R_ACC, R_ACC);
+    emitArithRR(f, OP_XOR, R_ACC, R_ACC, sizeof(int64_t));
   }
 
   if (callee->op == E_NAMEREF) {
@@ -1634,7 +1775,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   }
 
   if (alignedStackSize) {
-    emitArithConst(f, OP_L_ADD, R_ESP, alignedStackSize, sizeof(intptr_t));
+    emitArithConst(f, OP_ADD, R_ESP, alignedStackSize, sizeof(intptr_t));
   }
 }
 
@@ -1684,15 +1825,17 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
       break;
     case EB_ADD:
     case EB_SUB:
-    case EB_MUL:
-    case EB_DIV:
-    case EB_MOD:
     case EB_LHS: /** << */
     case EB_RHS: /** >> */
     case EB_AND:
     case EB_OR:
     case EB_XOR:
+    case EB_MUL:
       generateBinary(ctx, f, expression, scope);
+      break;
+    case EB_DIV:
+    case EB_MOD:
+      generateDiv(ctx, f, expression, scope);
       break;
     case EB_ANDAND:
     case EB_OROR:
@@ -1711,8 +1854,6 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
       break;
     case EB_ASSIGN:
     case EB_ASG_MUL:
-    case EB_ASG_DIV:
-    case EB_ASG_MOD:
     case EB_ASG_ADD:
     case EB_ASG_SUB:
     case EB_ASG_SHL:
@@ -1722,6 +1863,10 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
     case EB_ASG_OR:
       generateAssign(ctx, f, scope, expression);
       // TODO:
+      break;
+    case EB_ASG_DIV:
+    case EB_ASG_MOD:
+      generateAssignDiv(ctx, f, scope, expression);
       break;
     case EB_COMMA:
       generateExpression(ctx, f, scope, expression->binaryExpr.left);
@@ -1739,19 +1884,19 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
       generateExpression(ctx, f, scope, expression->unaryExpr.argument);
       break;
     case EU_MINUS:
-      generateExpression(ctx, f, scope, expression->unaryExpr.argument);
       // TODO: fp
+      generateExpression(ctx, f, scope, expression->unaryExpr.argument);
       if (isRealType(expression->type)) {
           switch (expression->type->descriptorDesc->typeId) {
            case T_F4:
               emitMovdq(f, 0x66, 0x0F, 0x7E, R_ACC, R_FACC, FALSE);
-              emitArithConst(f, OP_I_XOR, R_ACC, 1U << 31, typeSize);
+              emitArithConst(f, OP_XOR, R_ACC, 1U << 31, typeSize);
               emitMovdq(f, 0x66, 0x0F, 0x6E, R_ACC, R_FACC, FALSE);
               break;
            case T_F8:
               emitMovdq(f, 0x66, 0x0F, 0x7E, R_ACC, R_FACC, TRUE);
               emitMoveCR(f, 1ULL << 63, R_TMP, typeSize);
-              emitArithRR(f, OP_I_XOR, R_ACC, R_TMP);
+              emitArithRR(f, OP_XOR, R_ACC, R_TMP, typeSize);
               emitMovdq(f, 0x66, 0x0F, 0x6E, R_ACC, R_FACC, TRUE);
               break;
            case T_F10:
@@ -1760,14 +1905,12 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
               unreachable("unexpected FP type");
             }
       } else {
-        emitMoveRR(f, R_ACC, R_TMP, typeSize);
-        emitZeroReg(f, R_ACC);
-        emitArithRR(f, selectOpcode(EB_SUB, expression->type), R_ACC, R_TMP);
+          emitNegR(f, R_ACC, typeSize);
       }
       break;
     case EU_TILDA:
       generateExpression(ctx, f, scope, expression->unaryExpr.argument);
-      emitBitwiseNot(f, R_ACC);
+      emitBitwiseNotR(f, R_ACC, computeTypeSize(expression->type));
       break;
     case EU_EXL:
       generateExpression(ctx, f, scope, expression->unaryExpr.argument);
@@ -1775,7 +1918,8 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
       break;
     case EU_POST_INC:
     case EU_POST_DEC:
-      generatePostIncDec(ctx, f, scope, expression);
+      unreachable("Has to be lowered before");
+//      generatePostIncDec(ctx, f, scope, expression);
       break;
 
     case E_LABEL_REF: {
@@ -1930,14 +2074,14 @@ static int generateSwitchStatement(GenerationContext *ctx, GeneratedFunction *f,
 
   size_t condTypeSize = computeTypeSize(condition->type);
 
-  const enum Opcodes cmpOpcode = condTypeSize == 8 ? OP_L_CMP : OP_I_CMP;
+//  const enum Opcodes cmpOpcode = condTypeSize == 8 ? OP_L_CMP : OP_I_CMP;
 
   int i;
 
   for (i = 0; i < visited; ++i) {
       int64_t caseConst = caseLabels[i].caseConst;
       struct Label *caseLabel = &caseLabels[i].label;
-      emitArithConst(f, cmpOpcode, R_ACC, caseConst, condTypeSize);
+      emitArithConst(f, OP_CMP, R_ACC, caseConst, condTypeSize);
       emitCondJump(f, caseLabel, JC_EQ);
   }
 
@@ -1982,12 +2126,13 @@ static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFun
       TypeRef *lType = left->type;
       if (lType->kind == TR_BITFIELD) lType = lType->bitFieldDesc.storageType;
 
-      enum Opcodes opcode = selectByType(lType, OP_L_CMP, OP_F_CMP, OP_D_CMP, OP_I_CMP, OP_L_CMP);
 
-      if (right->op == E_CONST) {
+      if (right->op == E_CONST && !isFP) {
           uint64_t cnst = right->constExpr.i;
-          emitArithConst(f, opcode, isFP ? R_FACC : R_ACC, cnst, opSize);
+          emitArithConst(f, OP_CMP, R_ACC, cnst, opSize);
       } else {
+          enum Opcodes opcode = isFP ? OP_FCMP : OP_CMP;
+
           if (isFP)
             emitPushRegF(f, R_FACC, isD);
           else
@@ -2010,7 +2155,7 @@ static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFun
               else
                 emitPopReg(f, R_TMP);
 
-              emitArithRR(f, opcode, isFP ? R_FACC : R_ACC, isFP ? R_FTMP : R_TMP);
+              emitArithRR(f, opcode, isFP ? R_FACC : R_ACC, isFP ? R_FTMP : R_TMP, opSize);
           }
 
       }
@@ -2270,7 +2415,7 @@ static void popCalleSaveRegisters(GeneratedFunction *f) {
 
   int32_t baseOffset = f->savedRegOffset;
   emitMoveRR(f, R_EBP, R_ESP, sizeof(intptr_t));
-  emitArithConst(f, OP_L_SUB, R_ESP, -baseOffset, sizeof(intptr_t));
+  emitArithConst(f, OP_SUB, R_ESP, -baseOffset, sizeof(intptr_t));
 
   unsigned count = sizeof calleeSave / sizeof calleeSave[0];
   int32_t i = 0;
@@ -2367,7 +2512,7 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
       gp->baseOffset = -baseOffset;
   }
 
-  emitArithRR(g, OP_L_XOR, R_ACC, R_ACC);
+  emitArithRR(g, OP_XOR, R_ACC, R_ACC, sizeof(intptr_t));
   addr.imm = allocaOffset;
   emitMoveRA(g, R_ACC, &addr, sizeof(intptr_t));
 
@@ -2400,7 +2545,7 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
   size_t delta = frameSize + gen->savedRegOffset;
 
   if (frameSize)
-    emitArithConst(gen, OP_L_SUB, R_ESP, delta, sizeof(intptr_t));
+    emitArithConst(gen, OP_SUB, R_ESP, delta, sizeof(intptr_t));
 
   generateBlock(ctx, gen, &f->body->block, 0);
 
