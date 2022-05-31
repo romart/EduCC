@@ -2266,7 +2266,11 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         consume(ctx, ';');
         stmt = createJumpStatement(ctx, &coords, SK_RETURN);
         if (expr) {
-          isAssignableTypes(ctx, &coords, ctx->functionReturnType, expr->type, expr, FALSE);
+          if (isAssignableTypes(ctx, &coords, ctx->functionReturnType, expr->type, expr, FALSE)) {
+            if (!typesEquals(ctx->functionReturnType, expr->type)) {
+                expr = createCastExpression(ctx, &coords, ctx->functionReturnType, expr);
+            }
+          }
         }
         stmt->jumpStmt.expression = expr;
         return stmt;

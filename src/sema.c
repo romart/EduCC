@@ -1042,7 +1042,11 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *ele
             reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, coords);
         }
         if (!(isStructualType(elementType) && isIntegerType(expr->type))) { // array initializer like `struct S as[] = { 0 }` is totally acceptable
-          isAssignableTypes(ctx, coords, elementType, expr->type, expr, TRUE);
+          if (isAssignableTypes(ctx, coords, elementType, expr->type, expr, TRUE)) {
+              if (!typesEquals(expr->type, elementType)) {
+                  initializer->expression = createCastExpression(ctx, &expr->coordinates, elementType, expr);
+              }
+          }
         }
       } else {
         initializer->expression = createErrorExpression(ctx, coords);
@@ -1106,7 +1110,11 @@ static AstInitializer *finalizeStructMember(ParserContext *ctx, AstStructMember 
         if (isTopLevel && !isCompileTimeConstant(expr)) {
             reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, coords);
         }
-        isAssignableTypes(ctx, coords, memberType, expr->type, expr, TRUE);
+        if (isAssignableTypes(ctx, coords, memberType, expr->type, expr, TRUE)) {
+            if (!typesEquals(expr->type, memberType)) {
+                initializer->expression = createCastExpression(ctx, &expr->coordinates, memberType, expr);
+            }
+        }
       } else {
         initializer->expression = createErrorExpression(ctx, coords);
       }
@@ -1211,9 +1219,10 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
         if (isTopLevel && !isCompileTimeConstant(expr)) {
             reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, coords);
         }
-        isAssignableTypes(ctx, coords, valueType, expr->type, expr, TRUE);
-        if (!typesEquals(valueType, expr->type)) {
-            initializer->expression = createCastExpression(ctx, &expr->coordinates, valueType, parenIfNeeded(ctx, expr));
+        if (isAssignableTypes(ctx, coords, valueType, expr->type, expr, TRUE)) {
+          if (!typesEquals(valueType, expr->type)) {
+              initializer->expression = createCastExpression(ctx, &expr->coordinates, valueType, parenIfNeeded(ctx, expr));
+          }
         }
 
         initializer->slotType = valueType;
@@ -1446,7 +1455,7 @@ void verifyAndTransformCallAruments(ParserContext *ctx, Coordinates *coords, Typ
       TypeRef *aType = arg->type;
       TypeRef *pType = param->type;
       if (isAssignableTypes(ctx, &arg->coordinates, pType, aType, arg, FALSE)) {
-          if (!typeEquality(pType, aType)) {
+          if (!typesEquals(pType, aType)) {
               argument->expression = createCastExpression(ctx, coords, pType, parenIfNeeded(ctx, arg));
           }
           argument = argument->next;
