@@ -47,6 +47,8 @@ typedef struct _GeneratedFunction {
   int32_t returnStructAddressOffset;
   int32_t savedRegOffset;
 
+  int32_t stackOffset;
+
   size_t bodySize;
 
   Section *section;

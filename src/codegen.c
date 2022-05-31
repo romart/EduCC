@@ -130,7 +130,9 @@ void emitPushRegF(GeneratedFunction *f, enum Registers r, Boolean isD) {
   addr.index = R_BAD;
   addr.imm = -size;
 
-  emitMovfpRA(f, r, &addr, TRUE);
+  f->stackOffset += size;
+
+  emitMovfpRA(f, r, &addr, size);
   emitArithConst(f, OP_SUB, R_ESP, size, sizeof (intptr_t));
 }
 
@@ -141,7 +143,9 @@ void emitPopRegF(GeneratedFunction *f, enum Registers r, Boolean isD) {
   addr.index = R_BAD;
   addr.imm = 0;
 
-  emitMovfpAR(f, &addr, r, TRUE);
+  f->stackOffset -= size;
+
+  emitMovfpAR(f, &addr, r, size);
   emitArithConst(f, OP_ADD, R_ESP, size, sizeof (intptr_t));
 }
 
@@ -462,7 +466,7 @@ static void emitConst(GenerationContext *ctx, GeneratedFunction *f, AstConst *_c
         Address addr = { 0 };
 
         emitFloatConst(ctx, f, _const, size, &addr);
-        emitMovfpAR(f, &addr, R_FACC, size > 4);
+        emitMovfpAR(f, &addr, R_FACC, size);
 
         break;
       }
@@ -537,8 +541,8 @@ static void emitLoad(GeneratedFunction *f, Address *from, enum Registers to, Typ
   case T_U2: emitMovxxAR(f, 0xB6, from, to); break;
   case T_U4: emitMoveAR(f, from, to, sizeof(uint32_t)); break;
   case T_U8: emitMoveAR(f, from, to, sizeof(uint64_t)); break;
-  case T_F4: emitMovfpAR(f, from, to, FALSE); break;
-  case T_F8: emitMovfpAR(f, from, to, TRUE); break;
+  case T_F4: emitMovfpAR(f, from, to, sizeof(float)); break;
+  case T_F8: emitMovfpAR(f, from, to, sizeof(double)); break;
   case T_F10: unreachable("long double is not supported yet");
   default: unreachable("Unknown memory slot type");
   }
@@ -554,8 +558,8 @@ static void emitStore(GeneratedFunction *f, enum Registers from, Address *to, Ty
   case T_U4: emitMoveRA(f, from, to, sizeof(uint32_t)); break;
   case T_S8:
   case T_U8: emitMoveRA(f, from, to, sizeof(uint64_t)); break;
-  case T_F4: emitMovfpRA(f, from, to, FALSE); break;
-  case T_F8: emitMovfpRA(f, from, to, TRUE); break;
+  case T_F4: emitMovfpRA(f, from, to, sizeof(float)); break;
+  case T_F8: emitMovfpRA(f, from, to, sizeof(double)); break;
   case T_F10: unreachable("long double is not supported yet");
   default: unreachable("Unknown memory slot type");
   }
@@ -601,7 +605,7 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
       if ((offset + slotSize) <= typeSize) {
         if (isRealType(slotType)) {
             Boolean isD = slotSize > sizeof(float);
-            emitMovfpRA(f, R_FACC, &addr, isD);
+            emitMovfpRA(f, R_FACC, &addr, slotSize);
         } else if (isStructualType(slotType)) {
             Address src = { R_ACC, R_BAD, 0, 0 };
             copyStructTo(f, expr->type, &src, &addr);
@@ -640,12 +644,20 @@ static void emitLocalInitializer(GenerationContext *ctx, GeneratedFunction *f, S
   size_t emitted = emitInitializerImpl(ctx, f, scope, typeSize, &addr, initializer);
 
   if (isStructualType(type) && emitted < typeSize) {
-    emitArithRR(f, OP_XOR, R_ACC, R_ACC, sizeof (intptr_t));
-    while (emitted < typeSize) {
-      emitMoveRA(f, R_ACC, &addr, sizeof(intptr_t));
-      addr.imm += sizeof(intptr_t);
-      emitted += sizeof(intptr_t);
-    }
+      addr.imm += emitted;
+      emitArithRR(f, OP_XOR, R_ACC, R_ACC, sizeof (intptr_t));
+      int32_t delta1 = ALIGN_SIZE(emitted, sizeof (intptr_t));
+      while (emitted < delta1 && emitted < typeSize) {
+          emitMoveRA(f, R_ACC, &addr, sizeof(uint8_t));
+          addr.imm += sizeof(uint8_t);
+          emitted += sizeof(uint8_t);
+      }
+
+      while (emitted < typeSize) {
+        emitMoveRA(f, R_ACC, &addr, sizeof(intptr_t));
+        addr.imm += sizeof(intptr_t);
+        emitted += sizeof(intptr_t);
+      }
   }
 }
 
@@ -983,7 +995,7 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
         emitPopReg(f, R_ACC); // save result
       }
 
-      emitArithAR(f, opcode, isFP ? R_FACC : R_ACC, &addr, max(4, computeTypeSize(binOp->type)));
+      emitArithAR(f, opcode, isFP ? R_FACC : R_ACC, &addr, opSize);
     } else {
       generateExpression(ctx, f, scope, right);
 
@@ -997,31 +1009,6 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
         emitArithRR(f, opcode, R_ACC, R_TMP, opSize);
       }
     }
-  }
-}
-
-static void generateMul(GenerationContext *ctx, GeneratedFunction *f, AstExpression *binOp, Scope *scope) {
-  TypeRef *type = binOp->type;
-  if (isRealType(type)) return generateBinary(ctx, f, binOp, scope);
-
-  Boolean isU = isUnsignedType(type);
-  size_t opSize = computeTypeSize(type);
-
-  generateExpression(ctx, f, scope, binOp->binaryExpr.left);
-
-  emitPushReg(f, R_ACC);
-
-  AstExpression *right = binOp->binaryExpr.right;
-
-  if (right->op == EU_DEREF) {
-      Address addr = { 0 };
-      translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
-      emitPopReg(f, R_ACC);
-      emitArithAR(f, isU ? OP_UMUL : OP_SMUL, R_ACC, &addr, opSize);
-  } else {
-      generateExpression(ctx, f, scope, right);
-      emitPopReg(f, R_TMP2);
-      emitArithRR(f, isU ? OP_UMUL : OP_SMUL, R_ACC, R_TMP2, opSize);
   }
 }
 
@@ -1526,62 +1513,6 @@ static enum Opcodes selectIncDecOpcode(ExpressionType astOp, TypeRef *type) {
 }
 
 
-static void generatePostIncDec(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
-  // i++
-  // ==>
-  // i -> r_acc
-  // r_tmp -> r_acc +/- 1
-  // r_tmp -> i
-
-  TypeRef *type = expression->type;
-
-  Address addr = { 0 };
-  size_t typeSize = computeTypeSize(type);
-  int64_t disp = type->kind == TR_POINTED ? computeTypeSize(type->pointedTo.toType) : 1;
-  enum Opcodes opcode = selectIncDecOpcode(expression->op, type);
-
-  if (type->kind == TR_BITFIELD) {
-    AstExpression *lvalue = expression->unaryExpr.argument;
-
-    translateAddress(ctx, f, scope, lvalue->fieldExpr.recevier, &addr);
-
-    assert(lvalue->op == EF_ARROW || lvalue->op == EF_DOT);
-    AstStructDeclarator *decl = lvalue->fieldExpr.member;
-
-    addr.imm += decl->offset;
-    emitLea(f, &addr, R_EBX);
-
-    addr.base = R_EBX;
-    addr.index = R_BAD;
-    addr.imm = 0;
-
-    loadBitField(f, type, &addr, R_ACC);
-    emitPushReg(f, R_ACC);
-    emitArithConst(f, opcode, R_ACC, disp, typeSize);
-    storeBitField(f, type, R_ACC, &addr);
-
-    emitPopReg(f, R_ACC);
-  } else {
-    AstExpression *argument = expression->unaryExpr.argument;
-
-    translateAddress(ctx, f, scope, argument->op == EU_DEREF ? argument->unaryExpr.argument : argument, &addr);
-    emitLea(f, &addr, R_EBX);
-
-    addr.base = R_EBX;
-    addr.index = R_BAD;
-    addr.imm = 0;
-
-    TypeId tid = typeToId(type);
-
-    emitLoad(f, &addr, R_ACC, tid);
-
-    emitMoveRR(f, R_ACC, R_TMP, typeSize);
-    emitArithConst(f, opcode, R_TMP, disp, typeSize);
-
-    emitStore(f, R_TMP, &addr, tid);
-  }
-
-}
 
 static const enum Registers intArgumentRegs[] = { R_ARG_0, R_ARG_1, R_ARG_2, R_ARG_3, R_ARG_4, R_ARG_5 };
 static const enum Registers fpArgumentRegs[] = { R_XMM0, R_XMM1, R_XMM2, R_XMM3, R_XMM4, R_XMM5, R_XMM6, R_XMM7 };
@@ -1602,7 +1533,6 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   int r_offsets[R_PARAM_COUNT + R_FP_PARAM_COUNT] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
   TypeRef *r_types[R_PARAM_COUNT + R_FP_PARAM_COUNT] = { NULL };
 
-
   unsigned frameOffset = f->frameSize; //ALIGN_SIZE(f->frameOffset + f->localsSize + f->argsSize, sizeof(intptr_t));
   assert(ALIGN_SIZE(frameOffset, 16) == frameOffset);
 
@@ -1618,20 +1548,22 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   unsigned intRegArgs = 0;
   unsigned fpRegArgs = 0;
 
+  unsigned argsCount = 0;
+  AstExpressionList *tmp = args;
+
+  for (; tmp; tmp = tmp->next) ++argsCount;
+
+  int32_t *offsets = alloca(argsCount * sizeof (int32_t));
+
   if (isStructualType(returnType)) {
       returnTypeSize = computeTypeSize(returnType);
-      offset = returnTypeSize;
-      r_offsets[idx] = offset;
-      r_types[idx] = returnType;
       intRegArgs = firstIntRegArg = 1;
   }
-
-  AstExpressionList *tmp = args;
 
   unsigned count = 0;
   unsigned stackArgSize = returnTypeSize;
 
-  while (tmp) {
+  for (tmp = args; tmp; tmp = tmp->next) {
       args = tmp;
 
       TypeRef *t = tmp->expression->type;
@@ -1640,18 +1572,25 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
 
       ++count;
 
-      if (isRealType(t) && fpRegArgs < R_FP_PARAM_COUNT) {
-        ++fpRegArgs;
-        lastFpRegArg = count;
-      } else if (!isStructualType(t) && intRegArgs < R_PARAM_COUNT) {
-        ++intRegArgs;
-        lastIntRegArg = count;
-      } else {
-        stackArgSize += argSize;
+      if (isRealType(t)) {
+        if (fpRegArgs < R_FP_PARAM_COUNT) {
+          ++fpRegArgs;
+          lastFpRegArg = count;
+          continue;
+        }
+      } else if (!isStructualType(t)) {
+        if (intRegArgs < R_PARAM_COUNT) {
+          ++intRegArgs;
+          lastIntRegArg = count;
+          continue;
+        }
       }
 
-      tmp = tmp->next;
+      stackArgSize = ALIGN_SIZE(stackArgSize, argSize);
 
+      offsets[count] = stackArgSize;
+
+      stackArgSize += argSize;
   }
 
   unsigned alignedStackSize = ALIGN_SIZE(stackArgSize, 2 * sizeof(intptr_t));
@@ -1662,41 +1601,42 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   if (alignedStackSize)
     emitArithConst(f, OP_SUB, R_ESP, alignedStackSize, sizeof(intptr_t));
 
+  if (isStructualType(returnType)) {
+      offset = ALIGN_SIZE(returnTypeSize, sizeof(intptr_t));
+      r_offsets[idx] = offset;
+      r_types[idx] = returnType;
+      ++idx;
+  }
+
   while (args) {
     AstExpression *arg = args->expression;
     TypeRef *argType = arg->type;
 
     unsigned typeSize = max(4, computeTypeSize(argType));
+    int32_t rspOffset = offsets[count];
 
-    offset += typeSize;
-
-    unsigned rbpOffset = -(frameOffset + offset + delta);
-
-    Address dst = { 0 };
-
-    dst.base = R_EBP;
-    dst.index = R_BAD;
-    dst.imm = rbpOffset;
+    Address dst = { R_ESP, R_BAD, 0, rspOffset, NULL, NULL };
 
     if (isStructualType(argType)) {
       Address addr = { 0 };
       translateAddress(ctx, f, scope, arg->op == EU_DEREF ? arg->unaryExpr.argument : arg, &addr);
+      dst.imm = rspOffset + f->stackOffset;
       copyStructTo(f, argType, &addr, &dst);
     } else {
       generateExpression(ctx, f, scope, arg);
 
       if (isRealType(argType)) {
         if (count <= lastFpRegArg) {
-            r_offsets[totalRegArg - idx - 1] = offset;
+            r_offsets[totalRegArg - idx - 1] = rspOffset;
             r_types[totalRegArg - idx - 1] = argType;
             ++idx;
             emitPushRegF(f, R_FACC, TRUE);
         } else {
-            emitMovfpRA(f, R_FACC, &dst, typeSize > sizeof(float));
+            emitMovfpRA(f, R_FACC, &dst, typeSize);
         }
       } else {
         if (count <= lastIntRegArg) {
-            r_offsets[totalRegArg - idx - 1] = offset;
+            r_offsets[totalRegArg - idx - 1] = rspOffset;
             r_types[totalRegArg - idx - 1] = argType;
             ++idx;
             emitPushReg(f, R_ACC);
@@ -1718,9 +1658,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
 
   int i;
 
-  Address saddr = { 0 };
-  saddr.base = R_EBP;
-  saddr.index = R_BAD;
+  Address saddr = { R_ESP, R_BAD, 0, 0, NULL, NULL };
 
   if (callee->op != E_NAMEREF) {
       if (pcalleeType->kind == TR_FUNCTION && callee->op == EU_DEREF) {
@@ -1737,8 +1675,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
       TypeRef *argType = r_types[i];
       size_t argSize = computeTypeSize(argType);
       if (isStructualType(argType)) {
-          unsigned argOffset = -(frameOffset + r_offsets[i] + delta);
-          saddr.imm = argOffset;
+          saddr.imm = r_offsets[i] + f->stackOffset;
           emitLea(f, &saddr, intArgumentRegs[ir++]);
       } else {
           if (isRealType(argType)) {
@@ -1751,7 +1688,6 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   }
 
   Boolean retFP = isRealType(returnType);
-
 
   if (fpRegArgs) {
     emitMoveCR(f, fpRegArgs, R_ACC, sizeof(int32_t));
@@ -1916,11 +1852,6 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
       generateExpression(ctx, f, scope, expression->unaryExpr.argument);
       emitNot(f, R_ACC, computeTypeSize(expression->unaryExpr.argument->type));
       break;
-    case EU_POST_INC:
-    case EU_POST_DEC:
-      unreachable("Has to be lowered before");
-//      generatePostIncDec(ctx, f, scope, expression);
-      break;
 
     case E_LABEL_REF: {
       struct Label *l = (struct Label *)getFromHashMap(ctx->labelMap, (intptr_t)expression->label);
@@ -1933,12 +1864,7 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
       break;
 
     }
-    case EF_DOT:
-//      generateDotOperator(ctx, f, scope, &expression->fieldExpr);
-//      break;
-    case EF_ARROW:
-      // TODO: // has to be lowered
-//      break;
+
     default: unreachable("unexpcted expression op");
   }
 }
@@ -2074,8 +2000,6 @@ static int generateSwitchStatement(GenerationContext *ctx, GeneratedFunction *f,
 
   size_t condTypeSize = computeTypeSize(condition->type);
 
-//  const enum Opcodes cmpOpcode = condTypeSize == 8 ? OP_L_CMP : OP_I_CMP;
-
   int i;
 
   for (i = 0; i < visited; ++i) {
@@ -2126,42 +2050,78 @@ static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFun
       TypeRef *lType = left->type;
       if (lType->kind == TR_BITFIELD) lType = lType->bitFieldDesc.storageType;
 
+      Address addr = { 0 };
+      if (isFP) {
+          if (cond->op == EB_EQ || cond->op == EB_NE) {
 
-      if (right->op == E_CONST && !isFP) {
-          uint64_t cnst = right->constExpr.i;
-          emitArithConst(f, OP_CMP, R_ACC, cnst, opSize);
+              enum JumpCondition setcc = cond->op == EB_EQ ? JC_NOT_PARITY : JC_PARITY;
+
+              emitPushRegF(f, R_FACC, isD);
+
+              if (right->op == EU_DEREF) {
+                  translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
+                  emitPopRegF(f, R_FTMP2, isD);
+                  emitArithAR(f, OP_FUCMP, R_FTMP2, &addr, opSize);
+                  emitSetccR(f, setcc, R_ACC);
+                  emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
+                  emitArithAR(f, OP_FUCMP, R_FTMP2, &addr, opSize);
+              } else {
+                  generateExpression(ctx, f, scope, right);
+                  emitPopRegF(f, R_FTMP2, isD);
+                  emitArithRR(f, OP_FUCMP, R_FTMP2, R_FACC, opSize);
+                  emitSetccR(f, setcc, R_ACC);
+                  emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
+                  emitArithRR(f, OP_FUCMP, R_FTMP2, R_FACC, opSize);
+              }
+
+              struct Label l = { 0 };
+              emitCondJump(f, &l, JC_EQ);
+              if (cond->op == EB_EQ) {
+                  emitArithRR(f, OP_XOR, R_ACC, R_ACC, sizeof(int32_t));
+              } else {
+                  emitMoveCR(f, 1, R_ACC, sizeof(int32_t));
+              }
+              bindLabel(f, &l);
+
+              emitTestRR(f, R_ACC, R_ACC, sizeof (int32_t));
+
+              return invertion ? JC_ZERO : JC_NOT_ZERO;
+          } else if (cond->op == EB_LT || cond->op == EB_LE) {
+              if (right->op == EU_DEREF) {
+                  translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
+                  emitPopReg(f, R_ACC);
+                  emitArithAR(f, OP_FOCMP, R_ACC, &addr, opSize);
+              } else {
+                  generateExpression(ctx, f, scope, right);
+                  emitPopReg(f, R_TMP);
+                  emitArithRR(f, OP_FOCMP, R_TMP, R_ACC, opSize);
+              }
+          } else {
+              generateExpression(ctx, f, scope, right);
+              emitPopReg(f, R_FTMP);
+              emitArithRR(f, OP_FOCMP, R_FACC, R_FTMP, opSize);
+          }
       } else {
-          enum Opcodes opcode = isFP ? OP_FCMP : OP_CMP;
-
-          if (isFP)
-            emitPushRegF(f, R_FACC, isD);
-          else
+          if (right->op == E_CONST) {
+            uint64_t cnst = right->constExpr.i;
+            emitArithConst(f, OP_CMP, R_ACC, cnst, opSize);
+          } else {
             emitPushReg(f, R_ACC);
 
-          if (right->op == EU_DEREF) {
-              Address addr = { 0 };
-              translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
-              if (isFP)
-                emitPopRegF(f, R_FACC, isD);
-              else
+            if (right->op == EU_DEREF) {
+                Address addr = { 0 };
+                translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
                 emitPopReg(f, R_ACC);
-
-              emitArithAR(f, opcode, isFP ? R_FACC : R_ACC, &addr, opSize);
-          } else {
-              generateExpression(ctx, f, scope, cond->binaryExpr.right);
-
-              if (isFP)
-                emitPopRegF(f, R_FTMP, isD);
-              else
+                emitArithAR(f, OP_CMP, R_ACC, &addr, opSize);
+            } else {
+                generateExpression(ctx, f, scope, right);
                 emitPopReg(f, R_TMP);
-
-              emitArithRR(f, opcode, isFP ? R_FACC : R_ACC, isFP ? R_FTMP : R_TMP, opSize);
+                emitArithRR(f, OP_CMP, R_ACC, R_TMP, opSize);
+            }
           }
-
       }
+
       return cc;
-
-
     }
     default:
       if (cond->op == EU_EXL) {
@@ -2481,7 +2441,7 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
             baseOffset += size;
             baseOffset = ALIGN_SIZE(baseOffset, align);
             gp->baseOffset = addr.imm = -baseOffset;
-            emitMovfpRA(g, fpArgumentRegs[fpRegParams++], &addr, size > 4);
+            emitMovfpRA(g, fpArgumentRegs[fpRegParams++], &addr, size);
         } else {
             int32_t alignedOffset = ALIGN_SIZE(stackParamOffset, align);
             gp->baseOffset = alignedOffset;
@@ -2547,7 +2507,9 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
   if (frameSize)
     emitArithConst(gen, OP_SUB, R_ESP, delta, sizeof(intptr_t));
 
+  gen->stackOffset = 0;
   generateBlock(ctx, gen, &f->body->block, 0);
+  assert(gen->stackOffset == 0);
 
   bindLabel(gen, &returnLabel);
 
