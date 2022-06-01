@@ -107,6 +107,8 @@
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, UNUSED_EXPR_RES, "expression result unused"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, INT_PTR_COMPARISON, "comparison between pointer and integer ('%tr' and '%tr')"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, ORDEDER_INT_PTR_COMPARISON, "ordered comparison between pointer and integer ('%tr' and '%tr')"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ARRAY_INIT_LIST_OR_LITERAL, "array initializer must be an initializer list or string literal"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ARRAY_INIT_LIST, "array initializer must be an initializer list"), \
   DIAGNOSTIC_DEF(ERROR, PP, INVALID_PP_DIRECTIVE, "invalid preprocessor directive %tk"), \
   DIAGNOSTIC_DEF(ERROR, PP, EXPECTED_FILENAME, "expected \"FILENAME\" or <FILENAME>"), \
   DIAGNOSTIC_DEF(ERROR, PP, INCLUDE_FILE_NOT_FOUND, "'%s' file not found"), \
