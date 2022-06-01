@@ -44,6 +44,7 @@ typedef struct _GeneratedFunction {
   size_t frameSize;
 
   int32_t allocaOffset;
+  int32_t smallStructSlotOffset;
   int32_t returnStructAddressOffset;
   int32_t savedRegOffset;
 

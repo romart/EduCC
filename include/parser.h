@@ -130,6 +130,7 @@ typedef struct _ParserContext {
       unsigned inLoop: 1;
       unsigned inSwitch: 1;
       unsigned hasDefault: 1;
+      unsigned hasSmallStructs: 1;
       unsigned caseCount;
     } stateFlags;
 

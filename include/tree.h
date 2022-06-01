@@ -460,6 +460,7 @@ typedef struct _AstFunctionDefinition { // _AstFunctionDefinition
   AstStatement *body;
   AstValueDeclaration *locals;
   struct _Scope *scope;
+  unsigned hasSmallStructs : 1;
 } AstFunctionDefinition;
 
 typedef enum _TranslationUnitKind {
