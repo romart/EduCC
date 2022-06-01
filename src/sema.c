@@ -363,7 +363,13 @@ TypeRef *computeFunctionReturnType(ParserContext *ctx, Coordinates *coords, Type
         return makeErrorRef(ctx);
     }
 
-    return calleType->functionTypeDesc.returnType;
+    TypeRef *returnType = calleType->functionTypeDesc.returnType;
+
+    if (isStructualType(returnType) && computeTypeSize(returnType) <= sizeof(intptr_t)) {
+        ctx->stateFlags.hasSmallStructs = 1;
+    }
+
+    return returnType;
 }
 
 

@@ -2710,6 +2710,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
 
   ctx->locals = NULL;
   ctx->functionReturnType = functionDeclaration ? functionDeclaration->returnType : makeErrorRef(ctx);
+  ctx->stateFlags.hasSmallStructs = 0;
 
   ctx->currentScope = functionScope;
   AstStatement *body = parseFunctionBody(ctx);
@@ -2721,6 +2722,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
     AstFunctionDefinition *definition = createFunctionDefinition(ctx, functionDeclaration, functionScope, body);
     definition->scope = functionScope;
     definition->locals = ctx->locals;
+    definition->hasSmallStructs = ctx->stateFlags.hasSmallStructs;
 
     AstTranslationUnit *newUnit = createTranslationUnit(ctx, NULL, definition);
     addToFile(file, newUnit);

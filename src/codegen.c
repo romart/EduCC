@@ -1533,7 +1533,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
 
   unsigned idx = 0;
 
-  unsigned returnTypeSize = 0;
+  unsigned returnTypeSize = computeTypeSize(returnType);
 
   unsigned firstIntRegArg = 0;
   unsigned lastIntRegArg = 0;
@@ -1549,14 +1549,14 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   for (; tmp; tmp = tmp->next) ++argsCount;
 
   int32_t *offsets = alloca(argsCount * sizeof (int32_t));
+  unsigned stackArgSize = 0;
 
-  if (isStructualType(returnType)) {
-      returnTypeSize = computeTypeSize(returnType);
+  if (isStructualType(returnType) && returnTypeSize > sizeof(intptr_t)) {
+      stackArgSize = returnTypeSize;
       intRegArgs = firstIntRegArg = 1;
   }
 
   unsigned count = 0;
-  unsigned stackArgSize = returnTypeSize;
 
   for (tmp = args; tmp; tmp = tmp->next) {
       args = tmp;
@@ -1573,7 +1573,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           lastFpRegArg = count;
           continue;
         }
-      } else if (!isStructualType(t)) {
+      } else if (!isStructualType(t) || argSize <= sizeof(intptr_t)) {
         if (intRegArgs < R_PARAM_COUNT) {
           ++intRegArgs;
           lastIntRegArg = count;
@@ -1596,7 +1596,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   if (alignedStackSize)
     emitArithConst(f, OP_SUB, R_ESP, alignedStackSize, sizeof(intptr_t));
 
-  if (isStructualType(returnType)) {
+  if (isStructualType(returnType) && returnTypeSize > sizeof(intptr_t)) {
       offset = ALIGN_SIZE(returnTypeSize, sizeof(intptr_t));
       r_offsets[idx] = offset;
       r_types[idx] = returnType;
@@ -1612,7 +1612,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
 
     Address dst = { R_ESP, R_BAD, 0, rspOffset, NULL, NULL };
 
-    if (isStructualType(argType)) {
+    if (isStructualType(argType) && typeSize > sizeof(intptr_t)) {
       Address addr = { 0 };
       translateAddress(ctx, f, scope, arg->op == EU_DEREF ? arg->unaryExpr.argument : arg, &addr);
       dst.imm = rspOffset + f->stackOffset;
@@ -1634,6 +1634,10 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
             r_offsets[totalRegArg - idx - 1] = rspOffset;
             r_types[totalRegArg - idx - 1] = argType;
             ++idx;
+            if (isStructualType(argType)) {
+                Address addr = { R_ACC, R_BAD, 0, 0, NULL, NULL };
+                emitLoad(f, &addr, R_ACC, typeSize);
+            }
             emitPushReg(f, R_ACC);
         } else {
             emitMoveRA(f, R_ACC, &dst, typeSize);
@@ -1669,7 +1673,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   for (i = 0; i < totalRegArg; ++i) {
       TypeRef *argType = r_types[i];
       size_t argSize = computeTypeSize(argType);
-      if (isStructualType(argType)) {
+      if (isStructualType(argType) && argSize > sizeof(intptr_t)) {
           saddr.imm = r_offsets[i] + f->stackOffset;
           emitLea(f, &saddr, intArgumentRegs[ir++]);
       } else {
@@ -1703,6 +1707,12 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
     emitCallLiteral(f, newReloc);
   } else {
     emitCall(f, R_R10);
+  }
+
+  if (isStructualType(returnType) && returnTypeSize <= sizeof(intptr_t)) {
+      Address addr = { R_EBP, R_BAD, 0, f->smallStructSlotOffset, NULL, NULL };
+      emitMoveRA(f, R_ACC, &addr, sizeof(intptr_t));
+      emitLea(f, &addr, R_ACC);
   }
 
   if (alignedStackSize) {
@@ -2292,12 +2302,17 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
             Address src = { 0 };
             translateAddress(ctx, f, scope, retExpr->op == EU_DEREF ? retExpr->unaryExpr.argument : retExpr, &src);
 
-            Address addr = { R_EBP, R_BAD, 0, f->returnStructAddressOffset, NULL, NULL };
-            emitMoveAR(f, &addr, R_EDI, sizeof(intptr_t));
+            size_t retSize = computeTypeSize(retExpr->type);
+            if (retSize > sizeof(intptr_t)) {
+              Address addr = { R_EBP, R_BAD, 0, f->returnStructAddressOffset, NULL, NULL };
+              emitMoveAR(f, &addr, R_EDI, sizeof(intptr_t));
 
-            Address dst = { R_EDI, R_BAD, 0, 0, NULL, NULL };
-            copyStructTo(f, retExpr->type, &src, &dst);
-            emitMoveRR(f, R_EDI, R_ACC, sizeof(intptr_t));
+              Address dst = { R_EDI, R_BAD, 0, 0, NULL, NULL };
+              copyStructTo(f, retExpr->type, &src, &dst);
+              emitMoveRR(f, R_EDI, R_ACC, sizeof(intptr_t));
+            } else {
+              emitLoad(f, &src, R_ACC, retSize);
+            }
           } else {
             generateExpression(ctx, f, scope, retExpr);
           }
@@ -2386,9 +2401,15 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
   baseOffset += sizeof(intptr_t);
   int32_t allocaOffset = g->allocaOffset = -baseOffset;
 
+  int32_t smallStructOffset = 0;
+  if (f->hasSmallStructs) {
+      baseOffset += sizeof(intptr_t);
+      smallStructOffset = g->smallStructSlotOffset = -baseOffset;
+  }
+
   Address addr = { R_EBP, R_BAD, 0, 0, NULL, NULL };
 
-  if (isStructualType(returnType)) {
+  if (isStructualType(returnType) && computeTypeSize(returnType) > sizeof(intptr_t)) {
       baseOffset += sizeof(intptr_t);
       g->returnStructAddressOffset = addr.imm = -baseOffset;
       emitMoveRA(g, intArgumentRegs[intRegParams++], &addr, sizeof(intptr_t));
@@ -2443,6 +2464,10 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
   emitArithRR(g, OP_XOR, R_ACC, R_ACC, sizeof(intptr_t));
   addr.imm = allocaOffset;
   emitMoveRA(g, R_ACC, &addr, sizeof(intptr_t));
+  if (f->hasSmallStructs) {
+      addr.imm = smallStructOffset;
+      emitMoveRA(g, R_ACC, &addr, sizeof(intptr_t));
+  }
 
   int32_t frameSize = ALIGN_SIZE(baseOffset, 2 * sizeof(intptr_t));
 
