@@ -1007,3 +1007,7 @@ void emitRet(struct _GeneratedFunction *f, uint16_t s) {
     emitWord(f, s);
   }
 }
+
+void emitLeave(GeneratedFunction *f) {
+  emitByte(f, 0xC9);
+}
