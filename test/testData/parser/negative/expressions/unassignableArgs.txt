@@ -20,17 +20,17 @@ FILE test/testData/parser/negative/expressions/unassignableArgs.c
     STRUCT S1 s1
     STRUCT S2 s2
     signed int[20] arr
-    foo(*g, *g)
+    foo((*signed int)(*g), (*signed int)(*g))
     foo(*f, *f)
     foo(g, *f)
     foo(g, g)
-    foo(f, f)
+    foo((*signed int)f, (*signed int)f)
     foo(*s1, *s2)
     foo(g, *s1)
     foo(g, *s2)
-    foo(s1, s1)
-    foo(s2, s2)
-    foo(arr, arr)
+    foo((*signed int)s1, (*signed int)s1)
+    foo((*signed int)s2, (*signed int)s2)
+    foo((*signed int)arr, (*signed int)arr)
     fex(*f, *f)
     fex(*g, *g)
     fex(g, g)
