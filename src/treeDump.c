@@ -5,7 +5,7 @@
 
 static int dumpTypeRefImpl(FILE *output, int indent, TypeRef *type);
 static int dumpTypeDescImpl(FILE *output, int indent, TypeDesc *desc);
-static int dumpAstInitializerImpl(FILE *output, int indent, AstInitializer *init);
+static int dumpAstInitializerImpl(FILE *output, int indent, AstInitializer *init, Boolean compund);
 static int dumpAstDeclarationImpl(FILE *output, int indent, AstDeclaration *decl);
 static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr);
 
@@ -348,10 +348,14 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
 }
 
 
-static int dumpAstInitializerImpl(FILE *output, int indent, AstInitializer *init) {
+static int dumpAstInitializerImpl(FILE *output, int indent, AstInitializer *init, Boolean compund) {
   int result = 0;
   result += putIndent(output, indent);
   if (init->kind == IK_EXPRESSION) {
+      if (compund) {
+        result += dumpTypeRef(output, init->slotType);
+        result += fprintf(output, " #%d <--- ", init->offset);
+      }
       result += dumpAstExpressionImpl(output, 0, init->expression);
   } else {
       assert(init->kind == IK_LIST);
@@ -364,7 +368,7 @@ static int dumpAstInitializerImpl(FILE *output, int indent, AstInitializer *init
           } else {
               result += fprintf(output, "\n");
           }
-          result += dumpAstInitializerImpl(output, indent + 2, nested->initializer);
+          result += dumpAstInitializerImpl(output, indent + 2, nested->initializer, TRUE);
           nested = nested->next;
       }
       result += fprintf(output, "\n");
@@ -406,7 +410,7 @@ static int dumpAstValueDeclarationImpl(FILE *output, int indent, AstValueDeclara
   if (value->kind == VD_VARIABLE) {
       if (value->initializer) {
           result += fprintf(output, " = \\\n");
-          result += dumpAstInitializerImpl(output, indent + 2, value->initializer);
+          result += dumpAstInitializerImpl(output, indent + 2, value->initializer, FALSE);
       }
   }
 
@@ -730,5 +734,5 @@ int dumpAstValueDeclaration(FILE *output, AstValueDeclaration *param) {
 }
 
 int dumpAstInitializer(FILE *outout, AstInitializer *init) {
-  return dumpAstInitializerImpl(outout, 0, init);
+  return dumpAstInitializerImpl(outout, 0, init, FALSE);
 }
