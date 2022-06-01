@@ -2171,19 +2171,16 @@ TypeRef *makeFunctionType(ParserContext *ctx, TypeRef *returnType, FunctionParam
 
     AstValueDeclaration *parameter = params->parameters;
 
-    TypeList *tail = NULL;
+    TypeList head = { 0 };
+    TypeList *cur = &head;
 
+    SpecifierFlags flags = { 0 };
     while (parameter) {
-      TypeList *cur = (TypeList*)areanAllocate(ctx->memory.typeArena, sizeof (TypeList));
+      cur = cur->next = (TypeList*)areanAllocate(ctx->memory.typeArena, sizeof (TypeList));
       cur->type = parameter->type;
       parameter = parameter->next;
-      if (tail) {
-        tail->next = cur;
-      } else {
-        result->functionTypeDesc.parameters = cur;
-      }
-      tail = cur;
     }
+    result->functionTypeDesc.parameters = head.next;
     params->parameters = NULL;
 
     return result;
