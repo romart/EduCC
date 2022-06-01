@@ -2298,6 +2298,7 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
 
             Address dst = { R_EDI, R_BAD, 0, 0, NULL, NULL };
             copyStructTo(f, retExpr->type, &src, &dst);
+            emitMoveRR(f, R_EDI, R_ACC, sizeof(intptr_t));
           } else {
             generateExpression(ctx, f, scope, retExpr);
           }
