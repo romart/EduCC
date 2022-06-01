@@ -59,3 +59,20 @@ int func() {
 }
 
 extern int eei = 20;
+
+typedef struct { int a,b; short c; char d; } Ty4;
+typedef struct { int a; float b; double c; } Ty5;
+typedef struct { unsigned char a[3]; } Ty6;
+typedef struct { long a, b, c; } Ty7;
+typedef struct { unsigned char a[10]; } Ty20;
+typedef struct { unsigned char a[20]; } Ty21;
+
+
+Ty4 r1 = {10, 20, 30, 40};
+Ty5 r2 = {10, 20, 30};
+Ty6 r3 = {10, 20, 30};
+Ty20 r4 = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
+Ty21 r5 = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20};
+
+
+

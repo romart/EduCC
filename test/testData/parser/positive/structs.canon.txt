@@ -6,11 +6,11 @@ FILE test/testData/parser/positive/structs.c
     STRUCT_END
     STRUCT SL a = \
       INIT_BEGIN
-        0
+        signed int #0 <--- 0
       INIT_END
     STRUCT SL b = \
       INIT_BEGIN
-        0
+        signed int #0 <--- 0
       INIT_END
     *STRUCT SL c = \
       0

@@ -4,7 +4,7 @@ FILE test/testData/parser/positive/compoundStringLiteral.c
     signed char[1] s0 = \
       ""
     *C signed char s1 = \
-      (*C signed char)"1"
+      "1"
     signed char[4] s2 = \
       "122"
     signed char[11] s3 = \

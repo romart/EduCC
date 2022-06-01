@@ -116,9 +116,9 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     #1: signed int i
   BEGIN
     signed int f1 = \
-      (signed int)((*p_s4)->bf)
+      (signed int)(*p_s4)->bf
     signed int f2 = \
-      (signed int)((*p_s4)->ff)
+      (signed int)(*p_s4)->ff
     signed int b = \
       (*p_s4)->s3.s2.s1.b
     signed int c = \
@@ -136,9 +136,9 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
   BEGIN
     STRUCT S4 s4
     signed int a = \
-      (signed int)((*s4).bf)
+      (signed int)(*s4).bf
     signed int b = \
-      (signed int)((*s4).ff)
+      (signed int)(*s4).ff
     signed int c = \
       (*s4).s3.s2.s1.a
     signed int d = \

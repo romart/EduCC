@@ -15,241 +15,252 @@ FILE test/testData/parser/negative/expressions/initializers.c
 ----
   STRUCT S s1 = \
     INIT_BEGIN
-      1.000000
-      (*signed int)0
-      (*signed int)0
+      float #0 <--- 1.000000
+      *signed int #4 <--- (*signed int)0
+      *signed int #12 <--- (*signed int)0
     INIT_END
 ----
   STRUCT S s2 = \
     INIT_BEGIN
-      1.000000
-      (*signed int)0
-      (*signed int)0
+      float #0 <--- 1.000000
+      *signed int #4 <--- (*signed int)0
+      *signed int #12 <--- (*signed int)0
     INIT_END
 ----
   STRUCT S s3 = \
     INIT_BEGIN
-      1.000000
-      (*signed int)0
-      (*signed int)0
+      float #0 <--- 1.000000
+      *signed int #4 <--- (*signed int)0
+      *signed int #12 <--- (*signed int)0
     INIT_END
 ----
   STRUCT S s4 = \
     INIT_BEGIN
-      1.000000
-      (*signed int)0
-      (*signed int)0
+      float #0 <--- 1.000000
+      *signed int #4 <--- (*signed int)0
+      *signed int #12 <--- (*signed int)0
     INIT_END
 ----
   STRUCT S[3] s5 = \
     INIT_BEGIN
       INIT_BEGIN
-        1.000000
-        (*signed int)0
-        (*signed int)0
+        float #0 <--- 1.000000
+        *signed int #4 <--- (*signed int)0
+        *signed int #12 <--- (*signed int)0
       INIT_END
       INIT_BEGIN
-        1.000000
-        (*signed int)0
-        (*signed int)0
+        float #24 <--- 1.000000
+        *signed int #28 <--- (*signed int)0
+        *signed int #36 <--- (*signed int)0
       INIT_END
       INIT_BEGIN
-        1.000000
-        (*signed int)0
-        (*signed int)0
+        float #48 <--- 1.000000
+        *signed int #52 <--- (*signed int)0
+        *signed int #60 <--- (*signed int)0
       INIT_END
     INIT_END
 ----
   STRUCT S s6 = \
     INIT_BEGIN
-      1.000000
-      (*signed int)0
-      (*signed int)0
+      float #0 <--- 1.000000
+      *signed int #4 <--- (*signed int)0
+      *signed int #12 <--- (*signed int)0
     INIT_END
 ----
   STRUCT S s7 = \
     INIT_BEGIN
-      (*void)0
-      1.000000
-      ERROR EXPR
+      ERROR TYPE #-1 <--- ERROR EXPR
+      ERROR TYPE #-1 <--- ERROR EXPR
+      *signed int #12 <--- 0
     INIT_END
 ----
   STRUCT S[3] s8 = \
     INIT_BEGIN
       INIT_BEGIN
-        (*void)0
-        1.000000
-        5
+        ERROR TYPE #-1 <--- ERROR EXPR
+        ERROR TYPE #-1 <--- ERROR EXPR
+        *signed int #12 <--- (*signed int)5
       INIT_END
       INIT_BEGIN
-        0
-        0.100000
-        "ccc"
+        float #24 <--- (float)0
+        *signed int #28 <--- (*signed int)0
+        ERROR TYPE #-1 <--- ERROR EXPR
       INIT_END
-      0
+      INIT_BEGIN
+        float #48 <--- (float)0
+        *signed int #52 <--- 0
+        *signed int #60 <--- 0
+      INIT_END
     INIT_END
 ----
   STRUCT S[1] sa = \
     INIT_BEGIN
-      0
+      INIT_BEGIN
+        float #0 <--- (float)0
+        *signed int #4 <--- 0
+        *signed int #12 <--- 0
+      INIT_END
     INIT_END
 ----
   STRUCT SX sx1 = \
     INIT_BEGIN
-      0
-      *s0
+      signed int #0 <--- 0
+      ERROR TYPE #-1 <--- ERROR EXPR
       INIT_BEGIN
-        0
+        INIT_BEGIN
+          float #28 <--- (float)0
+          *signed int #32 <--- 0
+          *signed int #40 <--- 0
+        INIT_END
+        INIT_BEGIN
+          float #52 <--- 0.000000
+          *signed int #56 <--- 0
+          *signed int #64 <--- 0
+        INIT_END
       INIT_END
     INIT_END
 ----
   STRUCT S[3] as1 = \
     INIT_BEGIN
-      0
-      0
-      0
+      INIT_BEGIN
+        float #0 <--- (float)0
+        *signed int #4 <--- (*signed int)0
+        *signed int #12 <--- (*signed int)0
+      INIT_END
+      INIT_BEGIN
+        float #24 <--- 0.000000
+        *signed int #28 <--- 0
+        *signed int #36 <--- 0
+      INIT_END
+      INIT_BEGIN
+        float #48 <--- 0.000000
+        *signed int #52 <--- 0
+        *signed int #60 <--- 0
+      INIT_END
     INIT_END
 ----
   STRUCT S[3] as2 = \
     INIT_BEGIN
       INIT_BEGIN
-        0
+        float #0 <--- (float)0
+        *signed int #4 <--- (*signed int)0
+        *signed int #12 <--- (*signed int)0
       INIT_END
       INIT_BEGIN
-        0
+        float #24 <--- 0.000000
+        *signed int #28 <--- 0
+        *signed int #36 <--- 0
       INIT_END
       INIT_BEGIN
-        0
+        float #48 <--- 0.000000
+        *signed int #52 <--- 0
+        *signed int #60 <--- 0
       INIT_END
     INIT_END
 ----
   signed int[4] a = \
     INIT_BEGIN
-      0
-      1
-      2
-      3
-      4
-      5
-      6
-      7
-      ERROR EXPR
-      8
-      9
+      signed int #0 <--- 0
+      signed int #4 <--- 1
+      signed int #8 <--- 2
+      signed int #12 <--- 3
     INIT_END
 ----
   (signed int[2])[3] b = \
     INIT_BEGIN
-      INIT_BEGIN
-        0
-        1
-      INIT_END
-      INIT_BEGIN
-        2
-        3
-        4
-        5
-        6
-        7
-        ERROR EXPR
-        8
-      INIT_END
-      INIT_BEGIN
-        9
-      INIT_END
+      ERROR TYPE #-1 <--- ERROR EXPR
+      ERROR TYPE #-1 <--- ERROR EXPR
+      ERROR TYPE #-1 <--- ERROR EXPR
     INIT_END
 ----
   signed int[9] c = \
     INIT_BEGIN
-      0
-      1
-      3
-      4
-      5
-      6
-      7
-      8
-      9
+      signed int #0 <--- 0
+      signed int #4 <--- 1
+      signed int #8 <--- 3
+      signed int #12 <--- 4
+      signed int #16 <--- 5
+      signed int #20 <--- 6
+      signed int #24 <--- 7
+      signed int #28 <--- 8
+      signed int #32 <--- 9
     INIT_END
 ----
   signed int[9] d = \
     INIT_BEGIN
-      0
-      1
-      3
-      4
-      5
-      6
-      7
-      8
-      9
+      signed int #0 <--- 0
+      signed int #4 <--- 1
+      signed int #8 <--- 3
+      signed int #12 <--- 4
+      signed int #16 <--- 5
+      signed int #20 <--- 6
+      signed int #24 <--- 7
+      signed int #28 <--- 8
+      signed int #32 <--- 9
     INIT_END
 ----
   signed int[9] e = \
     INIT_BEGIN
-      0
-      1
-      3
-      4
-      5
-      6
-      7
-      8
-      9
+      signed int #0 <--- 0
+      signed int #4 <--- 1
+      signed int #8 <--- 3
+      signed int #12 <--- 4
+      signed int #16 <--- 5
+      signed int #20 <--- 6
+      signed int #24 <--- 7
+      signed int #28 <--- 8
+      signed int #32 <--- 9
     INIT_END
 ----
   signed int[9] f = \
     INIT_BEGIN
-      0
-      1
-      3
-      4
-      5
-      6
-      7
-      8
-      9
+      signed int #0 <--- 0
+      signed int #4 <--- 1
+      signed int #8 <--- 3
+      signed int #12 <--- 4
+      signed int #16 <--- 5
+      signed int #20 <--- 6
+      signed int #24 <--- 7
+      signed int #28 <--- 8
+      signed int #32 <--- 9
     INIT_END
 ----
   signed int[4] g = \
     INIT_BEGIN
-      0
-      1
-      2
-      3
+      signed int #0 <--- 0
+      signed int #4 <--- 1
+      signed int #8 <--- 2
+      signed int #12 <--- 3
     INIT_END
 ----
   signed int[4] h = \
     INIT_BEGIN
-      0
-      1
-      2
-      3
-      4
+      signed int #0 <--- 0
+      signed int #4 <--- 1
+      signed int #8 <--- 2
+      signed int #12 <--- 3
     INIT_END
 ----
   signed int[4] i = \
     INIT_BEGIN
-      0
-      1
-      2
-      3
-      4
-      ERROR EXPR
+      signed int #0 <--- 0
+      signed int #4 <--- 1
+      signed int #8 <--- 2
+      signed int #12 <--- 3
     INIT_END
 ----
   signed int[20] a1
 ----
   *signed int pa = \
-    (*signed int)a1
+    ERROR EXPR
 ----
   float f = \
-    (float)(*pa)
+    ERROR EXPR
 ----
   signed int[-1] a3
 ----
   signed int[20] a4 = \
-    (signed int[20])0
+    ERROR EXPR
 ----
   (signed int[20])[] b2 = \
     INIT_BEGIN
@@ -258,7 +269,9 @@ FILE test/testData/parser/negative/expressions/initializers.c
 ----
   STRUCT S s22 = \
     INIT_BEGIN
-      0
+      float #0 <--- (float)0
+      *signed int #4 <--- 0
+      *signed int #12 <--- 0
     INIT_END
 ----
   signed int i2 = \
@@ -271,31 +284,24 @@ FILE test/testData/parser/negative/expressions/initializers.c
 ----
   signed int[3] a5 = \
     INIT_BEGIN
-      0
-      0
-      0
-      0
-      0
-      0
-      0
-      ERROR EXPR
+      signed int #0 <--- 0
+      signed int #4 <--- 0
+      signed int #8 <--- 0
     INIT_END
 ----
   signed int aa = \
-    INIT_BEGIN
-
-    INIT_END
+    0
 ----
   (*signed int)[2] ap = \
     INIT_BEGIN
-      1.000000
-      2.000000
+      ERROR TYPE #-1 <--- ERROR EXPR
+      ERROR TYPE #-1 <--- ERROR EXPR
     INIT_END
 ----
   float[2] af = \
     INIT_BEGIN
-      (*signed int)0
-      (*signed int)1
+      ERROR TYPE #-1 <--- ERROR EXPR
+      ERROR TYPE #-1 <--- ERROR EXPR
     INIT_END
 ----
   FUN signed int func 
@@ -305,20 +311,138 @@ FILE test/testData/parser/negative/expressions/initializers.c
     *signed int pa = \
       (*signed int)a1
     float f = \
-      (float)(*pa)
+      ERROR EXPR
     signed int i2 = \
-      (signed int)(*f2)
+      (signed int)*f2
     signed int i3 = \
-      (signed int)(*s2)
+      ERROR EXPR
     STRUCT SX sx2 = \
       INIT_BEGIN
-        0
-        *s0
+        signed int #0 <--- 0
+        STRUCT S #4 <--- *s0
         INIT_BEGIN
-          0
+          INIT_BEGIN
+            float #28 <--- (float)0
+            *signed int #32 <--- 0
+            *signed int #40 <--- 0
+          INIT_END
+          INIT_BEGIN
+            float #52 <--- 0.000000
+            *signed int #56 <--- 0
+            *signed int #64 <--- 0
+          INIT_END
         INIT_END
       INIT_END    
   END
 ----
   E signed int eei = \
     20
+----
+  STRUCT <anon$0>
+    signed int a #0
+    signed int b #4
+    signed short c #8
+    signed char d #10
+  STRUCT_END
+----
+  TYPEDF Ty4 = STRUCT <anon$0>
+----
+  STRUCT <anon$1>
+    signed int a #0
+    float b #4
+    double c #8
+  STRUCT_END
+----
+  TYPEDF Ty5 = STRUCT <anon$1>
+----
+  STRUCT <anon$2>
+    unsigned char[3] a #0
+  STRUCT_END
+----
+  TYPEDF Ty6 = STRUCT <anon$2>
+----
+  STRUCT <anon$3>
+    signed int a #0
+    signed int b #4
+    signed int c #8
+  STRUCT_END
+----
+  TYPEDF Ty7 = STRUCT <anon$3>
+----
+  STRUCT <anon$4>
+    unsigned char[10] a #0
+  STRUCT_END
+----
+  TYPEDF Ty20 = STRUCT <anon$4>
+----
+  STRUCT <anon$5>
+    unsigned char[20] a #0
+  STRUCT_END
+----
+  TYPEDF Ty21 = STRUCT <anon$5>
+----
+  STRUCT <anon$0> r1 = \
+    INIT_BEGIN
+      signed int #0 <--- 10
+      signed int #4 <--- 20
+      signed short #8 <--- (signed short)30
+      signed char #10 <--- (signed char)40
+    INIT_END
+----
+  STRUCT <anon$1> r2 = \
+    INIT_BEGIN
+      signed int #0 <--- 10
+      float #4 <--- (float)20
+      double #8 <--- (double)30
+    INIT_END
+----
+  STRUCT <anon$2> r3 = \
+    INIT_BEGIN
+      INIT_BEGIN
+        unsigned char #0 <--- (unsigned char)10
+        unsigned char #1 <--- (unsigned char)20
+        unsigned char #2 <--- (unsigned char)30
+      INIT_END
+    INIT_END
+----
+  STRUCT <anon$4> r4 = \
+    INIT_BEGIN
+      INIT_BEGIN
+        unsigned char #0 <--- (unsigned char)10
+        unsigned char #1 <--- (unsigned char)20
+        unsigned char #2 <--- (unsigned char)30
+        unsigned char #3 <--- (unsigned char)40
+        unsigned char #4 <--- (unsigned char)50
+        unsigned char #5 <--- (unsigned char)60
+        unsigned char #6 <--- (unsigned char)70
+        unsigned char #7 <--- (unsigned char)80
+        unsigned char #8 <--- (unsigned char)90
+        unsigned char #9 <--- (unsigned char)100
+      INIT_END
+    INIT_END
+----
+  STRUCT <anon$5> r5 = \
+    INIT_BEGIN
+      INIT_BEGIN
+        unsigned char #0 <--- (unsigned char)1
+        unsigned char #1 <--- (unsigned char)2
+        unsigned char #2 <--- (unsigned char)3
+        unsigned char #3 <--- (unsigned char)4
+        unsigned char #4 <--- (unsigned char)5
+        unsigned char #5 <--- (unsigned char)6
+        unsigned char #6 <--- (unsigned char)7
+        unsigned char #7 <--- (unsigned char)8
+        unsigned char #8 <--- (unsigned char)9
+        unsigned char #9 <--- (unsigned char)10
+        unsigned char #10 <--- (unsigned char)11
+        unsigned char #11 <--- (unsigned char)12
+        unsigned char #12 <--- (unsigned char)13
+        unsigned char #13 <--- (unsigned char)14
+        unsigned char #14 <--- (unsigned char)15
+        unsigned char #15 <--- (unsigned char)16
+        unsigned char #16 <--- (unsigned char)17
+        unsigned char #17 <--- (unsigned char)18
+        unsigned char #18 <--- (unsigned char)19
+        unsigned char #19 <--- (unsigned char)20
+      INIT_END
+    INIT_END
