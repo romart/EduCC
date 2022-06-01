@@ -57,7 +57,6 @@ typedef struct _GenerationContext {
 
   HashMap *labelMap;
 
-  struct Label *returnLabel;
   struct Label *continueLabel;
   struct Label *breakLabel;
 
@@ -2303,7 +2302,8 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
             generateExpression(ctx, f, scope, retExpr);
           }
       }
-      emitJumpTo(f, ctx->returnLabel);
+      emitLeave(f);
+      emitRet(f, 0);
       break;
       }
   case SK_BREAK:
@@ -2457,10 +2457,6 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
 
   assert(f->body->statementKind == SK_BLOCK);
 
-  struct Label returnLabel = { 0 };
-
-  ctx->returnLabel = &returnLabel;
-
   GeneratedFunction *gen = allocateGenFunction(ctx);
 
   gen->symbol = f->declaration->symbol;
@@ -2479,17 +2475,17 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
   generateBlock(ctx, gen, &f->body->block, 0);
   assert(gen->stackOffset == 0);
 
-  bindLabel(gen, &returnLabel);
+  if (gen->section->pc[-1] != 0xC3) {
+    TypeRef * returnType = f->declaration->returnType;
+    size_t returnTypeSize = computeTypeSize(returnType);
+    if (isStructualType(returnType) && returnTypeSize > sizeof(intptr_t)) {
+        Address addr = { R_EBP, R_BAD, 0, gen->returnStructAddressOffset, NULL, NULL };
+        emitMoveAR(gen, &addr, R_EAX, sizeof(intptr_t));
+    }
 
-  TypeRef * returnType = f->declaration->returnType;
-  size_t returnTypeSize = computeTypeSize(returnType);
-  if (isStructualType(returnType) && returnTypeSize > sizeof(intptr_t)) {
-      Address addr = { R_EBP, R_BAD, 0, gen->returnStructAddressOffset, NULL, NULL };
-      emitMoveAR(gen, &addr, R_EAX, sizeof(intptr_t));
+    popFrame(ctx, gen);
+    emitReturn(ctx, gen);
   }
-
-  popFrame(ctx, gen);
-  emitReturn(ctx, gen);
 
   gen->bodySize = (gen->section->pc - gen->section->start) - gen->sectionOffset;
 
@@ -2510,9 +2506,6 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
 
     fprintf(stdout, "\n<<<>>>\n");
   }
-
-  ctx->returnLabel = NULL;
-
 
   return gen;
 }
