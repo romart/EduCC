@@ -1888,6 +1888,17 @@ static void parseParameterList(ParserContext *ctx, FunctionParams *params, struc
           const char *name = declarator.identificator;
 
           type = makeTypeRef(ctx, &specifiers, &declarator);
+          if (type->kind == TR_FUNCTION) {
+              SpecifierFlags flag = { 0 };
+              type = makePointedType(ctx, flag, type);
+          } else if (type->kind == TR_ARRAY) {
+              if (type->arrayTypeDesc.size < 0) {
+                  // int foo(int a[]) -> int foo(const int *a)
+                  SpecifierFlags flags = { 0 };
+                  TypeRef *arrayType = type;
+                  type = makePointedType(ctx, flags, type->arrayTypeDesc.elementType);
+              }
+          }
           AstValueDeclaration *parameter =
               createAstValueDeclaration(ctx, &coords, VD_PARAMETER, type, name, idx++, specifiers.flags.storage, NULL);
           parameter->symbol = declareValueSymbol(ctx, name, parameter);
