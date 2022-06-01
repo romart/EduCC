@@ -903,10 +903,6 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
         emitMovxxRR(f, 0xB7, R_EAX, R_EAX); // movzx
     } else if (toTypeId == T_S4 || toTypeId == T_U4) {
         switch (fromTypeId) {
-        case T_S1: emitMovxxRR(f, 0xBE, R_EAX, R_EAX); break; // movsx
-        case T_U1: emitMovxxRR(f, 0xB6, R_EAX, R_EAX); break; // movzx
-        case T_S2: emitMovxxRR(f, 0xBF, R_EAX, R_EAX); break; // movsx
-        case T_U2: emitMovxxRR(f, 0xB7, R_EAX, R_EAX); break; // movzx
         case T_F4: emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE); break;// cvttss2si eax,xmm0
         case T_F8: emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE); break; // cvttsd2si eax,xmm0
         case T_F10: unreachable("long double conversions are not implemented yet");
