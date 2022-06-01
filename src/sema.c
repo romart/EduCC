@@ -106,6 +106,26 @@ TypeEqualityKind typeEquality(TypeRef *t1, TypeRef *t2) {
       }
   }
 
+  if (t1->kind == TR_POINTED && t2->kind == TR_ARRAY || t2->kind == TR_POINTED && t1->kind == TR_ARRAY) {
+      TypeRef *arrayType = t1->kind == TR_ARRAY ? t1 : t2;
+      TypeRef *pointerType = t1 == arrayType ? t2 : t1;
+
+      TypeRef *elementType = arrayType->arrayTypeDesc.elementType;
+      TypeRef *pointedType = pointerType->pointedTo.toType;
+
+      equality = typeEquality(elementType, pointedType);
+      assert(equality != TEK_UNKNOWN);
+      if (equality <= TEK_ALMOST_EQUAL) {
+        if (pointedType->flags.bits.isConst) {
+            return TEK_ALMOST_EQUAL;
+        } else {
+            return TEK_NOT_EXATCLY_EQUAL;
+        }
+      }
+
+      return equality;
+  }
+
 
   if (t1->kind == TR_POINTED || t2->kind == TR_POINTED) {
     return TEK_NOT_EQUAL;
