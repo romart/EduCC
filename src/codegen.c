@@ -1182,8 +1182,8 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
       generateExpression(ctx, f, scope, l);
       emitPushReg(f, R_ACC);
       generateExpression(ctx, f, scope, r);
-      emitPopReg(f, R_EBX);
-      addr->base = R_EBX;
+      emitPopReg(f, R_EDI);
+      addr->base = R_EDI;
       emitMoveRR(f, R_ACC, R_ECX, sizeof(intptr_t));
       addr->index = R_ECX;
       addr->scale = 0;
@@ -1192,8 +1192,8 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
       generateExpression(ctx, f, scope, l);
       emitPushReg(f, R_ACC);
       generateExpression(ctx, f, scope, r);
-      emitPopReg(f, R_EBX);
-      addr->base = R_EBX;
+      emitPopReg(f, R_EDI);
+      addr->base = R_EDI;
       emitMoveRR(f, R_ACC, R_ECX, sizeof(intptr_t));
       addr->index = R_ECX;
       addr->scale = 0;
@@ -1201,8 +1201,8 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
         if (r->op == E_CONST) {
             // [expr + imm]
             generateExpression(ctx, f, scope, l);
-            emitMoveRR(f, R_ACC, R_EBX, sizeof(intptr_t));
-            addr->base = R_EBX;
+            emitMoveRR(f, R_ACC, R_EDI, sizeof(intptr_t));
+            addr->base = R_EDI;
             addr->index = R_BAD;
             addr->imm += r->constExpr.i;
         } else if (r->op == EB_MUL || l->op == EB_MUL) {
@@ -1226,21 +1226,21 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
                   case 4: addr->scale = 2; break;
                   case 8: addr->scale = 3; break;
                   }
-                  emitPopReg(f, R_EBX);
-                  addr->base = R_EBX;
+                  emitPopReg(f, R_EDI);
+                  addr->base = R_EDI;
                   emitMoveRR(f, R_ACC, R_ECX, sizeof(intptr_t));
                   addr->index = R_ECX;
                 } else {
                   generateExpression(ctx, f, scope, idxs);
-                  emitPopReg(f, R_EBX);
-                  addr->base = R_EBX;
+                  emitPopReg(f, R_EDI);
+                  addr->base = R_EDI;
                   addr->scale = 0;
                   addr->index = R_ACC;
                 }
             } else {
                 generateExpression(ctx, f, scope, idxs);
-                emitPopReg(f, R_EBX);
-                addr->base = R_EBX;
+                emitPopReg(f, R_EDI);
+                addr->base = R_EDI;
                 addr->scale = 0;
                 addr->index = R_ACC;
             }
@@ -1249,8 +1249,8 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
             generateExpression(ctx, f, scope, l);
             emitPushReg(f, R_ACC);
             generateExpression(ctx, f, scope, r);
-            emitPopReg(f, R_EBX);
-            addr->base = R_EBX;
+            emitPopReg(f, R_EDI);
+            addr->base = R_EDI;
             addr->index = R_ACC;
         }
     }
@@ -1315,9 +1315,9 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
           AstStructDeclarator *decl = lvalue->fieldExpr.member;
 
           addr.imm += decl->offset;
-          emitLea(f, &addr, R_EBX);
+          emitLea(f, &addr, R_EDI);
 
-          addr.base = R_EBX;
+          addr.base = R_EDI;
           addr.index = R_BAD;
           addr.imm = 0;
 
@@ -1349,18 +1349,18 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
                 } else if (addr.base == R_ACC) {
                     switch (addr.index) {
                     case R_BAD:
-                    case R_EBX:
+                    case R_EDI:
                     case R_EDX: resultReg = R_ECX; break;
-                    case R_ECX: resultReg = R_EBX; break;
+                    case R_ECX: resultReg = R_EDI; break;
                     default: unreachable("Cannot pick a register");
                     }
                 } else {
                     assert(addr.index == R_ACC);
                     switch (addr.base) {
                     case R_BAD:
-                    case R_EBX:
+                    case R_EDI:
                     case R_EDX: resultReg = R_ECX; break;
-                    case R_ECX: resultReg = R_EBX; break;
+                    case R_ECX: resultReg = R_EDI; break;
                     default: unreachable("Cannot pick a register");
                     }
                 }
@@ -1380,9 +1380,9 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
     if (lType->kind == TR_BITFIELD) {
         TypeRef *storageType = lType->bitFieldDesc.storageType;
 
-        emitLea(f, &addr, R_EBX);
+        emitLea(f, &addr, R_EDI);
 
-        addr.base = R_EBX;
+        addr.base = R_EDI;
         addr.index = R_BAD;
         addr.imm = 0;
 
@@ -1401,8 +1401,8 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
             emitStore(f, R_FACC, &addr, rTypeId);
         } else {
             if (addr.reloc) {
-                emitLea(f, &addr, R_EBX);
-                addr.base = R_EBX; addr.reloc = NULL;
+                emitLea(f, &addr, R_EDI);
+                addr.base = R_EDI; addr.reloc = NULL;
             }
             emitLoad(f, &addr, R_TMP, lTypeId);
             emitPopReg(f, R_TMP2);
@@ -1662,7 +1662,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
       } else {
         generateExpression(ctx, f, scope, callee);
       }
-      emitMoveRR(f, R_ACC, R_EBX, sizeof(intptr_t));
+      emitMoveRR(f, R_ACC, R_R10, sizeof(intptr_t));
   }
 
   unsigned ir = 0, fr = 0;
@@ -1703,7 +1703,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
 
     emitCallLiteral(f, newReloc);
   } else {
-    emitCall(f, R_EBX);
+    emitCall(f, R_R10);
   }
 
   if (alignedStackSize) {
@@ -2350,14 +2350,6 @@ static int generateBlock(GenerationContext *ctx, GeneratedFunction *f, AstBlock 
   return 0;
 }
 
-static void pushCalleeSaveRegisters(GeneratedFunction *f) {
-  emitPushReg(f, R_R15);
-  emitPushReg(f, R_R14);
-  emitPushReg(f, R_R13);
-  emitPushReg(f, R_R12);
-  emitPushReg(f, R_EBX);
-}
-
 static void pushFrame(GenerationContext *ctx, GeneratedFunction *f) {
 
   // pushq %rbp
@@ -2366,27 +2358,11 @@ static void pushFrame(GenerationContext *ctx, GeneratedFunction *f) {
   emitMoveRR(f, R_ESP, R_EBP, sizeof(intptr_t));
 }
 
-const static enum Registers calleeSave[] = { R_R15, R_R14, R_R13, R_R12, R_EBX };
-
-static void popCalleSaveRegisters(GeneratedFunction *f) {
-
-  int32_t baseOffset = f->savedRegOffset;
-  emitMoveRR(f, R_EBP, R_ESP, sizeof(intptr_t));
-  emitArithConst(f, OP_SUB, R_ESP, -baseOffset, sizeof(intptr_t));
-
-  unsigned count = sizeof calleeSave / sizeof calleeSave[0];
-  int32_t i = 0;
-  for (i = count - 1; i >= 0; --i) {
-      emitPopReg(f, calleeSave[i]);
-  }
-}
-
 static void popFrame(GenerationContext *ctx, GeneratedFunction *f) {
   // movq %rbp, %rsp
   // popq %rbp
 
-  popCalleSaveRegisters(f);
-  emitPopReg(f, R_EBP);
+  emitLeave(f);
 }
 
 static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, AstFunctionDefinition *f) {
@@ -2400,17 +2376,12 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
   int32_t baseOffset = 0; // from rbp;
   int32_t stackParamOffset = sizeof(intptr_t) + sizeof(intptr_t); // rbp itself + return pc
 
-  unsigned i = 0;
-  for (i = 0; i < sizeof(calleeSave)/sizeof(calleeSave[0]); ++i) {
-      emitPushReg(g, calleeSave[i]);
-      baseOffset += sizeof(intptr_t);
-  }
-
-  g->savedRegOffset = -baseOffset;
 
   if (f->declaration->isVariadic) {
       // save xmm regs too
   }
+
+  g->savedRegOffset = -baseOffset;
 
   baseOffset += sizeof(intptr_t);
   int32_t allocaOffset = g->allocaOffset = -baseOffset;
