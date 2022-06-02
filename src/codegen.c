@@ -836,7 +836,6 @@ static void generateBitExtend(GenerationContext *ctx, GeneratedFunction *f, Scop
   uint8_t opcode = 0;
 
   if (w <= 16) {
-
     if (w <= 8) {
         opcode = isU ? 0xB6 : 0xBE;
     } else if (w <= 16) {
@@ -1713,6 +1712,14 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
       Address addr = { R_EBP, R_BAD, 0, f->smallStructSlotOffset, NULL, NULL };
       emitMoveRA(f, R_ACC, &addr, sizeof(intptr_t));
       emitLea(f, &addr, R_ACC);
+  } else if (isIntegerType(returnType)) {
+      TypeId tid = typeToId(returnType);
+      switch (tid) {
+      case T_S1: emitMovxxRR(f, 0xBE, R_ACC, R_ACC);
+      case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
+      case T_S2: emitMovxxRR(f, 0xBF, R_ACC, R_ACC);
+      case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC);
+      }
   }
 
   if (alignedStackSize) {
