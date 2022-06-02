@@ -25,9 +25,9 @@ FILE test/testData/parser/positive/structs.c
       double x #0
       ****STRUCT XXX xx #8
     STRUCT_END
-    STRUCT <anon$0> ss1 #12
-    *STRUCT <anon$0> ss2 #28
-    **STRUCT <anon$0> ss3 #36
+    STRUCT <anon$0> ss1 #16
+    *STRUCT <anon$0> ss2 #32
+    **STRUCT <anon$0> ss3 #40
   STRUCT_END
 ----
   STRUCT <anon$1>

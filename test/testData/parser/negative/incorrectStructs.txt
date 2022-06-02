@@ -7,19 +7,19 @@ FILE test/testData/parser/negative/incorrectStructs.c
       double x #0
       ****STRUCT XXX xx #8
     STRUCT_END
-    STRUCT <anon$0> ss1 #12
-    *STRUCT <anon$0> ss2 #28
-    **STRUCT <anon$0> ss3 #36
-    signed int ss1 #44
-    signed int (null) #48
-    *signed int pv1 #52
-    **signed int pv1 #60
-    signed int ss2 #68
-    signed int (null) #72
-    *signed int pv2 #76
-    **signed int pv2 #84
-    signed int ss3 #92
-    signed int (null) #96
-    *signed int pv3 #100
-    **signed int pv3 #108
+    STRUCT <anon$0> ss1 #16
+    *STRUCT <anon$0> ss2 #32
+    **STRUCT <anon$0> ss3 #40
+    signed int ss1 #48
+    signed int (null) #52
+    *signed int pv1 #56
+    **signed int pv1 #64
+    signed int ss2 #72
+    signed int (null) #76
+    *signed int pv2 #80
+    **signed int pv2 #88
+    signed int ss3 #96
+    signed int (null) #100
+    *signed int pv3 #104
+    **signed int pv3 #112
   STRUCT_END

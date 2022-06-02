@@ -18,9 +18,9 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
   STRUCT_END
 ----
   STRUCT S4
-    unsigned int:0:6 bf #0
-    unsigned int:6:7 ff #0
-    STRUCT S3 s3 #4
+    unsigned short:0:6 bf #0
+    unsigned short:6:7 ff #0
+    STRUCT S3 s3 #8
   STRUCT_END
 ----
   FUN signed int testArrayPrimitive 
