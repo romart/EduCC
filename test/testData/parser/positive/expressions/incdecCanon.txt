@@ -17,8 +17,8 @@ FILE test/testData/parser/positive/expressions/incdecCanon.c
     **ptr -= 1
     *(*ptr + 15 * 4) -= 1
     (*pptr)[*x]++
-    **pptr -= 48
-    *(*pptr + 10 * 8) -= 48
+    **pptr -= 44
+    *(*pptr + 10 * 8) -= 44
     (*pptr)[*x]->n.x++
     **STRUCT Incpt incpt
     *incpt += 8
