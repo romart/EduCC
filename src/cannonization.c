@@ -456,22 +456,28 @@ static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression
       Boolean isU = isUnsignedType(storageType);
 
       AstExpression *extracted = NULL;
+      size_t storageSize = computeTypeSize(storageType);
 
-      size_t W = computeTypeSize(storageType) * 8;
+      size_t W = storageSize * 8;
 
       u_int64_t l = W - (w + s);
 
       AstExpression *lshiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &l);
-      lshiftConst->type = makePrimitiveType(ctx, T_S4, 0);
+      lshiftConst->type = storageType;
 
       AstExpression *lShifted = createBinaryExpression(ctx, EB_LHS, storageType, derefered, lshiftConst);
 
       u_int64_t r = W - w;
 
       AstExpression *rshiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &r);
-      rshiftConst->type = makePrimitiveType(ctx, T_S4, 0);
+      rshiftConst->type = storageType;
 
-      return createBinaryExpression(ctx, EB_RHS, storageType, lShifted, rshiftConst);
+      AstExpression *result = createBinaryExpression(ctx, EB_RHS, storageType, lShifted, rshiftConst);
+
+      if (storageSize < 4) {
+          result = createBitExtendExpression(ctx, makePrimitiveType(ctx, isU ? T_U4 : T_S4, 0), w, isU, result);
+      }
+      return result;
   }
 
   return derefered;
