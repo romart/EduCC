@@ -1,14 +1,14 @@
 FILE test/testData/parser/negative/expressions/initializers.c
   STRUCT S
     float x #0
-    *signed int ptr #4
-    *signed int ptr2 #12
+    *signed int ptr #8
+    *signed int ptr2 #16
   STRUCT_END
 ----
   STRUCT SX
     signed int a #0
-    STRUCT S s #4
-    STRUCT S[2] as #28
+    STRUCT S s #8
+    STRUCT S[2] as #32
   STRUCT_END
 ----
   STRUCT S s0
@@ -16,62 +16,62 @@ FILE test/testData/parser/negative/expressions/initializers.c
   STRUCT S s1 = \
     INIT_BEGIN
       float #0 <--- 1.000000
-      *signed int #4 <--- (*signed int)0
-      *signed int #12 <--- (*signed int)0
+      *signed int #8 <--- (*signed int)0
+      *signed int #16 <--- (*signed int)0
     INIT_END
 ----
   STRUCT S s2 = \
     INIT_BEGIN
       float #0 <--- 1.000000
-      *signed int #4 <--- (*signed int)0
-      *signed int #12 <--- (*signed int)0
+      *signed int #8 <--- (*signed int)0
+      *signed int #16 <--- (*signed int)0
     INIT_END
 ----
   STRUCT S s3 = \
     INIT_BEGIN
       float #0 <--- 1.000000
-      *signed int #4 <--- (*signed int)0
-      *signed int #12 <--- (*signed int)0
+      *signed int #8 <--- (*signed int)0
+      *signed int #16 <--- (*signed int)0
     INIT_END
 ----
   STRUCT S s4 = \
     INIT_BEGIN
       float #0 <--- 1.000000
-      *signed int #4 <--- (*signed int)0
-      *signed int #12 <--- (*signed int)0
+      *signed int #8 <--- (*signed int)0
+      *signed int #16 <--- (*signed int)0
     INIT_END
 ----
   STRUCT S[3] s5 = \
     INIT_BEGIN
       INIT_BEGIN
         float #0 <--- 1.000000
-        *signed int #4 <--- (*signed int)0
-        *signed int #12 <--- (*signed int)0
+        *signed int #8 <--- (*signed int)0
+        *signed int #16 <--- (*signed int)0
       INIT_END
       INIT_BEGIN
         float #24 <--- 1.000000
-        *signed int #28 <--- (*signed int)0
-        *signed int #36 <--- (*signed int)0
+        *signed int #32 <--- (*signed int)0
+        *signed int #40 <--- (*signed int)0
       INIT_END
       INIT_BEGIN
         float #48 <--- 1.000000
-        *signed int #52 <--- (*signed int)0
-        *signed int #60 <--- (*signed int)0
+        *signed int #56 <--- (*signed int)0
+        *signed int #64 <--- (*signed int)0
       INIT_END
     INIT_END
 ----
   STRUCT S s6 = \
     INIT_BEGIN
       float #0 <--- 1.000000
-      *signed int #4 <--- (*signed int)0
-      *signed int #12 <--- (*signed int)0
+      *signed int #8 <--- (*signed int)0
+      *signed int #16 <--- (*signed int)0
     INIT_END
 ----
   STRUCT S s7 = \
     INIT_BEGIN
       ERROR TYPE #-1 <--- ERROR EXPR
       ERROR TYPE #-1 <--- ERROR EXPR
-      *signed int #12 <--- 0
+      *signed int #16 <--- 0
     INIT_END
 ----
   STRUCT S[3] s8 = \
@@ -79,17 +79,17 @@ FILE test/testData/parser/negative/expressions/initializers.c
       INIT_BEGIN
         ERROR TYPE #-1 <--- ERROR EXPR
         ERROR TYPE #-1 <--- ERROR EXPR
-        *signed int #12 <--- (*signed int)5
+        *signed int #16 <--- (*signed int)5
       INIT_END
       INIT_BEGIN
         float #24 <--- (float)0
-        *signed int #28 <--- (*signed int)0
+        *signed int #32 <--- (*signed int)0
         ERROR TYPE #-1 <--- ERROR EXPR
       INIT_END
       INIT_BEGIN
         float #48 <--- (float)0
-        *signed int #52 <--- 0
-        *signed int #60 <--- 0
+        *signed int #56 <--- 0
+        *signed int #64 <--- 0
       INIT_END
     INIT_END
 ----
@@ -97,8 +97,8 @@ FILE test/testData/parser/negative/expressions/initializers.c
     INIT_BEGIN
       INIT_BEGIN
         float #0 <--- (float)0
-        *signed int #4 <--- 0
-        *signed int #12 <--- 0
+        *signed int #8 <--- 0
+        *signed int #16 <--- 0
       INIT_END
     INIT_END
 ----
@@ -108,14 +108,14 @@ FILE test/testData/parser/negative/expressions/initializers.c
       ERROR TYPE #-1 <--- ERROR EXPR
       INIT_BEGIN
         INIT_BEGIN
-          float #28 <--- (float)0
-          *signed int #32 <--- 0
+          float #32 <--- (float)0
           *signed int #40 <--- 0
+          *signed int #48 <--- 0
         INIT_END
         INIT_BEGIN
-          float #52 <--- 0.000000
-          *signed int #56 <--- 0
+          float #56 <--- 0.000000
           *signed int #64 <--- 0
+          *signed int #72 <--- 0
         INIT_END
       INIT_END
     INIT_END
@@ -124,18 +124,18 @@ FILE test/testData/parser/negative/expressions/initializers.c
     INIT_BEGIN
       INIT_BEGIN
         float #0 <--- (float)0
-        *signed int #4 <--- (*signed int)0
-        *signed int #12 <--- (*signed int)0
+        *signed int #8 <--- (*signed int)0
+        *signed int #16 <--- (*signed int)0
       INIT_END
       INIT_BEGIN
         float #24 <--- 0.000000
-        *signed int #28 <--- 0
-        *signed int #36 <--- 0
+        *signed int #32 <--- 0
+        *signed int #40 <--- 0
       INIT_END
       INIT_BEGIN
         float #48 <--- 0.000000
-        *signed int #52 <--- 0
-        *signed int #60 <--- 0
+        *signed int #56 <--- 0
+        *signed int #64 <--- 0
       INIT_END
     INIT_END
 ----
@@ -143,18 +143,18 @@ FILE test/testData/parser/negative/expressions/initializers.c
     INIT_BEGIN
       INIT_BEGIN
         float #0 <--- (float)0
-        *signed int #4 <--- (*signed int)0
-        *signed int #12 <--- (*signed int)0
+        *signed int #8 <--- (*signed int)0
+        *signed int #16 <--- (*signed int)0
       INIT_END
       INIT_BEGIN
         float #24 <--- 0.000000
-        *signed int #28 <--- 0
-        *signed int #36 <--- 0
+        *signed int #32 <--- 0
+        *signed int #40 <--- 0
       INIT_END
       INIT_BEGIN
         float #48 <--- 0.000000
-        *signed int #52 <--- 0
-        *signed int #60 <--- 0
+        *signed int #56 <--- 0
+        *signed int #64 <--- 0
       INIT_END
     INIT_END
 ----
@@ -270,8 +270,8 @@ FILE test/testData/parser/negative/expressions/initializers.c
   STRUCT S s22 = \
     INIT_BEGIN
       float #0 <--- (float)0
-      *signed int #4 <--- 0
-      *signed int #12 <--- 0
+      *signed int #8 <--- 0
+      *signed int #16 <--- 0
     INIT_END
 ----
   signed int i2 = \
@@ -319,17 +319,17 @@ FILE test/testData/parser/negative/expressions/initializers.c
     STRUCT SX sx2 = \
       INIT_BEGIN
         signed int #0 <--- 0
-        STRUCT S #4 <--- *s0
+        STRUCT S #8 <--- *s0
         INIT_BEGIN
           INIT_BEGIN
-            float #28 <--- (float)0
-            *signed int #32 <--- 0
+            float #32 <--- (float)0
             *signed int #40 <--- 0
+            *signed int #48 <--- 0
           INIT_END
           INIT_BEGIN
-            float #52 <--- 0.000000
-            *signed int #56 <--- 0
+            float #56 <--- 0.000000
             *signed int #64 <--- 0
+            *signed int #72 <--- 0
           INIT_END
         INIT_END
       INIT_END    

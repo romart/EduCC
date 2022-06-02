@@ -1,18 +1,16 @@
 FILE test/testData/parser/positive/structBitFields.c
   STRUCT S
-    signed int:0:1 if1 #0
-    signed int:1:2 if2 #0
-    signed int:3:3 if3 #0
-    signed int:6:4 if4 #0
-    signed int:10:0 if0 #4
+    signed short:0:1 if1 #0
+    signed short:1:2 if2 #0
+    signed short:3:3 if3 #0
+    signed short:6:4 if4 #0
     unsigned int:0:10 uf1 #4
     unsigned int:10:20 uf2 #4
     signed int x #8
     unsigned int:0:30 uf3 #12
-    unsigned int:30:0 uf0 #16
-    unsigned int:0:30 uf4 #16
-    unsigned int:0:30 uf5 #20
-    signed int:0:1 if5 #24
-    unsigned int:0:1 uf6 #28
-    signed long:0:33 llf #32
+    unsigned long:0:30 uf4 #16
+    unsigned long:30:30 uf5 #16
+    signed long:60:1 if5 #16
+    unsigned long:61:1 uf6 #16
+    signed long:0:33 llf #24
   STRUCT_END
