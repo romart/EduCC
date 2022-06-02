@@ -64,6 +64,7 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, REGISTER_ADDRESS, "address of register variable requested"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, SIZEOF_INCOMPLETE_TYPE, "invalid application of 'sizeof' to an incomplete type '%tr'"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, BIT_FIELD_NEGATIVE_WIDTH, "bit-field '%s' has negative width (%d)"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ZERO_NAMED_BIT_FIELD, "named bit-field '%s' has zero width"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ANON_BIT_FIELD_NEGATIVE_WIDTH, "anonymous bit-field has negative width (%d)"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, EXCEED_BIT_FIELD_TYPE_WIDTH, "width of bit-field '%s' (%d bits) exceeds the width of its type (%d)"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, EXCEED_ANON_BIT_FIELD_TYPE_WIDTH, "width of anonymous bit-field (%d bits) exceeds the width of its type (%d)"), \
