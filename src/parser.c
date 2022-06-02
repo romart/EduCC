@@ -1062,8 +1062,65 @@ static AstSUEDeclaration* parseEnumDeclaration(ParserContext *ctx, struct _Scope
       consume(ctx, '}');
     }
 
-    return createSUEDeclaration(ctx, &coords, DK_ENUM, TRUE, name, members);
+    return createSUEDeclaration(ctx, &coords, DK_ENUM, TRUE, name, members, sizeof(int32_t));
 }
+
+static int32_t alignMemberOffset(TypeRef *memberType, int32_t offset) {
+  TypeRef *effectiveType;
+  int32_t align;
+  switch (memberType->kind) {
+    case TR_POINTED:
+    case TR_FUNCTION:
+      align = sizeof(intptr_t);
+      break;
+    case TR_ARRAY:
+      if (memberType->arrayTypeDesc.size < 0) {
+          align = sizeof(intptr_t);
+          break;
+      } else {
+          return alignMemberOffset(memberType->arrayTypeDesc.elementType, offset);
+      }
+    case TR_BITFIELD: effectiveType = memberType->bitFieldDesc.storageType; goto value_type;
+    case TR_VALUE: effectiveType = memberType;
+      value_type:
+      switch (effectiveType->descriptorDesc->typeId) {
+      case T_S1:
+      case T_U1:
+          align = sizeof(uint8_t);
+          break;
+      case T_S2:
+      case T_U2:
+          align = sizeof(uint16_t);
+          break;
+      case T_U4:
+      case T_S4:
+      case T_F4:
+      case T_ENUM:
+          align = sizeof(uint32_t);
+          break;
+      case T_S8:
+      case T_U8:
+      case T_F8:
+          align = sizeof(uint64_t);
+          break;
+      case T_F10:
+          align = sizeof(long double);
+          break;
+      case T_STRUCT:
+      case T_UNION:
+          align = effectiveType->descriptorDesc->structInfo->align;
+          break;
+      default: unreachable("Unknown type ID");
+      }
+      break;
+
+    default: unreachable("Unexpected type kind");
+  }
+
+  return ALIGN_SIZE(offset, align);
+}
+
+
 
 /**
 struct_declaration_list
@@ -1092,7 +1149,7 @@ struct_declarator
     ;
 */
 static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned factor, struct _Scope* scope) {
-    AstStructMember *head = NULL, *tail = NULL;
+  AstStructMember head = { 0 }, *current = &head;
     int token = ctx->token->code;
     unsigned offset = 0;
     unsigned bitOffset = 0;
@@ -1119,11 +1176,7 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
                  */
 
                 AstStructMember *members = definition->members;
-                if (tail) {
-                    tail->next = members;
-                } else {
-                    head = members;
-                }
+                current->next = members;
 
                 unsigned size = 0;
 
@@ -1138,7 +1191,7 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
                             members->declarator->offset += offset;
                         }
                     }
-                    tail = members;
+                    current = members;
                     members = members->next;
                 }
                 offset += size * factor;
@@ -1146,15 +1199,10 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
             } else {
                 AstDeclaration *declaration = createAstDeclaration(ctx, definition->kind, definition->name);
                 declaration->structDeclaration = definition;
-                AstStructMember *m1 = createStructMember(ctx, declaration, NULL, NULL);
-                if (tail) {
-                    tail->next = m1;
-                } else {
-                    head = m1;
-                }
-                tail = m1;
+                current = current->next = createStructMember(ctx, declaration, NULL, NULL);
             }
         }
+
 
         for (;;) {
             Declarator declarator = { 0 };
@@ -1238,20 +1286,22 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
                   offset += computeTypeSize(curBitFieldUnit) * factor;
               }
 
-              AstStructDeclarator *structDeclarator = NULL;
-              structDeclarator = createStructDeclarator(ctx, &coords, type, name, offset);
-              AstStructMember *member = createStructMember(ctx, NULL, structDeclarator, NULL);
-              if (tail) {
-                  tail->next = member;
-              } else {
-                  head = member;
-              }
-              tail = member;
+              int32_t typeSize = computeTypeSize(type);
+              offset = alignMemberOffset(type, offset);
+
+              AstStructDeclarator *structDeclarator = createStructDeclarator(ctx, &coords, type, name, offset);
+              current = current->next = createStructMember(ctx, NULL, structDeclarator, NULL);
+
+//              if (hasWidth && bitfieldChain == NULL) {
+//                  bitfieldChain = current;
+//              }
 
               if (!hasWidth) {
                 bitOffset = 0;
                 curBitFieldUnit = NULL;
-                offset += computeTypeSize(type) * factor;
+                bitfieldChain = NULL;
+                bfChainWidth = 0;
+                offset += typeSize * factor;
               }
             }
             if (!nextTokenIf(ctx, ',')) break;
@@ -1260,9 +1310,25 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
         consume(ctx, ';');
     } while (ctx->token->code != '}');
 
-    return head;
+    return head.next;
 }
 
+static int32_t computeStructAlignment(AstStructMember *members) {
+  int32_t biggestSize = -1;
+
+  for (; members; members = members->next) {
+      if (members->kind != SM_DECLARATOR) continue;
+
+      TypeRef *memberType = members->declarator->typeRef;
+      if (isStructualType(memberType)) {
+          biggestSize = max(biggestSize, memberType->descriptorDesc->structInfo->align);
+      } else {
+          biggestSize = max(biggestSize, computeTypeSize(memberType));
+      }
+  }
+
+  return biggestSize;
+}
 
 /**
 struct_or_union_specifier
@@ -1309,7 +1375,8 @@ static AstSUEDeclaration* parseStructOrUnionDeclaration(ParserContext *ctx, Decl
     consume(ctx, '}');
 
 done:
-    return createSUEDeclaration(ctx, &coords, kind, isDefinition, name, members);
+
+    return createSUEDeclaration(ctx, &coords, kind, isDefinition, name, members, computeStructAlignment(members));
 }
 
 /**

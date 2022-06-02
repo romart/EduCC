@@ -171,7 +171,7 @@ AstStructDeclarator* createStructDeclarator(ParserContext *ctx, Coordinates *coo
     return result;
 }
 
-AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, Coordinates *coords, DeclarationKind kind, Boolean isDefinition, const char *name, AstStructMember *members) {
+AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, Coordinates *coords, DeclarationKind kind, Boolean isDefinition, const char *name, AstStructMember *members, int32_t align) {
     AstSUEDeclaration *result = (AstSUEDeclaration*)areanAllocate(ctx->memory.astArena, sizeof(AstSUEDeclaration));
 
     result->coordinates.startOffset = coords->startOffset;
@@ -182,6 +182,7 @@ AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, Coordinates *coords,
     result->name = name;
     result->members = members;
     result->isDefinition = isDefinition;
+    result->align = align;
 
     return result;
 }
