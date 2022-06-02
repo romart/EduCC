@@ -375,20 +375,25 @@ static void emitSimpleArithRC(GeneratedFunction *f, uint8_t  opcode, uint8_t opc
 
   emitRex(f, r, R_BAD, R_BAD, size == 8);
 
+  emitByte(f, size == 1 ? opcode - 1 : opcode);
+
   ModRM rm = { 0 };
 
   rm.bits.regOp = digit & 0x7;
   rm.bits.mod = 0b11;
   rm.bits.rm = register_encodings[r];
 
-  if ((int64_t)(int8_t)c == c) {
-    emitByte(f, opcode8);
-    emitByte(f, rm.v);
-    emitByte(f, (int8_t)c);
-  } else {
-    emitByte(f, opcode);
-    emitByte(f, rm.v);
-    emitDouble(f, (int32_t)c);
+  emitByte(f, rm.v);
+  emitByte(f, c);
+
+  // TODO: it could be optimized using imm8
+  if (size > 1) {
+      emitByte(f, (uint8_t)(c >> 8));
+  }
+
+  if (size > 2) {
+      emitByte(f, (uint8_t)(c >> 16));
+      emitByte(f, (uint8_t)(c >> 24));
   }
 }
 
@@ -457,12 +462,25 @@ void emitSMulAR(GeneratedFunction *f, Address *addr, enum Registers r, size_t si
   emitByte(f, 0x0F);
   emitByte(f, 0xAF);
 
-  ModRM rm = { 0 };
-
   encodeAR(f, addr, register_encodings[r]);
 }
 
-void emitShiftRC(GeneratedFunction *f, uint8_t code, uint8_t digit, enum Registers r, int64_t c, Boolean isW) {
+void emitShiftRC(GeneratedFunction *f, uint8_t code, uint8_t digit, enum Registers r, int64_t c, size_t size) {
+  if (size == 2) emitByte(f, 0x66);
+
+  emitRex(f, r, R_BAD, R_BAD, size == 8);
+
+  emitByte(f, size == 1 ? code - 1 : code);
+
+  ModRM rm = { 0 };
+
+  rm.bits.mod = 0b11;
+  rm.bits.regOp = digit;
+  rm.bits.rm = register_encodings[r];
+
+  emitByte(f, rm.v);
+
+  emitByte(f, c);
 
 }
 
@@ -619,15 +637,9 @@ void emitArithConst(GeneratedFunction *f, enum Opcodes opcode, enum Registers r,
       case OP_AND: return emitSimpleArithRC(f, 0x81, 0x83, 4, r, c, size);
       case OP_OR:  return emitSimpleArithRC(f, 0x81, 0x83, 1, r, c, size);
       case OP_XOR: return emitSimpleArithRC(f, 0x81, 0x83, 6, r, c, size);
-      case OP_SHR: return emitSimpleArithRC(f, 0x00, 0xC1, 5, r, c, size);
-      case OP_SAR: return emitSimpleArithRC(f, 0x00, 0xC1, 7, r, c, size);
-      case OP_SHL: return emitSimpleArithRC(f, 0x00, 0xC1, 4, r, c, size);
-//      case OP_I_SHR: return emitShiftRC(f, 0xD3, 5, r, c, FALSE);
-//      case OP_L_SHR: return emitShiftRC(f, 0xD3, 5, r, c, TRUE);
-//      case OP_I_SAR: return emitShiftRC(f, 0xD3, 7, r, c, FALSE);
-//      case OP_L_SAR: return emitShiftRC(f, 0xD3, 7, r, c, TRUE);
-//      case OP_I_SHL: return emitShiftRC(f, 0xD3, 4, r, c, FALSE);
-//      case OP_L_SHL: return emitShiftRC(f, 0xD3, 4, r, c, TRUE);
+      case OP_SHR: return emitShiftRC(f, 0xC1, 5, r, c, size);
+      case OP_SAR: return emitShiftRC(f, 0xC1, 7, r, c, size);
+      case OP_SHL: return emitShiftRC(f, 0xC1, 4, r, c, size);
       case OP_CMP: return emitSimpleArithRC(f, 0x81, 0x83, 7, r, c, size);
       case OP_SMUL:
       case OP_UMUL:
