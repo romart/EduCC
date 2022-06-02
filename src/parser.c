@@ -1133,7 +1133,7 @@ static int32_t adjustBitFieldStorage(ParserContext *ctx, AstStructMember *chain,
   } else if (chainWidth <= 64) {
       sid = T_S8; uid = T_U8; align = 8;
   } else {
-      unreachable("Integer with exceeds 64 bits");
+      return 0;
   }
 
   TypeRef *sType = makePrimitiveType(ctx, sid, 0);
@@ -1145,10 +1145,10 @@ static int32_t adjustBitFieldStorage(ParserContext *ctx, AstStructMember *chain,
       if (chain->kind != SM_DECLARATOR) continue;
 
       TypeRef *bfType = chain->declarator->typeRef;
-      assert(bfType->kind == TR_BITFIELD);
-      TypeRef *storageType = bfType->bitFieldDesc.storageType;
-
-      bfType->bitFieldDesc.storageType = isUnsignedType(storageType) ? uType : sType;
+      if (bfType->kind == TR_BITFIELD) {
+        TypeRef *storageType = bfType->bitFieldDesc.storageType;
+        bfType->bitFieldDesc.storageType = isUnsignedType(storageType) ? uType : sType;
+      }
       chain->declarator->offset = *offset;
   }
 
@@ -1295,6 +1295,7 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
                           int32_t storageSize = adjustBitFieldStorage(ctx, bitfieldChain, bfChainWidth, &offset);
                           bitOffset = 0;
                           bfChainWidth = 0;
+                          bitfieldChain = NULL;
                           offset += storageSize * factor;
                         }
                       }
@@ -1359,6 +1360,9 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
 
         consume(ctx, ';');
     } while (ctx->token->code != '}');
+
+    if (bitfieldChain)
+      adjustBitFieldStorage(ctx, bitfieldChain, bfChainWidth, &offset);
 
     return head.next;
 }
