@@ -9,6 +9,9 @@ struct {
 
 int main() {
 
+  if (1 != sizeof(struct {int x:1; })) return 1;
+//  if (8 != sizeof(struct {long x:1; })) return 2;
+
   struct bit1 {
     short a;
     char b;
@@ -16,6 +19,8 @@ int main() {
     int d : 3;
     int e : 3;
   };
+
+  if (4 != sizeof(struct bit1)) return 3;
 
   struct bit1 x1 ={1,2,3,4,5};
 
