@@ -1120,7 +1120,40 @@ static int32_t alignMemberOffset(TypeRef *memberType, int32_t offset) {
   return ALIGN_SIZE(offset, align);
 }
 
+static int32_t adjustBitFieldStorage(ParserContext *ctx, AstStructMember *chain, unsigned chainWidth, unsigned *offset) {
+  TypeId sid, uid;
+  unsigned align;
 
+  if (chainWidth <= 8) {
+      sid = T_S1; uid = T_U1; align = 1;
+  } else if (chainWidth <= 16) {
+      sid = T_S2; uid = T_U2; align = 2;
+  } else if (chainWidth <= 32) {
+      sid = T_S4; uid = T_U4; align = 4;
+  } else if (chainWidth <= 64) {
+      sid = T_S8; uid = T_U8; align = 8;
+  } else {
+      unreachable("Integer with exceeds 64 bits");
+  }
+
+  TypeRef *sType = makePrimitiveType(ctx, sid, 0);
+  TypeRef *uType = makePrimitiveType(ctx, uid, 0);
+
+  *offset = ALIGN_SIZE(*offset, align);
+
+  for (;chain; chain = chain->next) {
+      if (chain->kind != SM_DECLARATOR) continue;
+
+      TypeRef *bfType = chain->declarator->typeRef;
+      assert(bfType->kind == TR_BITFIELD);
+      TypeRef *storageType = bfType->bitFieldDesc.storageType;
+
+      bfType->bitFieldDesc.storageType = isUnsignedType(storageType) ? uType : sType;
+      chain->declarator->offset = *offset;
+  }
+
+  return align;
+}
 
 /**
 struct_declaration_list
@@ -1153,7 +1186,8 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
     int token = ctx->token->code;
     unsigned offset = 0;
     unsigned bitOffset = 0;
-    TypeRef *curBitFieldUnit = NULL;
+    AstStructMember *bitfieldChain = NULL;
+    unsigned bfChainWidth = 0;
     do {
         DeclarationSpecifiers specifiers = { 0 };
         specifiers.coordinates = ctx->token->coordinates;
@@ -1176,24 +1210,26 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
                  */
 
                 AstStructMember *members = definition->members;
-                current->next = members;
 
                 unsigned size = 0;
 
-                while (members) {
+                offset = ALIGN_SIZE(offset, definition->align);
+
+                for (; members; members = members->next) {
                     if (members->kind == SM_DECLARATOR) {
-                        AstStructDeclarator *declarator = members->declarator;
-                        int mOffset = declarator->offset;
-                        TypeRef *type = declarator->typeRef;
-                        int typeSize = computeTypeSize(type);
-                        if (typeSize != UNKNOWN_SIZE) {
-                            size = mOffset + typeSize;
-                            members->declarator->offset += offset;
-                        }
+                      AstStructDeclarator *declarator = members->declarator;
+                      int32_t memberOffset = declarator->offset;
+                      TypeRef *memberType = declarator->typeRef;
+                      int32_t typeSize = computeTypeSize(memberType);
+                      // TODO: flexible struct
+                      if (typeSize != UNKNOWN_SIZE) {
+                        members->declarator->offset += offset;
+                        size = memberOffset + typeSize;
+                      }
                     }
-                    current = members;
-                    members = members->next;
+                    current = current->next = members;
                 }
+
                 offset += size * factor;
                 continue;
             } else {
@@ -1202,7 +1238,6 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
                 current = current->next = createStructMember(ctx, declaration, NULL, NULL);
             }
         }
-
 
         for (;;) {
             Declarator declarator = { 0 };
@@ -1243,37 +1278,48 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
                         } else {
                           reportDiagnostic(ctx, DIAG_ANON_BIT_FIELD_NEGATIVE_WIDTH, &specifiers.coordinates, width);
                         }
-                        width = 0;
                     } else {
-                        int typeSize = type->descriptorDesc->size;
-                        int typeWidth = typeSize * BYTE_BIT_SIZE;
-                        if (width > typeWidth) {
-                          if (name) {
-                            reportDiagnostic(ctx, DIAG_EXCEED_BIT_FIELD_TYPE_WIDTH, &declarator.coordinates, name, width, typeWidth);
-                          } else {
-                            reportDiagnostic(ctx, DIAG_EXCEED_ANON_BIT_FIELD_TYPE_WIDTH, &specifiers.coordinates, width, typeWidth);
-                          }
-                          width = 0;
+                      int typeSize = type->descriptorDesc->size;
+                      int typeWidth = typeSize * BYTE_BIT_SIZE;
+                      if (width > typeWidth) {
+                        if (name) {
+                          reportDiagnostic(ctx, DIAG_EXCEED_BIT_FIELD_TYPE_WIDTH, &declarator.coordinates, name, width, typeWidth);
+                        } else {
+                          reportDiagnostic(ctx, DIAG_EXCEED_ANON_BIT_FIELD_TYPE_WIDTH, &specifiers.coordinates, width, typeWidth);
+                        }
+                      }
+
+                      const static unsigned maxWidth = sizeof(uint64_t) * BYTE_BIT_SIZE;
+                      if (bitfieldChain) {
+                        if (width > 0 && (maxWidth - bitOffset) <= width) {
+                          int32_t storageSize = adjustBitFieldStorage(ctx, bitfieldChain, bfChainWidth, &offset);
+                          bitOffset = 0;
+                          bfChainWidth = 0;
+                          offset += storageSize * factor;
+                        }
+                      }
+
+                      type = makeBitFieldType(ctx, type, bitOffset, width);
+
+                      bitOffset += width * factor;
+
+                      if (factor) {
+                        bfChainWidth += width;
+                      } else {
+                        bfChainWidth = max(bfChainWidth, width);
+                      }
+
+                      if (width == 0) {
+                        if (name) {
+                           reportDiagnostic(ctx, DIAG_ZERO_NAMED_BIT_FIELD, &declarator.idCoordinates, name);
                         }
 
-                        if (curBitFieldUnit) {
-                            if (!typesEquals(curBitFieldUnit, type) || (width && (typeWidth - bitOffset) < width)) {
-                                bitOffset = 0;
-                                offset += computeTypeSize(curBitFieldUnit) * factor;
-                            }
-                        }
-
-                        curBitFieldUnit = type;
-
-                        type = makeBitFieldType(ctx, curBitFieldUnit, bitOffset, width);
-
-                        bitOffset += width * factor;
-
-                        if (width == 0) {
-                            curBitFieldUnit = NULL;
-                            bitOffset = 0;
-                            offset += computeTypeSize(type) * factor;
-                        }
+                        int32_t storageSize = adjustBitFieldStorage(ctx, bitfieldChain, bfChainWidth, &offset);
+                        bitfieldChain = NULL;
+                        bitOffset = bfChainWidth = 0;
+                        offset += storageSize * factor;
+                        goto end;
+                      }
                     }
                   } else {
                       if (name) {
@@ -1282,28 +1328,32 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
                         reportDiagnostic(ctx, DIAG_ANON_BIT_FIELD_TYPE_NON_INT, &declarator.coordinates, type);
                       }
                   }
-              } else if (curBitFieldUnit) {
-                  offset += computeTypeSize(curBitFieldUnit) * factor;
+              } else if (bitfieldChain) {
+                  int32_t storageSize = adjustBitFieldStorage(ctx, bitfieldChain, bfChainWidth, &offset);
+                  offset += storageSize * factor;
               }
 
               int32_t typeSize = computeTypeSize(type);
-              offset = alignMemberOffset(type, offset);
+
+              if (!hasWidth) {
+                offset = alignMemberOffset(type, offset);
+              }
 
               AstStructDeclarator *structDeclarator = createStructDeclarator(ctx, &coords, type, name, offset);
               current = current->next = createStructMember(ctx, NULL, structDeclarator, NULL);
 
-//              if (hasWidth && bitfieldChain == NULL) {
-//                  bitfieldChain = current;
-//              }
+              if (hasWidth && bitfieldChain == NULL) {
+                  bitfieldChain = current;
+              }
 
               if (!hasWidth) {
                 bitOffset = 0;
-                curBitFieldUnit = NULL;
                 bitfieldChain = NULL;
                 bfChainWidth = 0;
                 offset += typeSize * factor;
               }
             }
+            end:
             if (!nextTokenIf(ctx, ',')) break;
         }
 
@@ -1322,6 +1372,8 @@ static int32_t computeStructAlignment(AstStructMember *members) {
       TypeRef *memberType = members->declarator->typeRef;
       if (isStructualType(memberType)) {
           biggestSize = max(biggestSize, memberType->descriptorDesc->structInfo->align);
+      } else if (memberType->kind == TR_ARRAY) {
+          biggestSize = max(biggestSize, computeTypeSize(memberType->arrayTypeDesc.elementType));
       } else {
           biggestSize = max(biggestSize, computeTypeSize(memberType));
       }
