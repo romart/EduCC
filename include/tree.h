@@ -391,6 +391,7 @@ typedef struct _AstSUEDeclaration { // Struct | Union | Enum declaration
     DeclarationKind kind; // DK_UNION | DK_STRUCT | DK_ENUM
     const char *name;
     AstStructMember *members; // linked list
+    int32_t align;
     unsigned isDefinition : 1;
 } AstSUEDeclaration;
 
@@ -502,7 +503,7 @@ AstInitializerList *createAstInitializerList(ParserContext *ctx);
 AstInitializer *createAstInitializer(ParserContext *ctx, Coordinates *coords, InitializerKind kind);
 AstStructDeclarator *createStructDeclarator(ParserContext *ctx, Coordinates *coords, TypeRef *type, const char *name, unsigned offset);
 AstStructMember* createStructMember(ParserContext *ctx, AstDeclaration *declaration, AstStructDeclarator *declarator, EnumConstant *enumerator);
-AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, Coordinates *coords, DeclarationKind kind, unsigned isDefinition, const char *name, AstStructMember *members);
+AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, Coordinates *coords, DeclarationKind kind, unsigned isDefinition, const char *name, AstStructMember *members, int32_t align);
 AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, Coordinates *coords, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, Boolean isVariadic);
 AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, Coordinates *coords, ValueKind kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer);
 
