@@ -101,7 +101,7 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
     *pf += 4
     ERROR EXPR
     ERROR EXPR
-    *ps += 8
+    *ps += 4
     *vp += 1
   END
 ----
@@ -113,6 +113,6 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
     *pf -= 4
     ERROR EXPR
     ERROR EXPR
-    *ps -= 8
+    *ps -= 4
     *vp -= 1
   END
