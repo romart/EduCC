@@ -2058,7 +2058,7 @@ static int computeUnionTypeSize(ParserContext *ctx, AstSUEDeclaration *declarati
 
   AstStructMember *member = declaration->members;
 
-  while (member) {
+  for (;member; member = member->next) {
       assert(member->kind != SM_ENUMERATOR);
       if (member->kind == SM_DECLARATOR) {
          AstStructDeclarator *declarator = member->declarator;
@@ -2072,8 +2072,6 @@ static int computeUnionTypeSize(ParserContext *ctx, AstSUEDeclaration *declarati
          }
          result = max(result, tmp);
       }
-
-      member = member->next;
   }
 
   return ALIGN_SIZE(result, POINTER_TYPE_SIZE);
@@ -2083,40 +2081,25 @@ static int computeStructTypeSize(ParserContext *ctx, AstSUEDeclaration *declarat
   assert(declaration->kind == DK_STRUCT);
   assert(declaration->isDefinition);
 
-  int result = 0;
-  unsigned bitCount = 0;
-
+  unsigned result = 0;
 
   AstStructMember *member = declaration->members;
 
-  while (member) {
+  for (;member; member = member->next) {
       assert(member->kind != SM_ENUMERATOR);
       if (member->kind == SM_DECLARATOR) {
          AstStructDeclarator *declarator = member->declarator;
          TypeRef *memberType = declarator->typeRef;
-         if (memberType->kind == TR_BITFIELD) {
-            if (memberType->bitFieldDesc.offset == 0) {
-                result += computeTypeSize(memberType->bitFieldDesc.storageType);
-            }
-         } else {
-            int tmp = computeTypeSize(memberType);
-            if (tmp < 0) {
-                reportDiagnostic(ctx, DIAG_FIELD_INCOMPLETE_TYPE, &declarator->coordinates, declarator->name, declarator->typeRef);
-                return UNKNOWN_SIZE;
-            }
-            result += tmp;
+         int32_t memberTypeSize = computeTypeSize(memberType);
+         if (memberTypeSize < 0) {
+             reportDiagnostic(ctx, DIAG_FIELD_INCOMPLETE_TYPE, &declarator->coordinates, declarator->name, declarator->typeRef);
+             return UNKNOWN_SIZE;
          }
+         result = member->declarator->offset + memberTypeSize;
       }
-
-      member = member->next;
   }
 
-
-  bitCount = ALIGN_SIZE(bitCount, BYTE_BIT_SIZE); // align to byte (8 bits)
-  result += bitCount / BYTE_BIT_SIZE;
-  result = ALIGN_SIZE(result, POINTER_TYPE_SIZE); // align to word (8 bytes)
-
-  return result;
+  return ALIGN_SIZE(result, declaration->align); // it should be aligned because array
 }
 
 int computeSUETypeSize(ParserContext *ctx, AstSUEDeclaration *declaration) {
