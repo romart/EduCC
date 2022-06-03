@@ -571,17 +571,30 @@ static void storeBitField(GeneratedFunction *f, TypeRef *t, enum Registers from,
 
 static void copyStructTo(GeneratedFunction *f, TypeRef *type, Address *src, Address *dst) {
 
-  unsigned size = computeTypeSize(type);
+  assert(isStructualType(type));
 
-  unsigned copied = 0;
+  int32_t align = type->descriptorDesc->structInfo->align;
+  int32_t size = computeTypeSize(type);
+  int32_t copied = 0;
 
   while (copied < size) {
-      emitMoveAR(f, src, R_TMP, sizeof(intptr_t));
-      emitMoveRA(f, R_TMP, dst, sizeof(intptr_t));
 
-      src->imm += sizeof(intptr_t);
-      dst->imm += sizeof(intptr_t);
-      copied += sizeof(intptr_t);
+      int32_t chunkSize;
+      int32_t left = size - copied;
+
+      if (left >= 8) chunkSize = sizeof(int64_t);
+      else if (left >= 4) chunkSize = sizeof(int32_t);
+      else if (left >= 2) chunkSize = sizeof(int16_t);
+      else chunkSize = sizeof(int8_t);
+
+      chunkSize = min(align, chunkSize);
+
+      emitMoveAR(f, src, R_TMP, chunkSize);
+      emitMoveRA(f, R_TMP, dst, chunkSize);
+
+      src->imm += chunkSize;
+      dst->imm += chunkSize;
+      copied += chunkSize;
   }
 }
 
