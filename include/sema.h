@@ -45,6 +45,7 @@ Boolean isScalarType(TypeRef *type);
 
 Boolean isAssignableTypes(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, AstExpression *fromExpr, Boolean init);
 
+int32_t memberOffset(AstSUEDeclaration *declaration, const char *memberName);
 int32_t typeAlignment(TypeRef *type);
 
 void verifyGotoExpression(ParserContext *ctx, AstExpression *expr);
