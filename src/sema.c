@@ -400,9 +400,12 @@ int32_t memberOffset(AstSUEDeclaration *declaration, const char *memberName) {
   return -1;
 }
 
-TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, Coordinates *coords, TypeRef *arrayType, TypeRef *indexType) {
-  if (isErrorType(arrayType)) return arrayType;
-  if (isErrorType(indexType)) return indexType;
+TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, Coordinates *coords, TypeRef *l, TypeRef *r) {
+  if (isErrorType(l)) return l;
+  if (isErrorType(r)) return r;
+
+  TypeRef *arrayType = isPointerLikeType(l) ? l : r;
+  TypeRef *indexType = arrayType == l ? r : l;
 
   if (!isIntegerType(indexType)) {
       reportDiagnostic(ctx, DIAG_ARRAY_SUBSCRIPT_NOT_INT, coords);
