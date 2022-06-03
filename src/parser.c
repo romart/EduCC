@@ -2083,7 +2083,8 @@ static void parseFunctionDeclaratorPart(ParserContext *ctx, Declarator *declarat
 
   part->next = declarator->declaratorParts;
 
-  declarator->functionDeclarator = declarator->declaratorParts ? NULL : part;
+  if (declarator->functionDeclarator == NULL)
+    declarator->functionDeclarator = declarator->declaratorParts ? NULL : part;
   declarator->declaratorParts = part;
 
   ctx->currentScope = paramScope->parent;
