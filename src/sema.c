@@ -327,6 +327,53 @@ Boolean isIncompleteType(TypeRef *type) {
   return FALSE;
 }
 
+int32_t typeAlignment(TypeRef *type) {
+  TypeRef *effectiveType;
+  int32_t align;
+  switch (type->kind) {
+    case TR_POINTED:
+    case TR_FUNCTION:
+      return sizeof(intptr_t);
+    case TR_ARRAY:
+      if (type->arrayTypeDesc.size < 0) {
+          return sizeof(intptr_t);
+      } else {
+          return typeAlignment(type->arrayTypeDesc.elementType);
+      }
+    case TR_BITFIELD: effectiveType = type->bitFieldDesc.storageType; goto value_type;
+    case TR_VALUE: effectiveType = type;
+      value_type:
+      switch (effectiveType->descriptorDesc->typeId) {
+      case T_S1:
+      case T_U1:
+          return sizeof(uint8_t);
+      case T_S2:
+      case T_U2:
+          return sizeof(uint16_t);
+      case T_U4:
+      case T_S4:
+      case T_F4:
+      case T_ENUM:
+          return sizeof(uint32_t);
+      case T_S8:
+      case T_U8:
+      case T_F8:
+          return sizeof(uint64_t);
+      case T_F10:
+          return sizeof(long double);
+      case T_STRUCT:
+      case T_UNION:
+          return effectiveType->descriptorDesc->structInfo->align;
+      default: unreachable("Unknown type ID");
+      }
+      break;
+
+    default: unreachable("Unexpected type kind");
+  }
+
+  return 0;
+}
+
 TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, Coordinates *coords, TypeRef *arrayType, TypeRef *indexType) {
   if (isErrorType(arrayType)) return arrayType;
   if (isErrorType(indexType)) return indexType;
