@@ -567,6 +567,8 @@ unary_expression
     | unary_operator cast_expression
     | SIZEOF unary_expression
     | SIZEOF '(' type_name ')'
+    | ALIGNOF '(' type_name ')'
+    | ALIGNOF unary_expression
     | AND_OP ID
     ;
  */
@@ -576,8 +578,9 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
     AstExpression* result = NULL;
     const char *label = NULL;
     Coordinates coords = ctx->token->coordinates;
+    int32_t code = ctx->token->code;
 
-    switch (ctx->token->code) {
+    switch (code) {
         case AND_OP: // &&label
             consume(ctx, AND_OP);
             label = ctx->token->text;
@@ -642,6 +645,7 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
             result = createUnaryExpression(ctx, &coords, op, argument);
             result->type = computeTypeForUnaryOperator(ctx, &coords, argument->type, op);
             return result;
+        case ALIGNOF:
         case SIZEOF: {
             Token *saved = nextToken(ctx);
             int token = saved->code;
@@ -668,11 +672,11 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
             if (isErrorType(sizeType)) {
                 return argument;
             } else {
-                long long c = computeTypeSize(sizeType);
+                long long c = code == SIZEOF ? computeTypeSize(sizeType) : typeAlignment(sizeType);
                 AstExpression *constVal = NULL;
                 if (c >= 0) {
                     constVal = createAstConst(ctx, &coords, CK_INT_CONST, &c);
-                    constVal->type = makePrimitiveType(ctx, T_U4, 0);
+                    constVal->type = makePrimitiveType(ctx, T_U8, 0);
                 } else {
                     reportDiagnostic(ctx, DIAG_SIZEOF_INCOMPLETE_TYPE, &coords, sizeType);
                     constVal = createErrorExpression(ctx, &coords);
