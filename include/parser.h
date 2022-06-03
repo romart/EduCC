@@ -139,6 +139,7 @@ typedef struct _ParserContext {
       UsedLabel *usedLabels;
     } labels;
 
+    AstFunctionDeclaration *currentFunction;
     TypeRef *functionReturnType;
     AstValueDeclaration *locals;
 

@@ -313,6 +313,18 @@ Boolean isCharType(TypeRef *type) {
   return type->kind == TR_VALUE && type->descriptorDesc->typeId == T_S1 || type->descriptorDesc->typeId == T_U1;
 }
 
+Boolean is_va_list_Type(TypeRef *type) {
+  if (type->kind != TR_POINTED) return FALSE;
+  TypeRef *pointed = type->pointedTo.toType;
+  if (pointed->kind != TR_VALUE) return FALSE;
+
+  if (pointed->descriptorDesc->typeId != T_STRUCT) return FALSE;
+
+  AstSUEDeclaration *decl = pointed->descriptorDesc->structInfo;
+
+  return strcmp("__va_elem", decl->name) == 0;
+}
+
 Boolean isIncompleteType(TypeRef *type) {
   if (type->kind == TR_VALUE) {
       TypeId tid = type->descriptorDesc->typeId;
