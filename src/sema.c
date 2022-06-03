@@ -377,7 +377,7 @@ int32_t typeAlignment(TypeRef *type) {
       case T_UNION:
           return effectiveType->descriptorDesc->structInfo->align;
       case T_ERROR:
-          return 0;
+          return -1;
       default: unreachable("Unknown type ID");
       }
       break;
@@ -385,7 +385,7 @@ int32_t typeAlignment(TypeRef *type) {
     default: unreachable("Unexpected type kind");
   }
 
-  return 0;
+  return -1;
 }
 
 int32_t memberOffset(AstSUEDeclaration *declaration, const char *memberName) {

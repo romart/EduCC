@@ -87,6 +87,7 @@ int fileno(FILE *stream);
 "short"					{ return(SHORT); }
 "signed"				{ return(SIGNED); }
 "sizeof"				{ return(SIZEOF); }
+"_Alignof"				{ return(ALIGNOF); }
 "static"				{ return(STATIC); }
 "struct"				{ return(STRUCT); }
 "switch"				{ return(SWITCH); }
