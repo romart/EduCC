@@ -53,6 +53,13 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
         }
         break;
     }
+    case E_VA_ARG:
+      result += fprintf(output, "__builtin_va_arg(");
+      result += dumpAstExpressionImpl(output, 0, expr->vaArg.va_list);
+      result += fprintf(output, ", ");
+      result += dumpTypeRefImpl(output, 0, expr->vaArg.argType);
+      result += fprintf(output, ")");
+      break;
     case E_ERROR:
       result += fprintf(output, "%s", "ERROR EXPR");
       break;

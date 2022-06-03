@@ -21,6 +21,7 @@ typedef struct _Coordinates {
   DEF_EXPRESSION_OP(E_CAST, 14), \
   DEF_EXPRESSION_OP(E_BIT_EXTEND, 14), \
   DEF_EXPRESSION_OP(E_NAMEREF, 17), \
+  DEF_EXPRESSION_OP(E_VA_ARG, 17), \
   DEF_EXPRESSION_OP(E_CALL, 16), \
   DEF_EXPRESSION_OP(E_PAREN, 17), \
   DEF_EXPRESSION_OP(E_LABEL_REF, 15), \
@@ -152,6 +153,10 @@ typedef struct _AstFieldExpression {
     struct _AstStructDeclarator *member;
 } AstFieldExpression;
 
+typedef struct _AstVaArgument {
+  struct _AstExpression *va_list;
+  TypeRef *argType;
+} AstVaArgument;
 
 typedef struct _AstExpression {
   Coordinates coordinates;
@@ -167,6 +172,7 @@ typedef struct _AstExpression {
     AstNameRef nameRefExpr;
     AstCallExpression callExpr;
     AstFieldExpression fieldExpr;
+    AstVaArgument vaArg;
     struct _AstExpression *parened;
     const char* label;
   };
@@ -460,6 +466,7 @@ typedef struct _AstFunctionDefinition { // _AstFunctionDefinition
   AstFunctionDeclaration *declaration;
   AstStatement *body;
   AstValueDeclaration *locals;
+  AstValueDeclaration *va_area;
   struct _Scope *scope;
   unsigned hasSmallStructs : 1;
 } AstFunctionDefinition;
@@ -518,6 +525,7 @@ AstFile *createAstFile(ParserContext *ctx);
 
 AstExpression* createAstConst(ParserContext *ctx, Coordinates *coords, ConstKind type, void* value);
 AstExpression* createAstConst2(ParserContext *ctx, Coordinates *coords, TypeRef *type, AstConst *cnst);
+AstExpression *createVaArgExpression(ParserContext *ctx, Coordinates *coords, AstExpression *valist, TypeRef *argType);
 AstExpression *createCastExpression(ParserContext *ctx, Coordinates *coords, TypeRef *typeRef, AstExpression *argument);
 AstExpression *createBitExtendExpression(ParserContext *ctx, TypeRef *type, unsigned w, Boolean isU, AstExpression *argument);
 AstExpression *createTernaryExpression(ParserContext *ctx, TypeRef *type, AstExpression *cond, AstExpression *t, AstExpression* f);

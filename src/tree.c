@@ -407,6 +407,14 @@ AstExpression *createCallExpression(ParserContext *ctx, Coordinates *coords, Ast
     return result;
 }
 
+AstExpression *createVaArgExpression(ParserContext *ctx, Coordinates *coords, AstExpression *valist, TypeRef *argType) {
+  AstExpression *result = allocAstExpression(ctx, coords);
+  result->op = E_VA_ARG;
+  result->vaArg.va_list = valist;
+  result->vaArg.argType = argType;
+  return result;
+}
+
 AstExpression *createFieldExpression(ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *receiver, AstStructDeclarator *member) {
     AstExpression *result = allocAstExpression(ctx, coords);
     result->op = op;

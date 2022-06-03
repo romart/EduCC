@@ -1730,6 +1730,90 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   }
 }
 
+static void generateVaArg(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
+  generateExpression(ctx, f, scope, expression->vaArg.va_list);
+
+  TypeRef *vatype = expression->vaArg.argType;
+  struct Label memLabl = { 0 }, doneLabl = { 0 };
+
+  emitMoveRR(f, R_ACC, R_EDI, sizeof(intptr_t));
+
+  TypeRef *valistType = expression->vaArg.va_list->type;
+  Address valist_addr = { R_EDI, R_BAD, 0, 0, NULL, NULL };
+  assert(is_va_list_Type(valistType));
+  AstSUEDeclaration *vastruct = valistType->pointedTo.toType->descriptorDesc->structInfo;
+  const static int32_t dataSize = sizeof(intptr_t);
+
+  /**
+   * typedef struct {
+   *   intptr_t gp_offset;
+   *   intptr_t fp_offset;
+   *   void *overflow_arg_area;
+   *   const void *reg_save_area;
+   * } __va_elem;
+   */
+
+  if (isRealType(vatype)) {
+      int32_t fp_offset_off = memberOffset(vastruct, "fp_offset");
+      valist_addr.imm = fp_offset_off;
+      // R_ACC = va_list->fp_offset
+      emitLoad(f, &valist_addr, R_TMP, T_U4);
+
+      // va_list->fp_offset >= R_PARAM_COUNT + R_FP_PARAM_COUNT
+      emitArithConst(f, OP_CMP, R_TMP, dataSize * (R_PARAM_COUNT + R_FP_PARAM_COUNT), sizeof(uint32_t));
+      // if ( >= ) mem-load
+      emitCondJump(f, &memLabl, JC_GE);
+      valist_addr.imm = memberOffset(vastruct, "reg_save_area");
+      emitLoad(f, &valist_addr, R_ACC, T_U8);
+      emitArithRR(f, OP_ADD, R_ACC, R_TMP, dataSize);
+      emitArithConst(f, OP_ADD, R_TMP, dataSize, sizeof(uint32_t));
+      valist_addr.imm = fp_offset_off;
+      emitStore(f, R_TMP, &valist_addr, T_U4);
+      emitJumpTo(f, &doneLabl);
+  } else if (isScalarType(vatype)) {
+      int32_t gp_offset_off = memberOffset(vastruct, "gp_offset");
+      valist_addr.imm = gp_offset_off;
+      // R_ACC = va_list->fp_offset
+      emitLoad(f, &valist_addr, R_TMP, T_U4);
+
+      // va_list->gp_offset >= R_PARAM_COUNT
+      emitArithConst(f, OP_CMP, R_TMP, dataSize * R_PARAM_COUNT, sizeof(uint32_t));
+      // if ( >= ) mem-load
+      emitCondJump(f, &memLabl, JC_GE);
+
+      valist_addr.imm = memberOffset(vastruct, "reg_save_area");
+      emitLoad(f, &valist_addr, R_ACC, T_U8);
+
+      emitArithRR(f, OP_ADD, R_ACC, R_TMP, dataSize);
+      emitArithConst(f, OP_ADD, R_TMP, dataSize, sizeof(uint32_t));
+      valist_addr.imm = gp_offset_off;
+      emitStore(f, R_TMP, &valist_addr, T_U4);
+      emitJumpTo(f, &doneLabl);
+  }
+
+  bindLabel(f, &memLabl);
+
+  int32_t ofa_area_off = memberOffset(vastruct, "overflow_arg_area");
+  valist_addr.imm = ofa_area_off;
+  emitLoad(f, &valist_addr, R_ACC, T_U8);
+  int32_t align = typeAlignment(vatype);
+
+  if (align > 8) {
+    // (((len)+(align)) & ~((align)-1))
+    int32_t mask = ~(align - 1);
+    emitArithConst(f, OP_ADD, R_ACC, align, dataSize);
+    emitArithConst(f, OP_AND, R_ACC, mask, dataSize);
+  }
+
+  int32_t argSize = max(8, computeTypeSize(vatype));
+
+  emitMoveCR(f, ALIGN_SIZE(argSize, dataSize), R_TMP, dataSize);
+  emitArithRR(f, OP_ADD, R_TMP, R_ACC, dataSize);
+  emitStore(f, R_TMP, &valist_addr, T_U8);
+
+  bindLabel(f, &doneLabl);
+}
+
 
 // result is in accamulator
 static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
@@ -1741,6 +1825,9 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
       break;
     case E_CONST:
       emitConst(ctx, f, &expression->constExpr, typeSize);
+      break;
+    case E_VA_ARG:
+      generateVaArg(ctx, f, scope, expression);
       break;
     case E_NAMEREF:
       translateAddress(ctx, f, scope, expression, &addr);
@@ -2407,13 +2494,6 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
   int32_t baseOffset = 0; // from rbp;
   int32_t stackParamOffset = sizeof(intptr_t) + sizeof(intptr_t); // rbp itself + return pc
 
-
-  if (f->declaration->isVariadic) {
-      // save xmm regs too
-  }
-
-  g->savedRegOffset = -baseOffset;
-
   baseOffset += sizeof(intptr_t);
   int32_t allocaOffset = g->allocaOffset = -baseOffset;
 
@@ -2477,6 +2557,91 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
       gp->baseOffset = -baseOffset;
   }
 
+  if (f->declaration->isVariadic) {
+      const static dataSize = sizeof(intptr_t);
+      AstValueDeclaration *va_area = f->va_area;
+      assert(va_area);
+      int32_t gap = baseOffset += dataSize;
+      int32_t reg_save_area_ptr_off = baseOffset += dataSize;
+      int32_t overflow_arg_area_off = baseOffset += dataSize;
+      int32_t fp_offset_off = baseOffset += sizeof(uint32_t);
+      int32_t gp_offset_off = baseOffset += sizeof(uint32_t);
+
+      va_area->gen = allocateGenVarialbe(ctx, va_area);
+      va_area->gen->baseOffset = -gp_offset_off;
+
+      int32_t fp_va_area = baseOffset += R_FP_PARAM_COUNT * dataSize;
+
+      int32_t gp_va_area = baseOffset += R_PARAM_COUNT * dataSize;
+
+      Address addr = { R_EBP, R_BAD, 0, 0, NULL, NULL };
+
+      // fp
+      addr.imm = -(fp_va_area - 0 * dataSize);
+      emitMovfpRA(g, R_XMM0, &addr, dataSize);
+
+      addr.imm = -(fp_va_area - 1 * dataSize);
+      emitMovfpRA(g, R_XMM1, &addr, dataSize);
+
+      addr.imm = -(fp_va_area - 2 * dataSize);
+      emitMovfpRA(g, R_XMM2, &addr, dataSize);
+
+      addr.imm = -(fp_va_area - 3 * dataSize);
+      emitMovfpRA(g, R_XMM3, &addr, dataSize);
+
+      addr.imm = -(fp_va_area - 4 * dataSize);
+      emitMovfpRA(g, R_XMM4, &addr, dataSize);
+
+      addr.imm = -(fp_va_area - 5 * dataSize);
+      emitMovfpRA(g, R_XMM5, &addr, dataSize);
+
+      addr.imm = -(fp_va_area - 6 * dataSize);
+      emitMovfpRA(g, R_XMM6, &addr, dataSize);
+
+      addr.imm = -(fp_va_area - 7 * dataSize);
+      emitMovfpRA(g, R_XMM7, &addr, dataSize);
+
+      // gp
+      addr.imm = -(gp_va_area - 0 * dataSize);
+      emitMoveRA(g, R_ARG_0, &addr, dataSize);
+
+      addr.imm = -(gp_va_area - 1 * dataSize);
+      emitMoveRA(g, R_ARG_1, &addr, dataSize);
+
+      addr.imm = -(gp_va_area - 2 * dataSize);
+      emitMoveRA(g, R_ARG_2, &addr, dataSize);
+
+      addr.imm = -(gp_va_area - 3 * dataSize);
+      emitMoveRA(g, R_ARG_3, &addr, dataSize);
+
+      addr.imm = -(gp_va_area - 4 * dataSize);
+      emitMoveRA(g, R_ARG_4, &addr, dataSize);
+
+      addr.imm = -(gp_va_area - 5 * dataSize);
+      emitMoveRA(g, R_ARG_5, &addr, dataSize);
+
+
+      addr.imm = -gp_va_area;
+      emitLea(g, &addr, R_ACC);
+      addr.imm = -reg_save_area_ptr_off;
+      emitMoveRA(g, R_ACC, &addr, dataSize);
+
+      emitMoveCR(g, intRegParams * dataSize, R_ACC, sizeof(uint32_t));
+      addr.imm = -gp_offset_off;
+      emitMoveRA(g, R_ACC, &addr, sizeof(uint32_t));
+
+      emitMoveCR(g, gp_va_area - fp_va_area + fpRegParams * dataSize, R_ACC, sizeof(uint32_t));
+      addr.imm = -fp_offset_off;
+      emitMoveRA(g, R_ACC, &addr, sizeof(uint32_t));
+
+      addr.imm = stackParamOffset;
+      emitLea(g, &addr, R_ACC);
+      addr.imm = -overflow_arg_area_off;
+      emitMoveRA(g, R_ACC, &addr, dataSize);
+  }
+
+  g->savedRegOffset = -baseOffset;
+
   emitArithRR(g, OP_XOR, R_ACC, R_ACC, sizeof(intptr_t));
   addr.imm = allocaOffset;
   emitMoveRA(g, R_ACC, &addr, sizeof(intptr_t));
@@ -2507,7 +2672,7 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
 
   size_t frameSize = allocateLocalSlots(ctx, gen, f);
 
-  size_t delta = frameSize + gen->savedRegOffset;
+  size_t delta = frameSize;
 
   if (frameSize)
     emitArithConst(gen, OP_SUB, R_ESP, delta, sizeof(intptr_t));

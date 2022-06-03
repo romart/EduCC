@@ -750,6 +750,9 @@ static AstExpression *transformExpression(ParserContext *ctx, AstExpression *exp
     case EB_ASG_XOR:
     case EB_ASG_OR:
       return cannonizeAssignmentExpression(ctx, expr);
+    case E_VA_ARG:
+      expr->vaArg.va_list = transformExpression(ctx, expr->vaArg.va_list);
+      return expr;
     case E_LABEL_REF:
     case E_NAMEREF:
     case E_BIT_EXTEND:

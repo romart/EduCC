@@ -262,11 +262,37 @@ static AstExpression *resolveNameRef(ParserContext *ctx) {
   return createErrorExpression(ctx, coords);
 }
 
+static TypeRef* parseTypeName(ParserContext *ctx, struct _Scope *scope);
+
+static AstExpression *va_arg_expression(ParserContext *ctx, Coordinates *coords, AstExpression *va_list_Arg, TypeRef *typeArg) {
+  TypeRef *va_list_Type = va_list_Arg->type;
+
+  if (!is_va_list_Type(va_list_Type)) {
+      // report: first argument to 'va_arg' is of type 'struct xc' and not 'va_list'
+      return createErrorExpression(ctx, coords);
+  }
+
+  if (isErrorType(typeArg)) {
+      return createErrorExpression(ctx, coords);
+  }
+
+  AstExpression *vaarg = createVaArgExpression(ctx, coords, va_list_Arg, typeArg);
+  SpecifierFlags flags = { 0 };
+  vaarg->type = makePointedType(ctx, flags, typeArg);
+
+  AstExpression *result = createUnaryExpression(ctx, coords, EU_DEREF, vaarg);
+  result->type = typeArg;
+
+  return result;
+}
+
 /**
 primary_expression
     : IDENTIFIER
     | CONSTANT
     | STRING_LITERAL
+--    | '__builtin_va_start' '(' IDENTIFIER ',' IDENTIFIER ')'
+    | '__builtin_va_arg' '(' IDENTIFIER ',' type_name ')'
     | '(' expression ')'
     ;
  */
@@ -278,7 +304,18 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
     TypeId typeId = T_ERROR;
     switch (ctx->token->code) {
         case IDENTIFIER:
-            result = resolveNameRef(ctx);
+            if (strcmp("__builtin_va_arg", ctx->token->text) == 0) {
+              nextToken(ctx);
+              consume(ctx, '(');
+              AstExpression *valist = parseAssignmentExpression(ctx, scope);
+              consume(ctx, ',');
+              TypeRef* vatype = parseTypeName(ctx, scope);
+              coords.endOffset = ctx->token->coordinates.endOffset;
+              consume(ctx, ')');
+              return va_arg_expression(ctx, &coords, valist, vatype);
+            } else {
+              result = resolveNameRef(ctx);
+            }
             break;
         case TYPE_NAME:
             reportDiagnostic(ctx, DIAG_UNEXPECTED_TYPE_NAME_EXPR, &ctx->token->coordinates, ctx->token->text);
@@ -2780,11 +2817,20 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
       functionScope = newScope(ctx, ctx->currentScope);
   }
 
+  AstValueDeclaration *va_area_var = NULL;
   ctx->locals = NULL;
   ctx->functionReturnType = functionDeclaration ? functionDeclaration->returnType : makeErrorRef(ctx);
   ctx->stateFlags.hasSmallStructs = 0;
-
   ctx->currentScope = functionScope;
+
+  if (functionDeclaration && functionDeclaration->isVariadic) {
+      TypeRef *vatype = makeArrayType(ctx, 4 + 6 + 8, makePrimitiveType(ctx, T_U8, 0));
+      va_area_var = createAstValueDeclaration(ctx, &ctx->token->coordinates, VD_VARIABLE, vatype, "__va_area__", 0, 0, NULL);
+      va_area_var->flags.bits.isLocal = 1;
+      va_area_var->symbol = declareValueSymbol(ctx, va_area_var->name, va_area_var);
+  }
+
+
   AstStatement *body = parseFunctionBody(ctx);
   verifyLabels(ctx);
   ctx->functionReturnType = NULL;
@@ -2794,6 +2840,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
     AstFunctionDefinition *definition = createFunctionDefinition(ctx, functionDeclaration, functionScope, body);
     definition->scope = functionScope;
     definition->locals = ctx->locals;
+    definition->va_area = va_area_var;
     definition->hasSmallStructs = ctx->stateFlags.hasSmallStructs;
 
     AstTranslationUnit *newUnit = createTranslationUnit(ctx, NULL, definition);
