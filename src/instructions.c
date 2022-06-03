@@ -309,8 +309,8 @@ void emitMoveCR(GeneratedFunction *f, intptr_t c, enum Registers to, size_t size
       emitByte(f, 0xC7);
       ModRM modrm = { 0 };
       modrm.bits.mod = 0b11;
-      modrm.bits.regOp = register_encodings[to];
-      modrm.bits.rm = 0;
+      modrm.bits.regOp = 0;
+      modrm.bits.rm = register_encodings[to];
       emitByte(f, modrm.v);
       emitByte(f, (uint8_t)c);
       emitByte(f, (uint8_t)(c >> 8));
