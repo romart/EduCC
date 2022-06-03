@@ -1649,6 +1649,7 @@ AstExpression *transformAssignExpression(ParserContext *ctx, AstExpression *expr
 }
 
 void verifyStatementLevelExpression(ParserContext *ctx, AstExpression *expr) {
+  expr = deparen(expr);
   TypeRef *type = expr->type;
   if (isErrorType(type) || isVoidType(type)) return;
 
