@@ -2251,6 +2251,7 @@ TypeRef *makeFunctionType(ParserContext *ctx, TypeRef *returnType, FunctionParam
 
 TypeRef *makeFunctionReturnType(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator) {
 
+    assert(declarator->functionDeclarator);
     TypeRef *type = specifiers->basicType;
 
     DeclaratorPart *part = declarator->declaratorParts;
@@ -2264,7 +2265,11 @@ TypeRef *makeFunctionReturnType(ParserContext *ctx, DeclarationSpecifiers *speci
             type = makeArrayType(ctx, part->arraySize, type);
             break;
         case DPK_FUNCTION:
-            return type;
+            if (part == declarator->functionDeclarator)
+              return type;
+            else
+              type = makeFunctionType(ctx, type, &part->parameters);
+            break;
         case DPK_NONE:
         default:
             unreachable("UNKNOWN Declarator Part");
