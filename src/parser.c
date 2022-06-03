@@ -1065,59 +1065,8 @@ static AstSUEDeclaration* parseEnumDeclaration(ParserContext *ctx, struct _Scope
     return createSUEDeclaration(ctx, &coords, DK_ENUM, TRUE, name, members, sizeof(int32_t));
 }
 
-static int32_t alignMemberOffset(TypeRef *memberType, int32_t offset) {
-  TypeRef *effectiveType;
-  int32_t align;
-  switch (memberType->kind) {
-    case TR_POINTED:
-    case TR_FUNCTION:
-      align = sizeof(intptr_t);
-      break;
-    case TR_ARRAY:
-      if (memberType->arrayTypeDesc.size < 0) {
-          align = sizeof(intptr_t);
-          break;
-      } else {
-          return alignMemberOffset(memberType->arrayTypeDesc.elementType, offset);
-      }
-    case TR_BITFIELD: effectiveType = memberType->bitFieldDesc.storageType; goto value_type;
-    case TR_VALUE: effectiveType = memberType;
-      value_type:
-      switch (effectiveType->descriptorDesc->typeId) {
-      case T_S1:
-      case T_U1:
-          align = sizeof(uint8_t);
-          break;
-      case T_S2:
-      case T_U2:
-          align = sizeof(uint16_t);
-          break;
-      case T_U4:
-      case T_S4:
-      case T_F4:
-      case T_ENUM:
-          align = sizeof(uint32_t);
-          break;
-      case T_S8:
-      case T_U8:
-      case T_F8:
-          align = sizeof(uint64_t);
-          break;
-      case T_F10:
-          align = sizeof(long double);
-          break;
-      case T_STRUCT:
-      case T_UNION:
-          align = effectiveType->descriptorDesc->structInfo->align;
-          break;
-      default: unreachable("Unknown type ID");
-      }
-      break;
-
-    default: unreachable("Unexpected type kind");
-  }
-
-  return ALIGN_SIZE(offset, align);
+int32_t alignMemberOffset(TypeRef *memberType, int32_t offset) {
+  return ALIGN_SIZE(offset, typeAlignment(memberType));
 }
 
 static int32_t adjustBitFieldStorage(ParserContext *ctx, AstStructMember *chain, unsigned chainWidth, unsigned *offset) {

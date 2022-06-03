@@ -45,6 +45,8 @@ Boolean isScalarType(TypeRef *type);
 
 Boolean isAssignableTypes(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, AstExpression *fromExpr, Boolean init);
 
+int32_t typeAlignment(TypeRef *type);
+
 void verifyGotoExpression(ParserContext *ctx, AstExpression *expr);
 
 void verifySwitchCases(ParserContext *ctx, AstStatement *switchBody, unsigned caseCount);
