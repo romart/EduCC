@@ -1,13 +1,8 @@
 test/testData/parser/negative/incorrectStructs.c:5:4: error: type name does not allow storage class to be specified
-test/testData/parser/negative/incorrectStructs.c:5:9: warning: type specifier missing, defaults to 'int'
 test/testData/parser/negative/incorrectStructs.c:9:9: error: unexpected token IDENTIFIER 'v1' instead of ;
-test/testData/parser/negative/incorrectStructs.c:11:9: warning: type specifier missing, defaults to 'int'
 test/testData/parser/negative/incorrectStructs.c:11:9: warning: declaration does not declare anything
-test/testData/parser/negative/incorrectStructs.c:5:10: warning: type specifier missing, defaults to 'int'
 test/testData/parser/negative/incorrectStructs.c:9:10: error: unexpected token IDENTIFIER 'v2' instead of ;
-test/testData/parser/negative/incorrectStructs.c:11:10: warning: type specifier missing, defaults to 'int'
 test/testData/parser/negative/incorrectStructs.c:11:10: warning: declaration does not declare anything
-test/testData/parser/negative/incorrectStructs.c:5:11: warning: type specifier missing, defaults to 'int'
 test/testData/parser/negative/incorrectStructs.c:9:11: error: unexpected token IDENTIFIER 'v3' instead of ;
-test/testData/parser/negative/incorrectStructs.c:11:11: warning: type specifier missing, defaults to 'int'
 test/testData/parser/negative/incorrectStructs.c:11:11: warning: declaration does not declare anything
+test/testData/parser/negative/incorrectStructs.c:5:9: error: field 'ss1' has incomplete type 'ERROR TYPE'

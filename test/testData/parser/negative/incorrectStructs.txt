@@ -10,16 +10,16 @@ FILE test/testData/parser/negative/incorrectStructs.c
     STRUCT <anon$0> ss1 #16
     *STRUCT <anon$0> ss2 #32
     **STRUCT <anon$0> ss3 #40
-    signed int ss1 #48
-    signed int (null) #52
-    *signed int pv1 #56
-    **signed int pv1 #64
-    signed int ss2 #72
-    signed int (null) #76
-    *signed int pv2 #80
-    **signed int pv2 #88
-    signed int ss3 #96
-    signed int (null) #100
-    *signed int pv3 #104
-    **signed int pv3 #112
+    ERROR TYPE ss1 #0
+    ERROR TYPE (null) #0
+    *ERROR TYPE pv1 #0
+    **ERROR TYPE pv1 #8
+    ERROR TYPE ss2 #0
+    ERROR TYPE (null) #0
+    *ERROR TYPE pv2 #0
+    **ERROR TYPE pv2 #8
+    ERROR TYPE ss3 #0
+    ERROR TYPE (null) #0
+    *ERROR TYPE pv3 #0
+    **ERROR TYPE pv3 #8
   STRUCT_END
