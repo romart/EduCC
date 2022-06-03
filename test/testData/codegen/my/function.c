@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdarg.h>
 
 int ret3(void) {
   return 3;
@@ -68,23 +69,28 @@ short short_fn();
 unsigned char uchar_fn();
 unsigned short ushort_fn();
 
-//typedef struct {
-//  int gp_offset;
-//  int fp_offset;
-//  void *overflow_arg_area;
-//  void *reg_save_area;
-//} __va_elem;
+int add_all(int n, ...) {
+  va_list args;
+  va_start(args, n);
 
-//typedef __va_elem va_list[1];
+  int i;
+  int r = 0;
+  for (i = 0; i < n; ++i) {
+      r += va_arg(args, int);
+  }
+  return r;
+}
 
-//int add_all(int n, ...);
-//int sprintf(char *buf, char *fmt, ...);
-//int vsprintf(char *buf, char *fmt, va_list ap);
+
+int sprintf(char *buf, char *fmt, ...);
+int vsprintf(char *buf, char *fmt, va_list ap);
 
 
 //char *fmt(char *buf, char *fmt, ...) {
+
 //  va_list ap;
-//  *ap = *(__va_elem *)__va_area__;
+//  va_start(ap, fmt);
+
 //  vsprintf(buf, fmt, ap);
 //}
 
@@ -97,9 +103,9 @@ double add_double3(double x, double y, double z) {
   return x + y + z;
 }
 
-//int (*fnptr(int (*fn)(int n, ...)))(int, ...) {
-//  return fn;
-//}
+int (*fnptr(int (*fn)(int n, ...)))(int, ...) {
+  return fn;
+}
 
 int param_decay2(int x()) { return x(); }
 
@@ -271,6 +277,11 @@ int main() {
 
   if (1 != (to_double(3.5) == 3.5)) return 58;
   if (0 != (to_double(3.5) == 3)) return 59;
+
+  if (6 != add_all(3,1,2,3)) return 60;
+  if (5 != add_all(4,1,2,3,-1)) return 61;
+
+  if (306 != fnptr(add_all)(4, 1, 2, 3, 300)) return 62;
 
   printf("OK\n");
 
