@@ -1829,7 +1829,13 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
       break;
     case EU_DEREF:
       translateAddress(ctx, f, scope, expression->unaryExpr.argument, &addr);
-      emitLoad(f, &addr, R_ACC, typeToId(expression->type));
+      if (isStructualType(expression->type)) {
+        if (!(addr.base == R_ACC && addr.index == R_BAD && addr.imm == 0)) {
+          emitLea(f, &addr, R_ACC);
+        }
+      } else {
+        emitLoad(f, &addr, R_ACC, typeToId(expression->type));
+      }
       break;
     case EU_PLUS:
       generateExpression(ctx, f, scope, expression->unaryExpr.argument);
