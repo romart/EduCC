@@ -374,6 +374,18 @@ int32_t typeAlignment(TypeRef *type) {
   return 0;
 }
 
+int32_t memberOffset(AstSUEDeclaration *declaration, const char *memberName) {
+  AstStructMember *member = declaration->members;
+  for (; member; member = member->next) {
+      if (member->kind != SM_DECLARATOR) continue;
+
+      if (strcmp(memberName, member->declarator->name) == 0)
+        return member->declarator->offset;
+  }
+
+  return -1;
+}
+
 TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, Coordinates *coords, TypeRef *arrayType, TypeRef *indexType) {
   if (isErrorType(arrayType)) return arrayType;
   if (isErrorType(indexType)) return indexType;
