@@ -1602,6 +1602,8 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
       ++idx;
   }
 
+  int32_t stackBase = f->stackOffset;
+
   while (args) {
     AstExpression *arg = args->expression;
     TypeRef *argType = arg->type;
@@ -1614,10 +1616,11 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
     if (isStructualType(argType) && typeSize > sizeof(intptr_t)) {
       Address addr = { 0 };
       translateAddress(ctx, f, scope, arg->op == EU_DEREF ? arg->unaryExpr.argument : arg, &addr);
-      dst.imm = rspOffset + f->stackOffset;
+      dst.imm = rspOffset + (f->stackOffset - stackBase);
       copyStructTo(f, argType, &addr, &dst);
     } else {
       generateExpression(ctx, f, scope, arg);
+      dst.imm = rspOffset + (f->stackOffset - stackBase);
 
       if (isRealType(argType)) {
         if (count <= lastFpRegArg) {
