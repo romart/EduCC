@@ -7,7 +7,12 @@ FILE test/testData/parser/negative/incorrectFunctions.c
 ----
   ({signed int ()})[20] fas
 ----
-  {{signed int (double)} (signed int, signed int)} qux
+  FUN {signed int (double)} qux 
+    #0: signed int x
+    #1: signed int x
+  BEGIN
+    
+  END
 ----
   FUN signed int bar 
     #0: signed int
