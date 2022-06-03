@@ -376,6 +376,8 @@ int32_t typeAlignment(TypeRef *type) {
       case T_STRUCT:
       case T_UNION:
           return effectiveType->descriptorDesc->structInfo->align;
+      case T_ERROR:
+          return 0;
       default: unreachable("Unknown type ID");
       }
       break;

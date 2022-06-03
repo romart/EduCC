@@ -262,13 +262,13 @@ static AstExpression *resolveNameRef(ParserContext *ctx) {
   return createErrorExpression(ctx, coords);
 }
 
-static TypeRef* parseTypeName(ParserContext *ctx, struct _Scope *scope);
+static TypeRef* parseTypeName(ParserContext *ctx, struct _Scope *scope, DeclaratorScope ds_scope);
 
 static AstExpression *va_arg_expression(ParserContext *ctx, Coordinates *coords, AstExpression *va_list_Arg, TypeRef *typeArg) {
   TypeRef *va_list_Type = va_list_Arg->type;
 
   if (!is_va_list_Type(va_list_Type)) {
-      // report: first argument to 'va_arg' is of type 'struct xc' and not 'va_list'
+      reportDiagnostic(ctx, DIAG_FIRST_VA_ARG_NOT_VA_LIST, &va_list_Arg->coordinates, va_list_Type);
       return createErrorExpression(ctx, coords);
   }
 
@@ -309,7 +309,7 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
               consume(ctx, '(');
               AstExpression *valist = parseAssignmentExpression(ctx, scope);
               consume(ctx, ',');
-              TypeRef* vatype = parseTypeName(ctx, scope);
+              TypeRef* vatype = parseTypeName(ctx, scope, DS_VA_ARG);
               coords.endOffset = ctx->token->coordinates.endOffset;
               consume(ctx, ')');
               return va_arg_expression(ctx, &coords, valist, vatype);
@@ -421,16 +421,19 @@ type_name
     | specifier_qualifier_list abstract_declarator
     ;
  */
-static TypeRef* parseTypeName(ParserContext *ctx, struct _Scope *scope) {
+static TypeRef* parseTypeName(ParserContext *ctx, struct _Scope *scope, DeclaratorScope ds_scope) {
     DeclarationSpecifiers specifiers = { 0 };
     Declarator declarator= { 0 };
     specifiers.coordinates = ctx->token->coordinates;
-    parseDeclarationSpecifiers(ctx, &specifiers, DS_CAST);
+    parseDeclarationSpecifiers(ctx, &specifiers, ds_scope);
 
     if (ctx->token->code != ')') {
         declarator.coordinates = ctx->token->coordinates;
         parseDeclarator(ctx, &declarator);
-        verifyDeclarator(ctx, &declarator, DS_CAST);
+        verifyDeclarator(ctx, &declarator, ds_scope);
+    }
+    if (isErrorType(specifiers.basicType)) {
+        reportDiagnostic(ctx, DIAG_UNKNOWN_TYPE_NAME, &specifiers.coordinates, declarator.identificator);
     }
 
     return makeTypeRef(ctx, &specifiers, &declarator);
@@ -647,7 +650,7 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
                 token = nextToken(ctx)->code;
                 if (isDeclarationSpecifierToken(token)) {
                     argument = NULL;
-                    sizeType = parseTypeName(ctx, scope);
+                    sizeType = parseTypeName(ctx, scope, DS_SIZEOF);
                     coords.endOffset = ctx->token->coordinates.endOffset;
                     consume(ctx, ')');
                 } else {
@@ -703,7 +706,7 @@ static AstExpression* parseCastExpression(ParserContext *ctx, struct _Scope* sco
         Coordinates coords = ctx->token->coordinates;
         nextToken(ctx);
         if (isDeclarationSpecifierToken(ctx->token->code)) {
-            TypeRef* typeRef = parseTypeName(ctx, scope);
+            TypeRef* typeRef = parseTypeName(ctx, scope, DS_CAST);
             coords.endOffset = ctx->token->coordinates.endOffset;
             consume(ctx, ')');
             AstExpression* argument = parseCastExpression(ctx, scope);
@@ -1810,12 +1813,17 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
             }
         }
         default: {
+            Boolean isError = FALSE;
             if (!(tss || tsw || tst)) {
-              reportDiagnostic(ctx, DIAG_MISSING_TYPE_SPECIFIER, &ctx->token->coordinates);
-              tst = TST_INT;
-              tst_s = "int";
+              if (scope != DS_CAST && scope != DS_VA_ARG && scope != DS_STRUCT && scope != DS_SIZEOF) {
+                reportDiagnostic(ctx, DIAG_MISSING_TYPE_SPECIFIER, &ctx->token->coordinates);
+                tst = TST_INT;
+                tst_s = "int";
+              } else {
+                isError = TRUE;
+              }
             }
-            specifiers->basicType = makeBasicType(ctx, computePrimitiveTypeDescriptor(ctx, tsw, tsw_s, tss, tss_s, tst, tst_s), specifiers->flags.storage);
+            specifiers->basicType = isError ? makeErrorRef(ctx) : makeBasicType(ctx, computePrimitiveTypeDescriptor(ctx, tsw, tsw_s, tss, tss_s, tst, tst_s), specifiers->flags.storage);
 
         almost_done:
             specifiers->flags.bits.isExternal = scs == SCS_EXTERN;
@@ -2565,8 +2573,6 @@ static AstStatement *parseFunctionBody(ParserContext *ctx) {
 
 // return FALSE if no errors found
 static Boolean verifyDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, DeclaratorScope scope) {
-  int spos = specifiers->coordinates.startOffset;
-  int epos = specifiers->coordinates.endOffset;
   SpecifierFlags flags = specifiers->flags;
   flags.bits.isConst = 0;
   flags.bits.isVolatile = 0;
@@ -2579,6 +2585,8 @@ static Boolean verifyDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecif
       break;
     case DS_STRUCT:
     case DS_CAST:
+    case DS_SIZEOF:
+    case DS_VA_ARG:
       if (flags.storage) {
           reportDiagnostic(ctx, DIAG_STORAGE_NOT_ALLOWED, &specifiers->coordinates);
           return TRUE;

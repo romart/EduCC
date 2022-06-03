@@ -343,7 +343,9 @@ typedef enum _DeclaratorScope {
   DS_PARAMETERS,
   DS_STRUCT,
   DS_STATEMENT,
-  DS_CAST
+  DS_CAST,
+  DS_SIZEOF,
+  DS_VA_ARG
 } DeclaratorScope;
 
 typedef struct _Declarator {
