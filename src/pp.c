@@ -8,6 +8,7 @@
 #include <libgen.h>
 #include <unistd.h>
 #include <linux/limits.h>
+#include <sys/cdefs.h>
 
 #include "pp.h"
 #include "parser.h"
@@ -15,7 +16,7 @@
 #include "tree.h"
 
 
-static Token *expandMacro(ParserContext *ctx, const Token *macro, Boolean evalDefined, Boolean inCode);
+static Token *expandMacro(ParserContext *ctx, const Token *macro, Boolean evalDefined);
 
 typedef struct _MacroParam {
   const char *name;
@@ -405,7 +406,7 @@ static Token* expandEvaluatedSequence(ParserContext *ctx, Token* s, Boolean eval
   Token *p = NULL;
 
   while (t && t->hs) {
-      Token *tmp = expandMacro(ctx, t, evalDefined, FALSE);
+      Token *tmp = expandMacro(ctx, t, evalDefined);
 
       if (p) p->next = tmp;
       else s = tmp;
@@ -426,7 +427,7 @@ static Token* expandSequence(ParserContext *ctx, Token* s, Boolean evalDefined) 
   Token *p = NULL;
 
   while (t) {
-      Token *tmp = expandMacro(ctx, t, evalDefined, FALSE);
+      Token *tmp = expandMacro(ctx, t, evalDefined);
 
       if (p) p->next = tmp;
       else s = tmp;
@@ -518,7 +519,7 @@ static Token *evaluateDefinedOp(ParserContext *ctx, Token *token, Boolean relaxe
   return NULL;
 }
 
-static Token *expandMacro(ParserContext *ctx, const Token *macro, Boolean evalDefined, Boolean inCode) {
+static Token *expandMacro(ParserContext *ctx, const Token *macro, Boolean evalDefined) {
 
   if (macro->rawCode != IDENTIFIER) return (Token*)macro;
 
@@ -547,8 +548,7 @@ static Token *expandMacro(ParserContext *ctx, const Token *macro, Boolean evalDe
   Token *n = macro->next;
   Token *macroNext = macro->next;
 
-
-  if (def->isFunctional && (!n || n->rawCode != '(' || hasSpace(n) && inCode)) {
+  if (def->isFunctional && (!n || n->rawCode != '(')) {
     // #define f(x) x
     // a = foo (y + 1)
     // b = foo 10
@@ -863,7 +863,7 @@ static Token *parseInclude(ParserContext *ctx, Token *token) {
     tail = skipPPTokens(ctx, last->next);
   } else if (token->rawCode == IDENTIFIER) {
     if (isMacro(ctx, token->text)) {
-      Token *rToken = expandMacro(ctx, token, FALSE, FALSE);
+      Token *rToken = expandMacro(ctx, token, FALSE);
       return parseInclude(ctx, rToken);
     } else {
       reportDiagnostic(ctx, DIAG_EXPECTED_FILENAME, &token->coordinates);
@@ -1040,7 +1040,7 @@ static Token *simplifyTokenSequence(ParserContext *ctx, Token *token) {
           cur = cur->next = evaluateDefinedOp(ctx, token, FALSE, &token);
           continue;
       } else if (token->rawCode == IDENTIFIER) {
-          Token *e = expandMacro(ctx, token, TRUE, FALSE);
+          Token *e = expandMacro(ctx, token, TRUE);
 
           if (e == token) {
               // https://gcc.gnu.org/onlinedocs/cpp/If.html#If
@@ -1427,7 +1427,7 @@ Token *preprocessFile(ParserContext *ctx, Token *s, Token *tail) {
       }
     } else if (t->rawCode == IDENTIFIER) {
       Token *d;
-      Token *n = expandMacro(ctx, t, FALSE, TRUE);
+      Token *n = expandMacro(ctx, t, FALSE);
       if (p) p->next = n;
       if (t != n) {
         t = n;
