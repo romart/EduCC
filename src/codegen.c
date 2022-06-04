@@ -1812,9 +1812,9 @@ static void generateVaArg(GenerationContext *ctx, GeneratedFunction *f, Scope *s
   int32_t align = typeAlignment(vatype);
 
   if (align > 8) {
-    // (((len)+(align)) & ~((align)-1))
+    // (((len)+(align - 1)) & ~((align)-1))
     int32_t mask = ~(align - 1);
-    emitArithConst(f, OP_ADD, R_ACC, align, dataSize);
+    emitArithConst(f, OP_ADD, R_ACC, align - 1, dataSize);
     emitArithConst(f, OP_AND, R_ACC, mask, dataSize);
   }
 
