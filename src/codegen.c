@@ -1565,7 +1565,7 @@ static Boolean generateAlloca(GenerationContext *ctx, GeneratedFunction *f, Scop
   struct Label head = { 0 }, tail = { 0 };
 
   bindLabel(f, &head);
-  // x < y -> cmp, y, x
+  // x < y -> cmp, x, y
   emitArithRR(f, OP_CMP, to, r_sab, dataSize);
   emitCondJump(f, &tail, JC_NOT_L, TRUE);
 
