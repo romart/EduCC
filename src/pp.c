@@ -1401,8 +1401,10 @@ void initializeProprocessor(ParserContext *ctx) {
   defineBuiltinMacro(ctx, "__STDC__", constToken(ctx, 1, &dummy));
   defineBuiltinMacro(ctx, "__STDC_VERSION__", constLongToken(ctx, 199409L, &dummy));
   defineBuiltinMacro(ctx, "__STDC_HOSTED__", constLongToken(ctx, 199409L, &dummy));
+  defineBuiltinMacro(ctx, "__STRICT_ANSI__", constToken(ctx, 1, &dummy));
 
   defineBuiltinMacro(ctx, "_LP64", constToken(ctx, 1, &dummy));
+  defineBuiltinMacro(ctx, "__x86_64__", constToken(ctx, 1, &dummy));
 
   defineBuiltinMacro(ctx, "__DATE__", stringToken(ctx, &dummy.coordinates, dateString()));
   defineBuiltinMacro(ctx, "__TIME__", stringToken(ctx, &dummy.coordinates, timeString()));
