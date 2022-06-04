@@ -1,7 +1,6 @@
 #ifndef __STDARG_H
 #define __STDARG_H
 
-#include <basic.h>
 #include <stddef.h>
 
 typedef struct __va_elem {
