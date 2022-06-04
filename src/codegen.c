@@ -1322,10 +1322,8 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
 
       if (lType->kind == TR_BITFIELD) {
           assert(stackPending == 0);
-          assert(lvalue->op == EF_ARROW || lvalue->op == EF_DOT);
-          AstStructDeclarator *decl = lvalue->fieldExpr.member;
+          TypeRef *storageType = lType->bitFieldDesc.storageType;
 
-          addr.imm += decl->offset;
           emitLea(f, &addr, R_EDI);
 
           addr.base = R_EDI;
@@ -1333,9 +1331,9 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
           addr.imm = 0;
 
           if (saved_acc) {
-              emitPopReg(f, R_TMP2);
+              emitPopReg(f, R_ACC);
           }
-          storeBitField(f, lType, R_TMP2, &addr);
+          storeBitField(f, lType, R_ACC, &addr);
       } else {
           if (isStructualType(lType)) {
             emitPopReg(f, R_TMP2); // load result
