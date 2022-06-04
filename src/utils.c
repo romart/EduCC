@@ -182,6 +182,8 @@ void unreachable(const char *msg) {
   abort();
 }
 
+int fileno (FILE *stream);
+
 int isTerminal(FILE *stream) {
   return isatty(fileno(stream));
 }
