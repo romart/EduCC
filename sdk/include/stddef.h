@@ -12,4 +12,7 @@ typedef long max_align_t;
 
 #define offsetof(type, member) ((size_t)&(((type *)0)->member))
 
+// temporary
+extern void *alloca (size_t __size);
+
 #endif // __STDDEF_H
