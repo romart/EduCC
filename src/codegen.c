@@ -1520,12 +1520,82 @@ static enum Opcodes selectIncDecOpcode(ExpressionType astOp, TypeRef *type) {
 }
 
 
+static Boolean generateAlloca(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
+  AstExpression *callee = expression->callExpr.callee;
+
+  if (callee->op != E_NAMEREF) return FALSE;
+  if (strcmp("alloca", callee->nameRefExpr.name)) return FALSE;
+
+  const int32_t dataSize = sizeof(intptr_t);
+  // alloca algo consts of three steps:
+  // 1. move existing stack down on allocating delta
+  // 2. set new rsp
+  // 3. save new alloca stack border which is also a result of alloca
+
+  // callee-saved regs: R_EBX, R_R12, R_R13, R_R14, R_R15
+
+  AstExpressionList *args = expression->callExpr.arguments;
+  assert(args->next == NULL);
+
+  generateExpression(ctx, f, scope, args->expression);
+
+  int32_t alignment = 2 * dataSize;
+
+  // size is in R_ACC
+  emitArithConst(f, OP_ADD, R_ACC, alignment - 1, dataSize);
+  emitArithConst(f, OP_AND, R_ACC, ~(alignment - 1), dataSize);
+
+  // aligned size is in R_ACC
+
+  // move existing stack down
+  // R_EAX, R_ECX, R_EDX, R_ESI, R_EDI, R_R8, R_R9, R_R10, R_R11
+
+  enum Registers delta = R_EAX;
+  enum Registers r_sab = R_ECX; // R_ECX - Stack Alloca Border
+  enum Registers to = R_EDX;
+  enum Registers from = R_ESI;
+
+  Address sabAddress = { R_EBP, R_BAD, 0, f->allocaOffset, NULL, NULL };
+  emitMoveAR(f, &sabAddress, r_sab, dataSize);
+
+  emitMoveRR(f, R_ESP, from, dataSize);
+  emitMoveRR(f, R_ESP, to, dataSize);
+  emitArithRR(f, OP_SUB, to, delta, dataSize);
+
+  struct Label head = { 0 }, tail = { 0 };
+
+  bindLabel(f, &head);
+  // x < y -> cmp, y, x
+  emitArithRR(f, OP_CMP, r_sab, to, dataSize);
+  emitCondJump(f, &tail, JC_NOT_L, TRUE);
+
+  Address fromAddr = { from, R_BAD, 0, 0, NULL, NULL };
+  Address toAddr = { to, R_BAD, 0, 0, NULL, NULL };
+
+  enum Registers tmp = R_EDI;
+  emitMoveAR(f, &fromAddr, tmp, dataSize);
+  emitMoveRA(f, tmp, &toAddr, dataSize);
+
+  emitArithConst(f, OP_ADD, to, dataSize, dataSize);
+  emitArithConst(f, OP_ADD, from, dataSize, dataSize);
+
+  emitJumpTo(f, &head);
+
+  bindLabel(f, &tail);
+
+  emitArithRR(f, OP_SUB, R_ESP, delta, dataSize);
+  emitNegR(f, delta, dataSize);
+  emitArithRR(f, OP_ADD, delta, r_sab, dataSize);
+  emitMoveRA(f, R_ACC, &sabAddress, dataSize);
+}
 
 static const enum Registers intArgumentRegs[] = { R_ARG_0, R_ARG_1, R_ARG_2, R_ARG_3, R_ARG_4, R_ARG_5 };
 static const enum Registers fpArgumentRegs[] = { R_XMM0, R_XMM1, R_XMM2, R_XMM3, R_XMM4, R_XMM5, R_XMM6, R_XMM7 };
 
 static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
   assert(expression->op == E_CALL);
+
+  if (generateAlloca(ctx, f, scope, expression)) return;
 
   AstExpression *callee = expression->callExpr.callee;
   AstExpressionList *args = expression->callExpr.arguments;
@@ -2655,16 +2725,13 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
 
   g->savedRegOffset = -baseOffset;
 
-  emitArithRR(g, OP_XOR, R_ACC, R_ACC, sizeof(intptr_t));
-  addr.imm = allocaOffset;
-  emitMoveRA(g, R_ACC, &addr, sizeof(intptr_t));
   if (f->hasSmallStructs) {
       addr.imm = smallStructOffset;
+      emitArithRR(g, OP_XOR, R_ACC, R_ACC, sizeof(intptr_t));
       emitMoveRA(g, R_ACC, &addr, sizeof(intptr_t));
   }
 
   int32_t frameSize = ALIGN_SIZE(baseOffset, 2 * sizeof(intptr_t));
-
   g->frameSize = frameSize;
 
   return frameSize;
@@ -2689,6 +2756,9 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
 
   if (frameSize)
     emitArithConst(gen, OP_SUB, R_ESP, delta, sizeof(intptr_t));
+
+  Address addr = { R_EBP, R_BAD, 0, gen->allocaOffset, NULL, NULL };
+  emitMoveRA(gen, R_ESP, &addr, sizeof(intptr_t));
 
   gen->stackOffset = 0;
   generateBlock(ctx, gen, &f->body->block, 0);
