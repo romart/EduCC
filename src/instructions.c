@@ -861,7 +861,7 @@ static void emitDisp32_pc(address p, uint32_t w) {
   }
 }
 
-void emitCondJump(GeneratedFunction *f, struct Label *l, enum JumpCondition cond) {
+void emitCondJump(GeneratedFunction *f, struct Label *l, enum JumpCondition cond, Boolean isNear) {
   // jcc l
   Section *s = f->section;
   address pc = s->pc;
@@ -878,15 +878,22 @@ void emitCondJump(GeneratedFunction *f, struct Label *l, enum JumpCondition cond
           emitDisp32(f, d - 4);
       }
   } else {
-    emitByte(f, 0x0F);
-    emitByte(f, 0x80 | cond);
-    emitDisp32(f, 0xDEADBEEF);
-
     struct LabelJump *lj = areanAllocate(f->arena, sizeof (struct LabelJump));
-    lj->instSize = 6;
     lj->instruction_cp = instrOff;
     lj->next = l->jumps;
     l->jumps = lj;
+
+    if (isNear) {
+      emitByte(f, 0x70 | cond);
+      emitByte(f, 0xFF);
+      lj->instSize = 2;
+    } else {
+      lj->instSize = 6;
+      emitByte(f, 0x0F);
+      emitByte(f, 0x80 | cond);
+      emitDisp32(f, 0xDEADBEEF);
+    }
+
   }
 }
 
@@ -953,6 +960,12 @@ void patchJumpTo(GeneratedFunction *f, ptrdiff_t inst_cp, size_t instSize, ptrdi
   address instpc = s->start + inst_cp;
   void * instpc_d = instpc;
   uint8_t opc = *instpc;
+
+  if (instSize == 2) {
+      assert((ptrdiff_t)(int8_t)d == d);
+      emitByte_pc(instpc + 1, d);
+      return;
+  }
 
   if ((ptrdiff_t)(int8_t)d == d) {
       if (opc == 0xE9) {
