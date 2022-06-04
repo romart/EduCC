@@ -9,10 +9,6 @@
 #include "mem.h"
 #include "utils.h"
 
-static Vector emptyImpl = {0};
-
-Vector *emptyVector = &emptyImpl;
-
 void addToVector(Vector* vector, intptr_t value) {
     if (vector->size == vector->capacity) {
         int newCapacity = (int)(vector->capacity * 1.2f) ;

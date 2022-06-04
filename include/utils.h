@@ -18,8 +18,6 @@ Vector* createVector(int capacity);
 intptr_t getFromVector(Vector* vector, int idx);
 void releaseVector(Vector *vector);
 
-extern Vector *emptyVector;
-
 #define DEFAULT_MAP_CAPACITY 1024
 
 typedef int (*hashCode_fun)(intptr_t);
