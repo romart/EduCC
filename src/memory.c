@@ -35,6 +35,10 @@ void releaseHeap(void *p) {
   free(p);
 }
 
+#ifndef MAP_ANONYMOUS
+#  define MAP_ANONYMOUS	0x20
+#endif
+
 static void *mmapAllocate(size_t size) {
   void *result = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (result == MAP_FAILED) {
