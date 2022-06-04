@@ -1027,6 +1027,88 @@ static AstExpression* parseExpression(ParserContext *ctx, struct _Scope* scope) 
 }
 
 /**
+ [GNU] attributes:
+         attribute
+         attributes attribute
+
+ [GNU]  attribute:
+          '__attribute__' '(' '(' attribute-list ')' ')'
+
+ [GNU]  attribute-list:
+          attrib
+          attribute_list ',' attrib
+
+ [GNU]  attrib:
+          empty
+          attrib-name
+          attrib-name '(' identifier ')'
+
+ [GNU]  attrib-name:
+          identifier
+          typespec
+          typequal
+          storageclass
+*/
+
+static Boolean isAttributeName(Token *token) {
+  if (token->code == IDENTIFIER) return TRUE;
+  if (isTypeSpecifierToken(token->code)) return TRUE;
+  if (isTypeQualifierToken(token->code)) return TRUE;
+  if (isStorageClassToken(token->code)) return TRUE;
+
+  return FALSE;
+}
+
+static AstAttribute *parseAttributes(ParserContext *ctx) {
+  AstAttribute head = { 0 }, *current = &head;
+
+  Coordinates coords = ctx->token->coordinates;
+
+  while (nextTokenIf(ctx, ATTRIBUTE)) {
+
+      consume(ctx, '(');
+      consume(ctx, '(');
+
+      Boolean first = TRUE;
+
+      AstAttributeList idHead = { 0 }, *idcur  = &idHead;
+
+      while (ctx->token->code != ')') {
+          Coordinates coords2 = ctx->token->coordinates;
+
+          if (!first) {
+              consume(ctx, ',');
+          }
+
+          first = FALSE;
+
+          if (isAttributeName(ctx->token)) {
+              const char *attribName = ctx->token->text;
+              nextToken(ctx);
+              const char *idArg = NULL;
+              if (nextTokenIf(ctx, '(')) {
+                  idArg = ctx->token->text;
+                  consume(ctx, IDENTIFIER);
+                  consume(ctx, ')');
+              }
+
+              coords.endOffset = ctx->token->coordinates.startOffset;
+
+              idcur = idcur->next = createAttributeList(ctx, &coords2, attribName, idArg);
+          }
+      }
+
+      consume(ctx, ')');
+      coords.endOffset = ctx->token->coordinates.endOffset;
+      consume(ctx, ')');
+      current = current->next = createAttribute(ctx, &coords, idHead.next);
+  }
+
+  return head.next;
+}
+
+
+/**
 enumerator_list
     : enumerator ( ',' enumerator)*
     ;
@@ -1381,9 +1463,9 @@ static int32_t computeStructAlignment(AstStructMember *members) {
 
 /**
 struct_or_union_specifier
-    : struct_or_union '{' struct_declaration_list '}'
-    | struct_or_union IDENTIFIER '{' struct_declaration_list '}'
-    | struct_or_union IDENTIFIER
+    : struct_or_union attributes? '{' struct_declaration_list '}'
+    | struct_or_union attributes? IDENTIFIER '{' struct_declaration_list '}'
+    | struct_or_union attributes? IDENTIFIER
     ;
 
 struct_or_union
@@ -1398,6 +1480,8 @@ static AstSUEDeclaration* parseStructOrUnionDeclaration(ParserContext *ctx, Decl
 
     Coordinates coords = ctx->token->coordinates;
     unsigned factor = ctx->token->code == STRUCT ? 1 : 0;
+
+    AstAttribute *attributes = parseAttributes(ctx);
 
     int token = nextToken(ctx)->rawCode;
     coords.endOffset = ctx->token->coordinates.endOffset;
@@ -2988,9 +3072,11 @@ const char *joinToStringTokenSequence(ParserContext *ctx, Token *s) {
   char buffer[128] = { 0 };
 
   while (t) {
+      if (t->code == UNTERMINATED_COMMENT) continue;
       if (p && t->pos && hasSpace(t)) {
           ++bufferSize;
       }
+
 
       if (t->pos == NULL && t->code == I_CONSTANT) {
         bufferSize += snprintf(buffer, sizeof buffer, "%ld", t->value.iv);
@@ -3014,6 +3100,7 @@ const char *joinToStringTokenSequence(ParserContext *ctx, Token *s) {
   unsigned idx = 0;
 
   while (t) {
+      if (t->code == UNTERMINATED_COMMENT) continue;
       if (p && t->pos && hasSpace(t)) {
           b[idx++] = ' ';
       }

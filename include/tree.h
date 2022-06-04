@@ -283,12 +283,36 @@ typedef struct _AstStatement {
     };
 } AstStatement;
 
+
 struct _AstDeclaration;
 
 typedef struct _AstIdentifierList {
+    Coordinates coordinates;
+
     const char* name;
+
     struct _AstIdentifierList* next;
 } AstIdentifierList;
+
+
+typedef struct _AstAttributeList {
+  Coordinates coordinates;
+
+  const char *attribName;
+  const char *argument;
+
+  struct _AstAttributeList *next;
+} AstAttributeList;
+
+typedef struct _AstAttribute {
+  Coordinates coordinates;
+
+  AstAttributeList *attributeList;
+
+  struct _AstAttribute *next;
+} AstAttribute;
+
+
 
 typedef enum _InitializerKind {
   IK_EXPRESSION,
@@ -505,6 +529,11 @@ TypeDesc *createTypeDescriptor(ParserContext *ctx, TypeId typeId, const char *na
 // declarations
 
 DeclaratorPart *allocateDeclaratorPart(ParserContext *ctx);
+
+
+AstAttribute *createAttribute(ParserContext *ctx, Coordinates *coords, AstAttributeList *attrList);
+AstAttributeList *createAttributeList(ParserContext *ctx, Coordinates *coords, const char *attribName, const char *argument);
+AstIdentifierList *createIdentifierList(ParserContext *ctx, Coordinates *coords, const char *name);
 
 EnumConstant *createEnumConst(ParserContext *ctx, Coordinates *coords, const char* name, int64_const_t value);
 
