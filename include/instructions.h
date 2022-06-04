@@ -212,7 +212,7 @@ typedef struct _Address  {
 
 struct _GeneratedFunction;
 
-void emitCondJump(struct _GeneratedFunction *f, struct Label *label, enum JumpCondition cond);
+void emitCondJump(struct _GeneratedFunction *f, struct Label *label, enum JumpCondition cond, Boolean isNear);
 
 void emitPushReg(struct _GeneratedFunction *f, enum Registers reg);
 void emitPopReg(struct _GeneratedFunction *f, enum Registers reg);

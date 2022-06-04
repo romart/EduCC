@@ -1079,7 +1079,7 @@ static void generateLogicalBinary(GenerationContext *ctx, GeneratedFunction *f, 
 
   struct Label elseB = { 0 }, endB = { 0 };
 
-  emitCondJump(f, &elseB, cc);
+  emitCondJump(f, &elseB, cc, FALSE);
 
   cc = generateCondition(ctx, f, scope, binOp->binaryExpr.right, FALSE);
 
@@ -1775,7 +1775,7 @@ static void generateVaArg(GenerationContext *ctx, GeneratedFunction *f, Scope *s
       // va_list->fp_offset >= R_PARAM_COUNT + R_FP_PARAM_COUNT
       emitArithConst(f, OP_CMP, R_TMP, dataSize * (R_PARAM_COUNT + R_FP_PARAM_COUNT), sizeof(uint32_t));
       // if ( >= ) mem-load
-      emitCondJump(f, &memLabl, JC_GE);
+      emitCondJump(f, &memLabl, JC_GE, TRUE);
       valist_addr.imm = memberOffset(vastruct, "reg_save_area");
       emitLoad(f, &valist_addr, R_ACC, T_U8);
       emitArithRR(f, OP_ADD, R_ACC, R_TMP, dataSize);
@@ -1792,7 +1792,7 @@ static void generateVaArg(GenerationContext *ctx, GeneratedFunction *f, Scope *s
       // va_list->gp_offset >= R_PARAM_COUNT
       emitArithConst(f, OP_CMP, R_TMP, dataSize * R_PARAM_COUNT, sizeof(uint32_t));
       // if ( >= ) mem-load
-      emitCondJump(f, &memLabl, JC_GE);
+      emitCondJump(f, &memLabl, JC_GE, TRUE);
 
       valist_addr.imm = memberOffset(vastruct, "reg_save_area");
       emitLoad(f, &valist_addr, R_ACC, T_U8);
@@ -1855,7 +1855,7 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
         assert(ternary->condition);
         enum JumpCondition cc = generateCondition(ctx, f, scope, ternary->condition, TRUE);
 
-        emitCondJump(f, &elseLabel, cc);
+        emitCondJump(f, &elseLabel, cc, FALSE);
 
         assert(ternary->ifTrue);
         generateExpression(ctx, f, scope, ternary->ifTrue);
@@ -2127,7 +2127,7 @@ static int generateSwitchStatement(GenerationContext *ctx, GeneratedFunction *f,
       int64_t caseConst = caseLabels[i].caseConst;
       struct Label *caseLabel = &caseLabels[i].label;
       emitArithConst(f, OP_CMP, R_ACC, caseConst, condTypeSize);
-      emitCondJump(f, caseLabel, JC_EQ);
+      emitCondJump(f, caseLabel, JC_EQ, FALSE);
   }
 
   if (stmt->hasDefault) {
@@ -2196,7 +2196,7 @@ static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFun
               }
 
               struct Label l = { 0 };
-              emitCondJump(f, &l, JC_EQ);
+              emitCondJump(f, &l, JC_EQ, TRUE);
               if (cond->op == EB_EQ) {
                   emitArithRR(f, OP_XOR, R_ACC, R_ACC, sizeof(int32_t));
               } else {
@@ -2265,9 +2265,9 @@ static int generateIfStatement(GenerationContext *ctx, GeneratedFunction *f, Ast
   enum JumpCondition cc = generateCondition(ctx, f, scope, stmt->condition, TRUE);
 
   if (stmt->elseBranch) {
-    emitCondJump(f, &elseLabel, cc);
+    emitCondJump(f, &elseLabel, cc, FALSE);
   } else {
-    emitCondJump(f, &endLabel, cc);
+    emitCondJump(f, &endLabel, cc, FALSE);
   }
 
   assert(stmt->thenBranch);
@@ -2299,7 +2299,7 @@ static int generateLoopStatement(GenerationContext *ctx, GeneratedFunction *f, A
   if (!doLoop) {
       bindLabel(f, &continueLabel);
       enum JumpCondition cc = generateCondition(ctx, f, scope, stmt->condition, TRUE);
-      emitCondJump(f, &loopTail, cc);
+      emitCondJump(f, &loopTail, cc, FALSE);
   }
 
   assert(stmt->body);
@@ -2308,7 +2308,7 @@ static int generateLoopStatement(GenerationContext *ctx, GeneratedFunction *f, A
   if (doLoop) {
       bindLabel(f, &continueLabel);
       enum JumpCondition cc = generateCondition(ctx, f, scope, stmt->condition, FALSE);
-      emitCondJump(f, &loopHead, cc);
+      emitCondJump(f, &loopHead, cc, FALSE);
   } else {
       emitJumpTo(f, &loopHead);
   }
@@ -2337,7 +2337,7 @@ static int generateForStatement(GenerationContext *ctx, GeneratedFunction *f, As
 
   if (stmt->condition) {
     enum JumpCondition cc = generateCondition(ctx, f, scope, stmt->condition, TRUE);
-    emitCondJump(f, &loopTail, cc);
+    emitCondJump(f, &loopTail, cc, FALSE);
   }
 
   assert(stmt->body);
