@@ -1617,7 +1617,7 @@ static TypeDesc *computePrimitiveTypeDescriptor(ParserContext *ctx, TSW tsw, con
 
       if (tsw == TSW_LONG && tst == TST_DOUBLE) {
           if (tss == TSS_NONE) {
-            return &builtInTypeDescriptors[T_F8];
+            return &builtInTypeDescriptors[T_F10];
           } else {
             // TODO: coordinates
             reportDiagnostic(ctx, DIAG_ILL_TYPE_SIGN, &ctx->token->coordinates, "long double");
@@ -1627,7 +1627,7 @@ static TypeDesc *computePrimitiveTypeDescriptor(ParserContext *ctx, TSW tsw, con
 
       if (tst == TST_NONE || tst == TST_INT) {
         if (tsw == TSW_SHORT) return &builtInTypeDescriptors[tss == TSS_UNSIGNED ? T_U2 : T_S2];
-        if (tsw == TSW_LONG) return &builtInTypeDescriptors[tss == TSS_UNSIGNED ? T_U4 : T_S4];
+        if (tsw == TSW_LONG) return &builtInTypeDescriptors[tss == TSS_UNSIGNED ? T_U8 : T_S8];
         if (tsw == TSW_LONGLONG) return &builtInTypeDescriptors[tss == TSS_UNSIGNED ? T_U8 : T_S8];
       }
 
