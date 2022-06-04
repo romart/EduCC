@@ -9,10 +9,10 @@ FILE test/testData/parser/positive/enums.c
   BEGIN
     signed int xx = \
       -1
-    double xxx = \
+    long double xxx = \
       29.000000
     unsigned char xxxx = \
-      (unsigned char)((double)*xx + *xxx)    
+      (unsigned char)((long double)*xx + *xxx)
   END
 ----
   ENUM E2

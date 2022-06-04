@@ -53,26 +53,26 @@ FILE test/testData/parser/positive/expressions/numericalConsts.c
       362
     signed int BB = \
       581
-    signed int l = \
-      (signed int)21142341
-    signed int l2 = \
-      (signed int)21142341
-    unsigned int ul1 = \
-      (unsigned int)21142341
-    unsigned int ul2 = \
-      (unsigned int)21142341
-    unsigned int ul3 = \
-      (unsigned int)21142341
-    unsigned int ul4 = \
-      (unsigned int)21142341
-    unsigned int ul5 = \
+    signed long l = \
       21142341
-    unsigned int ul6 = \
+    signed long l2 = \
       21142341
-    unsigned int ul7 = \
-      21142341
-    unsigned int ul8 = \
-      21142341
+    unsigned long ul1 = \
+      (unsigned long)21142341
+    unsigned long ul2 = \
+      (unsigned long)21142341
+    unsigned long ul3 = \
+      (unsigned long)21142341
+    unsigned long ul4 = \
+      (unsigned long)21142341
+    unsigned long ul5 = \
+      (unsigned long)21142341
+    unsigned long ul6 = \
+      (unsigned long)21142341
+    unsigned long ul7 = \
+      (unsigned long)21142341
+    unsigned long ul8 = \
+      (unsigned long)21142341
     signed long ll = \
       123222222
     signed long ll2 = \

@@ -362,9 +362,9 @@ FILE test/testData/parser/negative/expressions/initializers.c
   TYPEDF Ty6 = STRUCT <anon$2>
 ----
   STRUCT <anon$3>
-    signed int a #0
-    signed int b #4
-    signed int c #8
+    signed long a #0
+    signed long b #8
+    signed long c #16
   STRUCT_END
 ----
   TYPEDF Ty7 = STRUCT <anon$3>

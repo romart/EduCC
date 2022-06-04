@@ -141,32 +141,32 @@ FILE test/testData/parser/positive/expressions/arithCanon.c
       10
     signed int b = \
       20
-    signed int c = \
-      30
+    signed long c = \
+      (signed long)30
     signed int d = \
-      *a >> *b >> *c
+      (signed int)(*a >> *b >> *c)
     signed int e = \
-      *a << *b >> *c
+      (signed int)(*a << *b >> *c)
     signed int f = \
-      *a >> *b << *c
+      (signed int)(*a >> *b << *c)
     signed int g = \
-      *a << *b << *c
+      (signed int)(*a << *b << *c)
     signed int d = \
-      *c >> *b >> 10
+      (signed int)(*c >> *b >> 10)
     signed int e = \
-      *c << *b >> 10
+      (signed int)(*c << *b >> 10)
     signed int f = \
-      *c >> *b << 10
+      (signed int)(*c >> *b << 10)
     signed int g = \
-      *c << *b << 10
+      (signed int)(*c << *b << 10)
     signed int h = \
-      *c >> 12 >> *c
+      (signed int)(*c >> 12 >> *c)
     signed int i = \
-      *c << 12 >> *c
+      (signed int)(*c << 12 >> *c)
     signed int j = \
-      *c >> 12 << *c
+      (signed int)(*c >> 12 << *c)
     signed int k = \
-      *c << 12 << *c
+      (signed int)(*c << 12 << *c)
     signed int h = \
       *a >> 7 >> 5
     signed int i = \
