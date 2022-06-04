@@ -2781,7 +2781,7 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
   ctx->labelMap = NULL;
   releaseHashMap(labelMap);
 
-  if (ctx->parserContext->config->verbose) {
+  if (ctx->parserContext->config->asmDump) {
     fprintf(stdout, "<<< %s >>>\n", f->declaration->name);
     address b = gen->section->start + gen->sectionOffset;
     address e = gen->section->pc;

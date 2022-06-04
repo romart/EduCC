@@ -55,6 +55,8 @@ int main(int argc, char** argv) {
       config.ppOutput = 1;
     } else if (strncmp("-I", arg, 2) == 0) {
       config.includePath = allocIncludePath(arg[2] ? &arg[2] : argv[++i], config.includePath);
+    } else if (strcmp("-S", arg) == 0) {
+      config.asmDump = 1;
     } else {
       config.fileToCompile = argv[i];
       compileFile(&config);
