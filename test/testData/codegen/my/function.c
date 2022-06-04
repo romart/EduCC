@@ -179,13 +179,13 @@ Ty21 struct_test38(void) {
   return r;
 }
 
-double to_double(long double x) {
-  return x;
-}
+//double to_double(long double x) {
+//  return x;
+//}
 
-long double to_ldouble(int x) {
-  return x;
-}
+//long double to_ldouble(int x) {
+//  return x;
+//}
 
 int main() {
   if (3 != ret3()) return 1;
@@ -275,8 +275,8 @@ int main() {
 
   if (5 != (***add2)(2,3)) return 57;
 
-  if (1 != (to_double(3.5) == 3.5)) return 58;
-  if (0 != (to_double(3.5) == 3)) return 59;
+//  if (1 != (to_double(3.5) == 3.5)) return 58;
+//  if (0 != (to_double(3.5) == 3)) return 59;
 
   if (6 != add_all(3,1,2,3)) return 60;
   if (5 != add_all(4,1,2,3,-1)) return 61;

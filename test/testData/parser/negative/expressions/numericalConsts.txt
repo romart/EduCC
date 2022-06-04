@@ -45,26 +45,26 @@ FILE test/testData/parser/negative/expressions/numericalConsts.c
       809636952
     unsigned int u2 = \
       47073847
-    signed int l = \
-      (signed int)2114234411646545641
-    signed int l2 = \
-      (signed int)21142344654564461
-    unsigned int ul1 = \
-      (unsigned int)2114235465465441
-    unsigned int ul2 = \
-      (unsigned int)2114234456465465641
-    unsigned int ul3 = \
-      (unsigned int)9223372036854775807
-    unsigned int ul4 = \
-      (unsigned int)9223372036854775807
-    unsigned int ul5 = \
-      4294967295
-    unsigned int ul6 = \
-      4294967295
-    unsigned int ul7 = \
-      4294967295
-    unsigned int ul8 = \
-      4294967295
+    signed long l = \
+      2114234411646545641
+    signed long l2 = \
+      21142344654564461
+    unsigned long ul1 = \
+      (unsigned long)2114235465465441
+    unsigned long ul2 = \
+      (unsigned long)2114234456465465641
+    unsigned long ul3 = \
+      (unsigned long)9223372036854775807
+    unsigned long ul4 = \
+      (unsigned long)9223372036854775807
+    unsigned long ul5 = \
+      (unsigned long)4294967295
+    unsigned long ul6 = \
+      (unsigned long)4294967295
+    unsigned long ul7 = \
+      (unsigned long)4294967295
+    unsigned long ul8 = \
+      (unsigned long)4294967295
     signed long ll = \
       1232222654546444522
     signed long ll2 = \
