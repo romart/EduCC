@@ -28,6 +28,7 @@ typedef struct _Configuration {
   unsigned memoryStatistics: 1;
   unsigned skipCodegen: 1;
   unsigned ppOutput: 1;
+  unsigned asmDump: 1;
 } Configuration;
 
 
