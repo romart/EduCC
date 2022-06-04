@@ -120,6 +120,34 @@ TypeDesc *createTypeDescriptor(ParserContext *ctx, TypeId typeId, const char *na
   return result;
 }
 
+AstIdentifierList *createIdentifierList(ParserContext *ctx, Coordinates *coords, const char *name) {
+  AstIdentifierList *result = areanAllocate(ctx->memory.astArena, sizeof(AstIdentifierList));
+
+  result->coordinates = *coords;
+  result->name = name;
+
+  return result;
+}
+
+AstAttributeList *createAttributeList(ParserContext *ctx, Coordinates *coords, const char *attribName, const char *argument) {
+  AstAttributeList *result = areanAllocate(ctx->memory.astArena, sizeof(AstAttributeList));
+
+  result->coordinates = *coords;
+  result->attribName = attribName;
+  result->argument = argument;
+
+  return result;
+}
+
+AstAttribute *createAttribute(ParserContext *ctx, Coordinates *coords, AstAttributeList *attrList) {
+  AstAttribute *result = areanAllocate(ctx->memory.astArena, sizeof(AstAttribute));
+
+  result->coordinates = *coords;
+  result->attributeList = attrList;
+
+  return result;
+}
+
 // declarations
 
 EnumConstant *createEnumConst(ParserContext *ctx, Coordinates *coords, const char* name, int64_const_t value) {
