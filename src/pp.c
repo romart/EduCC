@@ -1267,7 +1267,7 @@ static Token *handleDirecrive(ParserContext *ctx, Token *token) {
     reportDiagnostic(ctx, DIAG_PP_WITHOUT_IF, &directiveToken->coordinates, "endif");
     return directiveToken->next;
   } else if (!strcmp("line", directive)) {
-
+    return skipPPTokens(ctx, token->next);
   } else if (!strcmp("error", directive)) {
     reportDiagnostic(ctx, DIAG_PP_ERROR, &token->coordinates, token->next ? token->next->text ? token->next->text : "" : "");
     return token->next ? token->next->next : NULL;
