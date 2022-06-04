@@ -1566,7 +1566,7 @@ static Boolean generateAlloca(GenerationContext *ctx, GeneratedFunction *f, Scop
 
   bindLabel(f, &head);
   // x < y -> cmp, y, x
-  emitArithRR(f, OP_CMP, r_sab, to, dataSize);
+  emitArithRR(f, OP_CMP, to, r_sab, dataSize);
   emitCondJump(f, &tail, JC_NOT_L, TRUE);
 
   Address fromAddr = { from, R_BAD, 0, 0, NULL, NULL };
