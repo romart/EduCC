@@ -2806,14 +2806,19 @@ static writeObjFile(const char *sourceFileName, const char *objDir, uint8_t *buf
   char *outputName = alloca(bufferLen);
 
   unsigned i = 0;
+  unsigned j = 0;
 
   if (objDir) {
       strncpy(outputName, objDir, bufferLen);
       outputName[dirLen] = '/';
       i = dirLen + 1;
+  } else {
+      for (j = len - 1; j >= 0; --j) {
+          if (sourceFileName[j] == '/') break;
+      }
+      ++j;
   }
 
-  unsigned j = 0;
 
   while (sourceFileName[j] != '.') {
     outputName[i++] = sourceFileName[j++];
