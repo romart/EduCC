@@ -347,11 +347,7 @@ int32_t typeAlignment(TypeRef *type) {
     case TR_FUNCTION:
       return sizeof(intptr_t);
     case TR_ARRAY:
-      if (type->arrayTypeDesc.size < 0) {
-          return sizeof(intptr_t);
-      } else {
-          return typeAlignment(type->arrayTypeDesc.elementType);
-      }
+      return typeAlignment(type->arrayTypeDesc.elementType);
     case TR_BITFIELD: effectiveType = type->bitFieldDesc.storageType; goto value_type;
     case TR_VALUE: effectiveType = type;
       value_type:
