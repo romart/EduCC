@@ -346,10 +346,6 @@ Token *tokenizeBuffer(ParserContext *ctx, LocationInfo *locInfo, Token *tail) {
       tmp->coordinates.endOffset = endOffset;
       tmp->coordinates.locInfo = locInfo;
 
-      if (token == I_CONSTANT_RAW || token == F_CONSTANT_RAW) {
-          parseNumber(ctx, tmp);
-      }
-
       if (token == NEWLINE || token == DANGLING_NEWLINE) {
           if (linesPos) {
             assert(locInfo->fileInfo.lineno < locInfo->fileInfo.lineCount);
@@ -461,6 +457,8 @@ Token *nextToken(ParserContext *ctx) {
           next->value.iv = enumerator->value;
         }
       }
+  } else if (next->code == I_CONSTANT_RAW || next->code == F_CONSTANT_RAW) {
+      parseNumber(ctx, next);
   }
 
   assert(next->rawCode != I_CONSTANT_RAW || next->code != I_CONSTANT_RAW);

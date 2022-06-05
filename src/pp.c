@@ -1065,8 +1065,11 @@ static Token *simplifyTokenSequence(ParserContext *ctx, Token *token) {
 
 static AstExpression *parsePPExpression(ParserContext *ctx, Token *start) {
 
+  Token head;
   Token *ctxToken = ctx->token;
-  ctx->token = start;
+  head.next = start;
+  ctx->token = &head;
+  nextToken(ctx);
 
   AstExpression *expr = parseConditionalExpression(ctx, NULL);
 
