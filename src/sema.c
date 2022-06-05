@@ -1188,8 +1188,7 @@ static AstInitializer *fillInitializer(ParserContext *ctx, Coordinates *coords, 
           innerOffset += elementSize;
           ++elementCount;
       }
-  } else {
-      assert(isStructualType(type));
+  } else if (isStructualType(type)) {
       AstSUEDeclaration *declaration = type->descriptorDesc->structInfo;
       assert(declaration);
 
@@ -1208,6 +1207,17 @@ static AstInitializer *fillInitializer(ParserContext *ctx, Coordinates *coords, 
 
           current = current->next = newNode;
           ++elementCount;
+      }
+  } else if (isUnionType(type)) {
+      AstSUEDeclaration *declaration = type->descriptorDesc->structInfo;
+      assert(declaration);
+
+      AstStructMember *member = declaration->members;
+
+      for (; member; member = member->next) {
+          if (member->kind == SM_DECLARATOR) {
+              fillInitializer(ctx, coords, member->declarator->typeRef, offset + 0);
+          }
       }
   }
 
