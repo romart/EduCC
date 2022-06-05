@@ -470,7 +470,7 @@ AstStructDeclarator *computeMemberDeclarator(ParserContext *ctx, Coordinates *co
   }
 
 
-  if (!isStructualType(receiverType)) {
+  if (!isStructualType(receiverType) && !isUnionType(receiverType)) {
       reportDiagnostic(ctx, DIAG_MEMBER_REF_NOT_A_STRUCTUAL, coords, receiverType);
       return NULL;
   }
