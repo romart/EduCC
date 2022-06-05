@@ -1335,6 +1335,7 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *typ
               new->expression = expr;
               new->offset = offset;
               new->slotType = type;
+              *next = initializer->next;
           }
       } else {
           reportDiagnostic(ctx, DIAG_ARRAY_INIT_LIST, &initializer->coords);
