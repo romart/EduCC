@@ -1,5 +1,10 @@
+ifeq ($(COMPILER),)
+  COMPILER := gcc
+endif
 
-CC=gcc
+
+CC=$(COMPILER)
+LD=gcc
 LEX=flex
 CFLAGS=-I./include -g -O0 -std=gnu90
 DEPS=$(wildcard ./include/*.h)
@@ -51,7 +56,8 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c $(DEPS)
 main: $(OBJ) 
 	mkdir -p ./$(BUILDDIR)
 	mkdir -p ./$(BINDIR)
-	$(CC) $(CFLAGS) -o $(BINDIR)/$@ $^ -ludis86
+	$(LD) $(CFLAGS) -o $(BINDIR)/$@ $^ -ludis86
+
 
 .PHONY: clean
 
