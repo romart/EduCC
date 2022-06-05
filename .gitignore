@@ -2,6 +2,7 @@
 bin/*
 obj/*
 build/*
+bootstrap/*
 src/generated/*
 include/lex.h
 CCompiler.cflags
