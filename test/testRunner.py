@@ -104,9 +104,10 @@ def runCodegenTest(compiler, workingDir, dirname, name):
     if (not path.exists(outputDir)):
         os.makedirs(outputDir)
 
-    errFilePath = workingDir + '/' + dirname + '/' + name + '.err'
-    objFileName = workingDir + '/' + dirname + '/' + name + '.o'
-    binFileName = workingDir + '/' + dirname + '/' + name
+    errFilePath = outputDir + '/' + name + '.err'
+    objFileName = outputDir + '/' + name + '.o'
+    binFileName = outputDir + '/' + name
+
 
     if path.exists(objFileName):
         os.remove(objFileName);
@@ -115,7 +116,7 @@ def runCodegenTest(compiler, workingDir, dirname, name):
         os.remove(binFileName);
 
     err = open(errFilePath, 'w+')
-    compialtionCommand = [compiler, "-oneline" , "-objDir", workingDir, testFilePath]
+    compialtionCommand = [compiler, "-oneline" , "-o", objFileName, testFilePath]
 #    print(compialtionCommand)
     compilation = Popen(compialtionCommand, stdout=sys.stdout, stderr=err)
     exit_code = compilation.wait()
