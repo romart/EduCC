@@ -416,15 +416,22 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
     case EB_ASG_OR:
       return NULL; // cannot evaluate assignemt
     case EF_DOT:
-    case EF_ARROW:
-      return NULL; // field expressions are not evaluatable either
+      return NULL;
+    case EF_ARROW: {
+      AstConst *c = eval(ctx, expression->fieldExpr.recevier);
+      if (c) {
+          c->i += expression->fieldExpr.member->offset;
+      }
+      return c;
+    }
     case E_CALL:
     case E_NAMEREF:
       return NULL; // same for call foo() and nameref
     case E_LABEL_REF:
       return NULL; // no idea how to evaluate this
-    case EU_DEREF:
     case EU_REF:
+      return eval(ctx, expression->unaryExpr.argument);
+    case EU_DEREF:
       return NULL; // ref/deref is not supported yet;
     case E_ERROR:
     default:
