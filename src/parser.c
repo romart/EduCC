@@ -2589,7 +2589,7 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                         initializer = finalizeInitializer(ctx, type, initializer, specifiers.flags.bits.isStatic);
                         coords2.endOffset = initializer->coordinates.endOffset;
                     } else {
-                        if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE) {
+                        if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE && !specifiers.flags.bits.isExternal) {
                             reportDiagnostic(ctx, DIAG_ARRAY_EXPLICIT_SIZE_OR_INIT, &coords2);
                         }
                     }
@@ -2888,7 +2888,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
         if (initializer) {
           initializer = finalizeInitializer(ctx, type, initializer, TRUE);
         } else {
-          if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE) {
+          if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE && !specifiers.flags.bits.isExternal) {
               reportDiagnostic(ctx, DIAG_ARRAY_EXPLICIT_SIZE_OR_INIT, &declarator.coordinates);
           }
         }
