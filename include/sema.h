@@ -42,6 +42,7 @@ Boolean isStructualType(TypeRef *type);
 Boolean isArrayish(TypeRef *type);
 Boolean isUnsignedType(TypeRef *type);
 Boolean isScalarType(TypeRef *type);
+Boolean isUnionType(TypeRef *type);
 Boolean is_va_list_Type(TypeRef *type);
 
 Boolean isAssignableTypes(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, AstExpression *fromExpr, Boolean init);
