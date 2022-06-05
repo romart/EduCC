@@ -764,13 +764,23 @@ TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, Coordinates *coords, Ty
       return makePointedType(ctx, flags, argumentType);
     case EU_DEREF: // *a
       return computeTypeForDerefOperator(ctx, coords, argumentType);
+    case EU_EXL:   // !a
+      if (isScalarType(argumentType) || argumentType->kind == TR_BITFIELD) {
+           return argumentType;
+      } else {
+          reportDiagnostic(ctx, DIAG_INVALID_UNARY_ARGUMENT, coords, argumentType);
+          return makeErrorRef(ctx);
+      }
     case EU_PLUS:  // +a
     case EU_MINUS: // -a
-    case EU_EXL:   // !a
-    case EU_TILDA: // ~a
-      if (op == EU_TILDA && isIntegerType(argumentType)) {
+      if (isPrimitiveType(argumentType) || argumentType->kind == TR_BITFIELD) {
           return argumentType;
-      } else if (op != EU_TILDA && isPrimitiveType(argumentType)) {
+      } else {
+          reportDiagnostic(ctx, DIAG_INVALID_UNARY_ARGUMENT, coords, argumentType);
+          return makeErrorRef(ctx);
+      }
+    case EU_TILDA: // ~a
+      if (isIntegerType(argumentType) || argumentType->kind == TR_BITFIELD) {
           return argumentType;
       } else {
           reportDiagnostic(ctx, DIAG_INVALID_UNARY_ARGUMENT, coords, argumentType);
