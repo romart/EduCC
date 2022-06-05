@@ -1768,7 +1768,7 @@ void verifyAndTransformCallAruments(ParserContext *ctx, Coordinates *coords, Typ
               if (isRealType(argType) && size == 4) {
                 TypeRef *doubleType = makePrimitiveType(ctx, T_F8, 0);
                 argument->expression = createCastExpression(ctx, &arg->coordinates, doubleType, arg);
-              } else if (size < 8) {
+              } else if (isScalarType(argType) && size < 8) {
                 assert(argType->kind == TR_VALUE);
                 TypeId typeId = argType->descriptorDesc->typeId;
                 TypeId toTypeId = typeId < T_S8 ? T_S8 : T_U8;
