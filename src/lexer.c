@@ -82,9 +82,6 @@ static int parseCharSymbol(ParserContext *ctx, Coordinates *coords, const char *
         case 'b':
           if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
           return '\b';
-        case 'e':
-          if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
-          return '\e';
         case 'f':
           if (text[idx+1] != '\'') reportDiagnostic(ctx, DIAG_MULTI_CHAR_CONST, coords);
           return '\f';
