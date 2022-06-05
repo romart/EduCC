@@ -2906,6 +2906,7 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, AstFile *astFile) {
     if (unit->kind == TU_FUNCTION_DEFINITION) {
         GeneratedFunction *f = generateFunction(&ctx, unit->definition);
         unit->definition->declaration->gen = f;
+        unit->definition->declaration->symbol->function->gen = f;
 
         if (unit->definition->declaration->flags.bits.isStatic) {
             f->next = file->staticFunctions;
