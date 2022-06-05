@@ -194,17 +194,18 @@ void parseNumber(ParserContext *ctx, Token *token) {
       sign = 1;
       int suffix2 = text[length - 2];
       if (suffix == 'l' || suffix == 'L') {
+          wide = 8;
           int suffix3 = text[length - 3];
           if (suffix == 'l' || suffix == 'L') {
-            wide = 8;
           }
       }
   }
 
   if (suffix == 'l' || suffix == 'L') {
+      wide = 8;
+
       int suffix2 = text[length - 2];
       if (suffix == 'l' || suffix == 'L') {
-          wide = 8;
           int suffix3 = text[length - 3];
           if (suffix == 'u' || suffix == 'U') {
               sign = 1;
