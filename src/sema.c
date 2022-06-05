@@ -528,7 +528,9 @@ TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* co
       if (isPointerLikeType(ifFalse)) {
           TypeRef *pointedF = ifFalse->kind == TR_POINTED ? ifFalse->pointedTo.toType : ifFalse->arrayTypeDesc.elementType;
           if (!typesEquals(pointedT, pointedF)) { // TODO: could fail with array vs ponter
-              reportDiagnostic(ctx, DIAG_POINTER_TYPE_MISMATCH, coords, ifTrue, ifFalse);
+              if (!isVoidType(pointedT) && !isVoidType(pointedF)) {
+                reportDiagnostic(ctx, DIAG_POINTER_TYPE_MISMATCH, coords, ifTrue, ifFalse);
+              }
           }
           return makePointedType(ctx, ifTrue->flags, pointedT);
       } else if (isIntegerType(ifFalse)) {
