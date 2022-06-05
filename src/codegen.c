@@ -2630,10 +2630,10 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
       TypeRef *localType = local->type;
       GeneratedVariable *gp = allocateGenVarialbe(ctx, local);
       size_t size = computeTypeSize(localType);
-      size_t align = min(size, sizeof(intptr_t));
+      size_t align = typeAlignment(localType);
 
       baseOffset += size;
-      baseOffset = ALIGN_SIZE(baseOffset, align);
+      baseOffset = (baseOffset + (align - 1)) & ~(align - 1);
       gp->baseOffset = -baseOffset;
   }
 
