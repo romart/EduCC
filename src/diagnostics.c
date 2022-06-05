@@ -162,7 +162,7 @@ void reportDiagnostic(ParserContext *ctx, enum DiagnosticId diag, const Coordina
                     r = snprintf(buffer + j, bufferSize - j, fmtBuf, v);
                 } else if (fc3 == 'u') {
                     // unsigned long decimal
-                    u_int64_t v = va_arg(args, u_int64_t);
+                    uint64_t v = va_arg(args, uint64_t);
                     r = snprintf(buffer + j, bufferSize - j, fmtBuf, v);
                 } else {
                     buffer[j] = fc;
@@ -189,7 +189,7 @@ void reportDiagnostic(ParserContext *ctx, enum DiagnosticId diag, const Coordina
                     r = snprintf(buffer + j, bufferSize - j, fmtBuf, v);
                 } else if (fc2 == 'u') {
                     // unsigned long decimal
-                    u_int32_t v = va_arg(args, u_int32_t);
+                    uint32_t v = va_arg(args, uint32_t);
                     r = snprintf(buffer + j, bufferSize - j, fmtBuf, v);
                 } else {
                     buffer[j] = fc;

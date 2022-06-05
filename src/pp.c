@@ -2,19 +2,21 @@
 
 #include <assert.h>
 #include <stdio.h>
-#include <ctype.h>
 #include <time.h>
 #include <sys/stat.h>
 #include <libgen.h>
 #include <unistd.h>
 #include <linux/limits.h>
-#include <sys/cdefs.h>
 
 #include "pp.h"
 #include "parser.h"
 #include "lex.h"
 #include "tree.h"
 
+int isspace(int c);
+extern char *strdup (const char *__s);
+
+extern char *ctime_r (const time_t *__timer, char *__buf);
 
 static Token *expandMacro(ParserContext *ctx, const Token *macro, Boolean evalDefined);
 
@@ -791,7 +793,6 @@ static Token *expandMacro(ParserContext *ctx, const Token *macro, Boolean evalDe
 }
 
 static const char *findIncludePath(ParserContext *ctx, const char *includeName, Boolean isdquoted) {
-
   if (isdquoted && includeName[0] != '/') {
       char *copy = strdup(ctx->config->fileToCompile);
       char *dir = dirname(copy);

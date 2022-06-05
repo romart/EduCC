@@ -43,4 +43,6 @@ unsigned countLines(FILE* file);
 
 int isTerminal(FILE *stream);
 
+extern int snprintf (char *__s, size_t __maxlen, const char *__format, ...);
+
 #endif // __UTILS_H__
