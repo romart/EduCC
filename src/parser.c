@@ -543,6 +543,7 @@ static void useLabelExpr(ParserContext *ctx, AstExpression *expr, AstStatement *
       if (strcmp(l->label->label, label) == 0) {
           return;
       }
+      l = l->next;
   }
 
   UsedLabel *used = heapAllocate(sizeof (UsedLabel));
