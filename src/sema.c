@@ -1069,7 +1069,15 @@ TypeRef *computeFunctionType(ParserContext *ctx, Coordinates *coords, AstFunctio
   return result;
 }
 
-static Boolean isCompileTimeConstant(AstExpression *expr) {
+static Boolean isStaticSymbol(Symbol *s) {
+  if (s->kind == FunctionSymbol || s->kind == ValueSymbol && !s->variableDesc->flags.bits.isLocal) {
+    // TODO: probably it's not the best solution
+    return TRUE;
+  }
+  return FALSE;
+}
+
+static Boolean isCompileTimeConstant2(AstExpression *expr, Boolean allowRefs) {
   switch (expr->op) {
     case EU_PRE_INC:
     case EU_POST_INC:
@@ -1079,15 +1087,15 @@ static Boolean isCompileTimeConstant(AstExpression *expr) {
     case EU_MINUS:     /** -a */
     case EU_TILDA:     /** ~a */
     case EU_EXL:       /** !a */
-      return isCompileTimeConstant(expr->unaryExpr.argument);
+      return isCompileTimeConstant2(expr->unaryExpr.argument, FALSE);
     case E_TERNARY:
-      return isCompileTimeConstant(expr->ternaryExpr.condition)
-          && isCompileTimeConstant(expr->ternaryExpr.ifTrue)
-          && isCompileTimeConstant(expr->ternaryExpr.ifFalse);
+      return isCompileTimeConstant2(expr->ternaryExpr.condition, FALSE)
+          && isCompileTimeConstant2(expr->ternaryExpr.ifTrue, FALSE)
+          && isCompileTimeConstant2(expr->ternaryExpr.ifFalse, FALSE);
     case E_CONST:
       return TRUE;
     case E_CAST:
-      return isCompileTimeConstant(expr->castExpr.argument);
+      return isCompileTimeConstant2(expr->castExpr.argument, allowRefs);
     case EB_ADD:
     case EB_SUB:
     case EB_MUL:
@@ -1107,12 +1115,40 @@ static Boolean isCompileTimeConstant(AstExpression *expr) {
     case EB_GT:
     case EB_GE:
     case EB_COMMA:
-      return isCompileTimeConstant(expr->binaryExpr.left) && isCompileTimeConstant(expr->binaryExpr.right);
+      return isCompileTimeConstant2(expr->binaryExpr.left, FALSE) && isCompileTimeConstant2(expr->binaryExpr.right, FALSE);
     case E_PAREN:
-      return isCompileTimeConstant(expr->parened);
+      return isCompileTimeConstant2(expr->parened, allowRefs);
+    case EU_REF:
+      return isCompileTimeConstant2(expr->unaryExpr.argument, TRUE);
+    case EB_A_ACC:
+      if (allowRefs) {
+          AstExpression *l = expr->binaryExpr.left;
+          AstExpression *r = expr->binaryExpr.right;
+          AstExpression *arr = isPointerLikeType(l->type) ? l : r;
+          AstExpression *idx = arr == l ? r : l;
+          return isCompileTimeConstant2(arr, TRUE) && isCompileTimeConstant2(idx, FALSE);
+      }
+      return FALSE;
+    case E_NAMEREF: {
+      if (allowRefs) {
+        Symbol *s = expr->nameRefExpr.s;
+        return isStaticSymbol(s);
+      }
+    }
+    case EF_ARROW:
+      if (allowRefs) {
+          return isCompileTimeConstant2(expr->fieldExpr.recevier, TRUE);
+      }
     default:
       return FALSE;
   }
+}
+
+static Boolean isCompileTimeConstant(AstExpression *expr) {
+  if (expr->op == E_NAMEREF) {
+    return isStaticSymbol(expr->nameRefExpr.s);
+  }
+  return isCompileTimeConstant2(expr, FALSE);
 }
 
 static AstExpression *parenIfNeeded(ParserContext *ctx, AstExpression *expr) {
