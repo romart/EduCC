@@ -449,9 +449,9 @@ static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression
   if (memberType->kind == TR_BITFIELD && deBit) {
       // de-bit
       TypeRef *storageType = memberType->bitFieldDesc.storageType;
-      u_int64_t w = memberType->bitFieldDesc.width;
-      u_int64_t mask = ~(~0LLu << w);
-      u_int64_t s = memberType->bitFieldDesc.offset;
+      uint64_t w = memberType->bitFieldDesc.width;
+      uint64_t mask = ~(~0LLu << w);
+      uint64_t s = memberType->bitFieldDesc.offset;
 
       Boolean isU = isUnsignedType(storageType);
 
@@ -460,14 +460,14 @@ static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression
 
       size_t W = storageSize * 8;
 
-      u_int64_t l = W - (w + s);
+      uint64_t l = W - (w + s);
 
       AstExpression *lshiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &l);
       lshiftConst->type = storageType;
 
       AstExpression *lShifted = createBinaryExpression(ctx, EB_LHS, storageType, derefered, lshiftConst);
 
-      u_int64_t r = W - w;
+      uint64_t r = W - w;
 
       AstExpression *rshiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &r);
       rshiftConst->type = storageType;
@@ -654,7 +654,7 @@ static AstExpression *transformExpression(ParserContext *ctx, AstExpression *exp
       break;
     case E_CAST:
       tmp = transformExpression(ctx, expr->castExpr.argument);
-      if (typesEquals(expr->castExpr.type, expr->castExpr.argument->type))
+      if (typesEquals(expr->castExpr.type, expr->castExpr.argument->type) || isVoidType(expr->castExpr.type))
         return tmp;
       else
         expr->castExpr.argument = tmp;
@@ -859,6 +859,14 @@ void cannonizeAstFile(ParserContext *ctx, AstFile *file) {
       if (unit->kind == TU_FUNCTION_DEFINITION) {
           AstFunctionDefinition *def = unit->definition;
           transformStatement(ctx, def->body);
+      } else {
+          AstDeclaration *d = unit->declaration;
+          if (d->kind == DK_VAR) {
+              AstValueDeclaration *v = d->variableDeclaration;
+              if (v->initializer) {
+                  v->initializer = transformInitializer(ctx, v->initializer);
+              }
+          }
       }
       unit = unit->next;
   }

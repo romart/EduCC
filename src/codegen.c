@@ -2,6 +2,7 @@
 #include <assert.h>
 
 #include <udis86.h>
+#include <alloca.h>
 
 #include "_elf.h"
 #include "codegen.h"
@@ -152,34 +153,34 @@ void emitByte(GeneratedFunction *f, uint8_t b) {
   emitSectionByte(f->section, b);
 }
 
-void emitWord(GeneratedFunction *f, u_int16_t w) {
-   emitByte(f, (u_int8_t)w);
+void emitWord(GeneratedFunction *f, uint16_t w) {
+   emitByte(f, (uint8_t)w);
 
-   if ((u_int16_t)(u_int8_t)w != w) {
-       emitByte(f, (u_int8_t)(w >> 8));
+   if ((uint16_t)(uint8_t)w != w) {
+       emitByte(f, (uint8_t)(w >> 8));
    }
 }
 
 
-void emitDouble(GeneratedFunction *f, u_int32_t w) {
+void emitDouble(GeneratedFunction *f, uint32_t w) {
     emitByte(f, (uint8_t)(w));
     emitByte(f, (uint8_t)(w >> 8));
     emitByte(f, (uint8_t)(w >> 16));
     emitByte(f, (uint8_t)(w >> 24));
 }
 
-void emitDisp32(GeneratedFunction *f, u_int32_t w) {
-  if ((u_int32_t)(u_int16_t)w != w) {
-      emitWord(f, (u_int16_t) w);
+void emitDisp32(GeneratedFunction *f, uint32_t w) {
+  if ((uint32_t)(uint16_t)w != w) {
+      emitWord(f, (uint16_t) w);
 
-      u_int16_t high = (u_int16_t)(w >> 16);
-      emitByte(f, (u_int8_t)high);
-      emitByte(f, (u_int8_t)(high >> 8));
+      uint16_t high = (uint16_t)(w >> 16);
+      emitByte(f, (uint8_t)high);
+      emitByte(f, (uint8_t)(high >> 8));
   } else {
-      if ((u_int32_t)(u_int8_t)w != w) {
+      if ((uint32_t)(uint8_t)w != w) {
           emitWord(f, w);
       } else {
-          emitByte(f, (u_int8_t)w);
+          emitByte(f, (uint8_t)w);
           emitByte(f, 0);
       }
       emitByte(f, 0);
@@ -187,20 +188,20 @@ void emitDisp32(GeneratedFunction *f, u_int32_t w) {
   }
 }
 
-void emitQuad(GeneratedFunction *f, u_int64_t w) {
-  emitDouble(f, (u_int32_t) w);
+void emitQuad(GeneratedFunction *f, uint64_t w) {
+  emitDouble(f, (uint32_t) w);
 
-  if ((u_int64_t)(u_int32_t)w != w) {
-      emitDouble(f, (u_int32_t)(w >> 32));
+  if ((uint64_t)(uint32_t)w != w) {
+      emitDouble(f, (uint32_t)(w >> 32));
   }
 }
 
-void emitQuadOrDouble(GeneratedFunction *f, u_int64_t w) {
-  if ((u_int64_t)(u_int32_t)w == w) {
+void emitQuadOrDouble(GeneratedFunction *f, uint64_t w) {
+  if ((uint64_t)(uint32_t)w == w) {
     emitDisp32(f, w);
   } else {
-    emitDouble(f, (u_int32_t) w);
-    emitDouble(f, (u_int32_t)(w >> 32));
+    emitDouble(f, (uint32_t) w);
+    emitDouble(f, (uint32_t)(w >> 32));
   }
 }
 
@@ -925,7 +926,6 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
 
     generateExpression(ctx, f, scope, cast->argument);
 
-
     if (toTypeId == T_S1) {
         if (fromTypeId >= T_F4) {
             if (fromTypeId == T_F4) {
@@ -1162,8 +1162,8 @@ static void loadBitField(GeneratedFunction *f, TypeRef *t, Address *addr, enum R
 
   emitLoad(f, addr, to, typeToId(storageType));
 
-  u_int64_t l = W - (w + s);
-  u_int64_t r = W - w;
+  uint64_t l = W - (w + s);
+  uint64_t r = W - w;
 
   Boolean isU = isUnsignedType(storageType);
 
@@ -1199,10 +1199,10 @@ static void storeBitField(GeneratedFunction *f, TypeRef *t, enum Registers from,
 
   emitArithConst(f, OP_AND, from, ~(~0LLu << w), size);
   if (s != 0) {
-    emitShl(f, from, s);
+      emitArithConst(f, OP_SHL, from, s, size);
   }
 
-  u_int64_t mask = ~(~(~0LLu << w) << s);
+  uint64_t mask = ~(~(~0LLu << w) << s);
   emitArithConst(f, OP_AND, R_TMP, mask, size);
 
   emitArithRR(f, OP_OR, R_TMP, from, size);
@@ -1210,7 +1210,7 @@ static void storeBitField(GeneratedFunction *f, TypeRef *t, enum Registers from,
   emitStore(f, R_TMP, addr, storageTypeId);
 
   if (s) {
-    emitShr(f, from, s);
+      emitArithConst(f, OP_SHR, from, s, size);
   }
 }
 
@@ -1519,6 +1519,7 @@ static void generateAssignDiv(GenerationContext *ctx, GeneratedFunction *f, Scop
   if (lType->kind == TR_BITFIELD) {
       TypeRef *storageType = lType->bitFieldDesc.storageType;
 
+      // TODO: lea relocated addr
       loadBitField(f, lType, &addr, R_ACC);
       emitPopReg(f, R_TMP);
 
@@ -1561,6 +1562,7 @@ static void generateAssignDiv(GenerationContext *ctx, GeneratedFunction *f, Scop
           result = R_EDX;
       }
 
+      // TODO: lea relocated addr
       emitStore(f, result, &addr, rTypeId);
   }
 }
@@ -2696,7 +2698,7 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
   }
 
   if (f->declaration->isVariadic) {
-      const static dataSize = sizeof(intptr_t);
+      const static int32_t dataSize = sizeof(intptr_t);
       AstValueDeclaration *va_area = f->va_area;
       assert(va_area);
       int32_t gap = baseOffset += dataSize;
@@ -2854,7 +2856,7 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
   return gen;
 }
 
-static writeObjFile(const char *sourceFileName, const char *objDir, uint8_t *buffer, size_t bufferSize) {
+static void writeObjFile(const char *sourceFileName, const char *objDir, uint8_t *buffer, size_t bufferSize) {
   size_t len = strlen(sourceFileName);
   size_t dirLen = objDir ? strlen(objDir) : 0;
   size_t bufferLen = dirLen + 1 + len + 1;

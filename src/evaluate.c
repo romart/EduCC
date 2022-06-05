@@ -281,32 +281,34 @@ static AstConst* evalCast(ParserContext *ctx, TypeRef *toType, AstConst *arg) {
          arg->op = CK_INT_CONST;
          break;
        case T_U1:
-         arg->i = arg->op == CK_FLOAT_CONST ? (u_int8_t)arg->f : (u_int8_t)arg->i;
+         arg->i = arg->op == CK_FLOAT_CONST ? (uint8_t)arg->f : (uint8_t)arg->i;
          arg->op = CK_INT_CONST;
          break;
        case T_U2:
-         arg->i = arg->op == CK_FLOAT_CONST ? (u_int16_t)arg->f : (u_int16_t)arg->i;
+         arg->i = arg->op == CK_FLOAT_CONST ? (uint16_t)arg->f : (uint16_t)arg->i;
          arg->op = CK_INT_CONST;
          break;
        case T_U4:
-         arg->i = arg->op == CK_FLOAT_CONST ? (u_int32_t)arg->f : (u_int32_t)arg->i;
+         arg->i = arg->op == CK_FLOAT_CONST ? (uint32_t)arg->f : (uint32_t)arg->i;
          arg->op = CK_INT_CONST;
          break;
        case T_U8:
-         arg->i = arg->op == CK_FLOAT_CONST ? (u_int64_t)arg->f : (u_int64_t)arg->i;
+         // TODO: support ul <-> fp conversions
+         arg->i = arg->op == CK_FLOAT_CONST ? (int64_t)arg->f : (uint64_t)arg->i;
          arg->op = CK_INT_CONST;
          break;
        case T_F4:
-         arg->f = arg->op == CK_FLOAT_CONST ? (float)arg->f : (float)arg->i;
+         arg->f = arg->op == CK_FLOAT_CONST ? (float)arg->f : (float)((int64_t)arg->i);
          arg->op = CK_FLOAT_CONST;
          break;
        case T_F8:
-         arg->f = arg->op == CK_FLOAT_CONST ? (double)arg->f : (double)arg->i;
+         arg->f = arg->op == CK_FLOAT_CONST ? (double)arg->f : (double)((int64_t)arg->i);
          arg->op = CK_FLOAT_CONST;
          break;
        case T_F10: // TODO: storage is small a bit
-         arg->f = arg->op == CK_FLOAT_CONST ? (long double)arg->f : (long double)arg->i;
-         arg->op = CK_FLOAT_CONST;
+         unreachable("long double arith is not implemented yet");
+//         arg->f = arg->op == CK_FLOAT_CONST ? (long double)arg->f : (long double)arg->i;
+//         arg->op = CK_FLOAT_CONST;
          break;
        default:
          return NULL;

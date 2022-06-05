@@ -7,7 +7,7 @@
 #include "utils.h"
 #include "types.h"
 
-typedef struct _ParserContext ParserContext;
+struct _ParserContext;
 
 typedef struct _Coordinates {
   int startOffset;
@@ -524,63 +524,63 @@ AstExpression *deparen(AstExpression *expr);
 
 // types
 
-TypeDesc *createTypeDescriptor(ParserContext *ctx, TypeId typeId, const char *name, int size);
+TypeDesc *createTypeDescriptor(struct _ParserContext *ctx, TypeId typeId, const char *name, int size);
 
 // declarations
 
-DeclaratorPart *allocateDeclaratorPart(ParserContext *ctx);
+DeclaratorPart *allocateDeclaratorPart(struct _ParserContext *ctx);
 
 
-AstAttribute *createAttribute(ParserContext *ctx, Coordinates *coords, AstAttributeList *attrList);
-AstAttributeList *createAttributeList(ParserContext *ctx, Coordinates *coords, const char *attribName, const char *argument);
-AstIdentifierList *createIdentifierList(ParserContext *ctx, Coordinates *coords, const char *name);
+AstAttribute *createAttribute(struct _ParserContext *ctx, Coordinates *coords, AstAttributeList *attrList);
+AstAttributeList *createAttributeList(struct _ParserContext *ctx, Coordinates *coords, const char *attribName, const char *argument);
+AstIdentifierList *createIdentifierList(struct _ParserContext *ctx, Coordinates *coords, const char *name);
 
-EnumConstant *createEnumConst(ParserContext *ctx, Coordinates *coords, const char* name, int64_const_t value);
+EnumConstant *createEnumConst(struct _ParserContext *ctx, Coordinates *coords, const char* name, int64_const_t value);
 
-AstInitializerList *createAstInitializerList(ParserContext *ctx);
-AstInitializer *createAstInitializer(ParserContext *ctx, Coordinates *coords, InitializerKind kind);
-AstStructDeclarator *createStructDeclarator(ParserContext *ctx, Coordinates *coords, TypeRef *type, const char *name, unsigned offset);
-AstStructMember* createStructMember(ParserContext *ctx, AstDeclaration *declaration, AstStructDeclarator *declarator, EnumConstant *enumerator);
-AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, Coordinates *coords, DeclarationKind kind, unsigned isDefinition, const char *name, AstStructMember *members, int32_t align);
-AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, Coordinates *coords, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, Boolean isVariadic);
-AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, Coordinates *coords, ValueKind kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer);
+AstInitializerList *createAstInitializerList(struct _ParserContext *ctx);
+AstInitializer *createAstInitializer(struct _ParserContext *ctx, Coordinates *coords, InitializerKind kind);
+AstStructDeclarator *createStructDeclarator(struct _ParserContext *ctx, Coordinates *coords, TypeRef *type, const char *name, unsigned offset);
+AstStructMember* createStructMember(struct _ParserContext *ctx, AstDeclaration *declaration, AstStructDeclarator *declarator, EnumConstant *enumerator);
+AstSUEDeclaration *createSUEDeclaration(struct _ParserContext *ctx, Coordinates *coords, DeclarationKind kind, unsigned isDefinition, const char *name, AstStructMember *members, int32_t align);
+AstFunctionDeclaration *createFunctionDeclaration(struct _ParserContext *ctx, Coordinates *coords, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, Boolean isVariadic);
+AstValueDeclaration *createAstValueDeclaration(struct _ParserContext *ctx, Coordinates *coords, ValueKind kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer);
 
-AstDeclaration *createAstDeclaration(ParserContext *ctx, DeclarationKind kind, const char *name);
-AstFunctionDefinition *createFunctionDefinition(ParserContext *ctx, AstFunctionDeclaration *declaration, struct _Scope *scope, AstStatement *body);
+AstDeclaration *createAstDeclaration(struct _ParserContext *ctx, DeclarationKind kind, const char *name);
+AstFunctionDefinition *createFunctionDefinition(struct _ParserContext *ctx, AstFunctionDeclaration *declaration, struct _Scope *scope, AstStatement *body);
 
-AstTranslationUnit *createTranslationUnit(ParserContext *ctx, AstDeclaration *declaration, AstFunctionDefinition *definition);
+AstTranslationUnit *createTranslationUnit(struct _ParserContext *ctx, AstDeclaration *declaration, AstFunctionDefinition *definition);
 
-AstFile *createAstFile(ParserContext *ctx);
+AstFile *createAstFile(struct _ParserContext *ctx);
 
 // expressions
 
-AstExpression* createAstConst(ParserContext *ctx, Coordinates *coords, ConstKind type, void* value);
-AstExpression* createAstConst2(ParserContext *ctx, Coordinates *coords, TypeRef *type, AstConst *cnst);
-AstExpression *createVaArgExpression(ParserContext *ctx, Coordinates *coords, AstExpression *valist, TypeRef *argType);
-AstExpression *createCastExpression(ParserContext *ctx, Coordinates *coords, TypeRef *typeRef, AstExpression *argument);
-AstExpression *createBitExtendExpression(ParserContext *ctx, TypeRef *type, unsigned w, Boolean isU, AstExpression *argument);
-AstExpression *createTernaryExpression(ParserContext *ctx, TypeRef *type, AstExpression *cond, AstExpression *t, AstExpression* f);
-AstExpression *createBinaryExpression(ParserContext *ctx, ExpressionType op, TypeRef *type, AstExpression *left, AstExpression *right);
-AstExpression *createUnaryExpression(ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *argument);
-AstExpression *createNameRef(ParserContext *ctx, Coordinates *coords, const char *name, struct _Symbol *s);
-AstExpression *createCallExpression(ParserContext *ctx, Coordinates *coords, AstExpression *callee, AstExpressionList *arguments);
-AstExpression *createFieldExpression(ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *receiver, AstStructDeclarator *member);
-AstExpression *createParenExpression(ParserContext *ctx, Coordinates *coords, AstExpression *parened);
-AstExpression *createLabelRefExpression(ParserContext *ctx, Coordinates *coords, const char *label);
-AstExpression *createErrorExpression(ParserContext *ctx, Coordinates *coords);
+AstExpression* createAstConst(struct _ParserContext *ctx, Coordinates *coords, ConstKind type, void* value);
+AstExpression* createAstConst2(struct _ParserContext *ctx, Coordinates *coords, TypeRef *type, AstConst *cnst);
+AstExpression *createVaArgExpression(struct _ParserContext *ctx, Coordinates *coords, AstExpression *valist, TypeRef *argType);
+AstExpression *createCastExpression(struct _ParserContext *ctx, Coordinates *coords, TypeRef *typeRef, AstExpression *argument);
+AstExpression *createBitExtendExpression(struct _ParserContext *ctx, TypeRef *type, unsigned w, Boolean isU, AstExpression *argument);
+AstExpression *createTernaryExpression(struct _ParserContext *ctx, TypeRef *type, AstExpression *cond, AstExpression *t, AstExpression* f);
+AstExpression *createBinaryExpression(struct _ParserContext *ctx, ExpressionType op, TypeRef *type, AstExpression *left, AstExpression *right);
+AstExpression *createUnaryExpression(struct _ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *argument);
+AstExpression *createNameRef(struct _ParserContext *ctx, Coordinates *coords, const char *name, struct _Symbol *s);
+AstExpression *createCallExpression(struct _ParserContext *ctx, Coordinates *coords, AstExpression *callee, AstExpressionList *arguments);
+AstExpression *createFieldExpression(struct _ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *receiver, AstStructDeclarator *member);
+AstExpression *createParenExpression(struct _ParserContext *ctx, Coordinates *coords, AstExpression *parened);
+AstExpression *createLabelRefExpression(struct _ParserContext *ctx, Coordinates *coords, const char *label);
+AstExpression *createErrorExpression(struct _ParserContext *ctx, Coordinates *coords);
 
 // statemetns
 
-AstStatement *createBlockStatement(ParserContext *ctx, Coordinates *coords, struct _Scope *scope, AstStatementList *stmts);
-AstStatement *createExprStatement(ParserContext *ctx, AstExpression* expression);
-AstStatement *createLabelStatement(ParserContext *ctx, Coordinates *coords, LabelKind labelKind, AstStatement *body, const char *label, int c);
-AstStatement *createDeclStatement(ParserContext *ctx, Coordinates *coords, AstDeclaration *decl);
-AstStatement *createIfStatement(ParserContext *ctx, Coordinates *coords, AstExpression *cond, AstStatement *thenB, AstStatement *elseB);
-AstStatement *createSwitchStatement(ParserContext *ctx, Coordinates *coords, AstExpression *cond, AstStatement *body, unsigned caseCount, unsigned hasDefault);
-AstStatement *createLoopStatement(ParserContext *ctx, Coordinates *coords, StatementKind kind, AstExpression *cond, AstStatement *body);
-AstStatement *createForStatement(ParserContext *ctx, Coordinates *coords, AstExpression* init, AstExpression *cond, AstExpression *modifier, AstStatement *body);
-AstStatement *createJumpStatement(ParserContext *ctx, Coordinates *coords, StatementKind jumpKind);
-AstStatement *createEmptyStatement(ParserContext *ctx, Coordinates *coords);
-AstStatement *createErrorStatement(ParserContext *ctx, Coordinates *coords);
+AstStatement *createBlockStatement(struct _ParserContext *ctx, Coordinates *coords, struct _Scope *scope, AstStatementList *stmts);
+AstStatement *createExprStatement(struct _ParserContext *ctx, AstExpression* expression);
+AstStatement *createLabelStatement(struct _ParserContext *ctx, Coordinates *coords, LabelKind labelKind, AstStatement *body, const char *label, int c);
+AstStatement *createDeclStatement(struct _ParserContext *ctx, Coordinates *coords, AstDeclaration *decl);
+AstStatement *createIfStatement(struct _ParserContext *ctx, Coordinates *coords, AstExpression *cond, AstStatement *thenB, AstStatement *elseB);
+AstStatement *createSwitchStatement(struct _ParserContext *ctx, Coordinates *coords, AstExpression *cond, AstStatement *body, unsigned caseCount, unsigned hasDefault);
+AstStatement *createLoopStatement(struct _ParserContext *ctx, Coordinates *coords, StatementKind kind, AstExpression *cond, AstStatement *body);
+AstStatement *createForStatement(struct _ParserContext *ctx, Coordinates *coords, AstExpression* init, AstExpression *cond, AstExpression *modifier, AstStatement *body);
+AstStatement *createJumpStatement(struct _ParserContext *ctx, Coordinates *coords, StatementKind jumpKind);
+AstStatement *createEmptyStatement(struct _ParserContext *ctx, Coordinates *coords);
+AstStatement *createErrorStatement(struct _ParserContext *ctx, Coordinates *coords);
 
 #endif // __TREE_H__

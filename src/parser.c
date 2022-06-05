@@ -35,7 +35,7 @@ static void reportUnexpectedToken(ParserContext *ctx, int expected) {
 }
 
 static void expect(ParserContext *ctx, int token) {
-    int next = nextToken(ctx)->code;
+    int next = nextToken(ctx)->rawCode;
     if (next && token != next) {
         reportUnexpectedToken(ctx, token);
     }

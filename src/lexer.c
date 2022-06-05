@@ -216,10 +216,10 @@ void parseNumber(ParserContext *ctx, Token *token) {
       if (text[1] == 'x') {
         sscanf(text, "%lx", &c);
       } else if (text[1] == 'b' || text[1] == 'B') {
-        u_int64_t r = 0;
+        uint64_t r = 0;
         unsigned i;
         for (i = 2; i < length; ++i) {
-            u_int64_t old = r;
+            uint64_t old = r;
             r <<= 1;
             r += (text[i] - '0');
             if (old > r) {
@@ -244,7 +244,7 @@ void parseNumber(ParserContext *ctx, Token *token) {
       }
   } else {
       if (sign == 1) {
-          u_int32_t uc = (u_int32_t)c;
+          uint32_t uc = (uint32_t)c;
           if (c != (int64_t)uc) {
               reportDiagnostic(ctx, DIAG_IMPLICIT_CONVERSION, &token->coordinates, "long", "unsigned int", c, uc);
           }
