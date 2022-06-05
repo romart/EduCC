@@ -27,7 +27,6 @@ test/testData/parser/negative/expressions/initializers.c:52:25: warning: excess 
 test/testData/parser/negative/expressions/initializers.c:59:25: warning: excess elements in scalar initializer
 test/testData/parser/negative/expressions/initializers.c:34:31: warning: excess elements in scalar initializer
 test/testData/parser/negative/expressions/initializers.c:34:32: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:11:35: error: initializer element is not a compile-time constant
 test/testData/parser/negative/expressions/initializers.c:11:36: error: assigning to 'float' from incompatible type '*signed int'
 test/testData/parser/negative/expressions/initializers.c:13:36: error: redefinition of 'f' with a different type: 'float' vs 'signed int[9]'
 test/testData/parser/negative/expressions/initializers.c:5:37: error: definition of variable with array type needs an explicit size or an initializer
@@ -45,3 +44,4 @@ test/testData/parser/negative/expressions/initializers.c:14:53: error: invalid i
 test/testData/parser/negative/expressions/initializers.c:13:55: error: assigning to 'float' from incompatible type '*signed int'
 test/testData/parser/negative/expressions/initializers.c:12:57: error: assigning to 'signed int' from incompatible type 'STRUCT S'
 test/testData/parser/negative/expressions/initializers.c:12:61: error: 'extern' variable cannot have an initializer
+test/testData/parser/negative/expressions/initializers.c:11:90: error: initializer element is not a compile-time constant

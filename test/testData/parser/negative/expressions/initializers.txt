@@ -252,7 +252,7 @@ FILE test/testData/parser/negative/expressions/initializers.c
   signed int[20] a1
 ----
   *signed int pa = \
-    ERROR EXPR
+    (*signed int)a1
 ----
   float f = \
     ERROR EXPR
@@ -445,4 +445,44 @@ FILE test/testData/parser/negative/expressions/initializers.c
         unsigned char #18 <--- (unsigned char)19
         unsigned char #19 <--- (unsigned char)20
       INIT_END
+    INIT_END
+----
+  E signed int[-1] eintarr
+----
+  FUN signed int fox
+  BEGIN
+
+  END
+----
+  *void fptr = \
+    (*void)fox
+----
+  signed int fvari = \
+    139
+----
+  *signed int pfvari = \
+    fvari
+----
+  signed int[29] axx
+----
+  *signed int paxx = \
+    (*signed int)axx
+----
+  signed int bbb = \
+    ERROR EXPR
+----
+  S (signed char[4])[12] mon = \
+    INIT_BEGIN
+      signed char[4] #0 <--- "Jan"
+      signed char[4] #4 <--- "Feb"
+      signed char[4] #8 <--- "Mar"
+      signed char[4] #12 <--- "Apr"
+      signed char[4] #16 <--- "May"
+      signed char[4] #20 <--- "Jun"
+      signed char[4] #24 <--- "Jul"
+      signed char[4] #28 <--- "Aug"
+      signed char[4] #32 <--- "Sep"
+      signed char[4] #36 <--- "Oct"
+      signed char[4] #40 <--- "Nov"
+      signed char[4] #44 <--- "Dec"
     INIT_END

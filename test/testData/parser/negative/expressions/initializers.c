@@ -74,5 +74,24 @@ Ty6 r3 = {10, 20, 30};
 Ty20 r4 = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
 Ty21 r5 = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20};
 
+extern int eintarr[];
+
+int fox() {}
+
+void *fptr = &fox;
+
+int fvari = 139;
+int *pfvari = &fvari;
+
+int axx[29];
+
+int *paxx = axx;
+
+int bbb = axx[0];
+
+static char mon[][4] = {
+   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+};
 
 
