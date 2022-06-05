@@ -1997,7 +1997,7 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
       break;
     case EU_DEREF:
       translateAddress(ctx, f, scope, expression->unaryExpr.argument, &addr);
-      if (isStructualType(expression->type) || expression->type->kind == TR_ARRAY) {
+      if (isStructualType(expression->type) || isUnionType(expression->type) || expression->type->kind == TR_ARRAY) {
         if (!(addr.base == R_ACC && addr.index == R_BAD && addr.imm == 0)) {
           emitLea(f, &addr, R_ACC);
         }
