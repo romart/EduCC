@@ -609,7 +609,7 @@ TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, AstExpressio
   }
 
   if (EB_LHS <= op && op <= EB_OR) {
-      if (isIntegerType(left) && isIntegerType(right)) {
+      if ((isIntegerType(left) || left->kind == TR_BITFIELD) && (isIntegerType(right) || right->kind == TR_BITFIELD)) {
           return commonPrimitiveType(ctx, left, right);
       }
       reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
