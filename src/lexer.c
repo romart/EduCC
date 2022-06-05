@@ -412,6 +412,9 @@ Token *tokenizeFile(ParserContext *ctx, const char *fileName, Token *tail) {
 
   if (buffer == NULL) return NULL;
 
+  const char *oldfile = ctx->config->fileToCompile;
+  ctx->config->fileToCompile = fileName;
+
   unsigned lineCount = countLinesInBuffer(buffer);
 
   LocationInfo *locInfo = allocateFileLocationInfo(fileName, buffer, bufferSize, lineCount);
@@ -421,7 +424,11 @@ Token *tokenizeFile(ParserContext *ctx, const char *fileName, Token *tail) {
 
   Token *s = tokenizeBuffer(ctx, locInfo, tail);
 
-  return preprocessFile(ctx, s, tail);
+  Token *pp = preprocessFile(ctx, s, tail);
+
+  ctx->config->fileToCompile = oldfile;
+
+  return pp;
 }
 
 Token *findLastToken(Token *t);
