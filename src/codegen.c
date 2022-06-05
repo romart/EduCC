@@ -571,7 +571,7 @@ static void storeBitField(GeneratedFunction *f, TypeRef *t, enum Registers from,
 
 static void copyStructTo(GeneratedFunction *f, TypeRef *type, Address *src, Address *dst) {
 
-  assert(isStructualType(type));
+  assert(isStructualType(type) || isUnionType(type));
 
   int32_t align = type->descriptorDesc->structInfo->align;
   int32_t size = computeTypeSize(type);
@@ -1335,7 +1335,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
           }
           storeBitField(f, lType, R_ACC, &addr);
       } else {
-          if (isStructualType(lType)) {
+          if (isStructualType(lType) || isUnionType(lType)) {
             emitPopReg(f, R_TMP2); // load result
             if (stackPending) {
                 emitArithConst(f, OP_ADD, R_ESP, stackPending, sizeof(intptr_t));
