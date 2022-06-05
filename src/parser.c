@@ -1444,7 +1444,7 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
 }
 
 static int32_t computeStructAlignment(AstStructMember *members) {
-  int32_t biggestSize = -1;
+  int32_t biggestSize = 1;
 
   for (; members; members = members->next) {
       if (members->kind != SM_DECLARATOR) continue;

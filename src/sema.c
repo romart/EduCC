@@ -387,7 +387,7 @@ int32_t typeAlignment(TypeRef *type) {
     default: unreachable("Unexpected type kind");
   }
 
-  return -1;
+  return 1;
 }
 
 int32_t memberOffset(AstSUEDeclaration *declaration, const char *memberName) {
