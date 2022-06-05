@@ -1220,7 +1220,7 @@ static AstInitializer *fillInitializer(ParserContext *ctx, Coordinates *coords, 
 static AstInitializer *finalizeStructInitializer(ParserContext *ctx, TypeRef *type, ParsedInitializer *initializer, ParsedInitializer **next, int32_t offset, Boolean isTopLevel) {
   assert(isStructualType(type));
   AstSUEDeclaration *declaration = type->descriptorDesc->structInfo;
-  assert(declaration->kind == DK_UNION || declaration->kind == DK_STRUCT);
+  assert(declaration->kind == DK_STRUCT);
 
   AstExpression *expr = initializer->expression;
 
@@ -1410,6 +1410,62 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *typ
   return result;
 }
 
+static AstInitializer *finalizeUnionInitializer(ParserContext *ctx, TypeRef *type, ParsedInitializer *initializer, ParsedInitializer **next, int32_t offset, Boolean isTopLevel) {
+  assert(isUnionType(type));
+
+  AstSUEDeclaration *declaration = type->descriptorDesc->structInfo;
+  AstExpression *expr = initializer->expression;
+
+  if (expr) {
+      if (isTopLevel && !isCompileTimeConstant(expr)) {
+        reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, &initializer->coords);
+        AstInitializer *new = createAstInitializer(ctx, &initializer->coords, IK_EXPRESSION);
+        new->expression = createErrorExpression(ctx, &expr->coordinates);
+        new->slotType = makeErrorRef(ctx);
+        new->offset = -1;
+
+        *next = initializer->next;
+        return new;
+      }
+
+      if (typesEquals(type, expr->type)) {
+          AstInitializer *new = createAstInitializer(ctx, &initializer->coords, IK_EXPRESSION);
+          new->expression = expr;
+          new->offset = offset;
+          new->slotType = type;
+
+          *next = initializer->next;
+          return new;
+      }
+  }
+
+  AstStructMember *member = declaration->members;
+
+  for (; member && member->kind != SM_DECLARATOR; member = member->next) ;
+
+  assert(member);
+
+  Coordinates *coords = &initializer->coords;
+  AstStructDeclarator *declarator = member->declarator;
+  TypeRef *memberType = declarator->typeRef;
+  int32_t memberOffset = offset + declarator->offset;
+
+  AstInitializerList *newNode = createAstInitializerList(ctx);
+
+  newNode->initializer = finalizeInitializerInternal(ctx, memberType, initializer, &initializer, memberOffset, isTopLevel);
+
+  AstInitializer *new = createAstInitializer(ctx, coords, IK_LIST);
+
+  new->initializerList = newNode;
+  new->numOfInitializers = 1;
+  new->offset = offset;
+  new->slotType = type;
+
+  *next = initializer;
+
+  return new;
+}
+
 static AstInitializer *finalizeScalarInitializer(ParserContext *ctx, TypeRef *type, ParsedInitializer *initializer, ParsedInitializer **next, int32_t offset, Boolean isTopLevel) {
 
   assert(isScalarType(type) || type->kind == TR_BITFIELD);
@@ -1527,6 +1583,10 @@ static AstInitializer *finalizeInitializerInternal(ParserContext *ctx, TypeRef *
 
   if (valueType->kind == TR_ARRAY) {
       return finalizeArrayInitializer(ctx, valueType, initializer, next, offset, isTopLevel);
+  }
+
+  if (isUnionType(valueType)) {
+      return finalizeUnionInitializer(ctx, valueType, initializer, next, offset, isTopLevel);
   }
 
 
