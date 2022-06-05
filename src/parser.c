@@ -2576,11 +2576,11 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                     const char *name = declarator.identificator;
                     coords2.endOffset = declarator.coordinates.endOffset;
                     TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
-                    Boolean isTypeOk = verifyValueType(ctx, &coords2, type);
-                    if (!isTypeOk) type = makeErrorRef(ctx);
                     AstInitializer* initializer = NULL;
                     int eqPos = ctx->token->coordinates.startOffset;
                     if (nextTokenIf(ctx, '=')) {
+                        Boolean isTypeOk = verifyValueType(ctx, &coords2, type);
+                        if (!isTypeOk) type = makeErrorRef(ctx);
                         if (specifiers.flags.bits.isExternal) {
                             reportDiagnostic(ctx, DIAG_EXTERN_VAR_INIT, &declarator.coordinates);
                         }
@@ -2605,6 +2605,8 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                         declaration->typeDefinition.coordinates = coords2;
                         declaration->typeDefinition.definedType = type;
                     } else {
+                        Boolean isTypeOk = verifyValueType(ctx, &coords2, type);
+                        if (!isTypeOk) type = makeErrorRef(ctx);
                         declaration = createAstDeclaration(ctx, DK_VAR, name);
                         AstValueDeclaration *valueDeclaration =
                             createAstValueDeclaration(ctx, &coords2, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
