@@ -249,16 +249,21 @@ static unsigned serializeDataReloc(Section *section, Relocation *relocs) {
 
   while (relocs) {
 
-      assert(relocs->kind == RK_REF);
-
       Elf64_Rela rela = { 0 };
-
       Elf64_Xword type = R_X86_64_64;
-      Elf64_Xword sym = relocs->sectionData.dataSection->symbolIndex;
+      Elf64_Xword sym;
+
+      if (relocs->kind == RK_REF) {
+        sym = relocs->sectionData.dataSection->symbolIndex;
+      } else if (relocs->kind == RK_SYMBOL) {
+        sym = relocs->symbolData.symbol->symbolTableIndex;
+      } else {
+        unreachable("Unknown relocation type");
+      }
 
       rela.r_info = ELF64_R_INFO(sym, type);
-      rela.r_addend = relocs->addend;
       rela.r_offset = relocs->applySectionOffset;
+      rela.r_addend = relocs->addend;
 
       emitBuffer(section, (uint8_t*)(&rela), sizeof(rela));
 

@@ -670,6 +670,61 @@ static void emitLocalInitializer(GenerationContext *ctx, GeneratedFunction *f, S
   }
 }
 
+static Symbol *extractSymbol(AstExpression *expr) {
+  switch (expr->op) {
+  case E_NAMEREF: return expr->nameRefExpr.s;
+  case E_CAST: return extractSymbol(expr->castExpr.argument);
+  case E_PAREN: return extractSymbol(expr->parened);
+  case EU_REF: return extractSymbol(expr->unaryExpr.argument);
+  default: return NULL;
+  }
+}
+
+static void collectRelocAndAdent(AstExpression *expr, Relocation *reloc) {
+  switch (expr->op) {
+  case E_CONST: reloc->addend = expr->constExpr.i; return;
+  case E_CAST: return collectRelocAndAdent(expr->castExpr.argument, reloc);
+  case E_PAREN: return collectRelocAndAdent(expr->parened, reloc);
+  case EU_REF: return collectRelocAndAdent(expr->unaryExpr.argument, reloc);
+  case E_NAMEREF:
+      reloc->symbolData.symbol = expr->nameRefExpr.s;
+      reloc->symbolData.symbolName = expr->nameRefExpr.name;
+      return;
+//  case EU_MINUS: return FALSE;
+  case EB_ADD:
+      collectRelocAndAdent(expr->binaryExpr.left, reloc);
+      collectRelocAndAdent(expr->binaryExpr.right, reloc);
+      return;
+  default: unreachable("unexpected expression in const initializer");
+
+  }
+}
+
+static size_t fillReference(GenerationContext *ctx, Section *section, AstExpression *expr, size_t size) {
+  Relocation *reloc = allocateRelocation(ctx);
+
+  ptrdiff_t sectionOffset = section->pc - section->start;
+
+  reloc->kind = RK_SYMBOL;
+  reloc->applySection = section;
+  reloc->applySectionOffset = sectionOffset;
+  reloc->addend = 0;
+  reloc->next = section->reloc;
+  section->reloc = reloc;
+
+  collectRelocAndAdent(expr, reloc);
+
+  unsigned idx = 0;
+
+  int32_t typeSize = computeTypeSize(expr->type);
+
+  for (; idx < typeSize; ++idx) {
+      emitSectionByte(section, 0x00);
+  }
+
+  return sizeof(intptr_t);
+}
+
 static size_t fillInitializer(GenerationContext *ctx, Section *section, AstInitializer *init, size_t size) {
 
   if (size <= 0) return 0;
@@ -677,7 +732,10 @@ static size_t fillInitializer(GenerationContext *ctx, Section *section, AstIniti
   if (init->kind == IK_EXPRESSION) {
       AstExpression *expr = init->expression;
       AstConst *cexpr = eval(ctx->parserContext, expr);
-      assert(cexpr);
+      if (cexpr == NULL) {
+          // probably it's a refernce to symbol
+          return fillReference(ctx, section, expr, size);
+      }
       TypeRef *constType = expr->type;
       size_t constSize = computeTypeSize(constType);
       switch (expr->constExpr.op) {
@@ -781,7 +839,10 @@ static Boolean hasRelocationsExpr(AstExpression *expr) {
   case E_CONST: return expr->constExpr.op == CK_STRING_LITERAL ? TRUE : FALSE;
   case E_CAST: return hasRelocationsExpr(expr->castExpr.argument);
   case E_PAREN: return hasRelocationsExpr(expr->parened);
+  case EU_REF: return hasRelocationsExpr(expr->unaryExpr.argument);
+  case E_NAMEREF: return TRUE;
   case EU_MINUS: return FALSE;
+  case EB_ADD: return hasRelocationsExpr(expr->binaryExpr.left) || hasRelocationsExpr(expr->binaryExpr.right);
   default: unreachable("unexpected expression in const initializer");
 
   }
