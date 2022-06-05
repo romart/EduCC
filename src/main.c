@@ -17,6 +17,7 @@ int main(int argc, char** argv) {
   Configuration config = { 0 };
 
   config.includePath = allocIncludePath("/usr/include", NULL);
+  config.includePath = allocIncludePath("/usr/local/include", config.includePath);
   config.includePath = allocIncludePath("sdk/include", config.includePath);
 
   config.verbose = 1;
