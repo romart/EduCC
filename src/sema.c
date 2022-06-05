@@ -1974,7 +1974,8 @@ static int existedTypeDefProcessor(ParserContext *ctx, Symbol *s, void *value) {
   TypeRef *oldType = s->typeref;
   TypeRef *newType = (TypeRef *)value;
   if (typesEquals(oldType, newType)) {
-      reportDiagnostic(ctx, DIAG_TYPEDEF_REDEFINITION_C11, &ctx->token->coordinates);
+      // TODO: Fix location
+      reportDiagnostic(ctx, DIAG_TYPEDEF_REDEFINITION_C11, &ctx->token->coordinates, s->name);
   } else {
       reportDiagnostic(ctx, DIAG_TYPEDEF_REDEFINITION_TYPES, &ctx->token->coordinates, oldType, newType);
   }
