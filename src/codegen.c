@@ -400,9 +400,6 @@ static void emitStringWithEscaping(Section *section, const char *str) {
           case 'b':
             toEmit = '\b';
             break;
-          case 'e':
-            toEmit = '\e';
-            break;
           case 'f':
             toEmit = '\f';
             break;
