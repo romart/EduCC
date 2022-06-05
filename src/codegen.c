@@ -2241,11 +2241,10 @@ static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFun
 
       Address addr = { 0 };
       if (isFP) {
+          emitPushRegF(f, R_FACC, isD);
           if (cond->op == EB_EQ || cond->op == EB_NE) {
 
               enum JumpCondition setcc = cond->op == EB_EQ ? JC_NOT_PARITY : JC_PARITY;
-
-              emitPushRegF(f, R_FACC, isD);
 
               if (right->op == EU_DEREF) {
                   translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
