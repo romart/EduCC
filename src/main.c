@@ -37,13 +37,6 @@ int main(int argc, char** argv) {
         } else {
           fprintf(stderr, "file name expected after '-astCanonDump' option");
         }
-    } else if (strcmp("-objDir", arg) == 0) {
-        unsigned idx = ++i;
-        if (idx < argc) {
-          config.objDirName = argv[idx];
-        } else {
-          fprintf(stderr, "directory name expected after '-objDir' option");
-        }
     } else if (strcmp("-oneline", arg) == 0) {
       config.verbose = 0;
     } else if (strcmp("-memstat", arg) == 0) {
@@ -58,6 +51,20 @@ int main(int argc, char** argv) {
       config.includePath = allocIncludePath(arg[2] ? &arg[2] : argv[++i], config.includePath);
     } else if (strcmp("-S", arg) == 0) {
       config.asmDump = 1;
+    } else if (strcmp("-c", arg) == 0) {
+        // we do not support any other compilation beside .o file
+        continue;
+    } else if (strcmp("-o", arg) == 0) {
+        config.outputFile = argv[++i];
+    } else if (strcmp("-g", arg) == 0) {
+        // we do not generate debug info yet
+        continue;
+    } else if (strncmp("-std", arg, 4) == 0) {
+        // we only support strict ansi c for now
+        continue;
+    } else if (strncmp("-O", arg, 2) == 0) {
+        // optimization? lol
+        continue;
     } else {
       config.fileToCompile = argv[i];
       compileFile(&config);
