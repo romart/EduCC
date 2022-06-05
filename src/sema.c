@@ -256,6 +256,12 @@ Boolean isStructualType(TypeRef *type) {
   return FALSE;
 }
 
+Boolean isUnionType(TypeRef *type) {
+  if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_UNION)
+    return TRUE;
+  return FALSE;
+}
+
 Boolean isVoidType(TypeRef *type) {
   if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_VOID)
     return TRUE;
