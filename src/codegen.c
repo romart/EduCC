@@ -2856,42 +2856,36 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
   return gen;
 }
 
-static void writeObjFile(const char *sourceFileName, const char *objDir, uint8_t *buffer, size_t bufferSize) {
-  size_t len = strlen(sourceFileName);
-  size_t dirLen = objDir ? strlen(objDir) : 0;
-  size_t bufferLen = dirLen + 1 + len + 1;
-  char *outputName = alloca(bufferLen);
-
-  unsigned i = 0;
-  unsigned j = 0;
-
-  if (objDir) {
-      strncpy(outputName, objDir, bufferLen);
-      outputName[dirLen] = '/';
-      i = dirLen + 1;
-  } else {
+static void writeObjFile(const char *sourceFileName, const char *outputFile, uint8_t *buffer, size_t bufferSize) {
+  if (outputFile == NULL) {
+      size_t len = strlen(sourceFileName);
+      unsigned j;
       for (j = len - 1; j >= 0; --j) {
           if (sourceFileName[j] == '/') break;
       }
       ++j;
+      char *buffer = alloca(len - j + 1);
+
+      unsigned i = 0;
+
+      while (sourceFileName[j] != '.') {
+        buffer[i++] = sourceFileName[j++];
+      }
+
+      buffer[i++] = '.';
+      buffer[i++] = 'o';
+      buffer[i++] = '\0';
+
+      outputFile = buffer;
   }
 
-
-  while (sourceFileName[j] != '.') {
-    outputName[i++] = sourceFileName[j++];
-  }
-
-  outputName[i++] = '.';
-  outputName[i++] = 'o';
-  outputName[i++] = '\0';
-
-  remove(outputName);
-  FILE* output = fopen(outputName, "wb");
+  remove(outputFile);
+  FILE* output = fopen(outputFile, "wb");
   if (output) {
     fwrite(buffer, bufferSize, 1, output);
     fclose(output);
   } else {
-    fprintf(stderr, "cannot open output file %s\n", outputName);
+    fprintf(stderr, "Fatal error: can't create %s: No such file or directory", outputFile);
   }
 }
 
@@ -2901,7 +2895,7 @@ static void buildElfFile(GenerationContext *ctx, AstFile *astFile, GeneratedFile
 
   uint8_t *elfFileBytes = generateElfFile(elfFile, genFile, &elfFileSize);
 
-  writeObjFile(astFile->fileName, ctx->parserContext->config->objDirName, elfFileBytes, elfFileSize);
+  writeObjFile(astFile->fileName, ctx->parserContext->config->outputFile, elfFileBytes, elfFileSize);
 
   releaseHeap(elfFile->sections.asStruct.nullSection->start);
   releaseHeap(elfFile->sections.asStruct.text->start);
