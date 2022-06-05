@@ -15,6 +15,15 @@ FILE test/testData/parser/negative/expressions/numericalConsts.c
       128
     signed char c7 = \
       0
+    signed char c9 = \
+      7
+    signed char c10 = \
+      8
+    signed char c11 = \
+      (signed char)((ERROR EXPR))
+    ERROR EXPR = ((ERROR EXPR))
+    ERROR EXPR = ((ERROR EXPR))
+    ERROR EXPR = 12
     signed char c8 = \
       (signed char)((ERROR EXPR))
     {void ()} testWchar

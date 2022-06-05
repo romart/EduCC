@@ -6,7 +6,7 @@ enum E1 {
 
 int foo1(void) {
   int xx = EC_1;
-  long double xxx = EC_2 + EC_3;
+  double xxx = EC_2 + EC_3;
   unsigned char xxxx = xx + xxx;
 
 }

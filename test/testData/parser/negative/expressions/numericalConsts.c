@@ -7,6 +7,12 @@ void testChar() {
   char c5 = '\555';
   char c6 = '\x80';
   char c7 = '\0x44';
+  char c9 = '\a';
+  char c10 = '\b';
+  char c11 = '\c';
+  char c12 = '\d';
+  char c13 = '\e';
+  char c14 = '\f';
   char c8 = '\g';
 }
 
