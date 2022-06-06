@@ -2353,11 +2353,11 @@ static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFun
               if (right->op == EU_DEREF) {
                   translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
                   emitPopReg(f, R_ACC);
-                  emitArithAR(f, OP_FOCMP, R_ACC, &addr, opSize);
+                  emitArithAR(f, OP_FOCMP, R_FACC, &addr, opSize);
               } else {
                   generateExpression(ctx, f, scope, right);
                   emitPopReg(f, R_TMP);
-                  emitArithRR(f, OP_FOCMP, R_TMP, R_ACC, opSize);
+                  emitArithRR(f, OP_FOCMP, R_FTMP, R_FACC, opSize);
               }
           } else {
               generateExpression(ctx, f, scope, right);
@@ -2376,8 +2376,8 @@ static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFun
             if (right->op == EU_DEREF && lid == rid) {
                 Address addr = { 0 };
                 translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
-                emitPopReg(f, R_ACC);
-                emitArithAR(f, OP_CMP, R_ACC, &addr, opSize);
+                emitPopReg(f, R_TMP);
+                emitArithAR(f, OP_CMP, R_TMP, &addr, opSize);
             } else {
                 generateExpression(ctx, f, scope, right);
                 emitPopReg(f, R_TMP);
