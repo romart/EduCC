@@ -749,6 +749,22 @@ void emitMovfpAR(GeneratedFunction *f, Address *from, enum Registers to, size_t 
   emitSimpleFPArightRA(f, size == 8 ? 0xF2 : 0xF3, 0x0F, 0x10, to, from);
 }
 
+void emitMovsxdRR(struct _GeneratedFunction *f, enum Registers from, enum Registers to, size_t s) {
+  if (s == 2) emitByte(f, 0x66);
+
+  emitRex(f, from, to, R_BAD, s == 8);
+
+  emitByte(f, 0x63);
+
+  ModRM modrm = { 0 };
+
+  modrm.bits.mod = 0b11;
+  modrm.bits.rm = register_encodings[from];
+  modrm.bits.regOp = register_encodings[to];
+
+  emitByte(f, modrm.v);
+}
+
 void emitMovxxRR(GeneratedFunction *f, uint8_t opcode, enum Registers from, enum Registers to) {
   emitRex(f, from, to, R_BAD, FALSE);
 
