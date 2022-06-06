@@ -616,7 +616,7 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
         if (isRealType(slotType)) {
             Boolean isD = slotSize > sizeof(float);
             emitMovfpRA(f, R_FACC, &addr, slotSize);
-        } else if (isStructualType(slotType)) {
+        } else if (isStructualType(slotType) || isUnionType(slotType)) {
             Address src = { R_ACC, R_BAD, 0, 0 };
             copyStructTo(f, expr->type, &src, &addr);
         } else if (slotType->kind == TR_BITFIELD) {
@@ -653,7 +653,7 @@ static void emitLocalInitializer(GenerationContext *ctx, GeneratedFunction *f, S
   size_t typeSize = computeTypeSize(type);
   size_t emitted = emitInitializerImpl(ctx, f, scope, typeSize, &addr, initializer);
 
-  if (isStructualType(type) && emitted < typeSize) {
+  if ((isStructualType(type) || isUnionType(type)) && emitted < typeSize) {
       addr.imm += emitted;
       emitArithRR(f, OP_XOR, R_ACC, R_ACC, sizeof (intptr_t));
       int32_t delta1 = ALIGN_SIZE(emitted, sizeof (intptr_t));
