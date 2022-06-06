@@ -104,11 +104,11 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     signed int c = \
       *(*(*p_s3 + 8) + 16)
     signed int d = \
-      *(*(*p_s3 + 32) + *i * 8 + 4)
+      *(*p_s3 + *i * 8 + 36)
     signed int e = \
-      *(*(*(*(*p_s3 + 112) + (*i + 1) * 8) + 8) + 4)
+      *(*(*(*p_s3 + (*i + 1) * 8 + 112) + 8) + 4)
     signed int e = \
-      *(*(*(*(*p_s3 + 112) + (*i + 1) * 8) + 8) + 16)    
+      *(*(*(*p_s3 + (*i + 1) * 8 + 112) + 8) + 16)
   END
 ----
   FUN signed int testStructPointed4 
