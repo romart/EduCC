@@ -28,11 +28,13 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
   TypeRef *pointerType = arrayType->kind == TR_ARRAY ? makePointedType(ctx, arrayType->flags, arrayType->arrayTypeDesc.elementType) : arrayType;
   TypeRef *elementType = pointerType->pointedTo.toType;
 
+  pointerType->pointedTo.arrayType = NULL;
+
   size_t elementSize = computeTypeSize(elementType);
 
-  TypeRef *indexType = makePrimitiveType(ctx, T_U8, 0);
+  TypeRef *indexType = makePrimitiveType(ctx, isUnsignedType(index->type) ? T_U8 : T_S8, 0);
 
-  Boolean isFlat = base->op == EF_DOT || base->op == EB_A_ACC && isArrayish(base->type);
+  Boolean isFlat = base->type->kind == TR_ARRAY || base->op == EB_A_ACC && isArrayish(base->type);
 
   base = transformExpression(ctx, base);
   index = transformExpression(ctx, index);
@@ -50,7 +52,7 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
   AstExpression *indexValue = createBinaryExpression(ctx, EB_MUL, indexType, index, elemSizeConst);
   AstConst *evaluated = eval(ctx, indexValue);
   if (evaluated) {
-      indexValue = createAstConst2(ctx, &indexValue->coordinates, indexValue->type, evaluated);
+      indexValue = createAstConst2(ctx, &indexValue->coordinates, indexType, evaluated);
   }
   AstExpression *summed = createBinaryExpression(ctx, EB_ADD, pointerType, base, indexValue);
   AstExpression *transformed = transformExpression(ctx, summed);
