@@ -924,6 +924,9 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
     TypeId fromTypeId = typeToId(fromType);
     TypeId toTypeId = typeToId(toType);
 
+    size_t fromSize = computeTypeSize(fromType);
+    size_t toSize = computeTypeSize(toType);
+
     generateExpression(ctx, f, scope, cast->argument);
 
     if (toTypeId == T_S1) {
@@ -978,7 +981,7 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
         default: break;
         }
     } else if (toTypeId == T_S8 || toTypeId == T_U8) {
-        if (fromTypeId < T_U4) {
+        if (fromSize < 4) {
             emitConvertWDQ(f, 0x98, 8); // cdqe
         } else if (fromTypeId >= T_F4) {
             if (toTypeId == T_S8) {
