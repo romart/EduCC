@@ -251,6 +251,7 @@ void emitLeave(struct _GeneratedFunction *f);
 void patchJumpTo(struct _GeneratedFunction *f, ptrdiff_t inst_cp, size_t instSize, ptrdiff_t label_cp);
 void patchRefTo(struct _GeneratedFunction *f, ptrdiff_t literal_cp, ptrdiff_t label_cp);
 
+void emitMovsxdRR(struct _GeneratedFunction *f, enum Registers from, enum Registers to, size_t s);
 void emitMovxxRR(struct _GeneratedFunction *f, uint8_t opcode, enum Registers from, enum Registers to);
 void emitMovxxAR(struct _GeneratedFunction *f, uint8_t opcode, Address *from, enum Registers to);
 void emitConvertWDQ(struct _GeneratedFunction *f, uint8_t opcode, uint8_t opSize);
