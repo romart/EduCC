@@ -1040,6 +1040,9 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
   assert(right);
   assert(isFP == isRealType(right->type));
 
+  TypeId lid = typeToId(left->type);
+  TypeId rid = typeToId(right->type);
+
   enum Opcodes opcode = selectOpcode(binOp->op, binOp->type);
 
   if (right->op == E_CONST) {
@@ -1058,13 +1061,13 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
       emitPushReg(f, R_ACC); // save result
     }
 
-    if (right->op == EU_DEREF) {
+    if (right->op == EU_DEREF && lid == rid) {
       Address addr = { 0 };
       translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
       if (isFP) {
         emitPopRegF(f, R_FACC, isD);
       } else {
-        emitPopReg(f, R_ACC); // save result
+        emitPopReg(f, R_ACC); // saved result
       }
 
       emitArithAR(f, opcode, isFP ? R_FACC : R_ACC, &addr, opSize);
@@ -1102,8 +1105,11 @@ static void generateDiv(GenerationContext *ctx, GeneratedFunction *f, AstExpress
   AstExpression *right = binOp->binaryExpr.right;
   Boolean isRU = isUnsignedType(right->type);
 
+  TypeId lid = typeToId(left->type);
+  TypeId rid = typeToId(right->type);
+
   enum Opcodes opcode;
-  if (right->op == EU_DEREF) {
+  if (right->op == EU_DEREF && lid == rid) {
       Address addr = { 0 };
       translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
       emitPopReg(f, R_ACC);
