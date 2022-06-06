@@ -2204,26 +2204,26 @@ Symbol *declareEnumConstantSymbol(ParserContext *ctx, EnumConstant *enumerator) 
 
 // Types
 
-static TypeDesc errorTypeImpl = { T_ERROR, "<error>", UNKNOWN_SIZE, NULL };
+static TypeDesc errorTypeImpl = { T_ERROR, UNKNOWN_SIZE,  "<error>", NULL };
 
 TypeDesc *errorTypeDescriptor = &errorTypeImpl;
 
 TypeDesc builtInTypeDescriptors[] = {
-    { T_VOID, "void", 0, NULL },
+    { T_VOID, 0, "void", NULL },
 
-    { T_S1, "signed char", 1, NULL },
-    { T_S2, "signed short", 2, NULL },
-    { T_S4, "signed int", 4, NULL },
-    { T_S8, "signed long", 8, NULL },
+    { T_S1, 1, "signed char", NULL },
+    { T_S2, 2, "signed short", NULL },
+    { T_S4, 4, "signed int", NULL },
+    { T_S8, 8, "signed long", NULL },
 
-    { T_U1, "unsigned char", 1, NULL },
-    { T_U2, "unsigned short", 2, NULL },
-    { T_U4, "unsigned int", 4, NULL },
-    { T_U8, "unsigned long", 8, NULL },
+    { T_U1, 1, "unsigned char", NULL },
+    { T_U2, 2, "unsigned short", NULL },
+    { T_U4, 4, "unsigned int", NULL },
+    { T_U8, 8, "unsigned long", NULL },
 
-    { T_F4, "float", 4, NULL },
-    { T_F8, "double", 8, NULL },
-    { T_F10, "long double", 16, NULL }
+    { T_F4, 4, "float", NULL },
+    { T_F8, 8, "double", NULL },
+    { T_F10, 16, "long double", NULL }
 };
 
 

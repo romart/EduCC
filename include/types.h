@@ -66,8 +66,8 @@ typedef struct _ArrayTypeDescriptor {
 
 typedef struct _TypeDesc {
   TypeId typeId;
-  const char *name;
   int size;
+  const char *name;
   struct _AstSUEDeclaration *structInfo;
 } TypeDesc;
 
