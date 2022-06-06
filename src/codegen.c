@@ -2364,7 +2364,8 @@ static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFun
             } else {
                 generateExpression(ctx, f, scope, right);
                 emitPopReg(f, R_TMP);
-                emitArithRR(f, OP_CMP, R_ACC, R_TMP, opSize);
+                // x op y -> y op x
+                emitArithRR(f, OP_CMP, R_TMP, R_ACC, opSize);
             }
           }
       }
