@@ -255,6 +255,8 @@ AstTranslationUnit *createTranslationUnit(ParserContext *ctx, AstDeclaration *de
        result->kind = TU_DECLARATION;
        result->declaration = declaration;
    }
+
+   return result;
 }
 
 AstInitializerList *createAstInitializerList(ParserContext *ctx) {
@@ -470,8 +472,8 @@ AstStatement *createBlockStatement(ParserContext *ctx, Coordinates *coords, stru
     AstStatement *result = allocAstStatement(ctx, coords);
 
     result->statementKind = SK_BLOCK;
-    result->block.stmts = stmts;
     result->block.scope = scope;
+    result->block.stmts = stmts;
 
     return result;
 }

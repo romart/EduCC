@@ -2333,6 +2333,8 @@ TypeRef *makeBasicType(ParserContext *ctx, TypeDesc *descriptor, unsigned flags)
   ref->kind = TR_VALUE;
   ref->flags.storage = flags;
   ref->descriptorDesc = descriptor;
+
+  return ref;
 }
 
 TypeRef* makePointedType(ParserContext *ctx, SpecifierFlags flags, TypeRef *pointedTo) {
