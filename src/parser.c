@@ -1300,7 +1300,11 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
                       // TODO: flexible struct
                       if (typeSize != UNKNOWN_SIZE) {
                         members->declarator->offset += offset;
-                        size = memberOffset + typeSize;
+                        if (definition->kind == DK_STRUCT) {
+                          size = memberOffset + typeSize;
+                        } else {
+                          size = max(size, memberOffset + typeSize);
+                        }
                       }
                     }
                     current = current->next = members;
