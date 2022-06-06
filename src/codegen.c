@@ -1445,12 +1445,14 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
                     }
                 }
 
+                assert(resultReg != R_BAD);
+
                 emitPopReg(f, resultReg);
 
-                emitStore(f, isFP ? R_FACC : resultReg, &addr, rTypeId);
+                emitStore(f, resultReg, &addr, rTypeId);
 
                 if (resultReg != R_ACC) {
-                    emitMoveRR(f, R_TMP2, resultReg, max(4, typeSize));
+                    emitMoveRR(f, resultReg, R_ACC, typeSize);
                 }
             }
           }
