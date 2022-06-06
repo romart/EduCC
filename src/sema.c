@@ -2236,7 +2236,10 @@ int computeTypeSize(TypeRef *type) {
   }
 
   if (type->kind == TR_POINTED) {
-      if (type->pointedTo.arrayType != NULL) return computeTypeSize(type->pointedTo.arrayType);
+      if (type->pointedTo.arrayType != NULL) {
+          int32_t arraySize = computeTypeSize(type->pointedTo.arrayType);
+          if (arraySize != UNKNOWN_SIZE) return arraySize;
+      }
       return POINTER_TYPE_SIZE;
   }
 
@@ -2246,7 +2249,10 @@ int computeTypeSize(TypeRef *type) {
 
   if (type->kind == TR_ARRAY) {
       ArrayTypeDescriptor *atype = &type->arrayTypeDesc;
-      return atype->size * computeTypeSize(atype->elementType);
+      if (atype->size != UNKNOWN_SIZE) {
+        return atype->size * computeTypeSize(atype->elementType);
+      }
+      return UNKNOWN_SIZE;
   }
 
   return POINTER_TYPE_SIZE;
@@ -2276,7 +2282,7 @@ static int computeUnionTypeSize(ParserContext *ctx, AstSUEDeclaration *declarati
       }
   }
 
-  return ALIGN_SIZE(result, POINTER_TYPE_SIZE);
+  return ALIGN_SIZE(result, declaration->align);
 }
 
 static int computeStructTypeSize(ParserContext *ctx, AstSUEDeclaration *declaration) {
@@ -2297,7 +2303,7 @@ static int computeStructTypeSize(ParserContext *ctx, AstSUEDeclaration *declarat
              reportDiagnostic(ctx, DIAG_FIELD_INCOMPLETE_TYPE, &declarator->coordinates, declarator->name, declarator->typeRef);
              return UNKNOWN_SIZE;
          }
-         result = member->declarator->offset + memberTypeSize;
+         result = max(result, member->declarator->offset + memberTypeSize);
       }
   }
 
