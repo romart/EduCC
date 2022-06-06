@@ -2371,7 +2371,9 @@ static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFun
           } else {
             emitPushReg(f, R_ACC);
 
-            if (right->op == EU_DEREF) {
+            TypeId lid = typeToId(left->type);
+            TypeId rid = typeToId(right->type);
+            if (right->op == EU_DEREF && lid == rid) {
                 Address addr = { 0 };
                 translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
                 emitPopReg(f, R_ACC);
