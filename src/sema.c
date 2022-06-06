@@ -1254,7 +1254,10 @@ static AstInitializer *fillInitializer(ParserContext *ctx, Coordinates *coords, 
 
       for (; member; member = member->next) {
           if (member->kind == SM_DECLARATOR) {
-              fillInitializer(ctx, coords, member->declarator->typeRef, offset + 0);
+              AstInitializerList *newNode = createAstInitializerList(ctx);
+              newNode->initializer = fillInitializer(ctx, coords, member->declarator->typeRef, offset + 0);
+              current = current->next = newNode;
+              break;
           }
       }
   }
