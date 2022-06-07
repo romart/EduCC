@@ -23,12 +23,12 @@ int main() {
   printf("result = %u\n", r);
   if (0b101101010 != r) return 2;
 
-  const char *s2 = "0b1011010101101101010110110101";
+//  const char *s2 = "0b1011010101101101010110110101";
 
-  unsigned short int r2 = test2(s2, 70);
+//  unsigned short int r2 = test2(s2, 70);
 
-  printf("result2 = %u\n", r2);
-  if (62684 != r2) return 2;
+//  printf("result2 = %u\n", r2);
+//  if (62684 != r2) return 2;
 
   return 0;
 }
