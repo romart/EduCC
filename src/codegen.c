@@ -1778,7 +1778,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
 
       stackArgSize = ALIGN_SIZE(stackArgSize, argSize);
 
-      offsets[count] = stackArgSize;
+      offsets[count - 1] = stackArgSize;
 
       stackArgSize += argSize;
   }
@@ -1805,7 +1805,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
     TypeRef *argType = arg->type;
 
     unsigned typeSize = max(4, computeTypeSize(argType));
-    int32_t rspOffset = offsets[count];
+    int32_t rspOffset = offsets[count - 1];
 
     Address dst = { R_ESP, R_BAD, 0, rspOffset, NULL, NULL };
 
@@ -2751,7 +2751,7 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
       size_t align = typeAlignment(localType);
 
       baseOffset += size;
-      baseOffset = (baseOffset + (align - 1)) & ~(align - 1);
+      baseOffset = ALIGN_SIZE(baseOffset, align);
       gp->baseOffset = -baseOffset;
   }
 
