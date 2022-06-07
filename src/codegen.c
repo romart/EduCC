@@ -1075,6 +1075,12 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
     if (right->op == EU_DEREF && !isShiftOp(binOp->op) && lid == rid) {
       Address addr = { 0 };
       translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
+
+      if (addr.base == R_ACC && !isFP) {
+          emitMoveRR(f, R_ACC, R_TMP, sizeof(intptr_t));
+          addr.base = R_TMP;
+      }
+
       if (isFP) {
         emitPopRegF(f, R_FACC, isD);
       } else {
