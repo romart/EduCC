@@ -38,7 +38,7 @@ typedef struct _TypeDesc {
   void *structInfo;
 } TypeDesc;
 
-TypeDesc builtInTypeDescriptors[] = {
+static TypeDesc builtInTypeDescriptors[] = {
     { T_VOID, 0, "void", NULL },
 
     { T_S1, 1, "signed char", NULL },
@@ -187,6 +187,54 @@ unsigned testCopyUnion() {
   return x.storage;
 }
 
+typedef struct _Severity {
+  int kind;
+  const char *name;
+  int isError;
+//  unsigned isError : 1;
+} Severity;
+
+enum DiagSeverityKind {
+  DSK_INFO = 0,
+  DSK_WARNING,
+  DSK_ERROR,
+  DSK_CRITICAL_ERROR,
+  DSK_TOTAL_SEVERITY_COUNT
+};
+
+static Severity severities[] = {
+  { DSK_INFO, "info", 0 },
+  { DSK_WARNING, "warning", 0 },
+  { DSK_ERROR, "error", 1 },
+  { DSK_CRITICAL_ERROR, "critical error", 1 }
+};
+
+static Severity *infoSeverity = &severities[DSK_INFO];
+static Severity *warningSeverity = &severities[DSK_WARNING];
+static Severity *errorSeverity = &severities[DSK_ERROR];
+static Severity *criticalErrorSeverity = &severities[DSK_CRITICAL_ERROR];
+
+int testSeverity(Severity *s, enum DiagSeverityKind id, int errorness) {
+  printf("%s\n", s->name);
+  if (s->kind != id) return 1;
+  if (s->isError != errorness) return 2;
+
+  return 0;
+}
+
+int testSeverities() {
+  int r = testSeverity(infoSeverity, DSK_INFO, 0);
+  if (r) return r + 10;
+  r = testSeverity(warningSeverity, DSK_WARNING, 0);
+  if (r) return r + 20;
+  r = testSeverity(errorSeverity, DSK_ERROR, 1);
+  if (r) return r + 30;
+  r = testSeverity(criticalErrorSeverity, DSK_CRITICAL_ERROR, 1);
+  if (r) return r + 40;
+
+  return 0;
+}
+
 int main() {
   int r = testStatic();
 
@@ -199,6 +247,10 @@ int main() {
   if (testInitZero()) return 3;
 
   if (testCopyUnion()) return 4;
+
+  r = testSeverities();
+  if (r) return r + 3000;
+
 
 
   return 0;
