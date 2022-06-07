@@ -2939,8 +2939,8 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, AstFile *astFile) {
   Section data = { ".data", SHT_PROGBITS, SHF_WRITE | SHF_ALLOC, 16 };
   Section bss = { ".bss", SHT_NOBITS, SHF_WRITE | SHF_ALLOC, 32 };
   Section rodata = { ".rodata", SHT_PROGBITS, SHF_ALLOC, 16 };
-  Section dataLocal = { ".data.rel.local", SHT_PROGBITS, SHF_WRITE | SHF_ALLOC, 8 }, reDataLocal = { ".rela.data.rel.local", SHT_RELA, SHF_INFO_LINK, 8 };
-  Section roDataLocal = { "data.rel.ro.local", SHT_PROGBITS, SHF_WRITE | SHF_ALLOC, 8 }, reRoDataLocal = { ".rela.data.rel.ro.local", SHT_RELA, SHF_INFO_LINK, 8 };
+  Section dataLocal = { ".data.rel.local", SHT_PROGBITS, SHF_WRITE | SHF_ALLOC, 16 }, reDataLocal = { ".rela.data.rel.local", SHT_RELA, SHF_INFO_LINK, 8 };
+  Section roDataLocal = { "data.rel.ro.local", SHT_PROGBITS, SHF_WRITE | SHF_ALLOC, 16 }, reRoDataLocal = { ".rela.data.rel.ro.local", SHT_RELA, SHF_INFO_LINK, 8 };
   Section symtab = { ".symtab", SHT_SYMTAB, 0x00, 8 };
   Section strtab = { ".strtab", SHT_STRTAB, 0x00, 1 };
   Section shstrtab = { ".shstrtab", SHT_STRTAB, 0x00, 1 };
