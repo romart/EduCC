@@ -986,7 +986,7 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
         } else if (fromTypeId == T_U4) {
             emitMoveRR(f, R_ACC, R_ACC, 4);
         } else if (fromTypeId == T_S4 && toTypeId == T_S8) {
-            emitMovsxdRR(f, R_ACC, R_ACC, 4);
+            emitMovsxdRR(f, R_ACC, R_ACC, 8);
         } else if (fromTypeId >= T_F4) {
             if (toTypeId == T_S8) {
                 if (fromTypeId == T_F4) {
