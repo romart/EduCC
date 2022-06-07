@@ -1073,7 +1073,7 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
       emitPushReg(f, R_ACC); // save result
     }
 
-    if (right->op == EU_DEREF && lid == rid) {
+    if (right->op == EU_DEREF && !isShiftOp(binOp->op) && lid == rid) {
       Address addr = { 0 };
       translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
       if (isFP) {
@@ -1091,9 +1091,9 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
         emitPopRegF(f, R_FACC, isD);
         emitArithRR(f, opcode, R_FACC, R_FTMP, opSize);
       } else {
-        emitMoveRR(f, R_ACC, R_TMP, opSize);
+        emitMoveRR(f, R_ACC, R_ECX, opSize); // ECX becouse of shift instructions
         emitPopReg(f, R_ACC);
-        emitArithRR(f, opcode, R_ACC, R_TMP, opSize);
+        emitArithRR(f, opcode, R_ACC, R_ECX, opSize);
       }
     }
   }
@@ -1356,6 +1356,18 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
   }
 }
 
+static Boolean isShiftLikeOp(ExpressionType op) {
+  switch (op) {
+  case EB_ASG_SHR:
+  case EB_ASG_SHL:
+  case EB_LHS:
+  case EB_RHS:
+      return TRUE;
+  }
+
+  return FALSE;
+}
+
 static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
   AstExpression *lvalue = expression->binaryExpr.left;
   AstExpression *rvalue = expression->binaryExpr.right;
@@ -1498,11 +1510,22 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
                 emitLea(f, &addr, R_EDI);
                 addr.base = R_EDI; addr.reloc = NULL;
             }
-            emitLoad(f, &addr, R_TMP, lTypeId);
-            emitPopReg(f, R_TMP2);
-            emitArithRR(f, selectAssignOpcode(op, lType), R_TMP, R_TMP2, typeSize);
+            emitLoad(f, &addr, R_TMP, lTypeId); // TODO: use R_ACC instead of R_TMP
+
+            enum Registers reg = R_TMP2;
+
+            if (isShiftLikeOp(op)) {
+                emitMoveRR(f, R_ECX, R_TMP2, sizeof(intptr_t));
+                reg = R_ECX;
+            }
+
+            emitPopReg(f, reg);
+            emitArithRR(f, selectAssignOpcode(op, lType), R_TMP, reg, typeSize);
             emitStore(f, R_TMP, &addr, rTypeId);
             emitMoveRR(f, R_TMP, R_ACC, typeSize);
+            if (reg != R_TMP2) {
+               emitMoveRR(f, R_TMP2, R_ECX, sizeof(intptr_t));
+            }
         }
     }
   }
