@@ -626,15 +626,14 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
           emitMoveRA(f, R_ACC, &addr, slotSize);
         }
       }
-      return slotSize;
+      return offset + slotSize;
     }
     break;
     case IK_LIST: {
         AstInitializerList *inits = initializer->initializerList;
         while (inits) {
-            size_t tmp = emitInitializerImpl(ctx, f, scope, typeSize, dst, inits->initializer);
+            emitted = emitInitializerImpl(ctx, f, scope, typeSize, dst, inits->initializer);
 
-            emitted += tmp;
             inits = inits->next;
         }
     }
