@@ -457,11 +457,10 @@ AstExpression *createFieldExpression(ParserContext *ctx, Coordinates *coords, Ex
 
 AstExpression *createLabelRefExpression(ParserContext *ctx, Coordinates *coords, const char *label) {
     AstExpression *result = allocAstExpression(ctx, coords);
-    SpecifierFlags flags = { 0 };
 
     result->op = E_LABEL_REF;
     result->label = label;
-    result->type = makePointedType(ctx, flags, makePrimitiveType(ctx, T_VOID, 0));
+    result->type = makePointedType(ctx, 0U, makePrimitiveType(ctx, T_VOID, 0));
 
     return result;
 }

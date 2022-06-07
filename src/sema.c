@@ -532,10 +532,10 @@ TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* co
                 reportDiagnostic(ctx, DIAG_POINTER_TYPE_MISMATCH, coords, ifTrue, ifFalse);
               }
           }
-          return makePointedType(ctx, ifTrue->flags, pointedT);
+          return makePointedType(ctx, ifTrue->flags.storage, pointedT);
       } else if (isIntegerType(ifFalse)) {
           reportDiagnostic(ctx, DIAG_POINTER_INT_MISMATCH_IN_COND, coords, ifTrue, ifFalse);
-          return makePointedType(ctx, ifTrue->flags, pointedT);
+          return makePointedType(ctx, ifTrue->flags.storage, pointedT);
       } else {
           reportDiagnostic(ctx, DIAG_INCOMPATIBLE_OPERANDS, coords, ifTrue, ifFalse);
           return makeErrorRef(ctx);
@@ -546,7 +546,7 @@ TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* co
       TypeRef *pointedF = ifFalse->kind == TR_POINTED ? ifFalse->pointedTo.toType : ifFalse->arrayTypeDesc.elementType;
       if (isIntegerType(ifTrue)) {
           reportDiagnostic(ctx, DIAG_POINTER_INT_MISMATCH_IN_COND, coords, ifTrue, ifFalse);
-          return makePointedType(ctx, ifFalse->flags, pointedF);
+          return makePointedType(ctx, ifFalse->flags.storage, pointedF);
       } else {
           reportDiagnostic(ctx, DIAG_INCOMPATIBLE_OPERANDS, coords, ifTrue, ifFalse);
           return makeErrorRef(ctx);
@@ -679,7 +679,7 @@ TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, AstExpressio
       int elemSize = computeTypeSize(elemType);
       if (elemSize != UNKNOWN_SIZE && isIntegerType(right)) {
         TypeRef *pointedL = elementType(left);
-        return makePointedType(ctx, left->flags, pointedL);
+        return makePointedType(ctx, left->flags.storage, pointedL);
       }
 
       if (elemSize == UNKNOWN_SIZE) {
@@ -699,7 +699,7 @@ TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, AstExpressio
       if (elemSize != UNKNOWN_SIZE && isIntegerType(left)) {
         if (op == EB_ADD) {
           TypeRef *pointedR = elementType(right);
-          return makePointedType(ctx, right->flags, pointedR);
+          return makePointedType(ctx, right->flags.storage, pointedR);
         }
       }
 
@@ -759,11 +759,9 @@ static TypeRef *computeTypeForDerefOperator(ParserContext *ctx, Coordinates *coo
 TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, ExpressionType op) {
   if (isErrorType(argumentType)) return argumentType;
 
-  SpecifierFlags flags = { 0 };
-
   switch (op) {
     case EU_REF:   // &a
-      return makePointedType(ctx, flags, argumentType);
+      return makePointedType(ctx, 0U, argumentType);
     case EU_DEREF: // *a
       return computeTypeForDerefOperator(ctx, coords, argumentType);
     case EU_EXL:   // !a
@@ -2229,6 +2227,11 @@ TypeDesc builtInTypeDescriptors[] = {
     { T_F10, 16, "long double", NULL }
 };
 
+int typeIdSize(TypeId id) {
+  assert(T_VOID <= id && id < T_BUILT_IN_TYPES);
+
+  return builtInTypeDescriptors[id].size;
+}
 
 int computeTypeSize(TypeRef *type) {
   if (type->kind == TR_VALUE) {
@@ -2346,10 +2349,10 @@ TypeRef *makeBasicType(ParserContext *ctx, TypeDesc *descriptor, unsigned flags)
   return ref;
 }
 
-TypeRef* makePointedType(ParserContext *ctx, SpecifierFlags flags, TypeRef *pointedTo) {
+TypeRef* makePointedType(ParserContext *ctx, unsigned flags, TypeRef *pointedTo) {
     TypeRef *result = (TypeRef *)areanAllocate(ctx->memory.typeArena, sizeof(TypeRef));
     result->kind = TR_POINTED;
-    result->flags.storage = flags.storage;
+    result->flags.storage = flags;
     result->pointedTo.toType = pointedTo;
     return result;
 }
@@ -2395,7 +2398,7 @@ TypeRef *makeFunctionReturnType(ParserContext *ctx, DeclarationSpecifiers *speci
     while (part) {
         switch (part->kind) {
         case DPK_POINTER:
-            type = makePointedType(ctx, part->flags, type);
+            type = makePointedType(ctx, part->flags.storage, type);
             break;
         case DPK_ARRAY:
             type = makeArrayType(ctx, part->arraySize, type);
@@ -2450,7 +2453,7 @@ TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Decl
     while (part) {
         switch (part->kind) {
         case DPK_POINTER:
-            type = makePointedType(ctx, part->flags, type);
+            type = makePointedType(ctx, part->flags.storage, type);
             break;
         case DPK_ARRAY:
             type = makeArrayType(ctx, part->arraySize, type);

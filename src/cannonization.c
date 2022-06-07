@@ -8,14 +8,11 @@
 static AstExpression *transformExpression(ParserContext *ctx, AstExpression *expr);
 
 static TypeRef *voidPtrType(ParserContext *ctx) {
-  SpecifierFlags f = { 0 };
-
-  return makePointedType(ctx, f, makePrimitiveType(ctx, T_VOID, 0));
+  return makePointedType(ctx, 0U, makePrimitiveType(ctx, T_VOID, 0));
 }
 
 static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *expr) {
   assert(expr->op == EB_A_ACC);
-
 
   AstExpression *left = expr->binaryExpr.left;
   AstExpression *right = expr->binaryExpr.right;
@@ -25,7 +22,7 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
 
   TypeRef *arrayType = base->type;
   assert(isPointerLikeType(arrayType));
-  TypeRef *pointerType = arrayType->kind == TR_ARRAY ? makePointedType(ctx, arrayType->flags, arrayType->arrayTypeDesc.elementType) : arrayType;
+  TypeRef *pointerType = arrayType->kind == TR_ARRAY ? makePointedType(ctx, arrayType->flags.storage, arrayType->arrayTypeDesc.elementType) : arrayType;
   TypeRef *elementType = pointerType->pointedTo.toType;
 
   pointerType->pointedTo.arrayType = NULL;
@@ -431,15 +428,14 @@ static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression
   // normalize pointer
   receiver->type = voidPtrType(ctx);
 
-  SpecifierFlags f = { 0 };
   AstExpression *offsetedPtr = createBinaryExpression(ctx, EB_ADD, receiver->type, receiver, offset);
   TypeRef *memberType = member->typeRef;
   TypeRef *ptrType = NULL;
 
   if (memberType->kind == TR_BITFIELD) {
-      ptrType = makePointedType(ctx, f, memberType->bitFieldDesc.storageType);
+      ptrType = makePointedType(ctx, 0U, memberType->bitFieldDesc.storageType);
   } else {
-      ptrType = makePointedType(ctx, f, memberType);
+      ptrType = makePointedType(ctx, 0U, memberType);
   }
 
   offsetedPtr->type = ptrType;
@@ -502,10 +498,10 @@ static AstExpression *cannonizeDotExpression(ParserContext *ctx, AstExpression *
       pReceiver = receiver->unaryExpr.argument;
   } else if (receiver->op == E_CALL) {
       pReceiver = receiver;
-      pReceiver->type = makePointedType(ctx, receiver->type->flags, receiver->type);
+      pReceiver->type = makePointedType(ctx, receiver->type->flags.storage, receiver->type);
   } else {
       pReceiver = createUnaryExpression(ctx, &receiver->coordinates, EU_REF, receiver);
-      pReceiver->type = makePointedType(ctx, receiver->type->flags, receiver->type);
+      pReceiver->type = makePointedType(ctx, receiver->type->flags.storage, receiver->type);
   }
 
 
