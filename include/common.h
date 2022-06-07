@@ -19,7 +19,7 @@ typedef enum _Boolean {
 
 #define BIT(n) (1U << (n))
 
-#define ALIGN_SIZE(len, align) ((((align)-1) & (len)) ? (((len)+(align)) & ~((align)-1)) : (len))
+#define ALIGN_SIZE(len, align) (((len)+(align - 1)) & ~((align)-1))
 #define ALIGN_PTR(ptr, align) (((~((uintptr_t)(ptr))) + 1) & ((align) - 1))
 
 #define max(a, b) ((a) < (b)) ? (b) : (a)
