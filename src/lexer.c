@@ -245,16 +245,16 @@ void parseNumber(ParserContext *ctx, Token *token) {
   } else {
       if (sign == 1) {
           uint32_t uc = (uint32_t)c;
-          if (c != (int64_t)uc) {
-              reportDiagnostic(ctx, DIAG_IMPLICIT_CONVERSION, &token->coordinates, "long", "unsigned int", c, uc);
-          }
+//          if (c != (int64_t)uc) {
+//              reportDiagnostic(ctx, DIAG_IMPLICIT_CONVERSION, &token->coordinates, "long", "unsigned int", c, uc);
+//          }
           token->code = U_CONSTANT;
-          token->value.iv = (int64_t)uc;
+          token->value.iv = (uint64_t)uc;
       } else {
           int32_t ic = (int32_t)c;
-          if (c != (int64_t)ic) {
-              reportDiagnostic(ctx, DIAG_IMPLICIT_CONVERSION, &token->coordinates, "long", "int", c, ic);
-          }
+//          if (c != (int64_t)ic) {
+//              reportDiagnostic(ctx, DIAG_IMPLICIT_CONVERSION, &token->coordinates, "long", "int", c, ic);
+//          }
           token->code = I_CONSTANT;
           token->value.iv = (int64_t)ic;
       }
