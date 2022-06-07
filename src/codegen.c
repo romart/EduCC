@@ -726,11 +726,19 @@ static size_t fillReference(GenerationContext *ctx, Section *section, AstExpress
   return sizeof(intptr_t);
 }
 
-static size_t fillInitializer(GenerationContext *ctx, Section *section, AstInitializer *init, size_t size) {
+static size_t fillInitializer(GenerationContext *ctx, Section *section, AstInitializer *init, int32_t startOffset, size_t size) {
 
   if (size <= 0) return 0;
 
+  int32_t sectionOffset = section->pc - section->start;
   if (init->kind == IK_EXPRESSION) {
+      int32_t initOffset = sectionOffset - startOffset;
+
+      while (initOffset < init->offset) {
+          emitSectionByte(section, 0x00);
+          ++initOffset;
+      }
+
       AstExpression *expr = init->expression;
       AstConst *cexpr = eval(ctx->parserContext, expr);
       if (cexpr == NULL) {
@@ -816,8 +824,9 @@ static size_t fillInitializer(GenerationContext *ctx, Section *section, AstIniti
         break;
       }
     }
+    int32_t finalOffset = section->pc - section->start;
 
-    return constSize;
+    return finalOffset - sectionOffset;
   } else {
     assert(init->kind == IK_LIST);
     size_t result = 0;
@@ -825,7 +834,7 @@ static size_t fillInitializer(GenerationContext *ctx, Section *section, AstIniti
     AstInitializerList *inits = init->initializerList;
 
     while (inits) {
-        size_t thisResult = fillInitializer(ctx, section, inits->initializer, size);
+        size_t thisResult = fillInitializer(ctx, section, inits->initializer, startOffset, size);
         size -= thisResult;
         result += thisResult;
         inits = inits->next;
@@ -878,12 +887,15 @@ static GeneratedVariable *generateVaribale(GenerationContext *ctx, AstValueDecla
       section = ctx->bss;
   }
 
+  int32_t align = typeAlignment(d->type);
+  alignSection(section, align);
+
   size_t objectSize = computeTypeSize(d->type);
   size_t filled = 0;
   ptrdiff_t offset = section->pc - section->start;
 
   if (d->initializer) {
-      filled = fillInitializer(ctx, section, d->initializer, objectSize);
+      filled = fillInitializer(ctx, section, d->initializer, offset, objectSize);
   }
 
   while (filled < objectSize) {

@@ -70,5 +70,6 @@ struct _GeneratedFile;
 uint8_t *generateElfFile(ElfFile *elfFile, struct _GeneratedFile *genFile, size_t *elfFileSize);
 
 void emitSectionByte(Section *s, uint8_t b);
+void alignSection(Section *s, int32_t align);
 
 #endif // __ELF_H__
