@@ -535,7 +535,7 @@ static void emitLoad(GeneratedFunction *f, Address *from, enum Registers to, Typ
   case T_S4: emitMoveAR(f, from, to, sizeof(int32_t)); break;
   case T_S8: emitMoveAR(f, from, to, sizeof(int64_t)); break;
   case T_U1: emitMovxxAR(f, 0xB6, from, to); break;
-  case T_U2: emitMovxxAR(f, 0xB6, from, to); break;
+  case T_U2: emitMovxxAR(f, 0xB7, from, to); break;
   case T_U4: emitMoveAR(f, from, to, sizeof(uint32_t)); break;
   case T_U8: emitMoveAR(f, from, to, sizeof(uint64_t)); break;
   case T_F4: emitMovfpAR(f, from, to, sizeof(float)); break;
