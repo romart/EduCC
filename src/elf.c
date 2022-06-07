@@ -516,3 +516,13 @@ void emitSectionByte(Section *s, uint8_t b) {
 
   *(s->pc++) = b;
 }
+
+void alignSection(Section *s, int32_t align) {
+  if (align <= 0) return;
+  int32_t offset = s->pc - s->start;
+  int32_t aligned = (offset + (align - 1)) & ~(align - 1);
+  while (offset < aligned) {
+      emitSectionByte(s, 0x00);
+      ++offset;
+  }
+}
