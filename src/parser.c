@@ -242,17 +242,17 @@ static AstExpression *resolveNameRef(ParserContext *ctx) {
 
         if (type->kind == TR_ARRAY) {
             flags.bits.isConst = 1;
-            result->type = makePointedType(ctx, flags, type->arrayTypeDesc.elementType);
+            result->type = makePointedType(ctx, flags.storage, type->arrayTypeDesc.elementType);
             result->type->pointedTo.arrayType = type;
         } else {
-            result->type = makePointedType(ctx, flags, type);
+            result->type = makePointedType(ctx, flags.storage, type);
             result = createUnaryExpression(ctx, coords, EU_DEREF, result);
             result->type = type;
         }
     } else {
         assert(s->kind == FunctionSymbol);
         flags.bits.isConst = 1;
-        result->type = makePointedType(ctx, flags, computeFunctionType(ctx, coords, s->function));
+        result->type = makePointedType(ctx, flags.storage, computeFunctionType(ctx, coords, s->function));
     }
 
     return result;
@@ -277,8 +277,7 @@ static AstExpression *va_arg_expression(ParserContext *ctx, Coordinates *coords,
   }
 
   AstExpression *vaarg = createVaArgExpression(ctx, coords, va_list_Arg, typeArg);
-  SpecifierFlags flags = { 0 };
-  vaarg->type = makePointedType(ctx, flags, typeArg);
+  vaarg->type = makePointedType(ctx, 0U, typeArg);
 
   AstExpression *result = createUnaryExpression(ctx, coords, EU_DEREF, vaarg);
   result->type = typeArg;
@@ -2099,14 +2098,12 @@ static void parseParameterList(ParserContext *ctx, FunctionParams *params, struc
 
           type = makeTypeRef(ctx, &specifiers, &declarator);
           if (type->kind == TR_FUNCTION) {
-              SpecifierFlags flag = { 0 };
-              type = makePointedType(ctx, flag, type);
+              type = makePointedType(ctx, 0U, type);
           } else if (type->kind == TR_ARRAY) {
               if (type->arrayTypeDesc.size < 0) {
                   // int foo(int a[]) -> int foo(const int *a)
-                  SpecifierFlags flags = { 0 };
                   TypeRef *arrayType = type;
-                  type = makePointedType(ctx, flags, type->arrayTypeDesc.elementType);
+                  type = makePointedType(ctx, 0U, type->arrayTypeDesc.elementType);
               }
           }
           AstValueDeclaration *parameter =
