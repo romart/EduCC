@@ -495,7 +495,7 @@ void emitShiftRR(GeneratedFunction *f, uint8_t code, uint8_t digit, enum Registe
 
   emitRex(f, R_BAD, l, R_BAD, size == 8);
 
-  emitByte(f, size == 1 ? code : code - 1);
+  emitByte(f, size == 1 ? code - 1 : code);
 
   ModRM rm = { 0 };
 
