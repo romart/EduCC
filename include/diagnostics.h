@@ -17,7 +17,8 @@ enum DiagSeverityKind {
 typedef struct _Severity {
   int kind;
   const char *name;
-  unsigned isError : 1;
+  Boolean isError;
+//  unsigned isError : 1;
 } Severity;
 
 enum IssueDiagType {
