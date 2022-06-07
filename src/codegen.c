@@ -936,8 +936,8 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
     TypeId fromTypeId = typeToId(fromType);
     TypeId toTypeId = typeToId(toType);
 
-    size_t fromSize = computeTypeSize(fromType);
-    size_t toSize = computeTypeSize(toType);
+    size_t fromSize = typeIdSize(fromTypeId);
+    size_t toSize = typeIdSize(toTypeId);
 
     generateExpression(ctx, f, scope, cast->argument);
 

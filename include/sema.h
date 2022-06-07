@@ -13,6 +13,7 @@ enum {
   UNKNOWN_SIZE = -1
 };
 
+int typeIdSize(TypeId id);
 int computeTypeSize(TypeRef *type);
 int computeSUETypeSize(ParserContext *ctx, AstSUEDeclaration *declaration);
 
@@ -135,7 +136,7 @@ Scope *newScope(ParserContext *ctx, Scope *parent);
 
 TypeRef *makePrimitiveType(ParserContext *ctx, TypeId id, unsigned flags);
 TypeRef *makeBasicType(ParserContext *ctx, TypeDesc *descriptor, unsigned flags);
-TypeRef* makePointedType(ParserContext *ctx, SpecifierFlags flags, TypeRef *pointedTo);
+TypeRef* makePointedType(ParserContext *ctx, unsigned flags, TypeRef *pointedTo);
 TypeRef *makeArrayType(ParserContext *ctx, int size, TypeRef *elementType);
 TypeRef *makeFunctionType(ParserContext *ctx, TypeRef *returnType, FunctionParams *params);
 TypeRef *makeFunctionReturnType(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator);
