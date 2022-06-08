@@ -2,15 +2,42 @@ FILE test/testData/parser/positive/compoundStringLiteral.c
   FUN signed int test 
   BEGIN
     signed char[1] s0 = \
-      ""
+      INIT_BEGIN
+        signed char #0 <--- 0
+      INIT_END
     *C signed char s1 = \
       "1"
     signed char[4] s2 = \
-      "122"
+      INIT_BEGIN
+        signed char #0 <--- 49
+        signed char #1 <--- 50
+        signed char #2 <--- 50
+        signed char #3 <--- 0
+      INIT_END
     signed char[11] s3 = \
-      "1222333333"
+      INIT_BEGIN
+        signed char #0 <--- 49
+        signed char #1 <--- 50
+        signed char #2 <--- 50
+        signed char #3 <--- 50
+        signed char #4 <--- 51
+        signed char #5 <--- 51
+        signed char #6 <--- 51
+        signed char #7 <--- 51
+        signed char #8 <--- 51
+        signed char #9 <--- 51
+        signed char #10 <--- 0
+      INIT_END
     signed char[7] s4 = \
-      "123459"
+      INIT_BEGIN
+        signed char #0 <--- 49
+        signed char #1 <--- 50
+        signed char #2 <--- 51
+        signed char #3 <--- 52
+        signed char #4 <--- 53
+        signed char #5 <--- 57
+        signed char #6 <--- 0
+      INIT_END
     signed int l0 = \
       (signed int)(s0 , 1)
     signed int l1 = \
