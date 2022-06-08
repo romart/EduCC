@@ -1080,6 +1080,11 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
           emitMoveRR(f, R_ACC, R_TMP, sizeof(intptr_t));
           addr.base = R_TMP;
       }
+      if (addr.index == R_ACC && !isFP) {
+          assert(addr.base != R_TMP);
+          emitMoveRR(f, R_ACC, R_TMP, sizeof(intptr_t));
+          addr.index = R_TMP;
+      }
 
       if (isFP) {
         emitPopRegF(f, R_FACC, isD);
