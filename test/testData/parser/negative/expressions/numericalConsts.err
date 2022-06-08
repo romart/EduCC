@@ -46,14 +46,3 @@ test/testData/parser/negative/expressions/numericalConsts.c:13:27: error: unexpe
 test/testData/parser/negative/expressions/numericalConsts.c:14:27: error: unexpected token \ '(null)' instead of (
 test/testData/parser/negative/expressions/numericalConsts.c:15:27: error: use of undeclared identifier 'j'
 test/testData/parser/negative/expressions/numericalConsts.c:16:27: error: unexpected token BAD_CHARACTER ''' instead of )
-test/testData/parser/negative/expressions/numericalConsts.c:11:31: warning: implicit conversion from 'long' to 'int' changes value from 12345465456465 to 1729447761
-test/testData/parser/negative/expressions/numericalConsts.c:16:32: warning: implicit conversion from 'long' to 'unsigned int' changes value from 12344545645656 to 809636952
-test/testData/parser/negative/expressions/numericalConsts.c:17:33: warning: implicit conversion from 'long' to 'unsigned int' changes value from 12545646545463 to 47073847
-test/testData/parser/negative/expressions/numericalConsts.c:23:41: warning: implicit conversion from 'long' to 'unsigned int' changes value from 9223372036854775807 to 4294967295
-test/testData/parser/negative/expressions/numericalConsts.c:23:42: warning: implicit conversion from 'long' to 'unsigned int' changes value from 9223372036854775807 to 4294967295
-test/testData/parser/negative/expressions/numericalConsts.c:23:43: warning: implicit conversion from 'long' to 'unsigned int' changes value from 9223372036854775807 to 4294967295
-test/testData/parser/negative/expressions/numericalConsts.c:23:44: warning: implicit conversion from 'long' to 'unsigned int' changes value from 9223372036854775807 to 4294967295
-test/testData/parser/negative/expressions/numericalConsts.c:29:53: warning: implicit conversion from 'long' to 'unsigned int' changes value from 12322245645665222 to 1653310406
-test/testData/parser/negative/expressions/numericalConsts.c:29:54: warning: implicit conversion from 'long' to 'unsigned int' changes value from 123222546546546222 to 3543782958
-test/testData/parser/negative/expressions/numericalConsts.c:29:55: warning: implicit conversion from 'long' to 'unsigned int' changes value from 123222464566446222 to 3168061582
-test/testData/parser/negative/expressions/numericalConsts.c:29:56: warning: implicit conversion from 'long' to 'unsigned int' changes value from 9223372036854775807 to 4294967295

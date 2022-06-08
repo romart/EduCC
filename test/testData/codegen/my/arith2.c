@@ -18,17 +18,17 @@ unsigned short test2(const char *text, int length) {
 
 
 int main() {
-  const char *s = "0b101101010";
-  unsigned short int r = test2(s, 12 - 1);
+  const char s[] = "0b101101010";
+  unsigned short int r = test2(s, (sizeof s) - 1);
   printf("result = %u\n", r);
   if (0b101101010 != r) return 2;
 
-//  const char *s2 = "0b1011010101101101010110110101";
+  const char s2[] = "0b1011010101101101010110110101";
 
-//  unsigned short int r2 = test2(s2, 70);
+  unsigned short int r2 = test2(s2, sizeof(s2) - 1);
 
-//  printf("result2 = %u\n", r2);
-//  if (62684 != r2) return 2;
+  printf("result2 = %u\n", r2);
+  if (54709 != r2) return 2;
 
   return 0;
 }
