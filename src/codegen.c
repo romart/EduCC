@@ -2015,6 +2015,25 @@ static void generateVaArg(GenerationContext *ctx, GeneratedFunction *f, Scope *s
   bindLabel(f, &doneLabl);
 }
 
+static void emitFPNeg(GenerationContext *ctx, GeneratedFunction *f, TypeId id) {
+  switch (id) {
+   case T_F4:
+      emitMovdq(f, 0x66, 0x0F, 0x7E, R_ACC, R_FACC, FALSE);
+      emitArithConst(f, OP_XOR, R_ACC, 1U << 31, 4);
+      emitMovdq(f, 0x66, 0x0F, 0x6E, R_ACC, R_FACC, FALSE);
+      break;
+   case T_F8:
+      emitMovdq(f, 0x66, 0x0F, 0x7E, R_ACC, R_FACC, TRUE);
+      emitMoveCR(f, 1ULL << 63, R_TMP, 8);
+      emitArithRR(f, OP_XOR, R_ACC, R_TMP, 8);
+      emitMovdq(f, 0x66, 0x0F, 0x6E, R_ACC, R_FACC, TRUE);
+      break;
+   case T_F10:
+      unreachable("long double arith is not implemented yet");
+   default:
+      unreachable("unexpected FP type");
+    }
+}
 
 // result is in accamulator
 static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
@@ -2129,26 +2148,9 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
       generateExpression(ctx, f, scope, expression->unaryExpr.argument);
       break;
     case EU_MINUS:
-      // TODO: fp
       generateExpression(ctx, f, scope, expression->unaryExpr.argument);
       if (isRealType(expression->type)) {
-          switch (expression->type->descriptorDesc->typeId) {
-           case T_F4:
-              emitMovdq(f, 0x66, 0x0F, 0x7E, R_ACC, R_FACC, FALSE);
-              emitArithConst(f, OP_XOR, R_ACC, 1U << 31, typeSize);
-              emitMovdq(f, 0x66, 0x0F, 0x6E, R_ACC, R_FACC, FALSE);
-              break;
-           case T_F8:
-              emitMovdq(f, 0x66, 0x0F, 0x7E, R_ACC, R_FACC, TRUE);
-              emitMoveCR(f, 1ULL << 63, R_TMP, typeSize);
-              emitArithRR(f, OP_XOR, R_ACC, R_TMP, typeSize);
-              emitMovdq(f, 0x66, 0x0F, 0x6E, R_ACC, R_FACC, TRUE);
-              break;
-           case T_F10:
-              unreachable("long double arith is not implemented yet");
-           default:
-              unreachable("unexpected FP type");
-            }
+          emitFPNeg(ctx, f, expression->type->descriptorDesc->typeId);
       } else {
           emitNegR(f, R_ACC, typeSize);
       }
