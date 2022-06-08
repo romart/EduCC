@@ -318,7 +318,7 @@ void emitMoveCR(GeneratedFunction *f, intptr_t c, enum Registers to, size_t size
       emitByte(f, (uint8_t)(c >> 24));
   } else {
       uint8_t code = size == 1 ? 0xB0 : 0xB8;
-      emitByte(f, code + register_encodings[to]);
+      emitByte(f, code | register_encodings[to]);
       emitByte(f, (uint8_t)c);
 
       if (size > 1) {
