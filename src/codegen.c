@@ -355,8 +355,8 @@ static int parseIfHex(char c) {
   if (!c) return -1;
 
   if ('0' <= c && c <= '9') return c - '0';
-  if ('a' <= c && c <= 'f') return c - 'a';
-  if ('A' <= c && c <= 'F') return c - 'A';
+  if ('a' <= c && c <= 'f') return 10 + (c - 'a');
+  if ('A' <= c && c <= 'F') return 10 + (c - 'A');
 
   return -1;
 
