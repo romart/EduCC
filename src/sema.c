@@ -1589,6 +1589,62 @@ static int32_t countElementsIn(ParsedInitializer *parsed) {
   return levelElems;
 }
 
+static AstInitializerList *createSymbolInitNode(ParserContext *ctx, Coordinates *_coords, TypeRef *type, int64_t c, int32_t offset) {
+
+//  int64_t c = s[i];
+  AstExpression *expr = createAstConst(ctx, _coords, CK_INT_CONST, &c);
+  expr->type = type;
+
+  AstInitializer *init = createAstInitializer(ctx, _coords, IK_EXPRESSION);
+  init->expression = expr;
+  init->slotType = type;
+  init->offset = offset;
+
+  AstInitializerList *node = createAstInitializerList(ctx);
+  node->initializer = init;
+
+  return node;
+}
+
+static AstInitializer *stringLiteralToInitializer(ParserContext *ctx, Coordinates *_coords, const char *s, int32_t offset) {
+  AstInitializerList head = { 0 }, *current = &head;
+
+  Coordinates coords = *_coords;
+  coords.endOffset = coords.startOffset + 1;
+
+  unsigned i = 0;
+
+  TypeRef *charType = makePrimitiveType(ctx, T_S1, 0);
+
+  for (; s[i]; ++i) {
+
+      current = current->next = createSymbolInitNode(ctx, &coords, charType, s[i], offset + i);
+
+//    int64_t c = s[i];
+//    AstExpression *expr = createAstConst(ctx, &coords, CK_INT_CONST, &c);
+//    expr->type = charType;
+
+//    AstInitializer *init = createAstInitializer(ctx, &coords, IK_EXPRESSION);
+//    init->expression = expr;
+//    init->slotType = charType;
+//    init->offset = offset + i;
+
+//    current = current->next = createAstInitializerList(ctx);
+//    current->initializer = init;
+
+    ++coords.startOffset;
+    ++coords.endOffset;
+  }
+
+  current = current->next = createSymbolInitNode(ctx, &coords, charType, 0, offset + i);
+
+  AstInitializer *listInit = createAstInitializer(ctx, _coords, IK_LIST);
+  listInit->initializerList = head.next;
+  listInit->numOfInitializers = i + 1;
+
+  return listInit;
+}
+
 static AstInitializer *finalizeInitializerInternal(ParserContext *ctx, TypeRef *valueType, ParsedInitializer *initializer, ParsedInitializer **next, int32_t offset, Boolean isTopLevel) {
   Coordinates *coords = &initializer->coords;
   if (isErrorType(valueType)) {
@@ -1612,6 +1668,9 @@ static AstInitializer *finalizeInitializerInternal(ParserContext *ctx, TypeRef *
           if (expr->op == E_CONST && expr->constExpr.op == CK_STRING_LITERAL) {
               assert(expr->type->kind == TR_ARRAY);
               valueType->arrayTypeDesc.size = expr->type->arrayTypeDesc.size;
+              AstInitializer *init = stringLiteralToInitializer(ctx, &expr->coordinates, expr->constExpr.l, offset);
+              *next = initializer->next;
+              return init;
           } else {
               reportDiagnostic(ctx, DIAG_INVALID_INITIALIZER, coords);
           }
