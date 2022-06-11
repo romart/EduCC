@@ -352,7 +352,7 @@ void printDiagnostic(FILE *output, Diagnostic *diagnostic, Boolean verbose) {
   }
 
   if (diagnostic->location.lineStart >= 0) {
-      fprintf(output, "%d:%d:", diagnostic->location.colStart, diagnostic->location.lineStart);
+      fprintf(output, "%d:%d:", diagnostic->location.lineStart, diagnostic->location.colStart);
   }
 
   const Severity *severity = getSeverity(diagnostic->descriptor->severityKind);
