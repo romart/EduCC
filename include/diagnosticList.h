@@ -137,4 +137,5 @@
   DIAGNOSTIC_DEF(ERROR, PP, PP_TOO_FEW_ARGUMENTS, "too few arguments provided to function-like macro invocation"), \
   DIAGNOSTIC_DEF(ERROR, PP, PP_WRONG_CONCAT_OP_PLACE, "'##' cannot appear at either begin or end of a macro expansion"), \
   DIAGNOSTIC_DEF(WARNING, PP, PP_MACRO_REDEFINED, "'%s' redefined"), \
-  DIAGNOSTIC_DEF(WARNING, PP, PP_DEFINED_NOT_A_NAME, "'defined' cannot be used as a macro name")
+  DIAGNOSTIC_DEF(WARNING, PP, PP_DEFINED_NOT_A_NAME, "'defined' cannot be used as a macro name"), \
+  DIAGNOSTIC_DEF(WARNING, PP, PP_EXTRA_TOKEN_ENDOF_DIRECTIVE, "extra tokens at end of #%s directive")

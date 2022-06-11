@@ -22,7 +22,7 @@ OK
 
 NOT OK
 
-#else
+#else xxx
 
 NOT OK
 
