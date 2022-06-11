@@ -3,6 +3,6 @@ test/testData/parser/negative/incorrectDeclaration1.c:6:2: warning: declaration 
 test/testData/parser/negative/incorrectDeclaration1.c:6:2: error: unexpected token ELSE 'else' instead of {
 test/testData/parser/negative/incorrectDeclaration1.c:3:3: error: use of undeclared identifier 'EX'
 test/testData/parser/negative/incorrectDeclaration1.c:6:3: error: expression is not assignable
-test/testData/parser/negative/incorrectDeclaration1.c:8:3: error: unexpected token \ '(null)' instead of (
+test/testData/parser/negative/incorrectDeclaration1.c:8:3: error: unexpected token \ '\' instead of (
 test/testData/parser/negative/incorrectDeclaration1.c:10:3: error: unexpected token FOR 'for' instead of (
-test/testData/parser/negative/incorrectDeclaration1.c:1:4: error: unexpected token } '(null)' instead of (
+test/testData/parser/negative/incorrectDeclaration1.c:1:4: error: unexpected token } '}' instead of (
