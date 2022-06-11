@@ -4,6 +4,8 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <memory.h>
+#include <malloc.h>
 
 #define DEFAULT_CHUNCK_SIZE 0x4000
 

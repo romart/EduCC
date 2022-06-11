@@ -20,7 +20,6 @@ SOURCES=\
     $(SRCDIR)/treeDump.c \
     $(SRCDIR)/parser.c \
     $(SRCDIR)/tree.c \
-    $(SRCDIR)/flex_defs.c \
     $(SRCDIR)/memory.c \
     $(SRCDIR)/diagnostics.c \
     $(SRCDIR)/evaluate.c \

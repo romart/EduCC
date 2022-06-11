@@ -3,7 +3,6 @@
 #define __PARSER_H__ 1
 
 #include "tokens.h"
-#include "lex.h"
 #include "tree.h"
 #include "mem.h"
 #include "diagnostics.h"
