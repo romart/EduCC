@@ -8,11 +8,11 @@
 #include "types.h"
 
 struct _ParserContext;
+struct _Token;
 
 typedef struct _Coordinates {
-  int startOffset;
-  int endOffset;
-  struct _LocationInfo *locInfo;
+  struct _Token *left;
+  struct _Token  *right;
 } Coordinates;
 
 #define EXPR_TYPES \
@@ -134,7 +134,7 @@ typedef struct _AstBitExtendExpression {
 } AstBitExtendExpression;
 
 typedef struct _AstNameRef {
-  const char* name;
+//  const char* name;
   struct _Symbol *s;
 } AstNameRef;
 

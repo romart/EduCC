@@ -173,7 +173,7 @@ static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpressio
         if (l_right->op == E_CONST) {
             left->binaryExpr.left = l_left;
             left->binaryExpr.right = right;
-            left->coordinates.endOffset = right->coordinates.endOffset;
+            left->coordinates.right = right->coordinates.right;
             expr->binaryExpr.right = l_right;
             left = expr->binaryExpr.left;
             right = expr->binaryExpr.right;
@@ -293,8 +293,8 @@ static AstExpression *cannonizeAddExpression(ParserContext *ctx, AstExpression *
         left->binaryExpr.left = l_right;
         left->binaryExpr.right = right;
         left->type = right->type;
-        left->coordinates.startOffset = l_right->coordinates.startOffset;
-        left->coordinates.endOffset = right->coordinates.endOffset;
+        left->coordinates.left = l_right->coordinates.left;
+        left->coordinates.right = right->coordinates.right;
         expr->binaryExpr.left = l_left;
         expr->binaryExpr.right = left;
         left = expr->binaryExpr.left;
@@ -312,8 +312,8 @@ static AstExpression *cannonizeAddExpression(ParserContext *ctx, AstExpression *
         left->binaryExpr.right = right;
         left->type = right->type;
         left->op = EB_SUB;
-        left->coordinates.startOffset = l_right->coordinates.startOffset;
-        left->coordinates.endOffset = right->coordinates.endOffset;
+        left->coordinates.left = l_right->coordinates.left;
+        left->coordinates.right = right->coordinates.right;
         expr->binaryExpr.left = l_left;
         expr->binaryExpr.right = left;
         left = expr->binaryExpr.left;
@@ -328,7 +328,7 @@ static AstExpression *cannonizeAddExpression(ParserContext *ctx, AstExpression *
       if (isPointerLikeType(r_left->type)) {
           right->binaryExpr.left = left;
           right->type = left->type;
-          right->coordinates.startOffset = left->coordinates.startOffset;
+          right->coordinates.left = left->coordinates.left;
           expr->binaryExpr.left = r_left;
           left = expr->binaryExpr.left;
           right = expr->binaryExpr.right;
@@ -344,7 +344,7 @@ static AstExpression *cannonizeAddExpression(ParserContext *ctx, AstExpression *
           right->binaryExpr.left = left;
           right->op = EB_SUB;
           right->type = l_type;
-          right->coordinates.startOffset = left->coordinates.startOffset;
+          right->coordinates.left = left->coordinates.left;
           expr->binaryExpr.left = r_left;
           left = expr->binaryExpr.left;
           right = expr->binaryExpr.right;
@@ -382,8 +382,8 @@ static AstExpression *cannonizeSubExpression(ParserContext *ctx, AstExpression *
         left->binaryExpr.right = right;
         left->op = EB_SUB;
         left->type = right->type;
-        left->coordinates.startOffset = l_right->coordinates.startOffset;
-        left->coordinates.endOffset = right->coordinates.endOffset;
+        left->coordinates.left = l_right->coordinates.left;
+        left->coordinates.right = right->coordinates.right;
 
         expr->binaryExpr.left = l_left;
         expr->binaryExpr.right = left;
@@ -404,8 +404,8 @@ static AstExpression *cannonizeSubExpression(ParserContext *ctx, AstExpression *
         left->op = EB_ADD;
         left->type = right->type;
 
-        left->coordinates.startOffset = l_right->coordinates.startOffset;
-        left->coordinates.endOffset = right->coordinates.endOffset;
+        left->coordinates.left = l_right->coordinates.left;
+        left->coordinates.right = right->coordinates.right;
 
         expr->binaryExpr.left = l_left;
         expr->binaryExpr.right = left;
@@ -581,8 +581,8 @@ static AstExpression *cannonizeShiftExpression(ParserContext *ctx, AstExpression
 
     left->binaryExpr.left = r_right;
     left->binaryExpr.right = right;
-    left->coordinates.startOffset = r_right->coordinates.startOffset;
-    left->coordinates.endOffset = right->coordinates.endOffset;
+    left->coordinates.left = r_right->coordinates.left;
+    left->coordinates.right = right->coordinates.right;
     left->op = EB_ADD;
     left->type = right->type;
 
