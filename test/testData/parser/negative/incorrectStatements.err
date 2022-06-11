@@ -1,20 +1,20 @@
 test/testData/parser/negative/incorrectStatements.c:10:5: error: unexpected token ELSE 'else' instead of (
 test/testData/parser/negative/incorrectStatements.c:15:5: error: use of undeclared identifier 'x'
-test/testData/parser/negative/incorrectStatements.c:16:5: error: unexpected token ; '(null)' instead of )
+test/testData/parser/negative/incorrectStatements.c:16:5: error: unexpected token ; ';' instead of )
 test/testData/parser/negative/incorrectStatements.c:3:7: error: unexpected token FOR 'for' instead of ;
-test/testData/parser/negative/incorrectStatements.c:8:7: error: unexpected token ) '(null)' instead of (
-test/testData/parser/negative/incorrectStatements.c:10:7: error: unexpected token { '(null)' instead of (
+test/testData/parser/negative/incorrectStatements.c:8:7: error: unexpected token ) ')' instead of (
+test/testData/parser/negative/incorrectStatements.c:10:7: error: unexpected token { '{' instead of (
 test/testData/parser/negative/incorrectStatements.c:7:8: error: unexpected token ELSE 'else' instead of (
-test/testData/parser/negative/incorrectStatements.c:12:8: error: unexpected token ; '(null)' instead of (
-test/testData/parser/negative/incorrectStatements.c:3:9: error: unexpected token } '(null)' instead of (
-test/testData/parser/negative/incorrectStatements.c:1:11: error: unexpected token } '(null)' instead of (
+test/testData/parser/negative/incorrectStatements.c:12:8: error: unexpected token ; ';' instead of (
+test/testData/parser/negative/incorrectStatements.c:3:9: error: unexpected token } '}' instead of (
+test/testData/parser/negative/incorrectStatements.c:1:11: error: unexpected token } '}' instead of (
 test/testData/parser/negative/incorrectStatements.c:1:15: error: unexpected token INT 'int' instead of (
 test/testData/parser/negative/incorrectStatements.c:5:15: error: use of undeclared identifier 'gar'
 test/testData/parser/negative/incorrectStatements.c:9:15: error: unexpected token INT 'int' instead of (
-test/testData/parser/negative/incorrectStatements.c:16:15: error: unexpected token { '(null)' instead of )
+test/testData/parser/negative/incorrectStatements.c:16:15: error: unexpected token { '{' instead of )
 test/testData/parser/negative/incorrectStatements.c:3:16: error: unexpected token RETURN 'return' instead of )
 test/testData/parser/negative/incorrectStatements.c:11:16: error: unexpected token INT 'int' instead of (
 test/testData/parser/negative/incorrectStatements.c:15:16: error: unexpected token ELSE 'else' instead of (
-test/testData/parser/negative/incorrectStatements.c:19:16: error: unexpected token ) '(null)' instead of (
-test/testData/parser/negative/incorrectStatements.c:21:16: error: unexpected token ; '(null)' instead of )
-test/testData/parser/negative/incorrectStatements.c:1:17: error: unexpected token } '(null)' instead of )
+test/testData/parser/negative/incorrectStatements.c:19:16: error: unexpected token ) ')' instead of (
+test/testData/parser/negative/incorrectStatements.c:21:16: error: unexpected token ; ';' instead of )
+test/testData/parser/negative/incorrectStatements.c:1:17: error: unexpected token } '}' instead of )

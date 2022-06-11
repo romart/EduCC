@@ -5,7 +5,7 @@ void testChar() {
   char c3 = '\a';
   char c4 = '\\';
   char c5 = '\'';
-  char c5 = '\"';
+  char c6 = '\"';
   char c055 = '\55';
   char c7f = '\x7f';
 }
@@ -16,7 +16,7 @@ void testWchar() {
   int w3 = L'\a';
   int w4 = L'\\';
   int w5 = L'\'';
-  int w5 = L'\"';
+  int w6 = L'\"';
   int w0555 = L'\555';
   int w7fff = L'\x7fff';
 }

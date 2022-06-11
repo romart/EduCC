@@ -11,7 +11,7 @@ FILE test/testData/parser/positive/expressions/numericalConsts.c
       92
     signed char c5 = \
       39
-    signed char c5 = \
+    signed char c6 = \
       34
     signed char c055 = \
       45
@@ -19,7 +19,7 @@ FILE test/testData/parser/positive/expressions/numericalConsts.c
       127    
   END
 ----
-  FUN void testWchar 
+  FUN void testWchar
   BEGIN
     signed int w1 = \
       (signed int)97
@@ -31,12 +31,12 @@ FILE test/testData/parser/positive/expressions/numericalConsts.c
       (signed int)92
     signed int w5 = \
       (signed int)39
-    signed int w5 = \
+    signed int w6 = \
       (signed int)34
     signed int w0555 = \
       (signed int)365
     signed int w7fff = \
-      (signed int)32767    
+      (signed int)32767
   END
 ----
   FUN signed int testInteger 
@@ -58,41 +58,41 @@ FILE test/testData/parser/positive/expressions/numericalConsts.c
     signed long l2 = \
       21142341
     unsigned long ul1 = \
-      (unsigned long)21142341
+      21142341
     unsigned long ul2 = \
-      (unsigned long)21142341
+      21142341
     unsigned long ul3 = \
-      (unsigned long)21142341
+      21142341
     unsigned long ul4 = \
-      (unsigned long)21142341
+      21142341
     unsigned long ul5 = \
-      (unsigned long)21142341
+      21142341
     unsigned long ul6 = \
-      (unsigned long)21142341
+      21142341
     unsigned long ul7 = \
-      (unsigned long)21142341
+      21142341
     unsigned long ul8 = \
-      (unsigned long)21142341
+      21142341
     signed long ll = \
       123222222
     signed long ll2 = \
       123222222
     unsigned long ull1 = \
-      (unsigned long)123222222
+      123222222
     unsigned long ull2 = \
-      (unsigned long)123222222
+      123222222
     unsigned long ull3 = \
-      (unsigned long)123222222
+      123222222
     unsigned long ull4 = \
-      (unsigned long)123222222
+      123222222
     unsigned long ull5 = \
-      (unsigned long)123222222
+      123222222
     unsigned long ull6 = \
-      (unsigned long)123222222
+      123222222
     unsigned long ull7 = \
-      (unsigned long)123222222
+      123222222
     unsigned long ull8 = \
-      (unsigned long)123222222    
+      123222222
   END
 ----
   FUN signed int testFloatingPoint 

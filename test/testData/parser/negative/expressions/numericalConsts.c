@@ -31,9 +31,12 @@ int testInteger() {
   int s = 12345465456465;
   unsigned u = 12344545645656u;
   unsigned u2 = 12545646545463U;
+  unsigned umax = 4294967295;
+  unsigned utoomax = 4294967296;
+  signed utool = 4294967295;
 
-  long l = 2114234411646545641l;
-  long l2 = 21142344654564461L;
+  long l = 9223372036854775807l;
+  long l2 = 9223372036854775810L;
   unsigned long ul1 = 2114235465465441ul;
   unsigned long ul2 = 2114234456465465641uL;
   unsigned long ul3 = 21142348465465446461Ul;
@@ -56,11 +59,11 @@ int testInteger() {
   unsigned long long ull8 = 12322246546546546546222LLU;
 }
 
-//int testFloatingPoint() {
-//  float f1 = 123564564654564545465456465.0f;
-//  float f2 = 1235444654654654646546465546.0F;
+int testFloatingPoint() {
+  float f1 = 123564564654564545465456465.0f;
+  float f2 = 1235444654654654646546465546.0F;
 
-//  double d1 = 431.0;
-//  double d2 = 431.0l;
-//  double d3 = 431.0L;
-//}
+  double d1 = 431.0;
+  double d2 = 431.0l;
+  double d3 = 431.0L;
+}

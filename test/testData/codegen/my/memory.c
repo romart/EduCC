@@ -37,7 +37,7 @@ struct USF {
 
 
 int test1() {
-  struct SUF suf = { -1, -2, -4, -8L, 0xFF, 0xFFFF, 0xFFFFFFFF, 0xFFFFFFFFFFFFFFFFL, 1.0f, 2.2 };
+  struct SUF suf = { -1, -2, -4, -8L, 0xFF, 0xFFFF, 0xFFFFFFFFU, 0xFFFFFFFFFFFFFFFFUL, 1.0f, 2.2 };
 
   if (suf.s1 != -1) return 1;
   if (suf.s2 != -2) return 2;
@@ -46,8 +46,8 @@ int test1() {
 
   if (suf.u1 != 0xFF) return 5;
   if (suf.u2 != 0xFFFF) return 6;
-  if (suf.u4 != 0xFFFFFFFF) return 7;
-  if (suf.u8 != 0xFFFFFFFFFFFFFFFFL) return 8;
+  if (suf.u4 != 0xFFFFFFFFU) return 7;
+  if (suf.u8 != 0xFFFFFFFFFFFFFFFFUL) return 8;
 
   if (suf.f4 != 1.0f) return 9;
   if (suf.f8 != 2.2) return 10;
@@ -63,8 +63,8 @@ int test2(struct SUF *suf) {
 
   if (suf->u1 != 0xFF) return 5;
   if (suf->u2 != 0xFFFF) return 6;
-  if (suf->u4 != 0xFFFFFFFF) return 7;
-  if (suf->u8 != 0xFFFFFFFFFFFFFFFFL) return 8;
+  if (suf->u4 != 0xFFFFFFFFU) return 7;
+  if (suf->u8 != 0xFFFFFFFFFFFFFFFFUL) return 8;
 
   if (suf->f4 != 1.0f) return 9;
   if (suf->f8 != 2.2) return 10;
@@ -74,10 +74,10 @@ int test2(struct SUF *suf) {
 
 int test3(struct USF *usf) {
 
-  if (usf->u1 != 0xFF) return 1;
-  if (usf->u2 != 0xFFFE) return 2;
-  if (usf->u4 != 0xFFFFFFFC) return 3;
-  if (usf->u8 != 0xFFFFFFFFFFFFFFF8L) return 4;
+  if (usf->u1 != 0xFFU) return 1;
+  if (usf->u2 != 0xFFFEU) return 2;
+  if (usf->u4 != 0xFFFFFFFCU) return 3;
+  if (usf->u8 != 0xFFFFFFFFFFFFFFF8UL) return 4;
 
   if (usf->s1 != -1) return 5;
   if (usf->s2 != -1) return 6;
@@ -98,7 +98,7 @@ int main() {
 
   if (r) return 100 + r;
 
-  struct SUF suf = { -1, -2, -4, -8L, 0xFF, 0xFFFF, 0xFFFFFFFFL, 0xFFFFFFFFFFFFFFFFL, 1.0f, 2.2 };
+  struct SUF suf = { -1, -2, -4, -8L, 0xFF, 0xFFFF, 0xFFFFFFFFU, 0xFFFFFFFFFFFFFFFFUL, 1.0f, 2.2 };
 
   r = test2(&suf);
 

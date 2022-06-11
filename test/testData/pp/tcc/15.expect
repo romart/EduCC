@@ -1,20 +1,8 @@
-
-
- 
-
- 
- return (longdouble)d;
- returnA+++B;
- returnA+++B;
- returnA++++B;
- 
-
- return0x1E-1;
- 
-
-
- 
-
-
-
-
+return (long double)d;
+return A+++B;
+return A+ ++B;
+return A+++ +B;
+return A---B;
+return A- --B;
+return A--- -B;
+return 0x1E -1;

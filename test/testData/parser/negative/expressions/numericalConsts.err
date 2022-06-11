@@ -1,48 +1,28 @@
+test/testData/parser/negative/expressions/numericalConsts.c:13:3: warning: multi-character character constant
 test/testData/parser/negative/expressions/numericalConsts.c:13:4: warning: multi-character character constant
 test/testData/parser/negative/expressions/numericalConsts.c:13:5: warning: multi-character character constant
 test/testData/parser/negative/expressions/numericalConsts.c:13:6: warning: multi-character character constant
+test/testData/parser/negative/expressions/numericalConsts.c:13:7: warning: Integer overflow
 test/testData/parser/negative/expressions/numericalConsts.c:13:7: error: octal escape sequence out of range
-test/testData/parser/negative/expressions/numericalConsts.c:13:8: error: hex escape sequence out of range
 test/testData/parser/negative/expressions/numericalConsts.c:13:9: warning: multi-character character constant
-test/testData/parser/negative/expressions/numericalConsts.c:14:12: error: unexpected token BAD_CHARACTER ''' instead of (
-test/testData/parser/negative/expressions/numericalConsts.c:15:12: error: unexpected token \ '(null)' instead of (
-test/testData/parser/negative/expressions/numericalConsts.c:16:12: error: use of undeclared identifier 'c'
-test/testData/parser/negative/expressions/numericalConsts.c:17:12: error: unexpected token BAD_CHARACTER ''' instead of )
-test/testData/parser/negative/expressions/numericalConsts.c:18:12: error: unexpected token ; '(null)' instead of )
-test/testData/parser/negative/expressions/numericalConsts.c:3:13: error: unexpected token CHAR 'char' instead of ;
-test/testData/parser/negative/expressions/numericalConsts.c:8:13: error: use of undeclared identifier 'c12'
-test/testData/parser/negative/expressions/numericalConsts.c:12:13: error: expression is not assignable
-test/testData/parser/negative/expressions/numericalConsts.c:14:13: error: unexpected token BAD_CHARACTER ''' instead of (
-test/testData/parser/negative/expressions/numericalConsts.c:15:13: error: unexpected token \ '(null)' instead of (
-test/testData/parser/negative/expressions/numericalConsts.c:16:13: error: use of undeclared identifier 'd'
-test/testData/parser/negative/expressions/numericalConsts.c:17:13: error: unexpected token BAD_CHARACTER ''' instead of )
-test/testData/parser/negative/expressions/numericalConsts.c:18:13: error: unexpected token ; '(null)' instead of )
-test/testData/parser/negative/expressions/numericalConsts.c:3:14: error: unexpected token CHAR 'char' instead of ;
-test/testData/parser/negative/expressions/numericalConsts.c:8:14: error: use of undeclared identifier 'c13'
-test/testData/parser/negative/expressions/numericalConsts.c:12:14: error: expression is not assignable
-test/testData/parser/negative/expressions/numericalConsts.c:14:14: error: unexpected token BAD_CHARACTER ''' instead of (
-test/testData/parser/negative/expressions/numericalConsts.c:15:14: error: unexpected token \ '(null)' instead of (
-test/testData/parser/negative/expressions/numericalConsts.c:16:14: error: use of undeclared identifier 'e'
-test/testData/parser/negative/expressions/numericalConsts.c:17:14: error: unexpected token BAD_CHARACTER ''' instead of )
-test/testData/parser/negative/expressions/numericalConsts.c:18:14: error: unexpected token ; '(null)' instead of )
-test/testData/parser/negative/expressions/numericalConsts.c:3:15: error: unexpected token CHAR 'char' instead of ;
-test/testData/parser/negative/expressions/numericalConsts.c:8:15: error: use of undeclared identifier 'c14'
-test/testData/parser/negative/expressions/numericalConsts.c:12:15: error: expression is not assignable
-test/testData/parser/negative/expressions/numericalConsts.c:13:16: error: unexpected token BAD_CHARACTER ''' instead of (
-test/testData/parser/negative/expressions/numericalConsts.c:14:16: error: unexpected token \ '(null)' instead of (
-test/testData/parser/negative/expressions/numericalConsts.c:15:16: error: use of undeclared identifier 'g'
-test/testData/parser/negative/expressions/numericalConsts.c:16:16: error: unexpected token BAD_CHARACTER ''' instead of )
-test/testData/parser/negative/expressions/numericalConsts.c:17:16: error: unexpected token ; '(null)' instead of )
-test/testData/parser/negative/expressions/numericalConsts.c:1:17: error: unexpected token } '(null)' instead of ;
-test/testData/parser/negative/expressions/numericalConsts.c:18:19: error: unexpected token { '(null)' instead of ;
+test/testData/parser/negative/expressions/numericalConsts.c:14:12: warning: unknown escape sequence '\c'
+test/testData/parser/negative/expressions/numericalConsts.c:14:13: warning: unknown escape sequence '\d'
+test/testData/parser/negative/expressions/numericalConsts.c:14:14: warning: unknown escape sequence '\e'
+test/testData/parser/negative/expressions/numericalConsts.c:13:16: warning: unknown escape sequence '\g'
+test/testData/parser/negative/expressions/numericalConsts.c:12:20: warning: multi-character character constant
 test/testData/parser/negative/expressions/numericalConsts.c:12:21: warning: multi-character character constant
 test/testData/parser/negative/expressions/numericalConsts.c:12:22: warning: multi-character character constant
 test/testData/parser/negative/expressions/numericalConsts.c:12:23: warning: multi-character character constant
+test/testData/parser/negative/expressions/numericalConsts.c:12:24: warning: Integer overflow
 test/testData/parser/negative/expressions/numericalConsts.c:12:24: error: octal escape sequence out of range
-test/testData/parser/negative/expressions/numericalConsts.c:12:25: error: hex escape sequence out of range
 test/testData/parser/negative/expressions/numericalConsts.c:12:26: warning: multi-character character constant
-test/testData/parser/negative/expressions/numericalConsts.c:12:27: error: use of undeclared identifier 'L'
-test/testData/parser/negative/expressions/numericalConsts.c:13:27: error: unexpected token BAD_CHARACTER ''' instead of ;
-test/testData/parser/negative/expressions/numericalConsts.c:14:27: error: unexpected token \ '(null)' instead of (
-test/testData/parser/negative/expressions/numericalConsts.c:15:27: error: use of undeclared identifier 'j'
-test/testData/parser/negative/expressions/numericalConsts.c:16:27: error: unexpected token BAD_CHARACTER ''' instead of )
+test/testData/parser/negative/expressions/numericalConsts.c:12:27: warning: unknown escape sequence '\j'
+test/testData/parser/negative/expressions/numericalConsts.c:23:42: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:23:43: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:23:44: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:23:45: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:23:46: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:23:47: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:29:52: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:29:55: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:29:59: error: integer literal is too large to be represented in any integer type

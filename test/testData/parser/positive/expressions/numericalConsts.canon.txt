@@ -11,7 +11,7 @@ FILE test/testData/parser/positive/expressions/numericalConsts.c
       92
     signed char c5 = \
       39
-    signed char c5 = \
+    signed char c6 = \
       34
     signed char c055 = \
       45
@@ -19,7 +19,7 @@ FILE test/testData/parser/positive/expressions/numericalConsts.c
       127    
   END
 ----
-  FUN void testWchar 
+  FUN void testWchar
   BEGIN
     signed int w1 = \
       97
@@ -31,12 +31,12 @@ FILE test/testData/parser/positive/expressions/numericalConsts.c
       92
     signed int w5 = \
       39
-    signed int w5 = \
+    signed int w6 = \
       34
     signed int w0555 = \
       365
     signed int w7fff = \
-      32767    
+      32767
   END
 ----
   FUN signed int testInteger 

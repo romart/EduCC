@@ -307,7 +307,7 @@ FILE test/testData/parser/negative/expressions/initializers.c
   FUN signed int func 
   BEGIN
     signed int[-1] a2 = \
-      a1
+      ERROR EXPR
     *signed int pa = \
       (*signed int)a1
     float f = \
@@ -473,16 +473,76 @@ FILE test/testData/parser/negative/expressions/initializers.c
 ----
   S (signed char[4])[12] mon = \
     INIT_BEGIN
-      signed char[4] #0 <--- "Jan"
-      signed char[4] #4 <--- "Feb"
-      signed char[4] #8 <--- "Mar"
-      signed char[4] #12 <--- "Apr"
-      signed char[4] #16 <--- "May"
-      signed char[4] #20 <--- "Jun"
-      signed char[4] #24 <--- "Jul"
-      signed char[4] #28 <--- "Aug"
-      signed char[4] #32 <--- "Sep"
-      signed char[4] #36 <--- "Oct"
-      signed char[4] #40 <--- "Nov"
-      signed char[4] #44 <--- "Dec"
+      INIT_BEGIN
+        signed char #0 <--- 74
+        signed char #1 <--- 97
+        signed char #2 <--- 110
+        signed char #3 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #4 <--- 70
+        signed char #5 <--- 101
+        signed char #6 <--- 98
+        signed char #7 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #8 <--- 77
+        signed char #9 <--- 97
+        signed char #10 <--- 114
+        signed char #11 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #12 <--- 65
+        signed char #13 <--- 112
+        signed char #14 <--- 114
+        signed char #15 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #16 <--- 77
+        signed char #17 <--- 97
+        signed char #18 <--- 121
+        signed char #19 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #20 <--- 74
+        signed char #21 <--- 117
+        signed char #22 <--- 110
+        signed char #23 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #24 <--- 74
+        signed char #25 <--- 117
+        signed char #26 <--- 108
+        signed char #27 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #28 <--- 65
+        signed char #29 <--- 117
+        signed char #30 <--- 103
+        signed char #31 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #32 <--- 83
+        signed char #33 <--- 101
+        signed char #34 <--- 112
+        signed char #35 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #36 <--- 79
+        signed char #37 <--- 99
+        signed char #38 <--- 116
+        signed char #39 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #40 <--- 78
+        signed char #41 <--- 111
+        signed char #42 <--- 118
+        signed char #43 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #44 <--- 68
+        signed char #45 <--- 101
+        signed char #46 <--- 99
+        signed char #47 <--- 0
+      INIT_END
     INIT_END

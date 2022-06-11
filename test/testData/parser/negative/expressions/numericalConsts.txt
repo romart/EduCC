@@ -1,97 +1,122 @@
 FILE test/testData/parser/negative/expressions/numericalConsts.c
-  FUN void testChar 
+  FUN void testChar
   BEGIN
     signed char c1 = \
-      97
+      24929
     signed char c2 = \
-      97
+      6381939
     signed char c3 = \
-      7
+      6054241
     signed char c4 = \
-      7
+      1549885811
     signed char c5 = \
       365
     signed char c6 = \
       128
     signed char c7 = \
-      0
+      395950175284
     signed char c9 = \
       7
     signed char c10 = \
       8
     signed char c11 = \
-      (signed char)((ERROR EXPR))
-    ERROR EXPR = ((ERROR EXPR))
-    ERROR EXPR = ((ERROR EXPR))
-    ERROR EXPR = 12
+      99
+    signed char c12 = \
+      100
+    signed char c13 = \
+      101
+    signed char c14 = \
+      12
     signed char c8 = \
-      (signed char)((ERROR EXPR))
-    {void ()} testWchar
+      103
+  END
+----
+  FUN void testWchar
+  BEGIN
     signed int w1 = \
-      (signed int)97
+      (signed int)24929
     signed int w2 = \
-      (signed int)97
+      (signed int)6381939
     signed int w3 = \
-      (signed int)7
+      (signed int)6054241
     signed int w4 = \
-      (signed int)7
+      (signed int)1549885811
     signed int w5 = \
       (signed int)187245
     signed int w6 = \
       (signed int)32768
     signed int w7 = \
-      (signed int)0
+      (signed int)395950175284
     signed int w8 = \
-      (signed int)ERROR EXPR
-    (ERROR EXPR)    
+      (signed int)106
   END
 ----
-  FUN signed int testInteger 
+  FUN signed int testInteger
   BEGIN
     signed int s = \
-      1729447761
+      12345465456465
     unsigned int u = \
-      809636952
+      12344545645656
     unsigned int u2 = \
-      47073847
+      12545646545463
+    unsigned int umax = \
+      (unsigned int)4294967295
+    unsigned int utoomax = \
+      (unsigned int)4294967296
+    signed int utool = \
+      4294967295
     signed long l = \
-      2114234411646545641
+      9223372036854775807
     signed long l2 = \
-      21142344654564461
+      -9223372036854775806
     unsigned long ul1 = \
-      (unsigned long)2114235465465441
+      2114235465465441
     unsigned long ul2 = \
-      (unsigned long)2114234456465465641
+      2114234456465465641
     unsigned long ul3 = \
-      (unsigned long)9223372036854775807
+      0
     unsigned long ul4 = \
-      (unsigned long)9223372036854775807
+      0
     unsigned long ul5 = \
-      (unsigned long)4294967295
+      0
     unsigned long ul6 = \
-      (unsigned long)4294967295
+      0
     unsigned long ul7 = \
-      (unsigned long)4294967295
+      0
     unsigned long ul8 = \
-      (unsigned long)4294967295
+      0
     signed long ll = \
       1232222654546444522
     signed long ll2 = \
       12322224546546522
     unsigned long ull1 = \
-      (unsigned long)9223372036854775807
+      0
     unsigned long ull2 = \
-      (unsigned long)9223372036854775807
+      -6124498427163905394
     unsigned long ull3 = \
-      (unsigned long)9223372036854775807
+      -6124489628063005394
     unsigned long ull4 = \
-      (unsigned long)9223372036854775807
+      0
     unsigned long ull5 = \
-      (unsigned long)1653310406
+      12322245645665222
     unsigned long ull6 = \
-      (unsigned long)3543782958
+      123222546546546222
     unsigned long ull7 = \
-      (unsigned long)3168061582
+      123222464566446222
     unsigned long ull8 = \
-      (unsigned long)4294967295    
+      0
+  END
+----
+  FUN signed int testFloatingPoint
+  BEGIN
+    float f1 = \
+      123564564654564545283489792.000000
+    float f2 = \
+      1235444654654654705938989056.000000
+    double d1 = \
+      431.000000
+    double d2 = \
+      431.000000
+    double d3 = \
+      431.000000
   END
