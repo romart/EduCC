@@ -173,6 +173,22 @@ unsigned countLines(FILE* file) {
   return result;
 }
 
+
+void putSymbol(StringBuffer *b, char c) {
+  if (b->idx == b->size) {
+      size_t newSize = (b->size + 512) << 1;
+      char *newBuffer = heapAllocate(newSize);
+      if (b->ptr) {
+          memcpy(newBuffer, b->ptr, b->size);
+          releaseHeap(b->ptr);
+      }
+      b->ptr = newBuffer;
+      b->size = newSize;
+  }
+
+  b->ptr[b->idx++] = c;
+}
+
 void unreachable(const char *msg) {
   fprintf(stderr, "Unreachable execution: %s\n", msg);
   abort();

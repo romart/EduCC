@@ -44,5 +44,14 @@ unsigned countLines(FILE* file);
 int isTerminal(FILE *stream);
 
 extern int snprintf (char *__s, size_t __maxlen, const char *__format, ...);
+extern char *strndup (const char *__string, size_t __n);
+
+typedef struct {
+  char *ptr;
+  size_t size;
+  unsigned idx;
+} StringBuffer;
+
+void putSymbol(StringBuffer *b, char c);
 
 #endif // __UTILS_H__
