@@ -4,6 +4,7 @@
 #include <assert.h>
 
 #include "diagnostics.h"
+#include "pp.h"
 #include "parser.h"
 #include "mem.h"
 #include "treeDump.h"
@@ -40,7 +41,7 @@ static LocationInfo *findLocationInfo(ParserContext *ctx, const char *fileName) 
   LocationInfo *locInfo = ctx->locationInfo;
 
   while (locInfo) {
-      if (strcmp(fileName, locInfo->fileName) == 0) break;
+      if (strcmp(fileName, locInfo->fileInfo.fileName) == 0) break;
   }
 
   return locInfo;
@@ -191,6 +192,10 @@ void reportDiagnostic(ParserContext *ctx, enum DiagnosticId diag, const Coordina
                     // unsigned long decimal
                     uint32_t v = va_arg(args, uint32_t);
                     r = snprintf(buffer + j, bufferSize - j, fmtBuf, v);
+                } else if (fc2 == 'c') {
+                    // char
+                    uint32_t v = va_arg(args, int32_t);
+                    r = snprintf(buffer + j, bufferSize - j, fmtBuf, v);
                 } else {
                     buffer[j] = fc;
                     buffer[j + 1] = fc2;
@@ -220,9 +225,18 @@ void reportDiagnostic(ParserContext *ctx, enum DiagnosticId diag, const Coordina
   }
 
   if (location) {
-    newDiagnostic->location.file = location->locInfo->fileName;
-    computeLineAndCollumn(ctx, location->locInfo, location->startOffset, &newDiagnostic->location.lineStart, &newDiagnostic->location.colStart, &newDiagnostic->location.lineStartOffset);
-    computeLineAndCollumn(ctx, location->locInfo, location->endOffset, &newDiagnostic->location.lineEnd, &newDiagnostic->location.colEnd, &newDiagnostic->location.lineEndOffset);
+    Token *origLeft = originaToken(location->left);
+    Token *origRight = originaToken(location->right);
+
+    if (origLeft->locInfo->kind == LIK_FILE && origLeft->locInfo == origRight->locInfo) {
+      LocationInfo *locInfo = origLeft->locInfo;
+      ptrdiff_t startOffset = origLeft->pos - locInfo->buffer;
+      ptrdiff_t endOffset = origRight->pos - locInfo->buffer + origRight->length;
+
+      newDiagnostic->location.file = locInfo->fileInfo.fileName;
+      computeLineAndCollumn(ctx, locInfo, startOffset, &newDiagnostic->location.lineStart, &newDiagnostic->location.colStart, &newDiagnostic->location.lineStartOffset);
+      computeLineAndCollumn(ctx, locInfo, endOffset, &newDiagnostic->location.lineEnd, &newDiagnostic->location.colEnd, &newDiagnostic->location.lineEndOffset);
+    }
   }
 
   if (ctx->diagnostics.tail) {

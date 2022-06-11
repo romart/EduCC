@@ -454,7 +454,7 @@ TypeRef *computeFunctionReturnType(ParserContext *ctx, Coordinates *coords, Type
 
 AstStructDeclarator *computeMemberDeclarator(ParserContext *ctx, Coordinates *coords, TypeRef *_receiverType, const char *memberName, ExpressionType op) {
   assert(op == EF_DOT || op == EF_ARROW);
-  if (isErrorType(_receiverType)) return NULL;
+  if (isErrorType(_receiverType) || memberName == NULL) return NULL;
 
   TypeRef *receiverType = _receiverType;
 
@@ -1335,7 +1335,7 @@ static AstInitializer *finalizeStructInitializer(ParserContext *ctx, TypeRef *ty
           if (initializer->expression) {
             reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &initializer->expression->coordinates);
           }
-          coords.endOffset = initializer->coords.endOffset;
+          coords.right = initializer->coords.right;
           initializer = initializer->next;
       }
   }
@@ -1458,7 +1458,7 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *typ
       }
 
       if (initializer->expression == NULL) {
-          coords.endOffset = initializer->coords.endOffset;
+          coords.right = initializer->coords.right;
           initializer = initializer->next;
           continue;
       }
@@ -1468,7 +1468,7 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *typ
               if (initializer->expression) {
                 reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &initializer->expression->coordinates);
               }
-              coords.endOffset = initializer->coords.endOffset;
+              coords.right = initializer->coords.right;
               initializer = initializer->next;
           }
           break;
@@ -1572,7 +1572,7 @@ static AstInitializer *finalizeScalarInitializer(ParserContext *ctx, TypeRef *ty
 
           Coordinates coords = initializer->coords;
           if (initializer->next)
-          coords.endOffset = initializer->next->coords.endOffset;
+          coords.right = initializer->next->coords.right;
 
           ConstKind ck = isRealType(type) ? CK_FLOAT_CONST : CK_INT_CONST;
           uint64_t v = 0;
@@ -1690,7 +1690,7 @@ static ParsedInitializer *flatInitializer(ParserContext *ctx, AstInitializer *in
       ParsedInitializer *current = &head;
       Coordinates coords = init->coordinates;
 
-      coords.startOffset = coords.endOffset = init->coordinates.startOffset;
+      coords.left = coords.right = init->coordinates.left;
 
       current = current->next = allocParsedInitializer(ctx, &coords, NULL, level + 1, PL_OPEN);
 
@@ -1702,7 +1702,7 @@ static ParsedInitializer *flatInitializer(ParserContext *ctx, AstInitializer *in
           current = next;
       }
 
-      coords.startOffset = coords.endOffset = init->coordinates.endOffset;
+      coords.left = coords.right = init->coordinates.right;
       current = current->next = allocParsedInitializer(ctx, &coords, NULL, level + 1, PL_CLOSE);
 
       *next = current->next = allocParsedInitializer(ctx, &coords, NULL, level, PL_SEPARATOR);
@@ -2106,7 +2106,9 @@ static Symbol *declareGenericSymbol(ParserContext *ctx, SymbolKind kind, const c
       if (s->kind == kind) {
           existed(ctx, s, value);
       } else {
-          reportDiagnostic(ctx, DIAG_SYMBOL_REDEFINITION, &ctx->token->coordinates, name);
+          // TODO: fix location
+          Coordinates coords = { ctx->token, ctx->token };
+          reportDiagnostic(ctx, DIAG_SYMBOL_REDEFINITION, &coords, name);
       }
   } else {
     s = declareSymbol(ctx, kind, name);
@@ -2120,11 +2122,12 @@ static int existedTypeDefProcessor(ParserContext *ctx, Symbol *s, void *value) {
   assert(s->kind == TypedefSymbol);
   TypeRef *oldType = s->typeref;
   TypeRef *newType = (TypeRef *)value;
+  Coordinates coords = { ctx->token, ctx->token };
   if (typesEquals(oldType, newType)) {
       // TODO: Fix location
-      reportDiagnostic(ctx, DIAG_TYPEDEF_REDEFINITION_C11, &ctx->token->coordinates, s->name);
+      reportDiagnostic(ctx, DIAG_TYPEDEF_REDEFINITION_C11, &coords, s->name);
   } else {
-      reportDiagnostic(ctx, DIAG_TYPEDEF_REDEFINITION_TYPES, &ctx->token->coordinates, oldType, newType);
+      reportDiagnostic(ctx, DIAG_TYPEDEF_REDEFINITION_TYPES, &coords, oldType, newType);
   }
 }
 
@@ -2144,7 +2147,8 @@ static int existedFunctionProcessor(ParserContext *ctx, Symbol *s, void *value) 
   if (functionsEqual(oldDeclaration, newDeclaration)) {
       // TODO: link them into list
   } else {
-      reportDiagnostic(ctx, DIAG_FUN_CONFLICTING_TYPES, &ctx->token->coordinates, oldDeclaration->name);
+      Coordinates coords = { ctx->token, ctx->token };
+      reportDiagnostic(ctx, DIAG_FUN_CONFLICTING_TYPES, &coords, oldDeclaration->name);
   }
 }
 
@@ -2169,7 +2173,8 @@ static int existedValueProcessor(ParserContext *ctx, Symbol *s, void *value) {
   if (typesEquals(oldType, newType)) {
       // TODO: link declarations to list
   } else {
-      reportDiagnostic(ctx, DIAG_VALUE_REDEFINITION_TYPES, &ctx->token->coordinates, s->name, newType, oldType);
+      Coordinates coords = { ctx->token, ctx->token };
+      reportDiagnostic(ctx, DIAG_VALUE_REDEFINITION_TYPES, &coords, s->name, newType, oldType);
   }
 }
 
@@ -2221,7 +2226,9 @@ Symbol *declareEnumConstantSymbol(ParserContext *ctx, EnumConstant *enumerator) 
   Symbol *s = findSymbolInScope(ctx->currentScope, enumerator->name);
   if (s) {
       enum DiagnosticId diag = s->kind == EnumConstSymbol ? DIAG_ENUMERATOR_REDEFINITION : DIAG_MEMBER_REDEFINITION;
-      reportDiagnostic(ctx, diag, &ctx->token->coordinates, enumerator->name);
+      // TODO: fix location
+      Coordinates coords = { ctx->token, ctx->token };
+      reportDiagnostic(ctx, diag, &coords, enumerator->name);
       return NULL; // or 's'?
   }
 

@@ -1,6 +1,7 @@
 
 #include <assert.h>
 
+#include "sema.h"
 #include "treeDump.h"
 
 static int dumpTypeRefImpl(FILE *output, int indent, TypeRef *type);
@@ -64,7 +65,7 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
       result += fprintf(output, "%s", "ERROR EXPR");
       break;
     case E_NAMEREF:
-      result += fprintf(output, "%s", expr->nameRefExpr.name);
+      result += fprintf(output, "%s", expr->nameRefExpr.s->name);
       break;
     case E_LABEL_REF:
       result += fprintf(output, "&&%s", expr->label);

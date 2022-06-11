@@ -18,6 +18,9 @@ typedef enum _Boolean {
 } Boolean;
 
 #define BIT(n) (1U << (n))
+#define CHECK_BIT(v, n) ((v) & BIT(n))
+#define SET_BIT(v, n) ((v) =| BIT(n))
+#define CLEAR_BIT(v, n) ((v) =& ~BIT(n))
 
 #define ALIGN_SIZE(len, align) (((len)+(align - 1)) & ~((align)-1))
 #define ALIGN_PTR(ptr, align) (((~((uintptr_t)(ptr))) + 1) & ((align) - 1))

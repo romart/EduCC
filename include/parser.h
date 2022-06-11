@@ -34,18 +34,31 @@ typedef struct _Configuration {
 
 struct _Hideset;
 
+
 typedef struct _Token {
-    Coordinates coordinates;
+    struct _LocationInfo *locInfo;
+
     int code;
     int rawCode;
-    const char *text;
-    const char *pos;
 
-    struct _Hideset *hs;
+    const char *pos; // startOffset = pos - coords->buffer
+    size_t length;   // endOffset = startOffset + length
+
+    const char *id;  // needs for strcmp checks
+
     union {
-      int64_t iv;
-      double dv;
+      uint64_t iv; // holds integer const
+      double dv;  // holds double const
+      /*long */double ldv; // holds long double const (yes it's different from double)
+      const char *text; // holds _cleared_ string literal
     } value;
+
+    unsigned hasLeadingSpace: 1;
+    unsigned startOfLine: 1;
+    unsigned macroStringitize: 1;
+
+    struct _Token *expanded;
+    struct _Hideset *hs;  // used in macro expansion
     struct _Token *next;
 } Token;
 
@@ -74,26 +87,21 @@ typedef struct _UsedLabel {
 
 enum LocationInfoKind {
   LIK_FILE,
-  LIK_MACRO
+  LIK_MACRO,
+  LIK_CONST_MACRO
 };
 
 typedef struct _LocationInfo {
-  const char *fileName;
   const char *buffer;
   size_t bufferSize;
   enum LocationInfoKind kind;
 
-  union {
-    struct {
-      unsigned *linesPos;
-      unsigned lineno;
-      unsigned lineCount;
-    } fileInfo;
-    struct {
-      int startOffset;
-      int endOffset;
-    } macroInfo;
-  };
+  struct {
+    const char *fileName;
+    unsigned *linesPos;
+    unsigned lineno;
+    unsigned lineCount;
+  } fileInfo;
 
   struct _LocationInfo *next;
 } LocationInfo;
@@ -132,6 +140,7 @@ typedef struct _ParserContext {
       unsigned inSwitch: 1;
       unsigned hasDefault: 1;
       unsigned hasSmallStructs: 1;
+      unsigned inPP : 1;
       unsigned caseCount;
     } stateFlags;
 
@@ -152,10 +161,10 @@ typedef struct _ParserContext {
 Token *nextToken(ParserContext *ctx);
 
 Token *tokenizeFile(ParserContext *ctx, const char *fileName, Token *tail);
-Token *tokenizeBuffer(ParserContext *ctx, LocationInfo *locInfo, Token *tail);
+Token *tokenizeBuffer(ParserContext *ctx, LocationInfo *locInfo, unsigned *linePos, Token *tail);
 
 LocationInfo *allocateFileLocationInfo(const char *fileName, const char *buffer, size_t buffeSize, unsigned lineCount);
-LocationInfo *allocateMacroLocationInfo(const char *fileName, const char *buffer, size_t buffeSize, int startOffset, int endOffset);
+LocationInfo *allocateMacroLocationInfo(const char *buffer, size_t buffeSize, Boolean isConst);
 
 char *allocateString(ParserContext *ctx, size_t size);
 Token *allocToken(ParserContext *ctx);

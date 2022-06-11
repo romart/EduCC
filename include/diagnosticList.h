@@ -2,10 +2,21 @@
 
 #define DIAGNOSTICS \
   DIAGNOSTIC_DEF(WARNING, LEXICAL, INTEGER_BIN_CONST_OVERFLOW, "Integer overflow in binary constant"), \
+  DIAGNOSTIC_DEF(WARNING, LEXICAL, INTEGER_CONST_OVERFLOW, "Integer overflow"), \
   DIAGNOSTIC_DEF(ERROR, LEXICAL, ESCAPE_SEC_OOR_HEX, "hex escape sequence out of range"), \
   DIAGNOSTIC_DEF(ERROR, LEXICAL, ESCAPE_SEC_OOR_OCT, "octal escape sequence out of range"), \
   DIAGNOSTIC_DEF(WARNING, LEXICAL, MULTI_CHAR_CONST, "multi-character character constant"), \
-  DIAGNOSTIC_DEF(WARNING, LEXICAL, IMPLICIT_CONVERSION, "implicit conversion from '%s' to '%s' changes value from %ld to %u"), \
+  DIAGNOSTIC_DEF(WARNING, LEXICAL, IMPLICIT_CONVERSION, "implicit conversion from '%s' to '%s' changes value from %ld to %d"), \
+  DIAGNOSTIC_DEF(WARNING, LEXICAL, SPACE_SEPARATED, "backslash and newline separated by space"), \
+  DIAGNOSTIC_DEF(WARNING, LEXICAL, UNKNOWN_ESCAPED_SEQ, "unknown escape sequence '\\%c'"), \
+  DIAGNOSTIC_DEF(WARNING, LEXICAL, SIGNED_LITERAL_TOO_LARGE, "integer literal is too large to be represented in a signed integer type, interpreting as unsigned"), \
+  DIAGNOSTIC_DEF(ERROR, LEXICAL, UNTERMINATED_COMMENT, "unterminated /* comment"), \
+  DIAGNOSTIC_DEF(ERROR, LEXICAL, UNTERMINATED_CHAR_STRING, "missing terminating '%c' character"), \
+  DIAGNOSTIC_DEF(ERROR, LEXICAL, NO_ESACPED_HEX_DIGITS, "\\x used with no following hex digits"), \
+  DIAGNOSTIC_DEF(ERROR, LEXICAL, INVALID_CONST_SUFFIX, "invalid suffix '%s' on %s constant"), \
+  DIAGNOSTIC_DEF(ERROR, LEXICAL, INVALID_DIGIT_INT, "invalid digit '%c' in %s constant"), \
+  DIAGNOSTIC_DEF(ERROR, LEXICAL, EXP_NO_DIGIT, "exponent has no digits"), \
+  DIAGNOSTIC_DEF(ERROR, LEXICAL, INT_TOO_LARGE, "integer literal is too large to be represented in any integer type"), \
   DIAGNOSTIC_DEF(ERROR, SYNTAX, UNEXPECTED_TOKEN, "unexpected token %tk '%s' instead of %tk"), \
   DIAGNOSTIC_DEF(ERROR, SYNTAX, EXPECTED_TOKEN, "expected token '%tk' instead of '%tk'"), \
   DIAGNOSTIC_DEF(ERROR, SYNTAX, EXPECTED_FUNCTION_DECLARATOR, "Expected function declarator here"), \

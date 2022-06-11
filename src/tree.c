@@ -89,8 +89,8 @@ Boolean isMultiplicative(ExpressionType op) {
   case EB_MUL:
   case EB_DIV:
   case EB_MOD:
-  case EB_AND:
-  case EB_ANDAND:
+//  case EB_AND:
+//  case EB_ANDAND:
       return TRUE;
   default:
       return FALSE;
@@ -153,9 +153,8 @@ AstAttribute *createAttribute(ParserContext *ctx, Coordinates *coords, AstAttrib
 EnumConstant *createEnumConst(ParserContext *ctx, Coordinates *coords, const char* name, int64_const_t value) {
     EnumConstant* result = (EnumConstant*)areanAllocate(ctx->memory.astArena, sizeof(EnumConstant));
 
-    result->coordinates.startOffset = coords->startOffset;
-    result->coordinates.endOffset = coords->endOffset;
-    result->coordinates.locInfo = coords->locInfo;
+    result->coordinates.left = coords->left;
+    result->coordinates.right = coords->right;
 
     result->name = name;
     result->value = value;
@@ -187,9 +186,8 @@ AstStructMember* createStructMember(ParserContext *ctx, AstDeclaration *declarat
 AstStructDeclarator* createStructDeclarator(ParserContext *ctx, Coordinates *coords, TypeRef *type, const char *name, unsigned offset) {
     AstStructDeclarator* result = (AstStructDeclarator*)areanAllocate(ctx->memory.astArena, sizeof(AstStructDeclarator));
 
-    result->coordinates.startOffset = coords->startOffset;
-    result->coordinates.endOffset = coords->endOffset;
-    result->coordinates.locInfo = coords->locInfo;
+    result->coordinates.left = coords->left;
+    result->coordinates.right = coords->right;
 
     result->offset = offset;
 
@@ -202,9 +200,8 @@ AstStructDeclarator* createStructDeclarator(ParserContext *ctx, Coordinates *coo
 AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, Coordinates *coords, DeclarationKind kind, Boolean isDefinition, const char *name, AstStructMember *members, int32_t align) {
     AstSUEDeclaration *result = (AstSUEDeclaration*)areanAllocate(ctx->memory.astArena, sizeof(AstSUEDeclaration));
 
-    result->coordinates.startOffset = coords->startOffset;
-    result->coordinates.endOffset = coords->endOffset;
-    result->coordinates.locInfo = coords->locInfo;
+    result->coordinates.left = coords->left;
+    result->coordinates.right = coords->right;
 
     result->kind = kind;
     result->name = name;
@@ -218,9 +215,8 @@ AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, Coordinates *coords,
 AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, Coordinates *coords, ValueKind kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer) {
     AstValueDeclaration *result = (AstValueDeclaration *)areanAllocate(ctx->memory.astArena, sizeof (AstValueDeclaration));
 
-    result->coordinates.startOffset = coords->startOffset;
-    result->coordinates.endOffset = coords->endOffset;
-    result->coordinates.locInfo = coords->locInfo;
+    result->coordinates.left = coords->left;
+    result->coordinates.right = coords->right;
 
     result->kind = kind;
     result->name = name;
@@ -266,9 +262,8 @@ AstInitializerList *createAstInitializerList(ParserContext *ctx) {
 AstInitializer *createAstInitializer(ParserContext *ctx, Coordinates *coords, InitializerKind kind) {
     AstInitializer* result = (AstInitializer*)areanAllocate(ctx->memory.astArena, sizeof(AstInitializer));
 
-    result->coordinates.startOffset = coords->startOffset;
-    result->coordinates.endOffset = coords->endOffset;
-    result->coordinates.locInfo = coords->locInfo;
+    result->coordinates.left = coords->left;
+    result->coordinates.right = coords->right;
 
     result->kind = kind;
 
@@ -286,9 +281,8 @@ AstFile *createAstFile(ParserContext *ctx) {
 AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, Coordinates *coords, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, Boolean isVariadic) {
   AstFunctionDeclaration *result = (AstFunctionDeclaration *)areanAllocate(ctx->memory.astArena, sizeof(AstFunctionDeclaration));
 
-  result->coordinates.startOffset = coords->startOffset;
-  result->coordinates.endOffset = coords->endOffset;
-  result->coordinates.locInfo = coords->locInfo;
+  result->coordinates.left = coords->left;
+  result->coordinates.right = coords->right;
 
   result->flags.storage = flags;
   result->name = name;
@@ -314,9 +308,8 @@ AstFunctionDefinition *createFunctionDefinition(ParserContext *ctx, AstFunctionD
 static AstExpression *allocAstExpression(ParserContext *ctx, Coordinates *coords) {
   AstExpression *result = (AstExpression *)areanAllocate(ctx->memory.astArena, sizeof(AstExpression));
 
-  result->coordinates.startOffset = coords->startOffset;
-  result->coordinates.endOffset = coords->endOffset;
-  result->coordinates.locInfo = coords->locInfo;
+  result->coordinates.left = coords->left;
+  result->coordinates.right = coords->right;
 
   return result;
 }
@@ -324,9 +317,8 @@ static AstExpression *allocAstExpression(ParserContext *ctx, Coordinates *coords
 static AstStatement *allocAstStatement(ParserContext *ctx, Coordinates *coords) {
   AstStatement *result = (AstStatement *)areanAllocate(ctx->memory.astArena, sizeof(AstStatement));
 
-  result->coordinates.startOffset = coords->startOffset;
-  result->coordinates.endOffset = coords->endOffset;
-  result->coordinates.locInfo = coords->locInfo;
+  result->coordinates.left = coords->left;
+  result->coordinates.right = coords->right;
 
   return result;
 }
@@ -394,7 +386,7 @@ AstExpression *createCastExpression(ParserContext *ctx, Coordinates *coords, Typ
 }
 
 AstExpression *createTernaryExpression(ParserContext *ctx, TypeRef *type, AstExpression *cond, AstExpression *t, AstExpression* f) {
-    Coordinates coords = { cond->coordinates.startOffset, f->coordinates.endOffset, cond->coordinates.locInfo };
+    Coordinates coords = { cond->coordinates.left, f->coordinates.right };
     AstExpression *result = allocAstExpression(ctx, &coords);
     result->op = E_TERNARY;
     result->ternaryExpr.condition = cond;
@@ -405,7 +397,7 @@ AstExpression *createTernaryExpression(ParserContext *ctx, TypeRef *type, AstExp
 }
 
 AstExpression *createBinaryExpression(ParserContext *ctx, ExpressionType op, TypeRef *type, AstExpression *left, AstExpression *right) {
-    Coordinates coords = { left->coordinates.startOffset, right->coordinates.endOffset, left->coordinates.locInfo };
+    Coordinates coords = { left->coordinates.left, right->coordinates.right };
     AstExpression *result = allocAstExpression(ctx, &coords);
     result->op = op;
     result->binaryExpr.left = left;
@@ -424,7 +416,7 @@ AstExpression *createUnaryExpression(ParserContext *ctx, Coordinates *coords, Ex
 AstExpression *createNameRef(ParserContext *ctx, Coordinates *coords, const char *name, Symbol* s) {
     AstExpression *result = allocAstExpression(ctx, coords);
     result->op = E_NAMEREF;
-    result->nameRefExpr.name = name;
+//    result->nameRefExpr.name = name;
     result->nameRefExpr.s = s;
     return result;
 }

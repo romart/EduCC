@@ -363,95 +363,12 @@ static int parseIfHex(char c) {
 }
 
 static void emitStringWithEscaping(Section *section, const char *str) {
+  unsigned idx = 0;
 
-  unsigned i = 0;
-
-  Boolean isHex = FALSE;
-  while (str[i]) {
-      int p = 0;
-      char c = str[i++];
-      if (c == '\\') {
-        char c2 = str[i++];
-        char toEmit = -1;
-        if (!c2) {
-            emitSectionByte(section, c);
-            --i;
-            continue;
-        }
-        char c3, c4;
-        switch (c2) {
-          case '0':
-            toEmit = 0;
-            c3 = str[i++];
-            if (c3 && '0' <= c3 && c3 <= '7') {
-              toEmit = c3 - '0';
-              c4 = str[i++];
-              if (c4 && '0' <= c4 && c4 <= '7') {
-                  toEmit = toEmit * 8 + (c4 - '0');
-              } else {
-                  --i;
-              }
-            } else {
-                --i;
-            }
-            break;
-          case 'a':
-            toEmit = '\a';
-            break;
-          case 'b':
-            toEmit = '\b';
-            break;
-          case 'f':
-            toEmit = '\f';
-            break;
-          case 'n':
-            toEmit = '\n';
-            break;
-          case 'r':
-            toEmit = '\r';
-            break;
-          case 't':
-            toEmit = '\t';
-            break;
-          case 'v':
-            toEmit = '\v';
-            break;
-          case '\'':
-            toEmit = '\'';
-            break;
-          case '\"':
-            toEmit = '\"';
-            break;
-          case '?':
-            toEmit = '\?';
-            break;
-          case 'x':
-            toEmit = 0;
-            c3 = str[i++];
-            p = parseIfHex(c3);
-            if (p >= 0) {
-              toEmit = p;
-              c4 = str[i++];
-              p = parseIfHex(c4);
-              if (c4 >= 0) {
-                  toEmit = toEmit * 16 + p;
-              } else {
-                  --i;
-              }
-            } else {
-                --i;
-            }
-            break;
-          case '\\':
-          default:
-            toEmit = '\\';
-            break;
-        }
-        emitSectionByte(section, toEmit);
-      } else {
-        emitSectionByte(section, c);
-      }
+  while (str[idx]) {
+      emitSectionByte(section, str[idx++]);
   }
+
   emitSectionByte(section, '\0');
 }
 
@@ -688,7 +605,7 @@ static void collectRelocAndAdent(AstExpression *expr, Relocation *reloc) {
   case EU_REF: return collectRelocAndAdent(expr->unaryExpr.argument, reloc);
   case E_NAMEREF:
       reloc->symbolData.symbol = expr->nameRefExpr.s;
-      reloc->symbolData.symbolName = expr->nameRefExpr.name;
+      reloc->symbolData.symbolName = expr->nameRefExpr.s->name;
       return;
 //  case EU_MINUS: return FALSE;
   case EB_ADD:
@@ -1642,7 +1559,7 @@ static Boolean generateAlloca(GenerationContext *ctx, GeneratedFunction *f, Scop
   AstExpression *callee = expression->callExpr.callee;
 
   if (callee->op != E_NAMEREF) return FALSE;
-  if (strcmp("alloca", callee->nameRefExpr.name)) return FALSE;
+  if (strcmp("alloca", callee->nameRefExpr.s->name)) return FALSE;
 
   const int32_t dataSize = sizeof(intptr_t);
   // alloca algo consts of three steps:
