@@ -48,7 +48,7 @@ typedef struct _Diagnostic {
   const DiagnosticDescriptor *descriptor;
 
   struct {
-    const char *file;
+    struct _LocationInfo *locInfo;
     int lineStartOffset;
     int lineStart;
     int colStart;

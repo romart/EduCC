@@ -227,15 +227,20 @@ void reportDiagnostic(ParserContext *ctx, enum DiagnosticId diag, const Coordina
   if (location) {
     Token *origLeft = originaToken(location->left);
     Token *origRight = originaToken(location->right);
+    LocationInfo *locInfo = origLeft->locInfo;
+    ptrdiff_t startOffset = origLeft->pos - locInfo->buffer;
+    ptrdiff_t endOffset = origRight->pos - locInfo->buffer + origRight->length;
+
+    newDiagnostic->location.locInfo = origLeft->locInfo;
 
     if (origLeft->locInfo->kind == LIK_FILE && origLeft->locInfo == origRight->locInfo) {
-      LocationInfo *locInfo = origLeft->locInfo;
-      ptrdiff_t startOffset = origLeft->pos - locInfo->buffer;
-      ptrdiff_t endOffset = origRight->pos - locInfo->buffer + origRight->length;
-
-      newDiagnostic->location.file = locInfo->fileInfo.fileName;
       computeLineAndCollumn(ctx, locInfo, startOffset, &newDiagnostic->location.lineStart, &newDiagnostic->location.colStart, &newDiagnostic->location.lineStartOffset);
       computeLineAndCollumn(ctx, locInfo, endOffset, &newDiagnostic->location.lineEnd, &newDiagnostic->location.colEnd, &newDiagnostic->location.lineEndOffset);
+    } else {
+      newDiagnostic->location.lineStart = newDiagnostic->location.lineEnd = 1;
+      newDiagnostic->location.lineStartOffset = newDiagnostic->location.lineEndOffset = 0;
+      newDiagnostic->location.colStart = startOffset;
+      newDiagnostic->location.colEnd = endOffset;
     }
   }
 
@@ -260,20 +265,23 @@ static void printVerboseDiagnostic(FILE *output, Diagnostic *diagnostic) {
   const char *typeColor = severity->isError ? ANSI_COLOR_RED : ANSI_COLOR_PURPLE;
   int lineStart = diagnostic->location.lineStart;
 
+  LocationInfo *locInfo = diagnostic->location.locInfo;
+
   if (lineStart >= 0 && lineStart == diagnostic->location.lineEnd) {
     fprintf(output, "\n%5d | ", lineStart);
 
-    FILE *file = fopen(diagnostic->location.file, "r");
-    fseek(file, diagnostic->location.lineStartOffset, SEEK_SET);
-
     int outputCount = 0;
+
+    const char *lineBuffer = &locInfo->buffer[diagnostic->location.lineStartOffset];
 
     int startHightLight = diagnostic->location.colStart - 1;
     int endHightLight = diagnostic->location.colEnd - 1;
 
-    while (!feof(file)) {
-        int c = fgetc(file);
-        if (c && c != '\n') {
+    unsigned idx = 0;
+
+    while (lineBuffer[idx]) {
+        char c = lineBuffer[idx++];
+        if (c != '\n') {
             if (outputCount == startHightLight) {
               if (toTerminal) {
                   fprintf(output, "%s%s", ANSI_COLOR_BOLD, typeColor);
@@ -295,8 +303,6 @@ static void printVerboseDiagnostic(FILE *output, Diagnostic *diagnostic) {
             break;
         }
     }
-
-    fclose(file);
 
     int underlineCount = 0;
     fprintf(output, "\n      | ");
@@ -337,7 +343,13 @@ void printDiagnostic(FILE *output, Diagnostic *diagnostic, Boolean verbose) {
       fprintf(output, ANSI_COLOR_BOLD);
   }
 
-  fprintf(output, "%s:", diagnostic->location.file);
+  LocationInfo *locInfo = diagnostic->location.locInfo;
+
+  if (locInfo->kind == LIK_FILE) {
+    fprintf(output, "%s:", locInfo->fileInfo.fileName);
+  } else {
+    fprintf(output, "#macro:");
+  }
 
   if (diagnostic->location.lineStart >= 0) {
       fprintf(output, "%d:%d:", diagnostic->location.colStart, diagnostic->location.lineStart);
