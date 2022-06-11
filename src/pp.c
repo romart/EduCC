@@ -872,6 +872,59 @@ static MacroParam *parseVarargParam(ParserContext *ctx, Token *n, Token **next) 
   return p;
 }
 
+static Boolean cmpMacroses(MacroDefinition *old, MacroDefinition *new) {
+  if (old->isFunctional != new->isFunctional) return TRUE;
+  if (old->isVararg != new->isVararg) return TRUE;
+  if (old->body && !new->body || !old->body && new->body) return TRUE;
+
+  if (old->isFunctional) {
+      MacroParam *oldP = old->params;
+      MacroParam *newP = new->params;
+      while (oldP && newP) {
+          if (oldP->isVararg != new->isVararg) return TRUE;
+          if (strcmp(oldP->name, newP->name)) return TRUE;
+          oldP = oldP->next;
+          newP = newP->next;
+      }
+
+      if (oldP != newP) return TRUE;
+  }
+
+  Token *oldB = old->body;
+  Token *newB = new->body;
+
+  const char *oldPtr = NULL;
+  const char *newPtr = NULL;
+
+  while (oldB && newB) {
+      if (oldB->hasLeadingSpace != newB->hasLeadingSpace) return TRUE;
+      if (oldB->startOfLine != newB->startOfLine) return TRUE;
+
+      if (oldB->length != newB->length) return TRUE;
+
+      if (oldPtr) {
+          // #define x(y) y + y
+          //   vs
+          // #define x(y) y   +   y
+          // gcc/clang say they are different
+          ptrdiff_t oldD = oldB->pos - oldPtr;
+          ptrdiff_t newD = newB->pos - newPtr;
+
+          if (oldD != newD) return TRUE;
+      }
+
+      if (strncmp(oldB->pos, newB->pos, newB->length)) return TRUE;
+
+      oldPtr = oldB->pos + oldB->length;
+      newPtr = newB->pos + newB->length;
+
+      oldB = oldB->next;
+      newB = newB->next;
+  }
+
+  return oldB != newB;
+}
+
 static Token *defineMacro(ParserContext *ctx, Token *token) {
 
   Coordinates coords = { token, token };
@@ -962,7 +1015,9 @@ static Token *defineMacro(ParserContext *ctx, Token *token) {
   if (old) {
       // TODO: support proper comparison and do not report if bodies are equal
       // Now temporary silenced to make tests work
-//      reportDiagnostic(ctx, DIAG_PP_MACRO_REDEFINED, &token->coordinates, macroName);
+      if (cmpMacroses((MacroDefinition*)old, def)) {
+        reportDiagnostic(ctx, DIAG_PP_MACRO_REDEFINED, &coords, macroName);
+      }
   }
 
   return tail;
