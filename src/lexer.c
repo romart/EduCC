@@ -4,7 +4,6 @@
 #include "parser.h"
 #include "sema.h"
 #include "pp.h"
-#include "lex.h"
 
 static int isalfanum(char c) {
   return '0' <= c && c <= '9' || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z';

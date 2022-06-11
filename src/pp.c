@@ -10,7 +10,6 @@
 
 #include "pp.h"
 #include "parser.h"
-#include "lex.h"
 #include "tree.h"
 
 int isspace(int c);

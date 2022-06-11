@@ -3,7 +3,6 @@
 #include <assert.h>
 
 #include "tokens.h"
-#include "lex.h"
 #include "tree.h"
 #include "pp.h"
 #include "parser.h"
