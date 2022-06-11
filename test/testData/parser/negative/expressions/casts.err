@@ -1,31 +1,31 @@
-test/testData/parser/negative/expressions/casts.c:3:19: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:20: error: used type 'STRUCT X' where arithmetic or pointer type is required
-test/testData/parser/negative/expressions/casts.c:3:20: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:22: error: operand of type 'STRUCT S' where arithmetic or pointer type is required
-test/testData/parser/negative/expressions/casts.c:3:22: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:23: error: operand of type 'STRUCT X' where arithmetic or pointer type is required
-test/testData/parser/negative/expressions/casts.c:3:23: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:25: error: operand of type 'STRUCT X' where arithmetic or pointer type is required
-test/testData/parser/negative/expressions/casts.c:3:25: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:26: error: operand of type 'STRUCT S' where arithmetic or pointer type is required
-test/testData/parser/negative/expressions/casts.c:3:26: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:28: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:29: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:30: error: cast to union type from type 'STRUCT X' not present in union
-test/testData/parser/negative/expressions/casts.c:3:30: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:31: error: cast to union type from type 'float' not present in union
-test/testData/parser/negative/expressions/casts.c:3:31: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:32: error: cast to union type from type 'signed long' not present in union
-test/testData/parser/negative/expressions/casts.c:3:32: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:33: error: cast to union type from type 'signed char' not present in union
-test/testData/parser/negative/expressions/casts.c:3:33: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:35: error: pointer cannot be cast to type 'float'
-test/testData/parser/negative/expressions/casts.c:3:35: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:36: error: operand of type 'float' cannot be cast to a pointer type
-test/testData/parser/negative/expressions/casts.c:3:36: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:38: error: used type 'STRUCT S' where arithmetic or pointer type is required
-test/testData/parser/negative/expressions/casts.c:3:38: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:40: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:41: warning: expression result unused
-test/testData/parser/negative/expressions/casts.c:3:43: error: used type 'signed int[20]' where arithmetic or pointer type is required
-test/testData/parser/negative/expressions/casts.c:3:43: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:19:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:20:3: error: used type 'STRUCT X' where arithmetic or pointer type is required
+test/testData/parser/negative/expressions/casts.c:20:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:22:3: error: operand of type 'STRUCT S' where arithmetic or pointer type is required
+test/testData/parser/negative/expressions/casts.c:22:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:23:3: error: operand of type 'STRUCT X' where arithmetic or pointer type is required
+test/testData/parser/negative/expressions/casts.c:23:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:25:3: error: operand of type 'STRUCT X' where arithmetic or pointer type is required
+test/testData/parser/negative/expressions/casts.c:25:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:26:3: error: operand of type 'STRUCT S' where arithmetic or pointer type is required
+test/testData/parser/negative/expressions/casts.c:26:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:28:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:29:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:30:3: error: cast to union type from type 'STRUCT X' not present in union
+test/testData/parser/negative/expressions/casts.c:30:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:31:3: error: cast to union type from type 'float' not present in union
+test/testData/parser/negative/expressions/casts.c:31:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:32:3: error: cast to union type from type 'signed long' not present in union
+test/testData/parser/negative/expressions/casts.c:32:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:33:3: error: cast to union type from type 'signed char' not present in union
+test/testData/parser/negative/expressions/casts.c:33:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:35:3: error: pointer cannot be cast to type 'float'
+test/testData/parser/negative/expressions/casts.c:35:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:36:3: error: operand of type 'float' cannot be cast to a pointer type
+test/testData/parser/negative/expressions/casts.c:36:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:38:3: error: used type 'STRUCT S' where arithmetic or pointer type is required
+test/testData/parser/negative/expressions/casts.c:38:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:40:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:41:3: warning: expression result unused
+test/testData/parser/negative/expressions/casts.c:43:3: error: used type 'signed int[20]' where arithmetic or pointer type is required
+test/testData/parser/negative/expressions/casts.c:43:3: warning: expression result unused

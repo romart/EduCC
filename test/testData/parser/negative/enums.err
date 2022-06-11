@@ -1,4 +1,4 @@
-test/testData/parser/negative/enums.c:1:4: error: use of empty enum
-test/testData/parser/negative/enums.c:3:8: error: Expecting IDENTIFIER in enum list but found =
-test/testData/parser/negative/enums.c:3:15: error: Expecting IDENTIFIER in enum list but found ,
-test/testData/parser/negative/enums.c:3:16: error: Expecting IDENTIFIER in enum list but found ,
+test/testData/parser/negative/enums.c:4:1: error: use of empty enum
+test/testData/parser/negative/enums.c:8:3: error: Expecting IDENTIFIER in enum list but found =
+test/testData/parser/negative/enums.c:15:3: error: Expecting IDENTIFIER in enum list but found ,
+test/testData/parser/negative/enums.c:16:3: error: Expecting IDENTIFIER in enum list but found ,

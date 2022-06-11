@@ -1,1 +1,1 @@
-test/testData/parser/positive/unions.c:4:34: warning: declaration does not declare anything
+test/testData/parser/positive/unions.c:34:4: warning: declaration does not declare anything

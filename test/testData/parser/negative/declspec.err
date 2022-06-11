@@ -1,24 +1,24 @@
-test/testData/parser/negative/declspec.c:8:3: error: duplicate 'static' declaration specifier
-test/testData/parser/negative/declspec.c:8:4: error: cannot combine with previous 'extern' declaration specifier
-test/testData/parser/negative/declspec.c:9:5: error: cannot combine with previous 'typedef' declaration specifier
-test/testData/parser/negative/declspec.c:12:10: error: duplicate 'register' declaration specifier
-test/testData/parser/negative/declspec.c:10:11: error: cannot combine with previous 'static' declaration specifier
+test/testData/parser/negative/declspec.c:3:8: error: duplicate 'static' declaration specifier
+test/testData/parser/negative/declspec.c:4:8: error: cannot combine with previous 'extern' declaration specifier
+test/testData/parser/negative/declspec.c:5:9: error: cannot combine with previous 'typedef' declaration specifier
+test/testData/parser/negative/declspec.c:10:12: error: duplicate 'register' declaration specifier
+test/testData/parser/negative/declspec.c:11:10: error: cannot combine with previous 'static' declaration specifier
 test/testData/parser/negative/declspec.c:12:12: error: cannot combine with previous 'register' declaration specifier
-test/testData/parser/negative/declspec.c:14:15: warning: duplicate 'CONST' declaration specifier
-test/testData/parser/negative/declspec.c:10:17: error: cannot combine with previous 'unsigned' declaration specifier
-test/testData/parser/negative/declspec.c:8:18: error: cannot combine with previous 'signed' declaration specifier
-test/testData/parser/negative/declspec.c:7:20: error: cannot combine with previous 'short' declaration specifier
-test/testData/parser/negative/declspec.c:16:20: error: 'short int' is invalid
-test/testData/parser/negative/declspec.c:6:21: error: cannot combine with previous 'long' declaration specifier
-test/testData/parser/negative/declspec.c:16:21: error: 'long int' is invalid
-test/testData/parser/negative/declspec.c:11:23: error: cannot combine with previous 'long long' declaration specifier
-test/testData/parser/negative/declspec.c:21:23: error: 'long long int' is invalid
-test/testData/parser/negative/declspec.c:7:24: error: cannot combine with previous 'short' declaration specifier
-test/testData/parser/negative/declspec.c:21:24: error: 'short int' is invalid
-test/testData/parser/negative/declspec.c:6:26: error: cannot combine with previous 'long' declaration specifier
-test/testData/parser/negative/declspec.c:21:26: error: 'long int' is invalid
-test/testData/parser/negative/declspec.c:14:28: warning: duplicate 'VOLATILE' declaration specifier
-test/testData/parser/negative/declspec.c:6:30: error: cannot combine with previous 'void' declaration specifier
-test/testData/parser/negative/declspec.c:8:31: error: cannot combine with previous 'double' declaration specifier
-test/testData/parser/negative/declspec.c:5:32: error: cannot combine with previous 'int' declaration specifier
-test/testData/parser/negative/declspec.c:6:34: error: cannot combine with previous 'void' declaration specifier
+test/testData/parser/negative/declspec.c:15:14: warning: duplicate 'CONST' declaration specifier
+test/testData/parser/negative/declspec.c:17:10: error: cannot combine with previous 'unsigned' declaration specifier
+test/testData/parser/negative/declspec.c:18:8: error: cannot combine with previous 'signed' declaration specifier
+test/testData/parser/negative/declspec.c:20:7: error: cannot combine with previous 'short' declaration specifier
+test/testData/parser/negative/declspec.c:20:16: error: 'short int' is invalid
+test/testData/parser/negative/declspec.c:21:6: error: cannot combine with previous 'long' declaration specifier
+test/testData/parser/negative/declspec.c:21:16: error: 'long int' is invalid
+test/testData/parser/negative/declspec.c:23:11: error: cannot combine with previous 'long long' declaration specifier
+test/testData/parser/negative/declspec.c:23:21: error: 'long long int' is invalid
+test/testData/parser/negative/declspec.c:24:7: error: cannot combine with previous 'short' declaration specifier
+test/testData/parser/negative/declspec.c:24:21: error: 'short int' is invalid
+test/testData/parser/negative/declspec.c:26:6: error: cannot combine with previous 'long' declaration specifier
+test/testData/parser/negative/declspec.c:26:21: error: 'long int' is invalid
+test/testData/parser/negative/declspec.c:28:14: warning: duplicate 'VOLATILE' declaration specifier
+test/testData/parser/negative/declspec.c:30:6: error: cannot combine with previous 'void' declaration specifier
+test/testData/parser/negative/declspec.c:31:8: error: cannot combine with previous 'double' declaration specifier
+test/testData/parser/negative/declspec.c:32:5: error: cannot combine with previous 'int' declaration specifier
+test/testData/parser/negative/declspec.c:34:6: error: cannot combine with previous 'void' declaration specifier

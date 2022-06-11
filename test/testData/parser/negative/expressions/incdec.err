@@ -1,24 +1,24 @@
-test/testData/parser/negative/expressions/incdec.c:3:33: error: cannot increment value of type 'STRUCT S'
-test/testData/parser/negative/expressions/incdec.c:3:34: error: cannot decrement value of type 'STRUCT S'
-test/testData/parser/negative/expressions/incdec.c:3:35: error: cannot increment value of type 'STRUCT S'
-test/testData/parser/negative/expressions/incdec.c:3:36: error: cannot decrement value of type 'STRUCT S'
-test/testData/parser/negative/expressions/incdec.c:3:38: error: cannot increment value of type 'signed int[10]'
-test/testData/parser/negative/expressions/incdec.c:3:39: error: cannot decrement value of type 'signed int[10]'
-test/testData/parser/negative/expressions/incdec.c:3:40: error: cannot decrement value of type 'signed int[10]'
-test/testData/parser/negative/expressions/incdec.c:3:41: error: cannot increment value of type 'signed int[10]'
-test/testData/parser/negative/expressions/incdec.c:3:43: error: cannot increment value of type 'C signed int'
-test/testData/parser/negative/expressions/incdec.c:3:44: error: cannot decrement value of type 'C signed int'
-test/testData/parser/negative/expressions/incdec.c:3:45: error: cannot increment value of type 'C signed int'
-test/testData/parser/negative/expressions/incdec.c:3:46: error: cannot decrement value of type 'C signed int'
-test/testData/parser/negative/expressions/incdec.c:3:58: warning: expression result unused
-test/testData/parser/negative/expressions/incdec.c:3:59: warning: expression result unused
-test/testData/parser/negative/expressions/incdec.c:3:62: warning: expression result unused
-test/testData/parser/negative/expressions/incdec.c:3:63: warning: expression result unused
-test/testData/parser/negative/expressions/incdec.c:10:70: error: expression is not assignable
-test/testData/parser/negative/expressions/incdec.c:3:71: error: expression is not assignable
-test/testData/parser/negative/expressions/incdec.c:3:73: error: cannot take the address of an rvalue of type 'signed int'
-test/testData/parser/negative/expressions/incdec.c:3:73: warning: expression result unused
-test/testData/parser/negative/expressions/incdec.c:3:74: error: expression is not assignable
-test/testData/parser/negative/expressions/incdec.c:7:75: error: expression is not assignable
-test/testData/parser/negative/expressions/incdec.c:3:77: error: arithmetic on a pointer to an incomplete type '*STRUCT Incomplete'
-test/testData/parser/negative/expressions/incdec.c:3:78: error: arithmetic on a pointer to an incomplete type '*STRUCT Incomplete'
+test/testData/parser/negative/expressions/incdec.c:33:3: error: cannot increment value of type 'STRUCT S'
+test/testData/parser/negative/expressions/incdec.c:34:3: error: cannot decrement value of type 'STRUCT S'
+test/testData/parser/negative/expressions/incdec.c:35:3: error: cannot increment value of type 'STRUCT S'
+test/testData/parser/negative/expressions/incdec.c:36:3: error: cannot decrement value of type 'STRUCT S'
+test/testData/parser/negative/expressions/incdec.c:38:3: error: cannot increment value of type 'signed int[10]'
+test/testData/parser/negative/expressions/incdec.c:39:3: error: cannot decrement value of type 'signed int[10]'
+test/testData/parser/negative/expressions/incdec.c:40:3: error: cannot decrement value of type 'signed int[10]'
+test/testData/parser/negative/expressions/incdec.c:41:3: error: cannot increment value of type 'signed int[10]'
+test/testData/parser/negative/expressions/incdec.c:43:3: error: cannot increment value of type 'C signed int'
+test/testData/parser/negative/expressions/incdec.c:44:3: error: cannot decrement value of type 'C signed int'
+test/testData/parser/negative/expressions/incdec.c:45:3: error: cannot increment value of type 'C signed int'
+test/testData/parser/negative/expressions/incdec.c:46:3: error: cannot decrement value of type 'C signed int'
+test/testData/parser/negative/expressions/incdec.c:58:3: warning: expression result unused
+test/testData/parser/negative/expressions/incdec.c:59:3: warning: expression result unused
+test/testData/parser/negative/expressions/incdec.c:62:3: warning: expression result unused
+test/testData/parser/negative/expressions/incdec.c:63:3: warning: expression result unused
+test/testData/parser/negative/expressions/incdec.c:70:10: error: expression is not assignable
+test/testData/parser/negative/expressions/incdec.c:71:3: error: expression is not assignable
+test/testData/parser/negative/expressions/incdec.c:73:3: error: cannot take the address of an rvalue of type 'signed int'
+test/testData/parser/negative/expressions/incdec.c:73:3: warning: expression result unused
+test/testData/parser/negative/expressions/incdec.c:74:3: error: expression is not assignable
+test/testData/parser/negative/expressions/incdec.c:75:7: error: expression is not assignable
+test/testData/parser/negative/expressions/incdec.c:77:3: error: arithmetic on a pointer to an incomplete type '*STRUCT Incomplete'
+test/testData/parser/negative/expressions/incdec.c:78:3: error: arithmetic on a pointer to an incomplete type '*STRUCT Incomplete'

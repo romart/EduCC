@@ -1,6 +1,6 @@
-test/testData/parser/negative/statements/continue.c:3:5: error: 'continue' statement not in loop statement
-test/testData/parser/negative/statements/continue.c:3:11: error: 'continue' statement not in loop statement
-test/testData/parser/negative/statements/continue.c:3:16: error: 'continue' statement not in loop statement
-test/testData/parser/negative/statements/continue.c:3:22: error: 'continue' statement not in loop statement
-test/testData/parser/negative/statements/continue.c:3:26: error: 'continue' statement not in loop statement
-test/testData/parser/negative/statements/continue.c:3:34: error: 'continue' statement not in loop statement
+test/testData/parser/negative/statements/continue.c:5:3: error: 'continue' statement not in loop statement
+test/testData/parser/negative/statements/continue.c:11:3: error: 'continue' statement not in loop statement
+test/testData/parser/negative/statements/continue.c:16:3: error: 'continue' statement not in loop statement
+test/testData/parser/negative/statements/continue.c:22:3: error: 'continue' statement not in loop statement
+test/testData/parser/negative/statements/continue.c:26:3: error: 'continue' statement not in loop statement
+test/testData/parser/negative/statements/continue.c:34:3: error: 'continue' statement not in loop statement

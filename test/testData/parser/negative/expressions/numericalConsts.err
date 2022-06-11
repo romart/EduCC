@@ -1,28 +1,28 @@
-test/testData/parser/negative/expressions/numericalConsts.c:13:3: warning: multi-character character constant
-test/testData/parser/negative/expressions/numericalConsts.c:13:4: warning: multi-character character constant
-test/testData/parser/negative/expressions/numericalConsts.c:13:5: warning: multi-character character constant
-test/testData/parser/negative/expressions/numericalConsts.c:13:6: warning: multi-character character constant
-test/testData/parser/negative/expressions/numericalConsts.c:13:7: warning: Integer overflow
-test/testData/parser/negative/expressions/numericalConsts.c:13:7: error: octal escape sequence out of range
-test/testData/parser/negative/expressions/numericalConsts.c:13:9: warning: multi-character character constant
-test/testData/parser/negative/expressions/numericalConsts.c:14:12: warning: unknown escape sequence '\c'
-test/testData/parser/negative/expressions/numericalConsts.c:14:13: warning: unknown escape sequence '\d'
+test/testData/parser/negative/expressions/numericalConsts.c:3:13: warning: multi-character character constant
+test/testData/parser/negative/expressions/numericalConsts.c:4:13: warning: multi-character character constant
+test/testData/parser/negative/expressions/numericalConsts.c:5:13: warning: multi-character character constant
+test/testData/parser/negative/expressions/numericalConsts.c:6:13: warning: multi-character character constant
+test/testData/parser/negative/expressions/numericalConsts.c:7:13: warning: Integer overflow
+test/testData/parser/negative/expressions/numericalConsts.c:7:13: error: octal escape sequence out of range
+test/testData/parser/negative/expressions/numericalConsts.c:9:13: warning: multi-character character constant
+test/testData/parser/negative/expressions/numericalConsts.c:12:14: warning: unknown escape sequence '\c'
+test/testData/parser/negative/expressions/numericalConsts.c:13:14: warning: unknown escape sequence '\d'
 test/testData/parser/negative/expressions/numericalConsts.c:14:14: warning: unknown escape sequence '\e'
-test/testData/parser/negative/expressions/numericalConsts.c:13:16: warning: unknown escape sequence '\g'
-test/testData/parser/negative/expressions/numericalConsts.c:12:20: warning: multi-character character constant
-test/testData/parser/negative/expressions/numericalConsts.c:12:21: warning: multi-character character constant
-test/testData/parser/negative/expressions/numericalConsts.c:12:22: warning: multi-character character constant
-test/testData/parser/negative/expressions/numericalConsts.c:12:23: warning: multi-character character constant
-test/testData/parser/negative/expressions/numericalConsts.c:12:24: warning: Integer overflow
-test/testData/parser/negative/expressions/numericalConsts.c:12:24: error: octal escape sequence out of range
-test/testData/parser/negative/expressions/numericalConsts.c:12:26: warning: multi-character character constant
-test/testData/parser/negative/expressions/numericalConsts.c:12:27: warning: unknown escape sequence '\j'
-test/testData/parser/negative/expressions/numericalConsts.c:23:42: error: integer literal is too large to be represented in any integer type
-test/testData/parser/negative/expressions/numericalConsts.c:23:43: error: integer literal is too large to be represented in any integer type
-test/testData/parser/negative/expressions/numericalConsts.c:23:44: error: integer literal is too large to be represented in any integer type
-test/testData/parser/negative/expressions/numericalConsts.c:23:45: error: integer literal is too large to be represented in any integer type
-test/testData/parser/negative/expressions/numericalConsts.c:23:46: error: integer literal is too large to be represented in any integer type
-test/testData/parser/negative/expressions/numericalConsts.c:23:47: error: integer literal is too large to be represented in any integer type
-test/testData/parser/negative/expressions/numericalConsts.c:29:52: error: integer literal is too large to be represented in any integer type
-test/testData/parser/negative/expressions/numericalConsts.c:29:55: error: integer literal is too large to be represented in any integer type
-test/testData/parser/negative/expressions/numericalConsts.c:29:59: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:16:13: warning: unknown escape sequence '\g'
+test/testData/parser/negative/expressions/numericalConsts.c:20:12: warning: multi-character character constant
+test/testData/parser/negative/expressions/numericalConsts.c:21:12: warning: multi-character character constant
+test/testData/parser/negative/expressions/numericalConsts.c:22:12: warning: multi-character character constant
+test/testData/parser/negative/expressions/numericalConsts.c:23:12: warning: multi-character character constant
+test/testData/parser/negative/expressions/numericalConsts.c:24:12: warning: Integer overflow
+test/testData/parser/negative/expressions/numericalConsts.c:24:12: error: octal escape sequence out of range
+test/testData/parser/negative/expressions/numericalConsts.c:26:12: warning: multi-character character constant
+test/testData/parser/negative/expressions/numericalConsts.c:27:12: warning: unknown escape sequence '\j'
+test/testData/parser/negative/expressions/numericalConsts.c:42:23: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:43:23: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:44:23: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:45:23: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:46:23: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:47:23: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:52:29: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:55:29: error: integer literal is too large to be represented in any integer type
+test/testData/parser/negative/expressions/numericalConsts.c:59:29: error: integer literal is too large to be represented in any integer type

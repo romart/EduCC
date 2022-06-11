@@ -1,53 +1,53 @@
-test/testData/parser/negative/expressions/unaryOps.c:3:17: error: address of register variable requested
-test/testData/parser/negative/expressions/unaryOps.c:4:17: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:4:18: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:4:19: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:4:20: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:4:21: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:4:22: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:4:23: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:4:24: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:4:25: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:30: error: indirection requires pointer operand ('signed int' invalid)
-test/testData/parser/negative/expressions/unaryOps.c:3:31: error: indirection requires pointer operand ('float' invalid)
-test/testData/parser/negative/expressions/unaryOps.c:3:32: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:33: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:34: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:35: error: indirection requires pointer operand ('STRUCT S' invalid)
-test/testData/parser/negative/expressions/unaryOps.c:3:36: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:42: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:43: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:44: error: invalid argument type '*signed int' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:45: error: invalid argument type '*float' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:46: error: invalid argument type 'signed int[20]' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:47: error: invalid argument type 'STRUCT S' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:48: error: invalid argument type '*STRUCT S' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:49: error: invalid argument type '*void' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:54: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:55: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:56: error: invalid argument type '*signed int' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:57: error: invalid argument type '*float' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:58: error: invalid argument type 'signed int[20]' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:59: error: invalid argument type 'STRUCT S' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:60: error: invalid argument type '*STRUCT S' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:61: error: invalid argument type '*void' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:66: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:67: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:68: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:69: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:70: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:71: error: invalid argument type 'STRUCT S' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:72: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:73: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:78: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:3:79: error: invalid argument type 'float' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:80: error: invalid argument type '*signed int' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:81: error: invalid argument type '*float' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:82: error: invalid argument type 'signed int[20]' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:83: error: invalid argument type 'STRUCT S' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:84: error: invalid argument type '*STRUCT S' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:85: error: invalid argument type '*void' to unary expression
-test/testData/parser/negative/expressions/unaryOps.c:3:94: error: cannot increment value of type 'signed int[20]'
-test/testData/parser/negative/expressions/unaryOps.c:3:95: error: cannot increment value of type 'STRUCT S'
-test/testData/parser/negative/expressions/unaryOps.c:3:106: error: cannot decrement value of type 'signed int[20]'
-test/testData/parser/negative/expressions/unaryOps.c:3:107: error: cannot decrement value of type 'STRUCT S'
+test/testData/parser/negative/expressions/unaryOps.c:17:3: error: address of register variable requested
+test/testData/parser/negative/expressions/unaryOps.c:17:4: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:18:4: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:19:4: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:20:4: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:21:4: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:22:4: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:23:4: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:24:4: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:25:4: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:30:3: error: indirection requires pointer operand ('signed int' invalid)
+test/testData/parser/negative/expressions/unaryOps.c:31:3: error: indirection requires pointer operand ('float' invalid)
+test/testData/parser/negative/expressions/unaryOps.c:32:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:33:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:34:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:35:3: error: indirection requires pointer operand ('STRUCT S' invalid)
+test/testData/parser/negative/expressions/unaryOps.c:36:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:42:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:43:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:44:3: error: invalid argument type '*signed int' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:45:3: error: invalid argument type '*float' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:46:3: error: invalid argument type 'signed int[20]' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:47:3: error: invalid argument type 'STRUCT S' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:48:3: error: invalid argument type '*STRUCT S' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:49:3: error: invalid argument type '*void' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:54:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:55:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:56:3: error: invalid argument type '*signed int' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:57:3: error: invalid argument type '*float' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:58:3: error: invalid argument type 'signed int[20]' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:59:3: error: invalid argument type 'STRUCT S' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:60:3: error: invalid argument type '*STRUCT S' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:61:3: error: invalid argument type '*void' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:66:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:67:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:68:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:69:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:70:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:71:3: error: invalid argument type 'STRUCT S' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:72:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:73:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:78:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:79:3: error: invalid argument type 'float' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:80:3: error: invalid argument type '*signed int' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:81:3: error: invalid argument type '*float' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:82:3: error: invalid argument type 'signed int[20]' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:83:3: error: invalid argument type 'STRUCT S' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:84:3: error: invalid argument type '*STRUCT S' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:85:3: error: invalid argument type '*void' to unary expression
+test/testData/parser/negative/expressions/unaryOps.c:94:3: error: cannot increment value of type 'signed int[20]'
+test/testData/parser/negative/expressions/unaryOps.c:95:3: error: cannot increment value of type 'STRUCT S'
+test/testData/parser/negative/expressions/unaryOps.c:106:3: error: cannot decrement value of type 'signed int[20]'
+test/testData/parser/negative/expressions/unaryOps.c:107:3: error: cannot decrement value of type 'STRUCT S'

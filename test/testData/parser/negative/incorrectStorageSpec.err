@@ -1,7 +1,7 @@
-test/testData/parser/negative/incorrectStorageSpec.c:1:2: error: illegal storage class on file-scoped variable
-test/testData/parser/negative/incorrectStorageSpec.c:12:5: error: type name does not allow storage class to be specified
-test/testData/parser/negative/incorrectStorageSpec.c:12:6: error: type name does not allow storage class to be specified
-test/testData/parser/negative/incorrectStorageSpec.c:12:7: error: type name does not allow storage class to be specified
-test/testData/parser/negative/incorrectStorageSpec.c:12:8: error: type name does not allow storage class to be specified
-test/testData/parser/negative/incorrectStorageSpec.c:12:11: error: invalid storage class specifier in function declarator
-test/testData/parser/negative/incorrectStorageSpec.c:28:11: error: invalid storage class specifier in function declarator
+test/testData/parser/negative/incorrectStorageSpec.c:2:1: error: illegal storage class on file-scoped variable
+test/testData/parser/negative/incorrectStorageSpec.c:5:12: error: type name does not allow storage class to be specified
+test/testData/parser/negative/incorrectStorageSpec.c:6:12: error: type name does not allow storage class to be specified
+test/testData/parser/negative/incorrectStorageSpec.c:7:12: error: type name does not allow storage class to be specified
+test/testData/parser/negative/incorrectStorageSpec.c:8:12: error: type name does not allow storage class to be specified
+test/testData/parser/negative/incorrectStorageSpec.c:11:12: error: invalid storage class specifier in function declarator
+test/testData/parser/negative/incorrectStorageSpec.c:11:28: error: invalid storage class specifier in function declarator

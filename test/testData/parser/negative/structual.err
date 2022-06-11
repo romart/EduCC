@@ -1,6 +1,6 @@
-test/testData/parser/negative/structual.c:1:4: error: use of 'S1' with tag type that does not match previous declaration
-test/testData/parser/negative/structual.c:1:5: error: use of 'S1' with tag type that does not match previous declaration
-test/testData/parser/negative/structual.c:3:9: error: field 's1' has incomplete type 'STRUCT S1'
-test/testData/parser/negative/structual.c:3:14: error: field 's1' has incomplete type 'STRUCT S1'
-test/testData/parser/negative/structual.c:3:19: error: use of 'S1' with tag type that does not match previous declaration
-test/testData/parser/negative/structual.c:3:20: error: use of 'S1' with tag type that does not match previous declaration
+test/testData/parser/negative/structual.c:4:1: error: use of 'S1' with tag type that does not match previous declaration
+test/testData/parser/negative/structual.c:5:1: error: use of 'S1' with tag type that does not match previous declaration
+test/testData/parser/negative/structual.c:9:3: error: field 's1' has incomplete type 'STRUCT S1'
+test/testData/parser/negative/structual.c:14:3: error: field 's1' has incomplete type 'STRUCT S1'
+test/testData/parser/negative/structual.c:19:3: error: use of 'S1' with tag type that does not match previous declaration
+test/testData/parser/negative/structual.c:20:3: error: use of 'S1' with tag type that does not match previous declaration

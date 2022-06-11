@@ -1,4 +1,4 @@
-test/testData/parser/negative/statements/return.c:3:5: error: assigning to 'signed int' from incompatible type 'STRUCT S'
-test/testData/parser/negative/statements/return.c:3:9: error: assigning to 'float' from incompatible type '*signed int'
-test/testData/parser/negative/statements/return.c:3:14: error: assigning to '*signed int' from incompatible type 'float'
-test/testData/parser/negative/statements/return.c:3:18: error: assigning to 'STRUCT S' from incompatible type 'signed int'
+test/testData/parser/negative/statements/return.c:5:3: error: assigning to 'signed int' from incompatible type 'STRUCT S'
+test/testData/parser/negative/statements/return.c:9:3: error: assigning to 'float' from incompatible type '*signed int'
+test/testData/parser/negative/statements/return.c:14:3: error: assigning to '*signed int' from incompatible type 'float'
+test/testData/parser/negative/statements/return.c:18:3: error: assigning to 'STRUCT S' from incompatible type 'signed int'
