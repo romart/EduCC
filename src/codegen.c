@@ -2338,103 +2338,171 @@ static int generateSwitchStatement(GenerationContext *ctx, GeneratedFunction *f,
   return 0;
 }
 
-static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *cond, Boolean invertion) {
+static enum JumpCondition generateFloatCondition(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *left, AstExpression *right, ExpressionType op, Boolean invertion) {
+  TypeId lid = typeToId(left->type);
+  TypeId rid = typeToId(right->type);
+  int32_t opSize = typeIdSize(lid);
+  Boolean isD = lid == T_F8;
 
-  enum JumpCondition cc = JC_BAD;
+  generateExpression(ctx, f, scope, left);
+  emitPushRegF(f, R_FACC, isD);
 
-  switch (cond->op) {
-    case EB_GE: cc = invertion ? JC_NOT_GE : JC_GE; goto calc;
-    case EB_LE: cc = invertion ? JC_NOT_LE : JC_LE; goto calc;
-    case EB_LT: cc = invertion ? JC_NOT_L : JC_L;  goto calc;
-    case EB_GT: cc = invertion ? JC_NOT_G : JC_G;  goto calc;
-    case EB_NE: cc = invertion ? JC_EQ : JC_NE; goto calc;
-    case EB_EQ: cc = invertion ? JC_NE : JC_EQ; goto calc;
-    calc: {
-      AstExpression *left = cond->binaryExpr.left;
-      AstExpression *right = cond->binaryExpr.right;
-      Boolean isFP = isRealType(left->type);
-      size_t opSize = computeTypeSize(left->type);
-      Boolean isD = isFP && opSize > 4;
+  Address addr = { 0 };
+  if (op == EB_EQ || op == EB_NE) {
 
-      generateExpression(ctx, f, scope, left);
+      enum JumpCondition setcc = op == EB_EQ ? JC_NOT_PARITY : JC_PARITY;
 
-      TypeRef *lType = left->type;
-      if (lType->kind == TR_BITFIELD) lType = lType->bitFieldDesc.storageType;
-
-      Address addr = { 0 };
-      if (isFP) {
-          emitPushRegF(f, R_FACC, isD);
-          if (cond->op == EB_EQ || cond->op == EB_NE) {
-
-              enum JumpCondition setcc = cond->op == EB_EQ ? JC_NOT_PARITY : JC_PARITY;
-
-              if (right->op == EU_DEREF) {
-                  translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
-                  emitPopRegF(f, R_FTMP2, isD);
-                  emitArithAR(f, OP_FUCMP, R_FTMP2, &addr, opSize);
-                  emitSetccR(f, setcc, R_ACC);
-                  emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
-                  emitArithAR(f, OP_FUCMP, R_FTMP2, &addr, opSize);
-              } else {
-                  generateExpression(ctx, f, scope, right);
-                  emitPopRegF(f, R_FTMP2, isD);
-                  emitArithRR(f, OP_FUCMP, R_FTMP2, R_FACC, opSize);
-                  emitSetccR(f, setcc, R_ACC);
-                  emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
-                  emitArithRR(f, OP_FUCMP, R_FTMP2, R_FACC, opSize);
-              }
-
-              struct Label l = { 0 };
-              emitCondJump(f, &l, JC_EQ, TRUE);
-              if (cond->op == EB_EQ) {
-                  emitArithRR(f, OP_XOR, R_ACC, R_ACC, sizeof(int32_t));
-              } else {
-                  emitMoveCR(f, 1, R_ACC, sizeof(int32_t));
-              }
-              bindLabel(f, &l);
-
-              emitTestRR(f, R_ACC, R_ACC, sizeof (int32_t));
-
-              return invertion ? JC_ZERO : JC_NOT_ZERO;
-          } else if (cond->op == EB_LT || cond->op == EB_LE) {
-              if (right->op == EU_DEREF) {
-                  translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
-                  emitPopReg(f, R_ACC);
-                  emitArithAR(f, OP_FOCMP, R_FACC, &addr, opSize);
-              } else {
-                  generateExpression(ctx, f, scope, right);
-                  emitPopReg(f, R_TMP);
-                  emitArithRR(f, OP_FOCMP, R_FTMP, R_FACC, opSize);
-              }
-          } else {
-              generateExpression(ctx, f, scope, right);
-              emitPopReg(f, R_FTMP);
-              emitArithRR(f, OP_FOCMP, R_FACC, R_FTMP, opSize);
-          }
+      if (right->op == EU_DEREF) {
+          translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
+          emitPopRegF(f, R_FTMP2, isD);
+          emitArithAR(f, OP_FUCMP, R_FTMP2, &addr, opSize);
+          emitSetccR(f, setcc, R_ACC);
+          emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
+          emitArithAR(f, OP_FUCMP, R_FTMP2, &addr, opSize);
       } else {
-          if (right->op == E_CONST) {
-            uint64_t cnst = right->constExpr.i;
-            emitArithConst(f, OP_CMP, R_ACC, cnst, opSize);
-          } else {
-            emitPushReg(f, R_ACC);
-
-            TypeId lid = typeToId(left->type);
-            TypeId rid = typeToId(right->type);
-            if (right->op == EU_DEREF && lid == rid) {
-                Address addr = { 0 };
-                translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
-                emitPopReg(f, R_TMP);
-                emitArithAR(f, OP_CMP, R_TMP, &addr, opSize);
-            } else {
-                generateExpression(ctx, f, scope, right);
-                emitPopReg(f, R_TMP);
-                // x op y -> y op x
-                emitArithRR(f, OP_CMP, R_TMP, R_ACC, opSize);
-            }
-          }
+          generateExpression(ctx, f, scope, right);
+          emitPopRegF(f, R_FTMP2, isD);
+          emitArithRR(f, OP_FUCMP, R_FTMP2, R_FACC, opSize);
+          emitSetccR(f, setcc, R_ACC);
+          emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
+          emitArithRR(f, OP_FUCMP, R_FTMP2, R_FACC, opSize);
       }
 
-      return cc;
+      struct Label l = { 0 };
+      emitCondJump(f, &l, JC_EQ, TRUE);
+      if (op == EB_EQ) {
+          emitArithRR(f, OP_XOR, R_ACC, R_ACC, sizeof(int32_t));
+      } else {
+          emitMoveCR(f, 1, R_ACC, sizeof(int32_t));
+      }
+      bindLabel(f, &l);
+
+      emitTestRR(f, R_ACC, R_ACC, sizeof (int32_t));
+
+      return invertion ? JC_ZERO : JC_NOT_ZERO;
+  } else if (op == EB_LT || op == EB_LE) {
+      if (right->op == EU_DEREF) {
+          translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
+          emitPopReg(f, R_ACC);
+          emitArithAR(f, OP_FOCMP, R_FACC, &addr, opSize);
+      } else {
+          generateExpression(ctx, f, scope, right);
+          emitPopReg(f, R_TMP);
+          emitArithRR(f, OP_FOCMP, R_FTMP, R_FACC, opSize);
+      }
+      return op == EB_LT ? invertion ? JC_NOT_L : JC_L : invertion ? JC_NOT_LE : JC_LE;
+  } else {
+      generateExpression(ctx, f, scope, right);
+      emitPopReg(f, R_FTMP);
+      emitArithRR(f, OP_FOCMP, R_FACC, R_FTMP, opSize);
+      return op == EB_GT ? invertion ? JC_NOT_G : JC_G : invertion ? JC_NOT_GE : JC_GE;
+  }
+
+}
+
+static enum JumpCondition generateUnsignedCondition(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *left, AstExpression *right, ExpressionType op, Boolean invertion) {
+  enum JumpCondition cc = JC_BAD;
+  Boolean swap = FALSE;
+  switch (op) {
+  case EB_GE: cc = invertion ? JC_BELOW : JC_A_E; break;
+  case EB_LE: swap = TRUE; cc = invertion ? JC_BELOW : JC_A_E; break;
+  case EB_LT: cc = invertion ? JC_A_E: JC_BELOW; break;
+  case EB_GT: swap = TRUE; cc = invertion ? JC_A_E: JC_BELOW; break;
+  case EB_NE: cc = invertion ? JC_EQ : JC_NE; break;
+  case EB_EQ: cc = invertion ? JC_NE : JC_EQ; break;
+  default: unreachable("Unepxected condition op");
+  }
+
+  TypeId lid = typeToId(left->type);
+  TypeId rid = typeToId(right->type);
+  int32_t opSize = typeIdSize(lid);
+
+  generateExpression(ctx, f, scope, left);
+
+  if (right->op == E_CONST && !swap) {
+    uint64_t cnst = right->constExpr.i;
+    emitArithConst(f, OP_CMP, R_ACC, cnst, opSize);
+  } else {
+    emitPushReg(f, R_ACC);
+
+    if (right->op == EU_DEREF && lid == rid && !swap) {
+        Address addr = { 0 };
+        translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
+        emitPopReg(f, R_TMP);
+        emitArithAR(f, OP_CMP, R_TMP, &addr, opSize);
+    } else {
+        generateExpression(ctx, f, scope, right);
+        emitPopReg(f, R_TMP);
+        // x op y -> y op x
+        enum Registers l = swap ? R_ACC : R_TMP;
+        enum Registers r = swap ? R_TMP : R_ACC;
+        emitArithRR(f, OP_CMP, l, r, opSize);
+    }
+  }
+
+  return cc;
+}
+
+static enum JumpCondition generateSignedCondition(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *left, AstExpression *right, ExpressionType op, Boolean invertion) {
+  enum JumpCondition cc = JC_BAD;
+  switch (op) {
+  case EB_GE: cc = invertion ? JC_NOT_GE : JC_GE; break;
+  case EB_LE: cc = invertion ? JC_NOT_LE : JC_LE; break;
+  case EB_LT: cc = invertion ? JC_NOT_L : JC_L; break;
+  case EB_GT: cc = invertion ? JC_NOT_G : JC_G; break;
+  case EB_NE: cc = invertion ? JC_EQ : JC_NE; break;
+  case EB_EQ: cc = invertion ? JC_NE : JC_EQ; break;
+  default: unreachable("Unepxected condition op");
+  }
+
+  TypeId lid = typeToId(left->type);
+  TypeId rid = typeToId(right->type);
+  int32_t opSize = typeIdSize(lid);
+
+  generateExpression(ctx, f, scope, left);
+
+  if (right->op == E_CONST) {
+    uint64_t cnst = right->constExpr.i;
+    emitArithConst(f, OP_CMP, R_ACC, cnst, opSize);
+  } else {
+    emitPushReg(f, R_ACC);
+
+    if (right->op == EU_DEREF && lid == rid) {
+        Address addr = { 0 };
+        translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
+        emitPopReg(f, R_TMP);
+        emitArithAR(f, OP_CMP, R_TMP, &addr, opSize);
+    } else {
+        generateExpression(ctx, f, scope, right);
+        emitPopReg(f, R_TMP);
+        // x op y -> y op x
+        emitArithRR(f, OP_CMP, R_TMP, R_ACC, opSize);
+    }
+  }
+
+  return cc;
+}
+
+static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *cond, Boolean invertion) {
+
+  switch (cond->op) {
+    case EB_GE:
+    case EB_LE:
+    case EB_LT:
+    case EB_GT:
+    case EB_NE:
+    case EB_EQ: {
+      TypeId tid = typeToId(cond->binaryExpr.left->type);
+      Boolean isFP = tid >= T_F4;
+      Boolean isU = tid >= T_U1;
+      if (tid >= T_F4) {
+          return generateFloatCondition(ctx, f, scope, cond->binaryExpr.left, cond->binaryExpr.right, cond->op, invertion);
+      }
+      if (tid >= T_U1) {
+          return generateUnsignedCondition(ctx, f, scope, cond->binaryExpr.left, cond->binaryExpr.right, cond->op, invertion);
+      }
+
+      return generateSignedCondition(ctx, f, scope, cond->binaryExpr.left, cond->binaryExpr.right, cond->op, invertion);
     }
     default:
       if (cond->op == EU_EXL) {
