@@ -33,16 +33,20 @@ SOURCES=\
 OBJ=$(patsubst %.c,%.o,$(subst $(SRCDIR)/,$(OBJDIR)/, $(SOURCES)))
 
 
-all: main
+all: directories main
+
+.PHONY: directories
+
+directories:
+	mkdir -p $(BUILDDIR)
+	mkdir -p $(OBJDIR)
+	mkdir -p $(BINDIR)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(DEPS)
-	mkdir -p $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 
 main: $(OBJ) 
-	mkdir -p ./$(BUILDDIR)
-	mkdir -p ./$(BINDIR)
 	$(LD) $(CFLAGS) -o $(BINDIR)/$@ $^ -ludis86
 
 
