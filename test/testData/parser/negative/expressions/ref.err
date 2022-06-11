@@ -1,22 +1,22 @@
-test/testData/parser/negative/expressions/ref.c:4:15: warning: expression result unused
-test/testData/parser/negative/expressions/ref.c:4:16: warning: expression result unused
-test/testData/parser/negative/expressions/ref.c:3:17: warning: expression result unused
-test/testData/parser/negative/expressions/ref.c:3:19: error: cannot take the address of an rvalue of type 'signed int'
-test/testData/parser/negative/expressions/ref.c:3:19: warning: expression result unused
-test/testData/parser/negative/expressions/ref.c:3:21: error: address of register variable requested
-test/testData/parser/negative/expressions/ref.c:4:21: warning: expression result unused
-test/testData/parser/negative/expressions/ref.c:3:23: warning: expression result unused
-test/testData/parser/negative/expressions/ref.c:3:25: error: cannot take the address of an rvalue of type 'signed int'
-test/testData/parser/negative/expressions/ref.c:3:25: warning: expression result unused
-test/testData/parser/negative/expressions/ref.c:3:27: warning: expression result unused
-test/testData/parser/negative/expressions/ref.c:3:28: warning: expression result unused
-test/testData/parser/negative/expressions/ref.c:3:30: error: cannot take the address of an rvalue of type 'signed int'
-test/testData/parser/negative/expressions/ref.c:3:30: warning: expression result unused
-test/testData/parser/negative/expressions/ref.c:3:31: error: cannot take the address of an rvalue of type 'signed int'
-test/testData/parser/negative/expressions/ref.c:3:31: warning: expression result unused
-test/testData/parser/negative/expressions/ref.c:3:33: error: cannot take the address of an rvalue of type 'float'
-test/testData/parser/negative/expressions/ref.c:3:33: warning: expression result unused
-test/testData/parser/negative/expressions/ref.c:3:35: error: address of bit-field requested
-test/testData/parser/negative/expressions/ref.c:3:35: warning: expression result unused
-test/testData/parser/negative/expressions/ref.c:3:36: error: address of bit-field requested
-test/testData/parser/negative/expressions/ref.c:3:36: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:15:4: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:16:4: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:17:3: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:19:3: error: cannot take the address of an rvalue of type 'signed int'
+test/testData/parser/negative/expressions/ref.c:19:3: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:21:3: error: address of register variable requested
+test/testData/parser/negative/expressions/ref.c:21:4: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:23:3: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:25:3: error: cannot take the address of an rvalue of type 'signed int'
+test/testData/parser/negative/expressions/ref.c:25:3: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:27:3: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:28:3: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:30:3: error: cannot take the address of an rvalue of type 'signed int'
+test/testData/parser/negative/expressions/ref.c:30:3: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:31:3: error: cannot take the address of an rvalue of type 'signed int'
+test/testData/parser/negative/expressions/ref.c:31:3: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:33:3: error: cannot take the address of an rvalue of type 'float'
+test/testData/parser/negative/expressions/ref.c:33:3: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:35:3: error: address of bit-field requested
+test/testData/parser/negative/expressions/ref.c:35:3: warning: expression result unused
+test/testData/parser/negative/expressions/ref.c:36:3: error: address of bit-field requested
+test/testData/parser/negative/expressions/ref.c:36:3: warning: expression result unused

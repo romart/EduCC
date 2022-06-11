@@ -1,10 +1,10 @@
-test/testData/parser/negative/structBitFields.c:1:2: error: declaration of anonymous struct must be a definition
-test/testData/parser/negative/structBitFields.c:12:6: error: bit-field 'negative' has negative width (-5)
-test/testData/parser/negative/structBitFields.c:3:8: error: anonymous bit-field has negative width (-6)
-test/testData/parser/negative/structBitFields.c:12:15: error: width of bit-field 'exceed' (33 bits) exceeds the width of its type (32)
-test/testData/parser/negative/structBitFields.c:22:16: error: width of bit-field 'exceed_l' (65 bits) exceeds the width of its type (64)
-test/testData/parser/negative/structBitFields.c:12:17: error: width of bit-field 'exceed2' (33333 bits) exceeds the width of its type (32)
-test/testData/parser/negative/structBitFields.c:3:20: error: width of anonymous bit-field (33 bits) exceeds the width of its type (32)
-test/testData/parser/negative/structBitFields.c:3:21: error: width of anonymous bit-field (33333 bits) exceeds the width of its type (32)
-test/testData/parser/negative/structBitFields.c:9:27: error: bit-field 'f_bf' has non-integral type 'float'
-test/testData/parser/negative/structBitFields.c:12:29: error: anonymous bit-field has non-integral type 'STRUCT F'
+test/testData/parser/negative/structBitFields.c:2:1: error: declaration of anonymous struct must be a definition
+test/testData/parser/negative/structBitFields.c:6:12: error: bit-field 'negative' has negative width (-5)
+test/testData/parser/negative/structBitFields.c:8:3: error: anonymous bit-field has negative width (-6)
+test/testData/parser/negative/structBitFields.c:15:12: error: width of bit-field 'exceed' (33 bits) exceeds the width of its type (32)
+test/testData/parser/negative/structBitFields.c:16:22: error: width of bit-field 'exceed_l' (65 bits) exceeds the width of its type (64)
+test/testData/parser/negative/structBitFields.c:17:12: error: width of bit-field 'exceed2' (33333 bits) exceeds the width of its type (32)
+test/testData/parser/negative/structBitFields.c:20:3: error: width of anonymous bit-field (33 bits) exceeds the width of its type (32)
+test/testData/parser/negative/structBitFields.c:21:3: error: width of anonymous bit-field (33333 bits) exceeds the width of its type (32)
+test/testData/parser/negative/structBitFields.c:27:9: error: bit-field 'f_bf' has non-integral type 'float'
+test/testData/parser/negative/structBitFields.c:29:12: error: anonymous bit-field has non-integral type 'STRUCT F'

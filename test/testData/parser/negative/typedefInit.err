@@ -1,2 +1,2 @@
-test/testData/parser/negative/typedefInit.c:16:2: error: illegal initializer (only variables can be initialized)
-test/testData/parser/negative/typedefInit.c:17:5: error: illegal initializer (only variables can be initialized)
+test/testData/parser/negative/typedefInit.c:2:16: error: illegal initializer (only variables can be initialized)
+test/testData/parser/negative/typedefInit.c:5:17: error: illegal initializer (only variables can be initialized)

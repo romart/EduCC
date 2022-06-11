@@ -1,12 +1,12 @@
-test/testData/parser/negative/illegalPrimitveTypes.c:12:2: error: 'short char' is invalid
-test/testData/parser/negative/illegalPrimitveTypes.c:13:3: error: 'short float' is invalid
-test/testData/parser/negative/illegalPrimitveTypes.c:14:4: error: 'short double' is invalid
-test/testData/parser/negative/illegalPrimitveTypes.c:12:5: error: 'short void' is invalid
-test/testData/parser/negative/illegalPrimitveTypes.c:11:7: error: 'long char' is invalid
-test/testData/parser/negative/illegalPrimitveTypes.c:12:8: error: 'long float' is invalid
-test/testData/parser/negative/illegalPrimitveTypes.c:18:9: error: 'long long double' is invalid
-test/testData/parser/negative/illegalPrimitveTypes.c:22:11: error: 'long double' cannot be signed or unsigned
-test/testData/parser/negative/illegalPrimitveTypes.c:20:12: error: 'long double' cannot be signed or unsigned
-test/testData/parser/negative/illegalPrimitveTypes.c:16:14: error: 'float' cannot be signed or unsigned
-test/testData/parser/negative/illegalPrimitveTypes.c:17:15: error: 'double' cannot be signed or unsigned
-test/testData/parser/negative/illegalPrimitveTypes.c:15:16: error: 'void' cannot be signed or unsigned
+test/testData/parser/negative/illegalPrimitveTypes.c:2:12: error: 'short char' is invalid
+test/testData/parser/negative/illegalPrimitveTypes.c:3:13: error: 'short float' is invalid
+test/testData/parser/negative/illegalPrimitveTypes.c:4:14: error: 'short double' is invalid
+test/testData/parser/negative/illegalPrimitveTypes.c:5:12: error: 'short void' is invalid
+test/testData/parser/negative/illegalPrimitveTypes.c:7:11: error: 'long char' is invalid
+test/testData/parser/negative/illegalPrimitveTypes.c:8:12: error: 'long float' is invalid
+test/testData/parser/negative/illegalPrimitveTypes.c:9:18: error: 'long long double' is invalid
+test/testData/parser/negative/illegalPrimitveTypes.c:11:22: error: 'long double' cannot be signed or unsigned
+test/testData/parser/negative/illegalPrimitveTypes.c:12:20: error: 'long double' cannot be signed or unsigned
+test/testData/parser/negative/illegalPrimitveTypes.c:14:16: error: 'float' cannot be signed or unsigned
+test/testData/parser/negative/illegalPrimitveTypes.c:15:17: error: 'double' cannot be signed or unsigned
+test/testData/parser/negative/illegalPrimitveTypes.c:16:15: error: 'void' cannot be signed or unsigned

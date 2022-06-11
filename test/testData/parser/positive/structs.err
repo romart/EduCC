@@ -1,1 +1,1 @@
-test/testData/parser/positive/structs.c:4:45: warning: declaration does not declare anything
+test/testData/parser/positive/structs.c:45:4: warning: declaration does not declare anything
