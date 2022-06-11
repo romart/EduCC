@@ -1142,6 +1142,12 @@ static Token *takeBranch(ParserContext *ctx, Token *start, int condition) {
           if (!strcmp("if", directive->id) || !strcmp("ifdef", directive->id) || !strcmp("ifndef", directive->id)) {
               ++depth;
           } else if (depth == 0 && !strcmp("else", directive->id)) {
+              Token *last = findLastPPToken(ctx, directive);
+              if (last != directive) {
+                  Coordinates coords = { directive->next, last };
+                  reportDiagnostic(ctx, DIAG_PP_EXTRA_TOKEN_ENDOF_DIRECTIVE, &coords, "else");
+                  // report warning
+              }
               if (isTaking) {
                   assert(!isTaken);
                   isTaken = TRUE;
@@ -1150,7 +1156,7 @@ static Token *takeBranch(ParserContext *ctx, Token *start, int condition) {
                   isTaking = !isTaken;
               }
 
-              token = directive->next;
+              token = last->next;
               continue;
           } else if (depth == 0 && !strcmp("elif", directive->id)) {
               Token *cond = directive->next;
@@ -1169,10 +1175,16 @@ static Token *takeBranch(ParserContext *ctx, Token *start, int condition) {
           } else if (!strcmp("endif", directive->id)) {
               if (depth) --depth;
               else {
+                  Token *last = findLastPPToken(ctx, directive);
+                  if (last != directive) {
+                      Coordinates coords = { directive->next, last };
+                      reportDiagnostic(ctx, DIAG_PP_EXTRA_TOKEN_ENDOF_DIRECTIVE, &coords, "endif");
+                      // report warning
+                  }
                   if (!isTaking && !isTaken) {
-                    return directive->next;
+                    return last->next;
                   } else {
-                    cur->next = directive->next;
+                    cur->next = last->next;
                     return head.next;
                   }
               }
