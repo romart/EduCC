@@ -466,6 +466,7 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
             TypeRef *indexType = right->type;
             TypeRef *exprType = computeArrayAccessExpressionType(ctx, &coords, arrayType, indexType);
             left = createBinaryExpression(ctx, EB_A_ACC, exprType, left, right);
+            left->coordinates.right = coords.right;
             break;
         case '(': // '(' argument_expression_list? ')'
             nextToken(ctx);
