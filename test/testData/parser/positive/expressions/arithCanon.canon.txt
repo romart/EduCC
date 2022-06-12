@@ -80,43 +80,43 @@ FILE test/testData/parser/positive/expressions/arithCanon.c
     float a = \
       5.000000 + *x
     float b = \
-      *x
+      0.000000 + *x
     float c = \
-      -*x
+      0.000000 - *x
     float d = \
-      *x
+      *x + 0.000000
     float e = \
-      *x
+      *x - 0.000000
     float f = \
       2.000000 * *x
     float h = \
-      *x
+      1.000000 * *x
     float i = \
-      *x
+      *x * 1.000000
     float j = \
       5.000000 / *x
     float k = \
       *x / 5.000000
     float r = \
-      *x
+      1.000000 / *x
     float s = \
-      *x
+      *x / 1.000000
     float aa = \
-      *x + 12.000000
+      *x + 5.000000 + 7.000000
     float bb = \
-      *x - -2.000000
+      *x - 5.000000 + 7.000000
     float cc = \
-      *x + -2.000000
+      *x + 5.000000 - 7.000000
     float dd = \
-      *x - 12.000000
+      *x - 5.000000 - 7.000000
     float ee = \
-      *x * 35.000000
+      *x * 5.000000 * 7.000000
     float ff = \
       *x / 5.000000 * 7.000000
     float gg = \
       *x * 5.000000 / 7.000000
     float hh = \
-      *x / 35.000000
+      *x / 5.000000 / 7.000000
     float aaa = \
       *x + 5.000000 + *y
     float bbb = \
