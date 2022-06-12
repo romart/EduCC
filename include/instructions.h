@@ -239,7 +239,7 @@ void emitTestRR(struct _GeneratedFunction *f, enum Registers l, enum Registers r
 void emitBitwiseNotR(struct _GeneratedFunction *f, enum Registers reg, size_t size);
 void emitBitwiseNotA(struct _GeneratedFunction *f, Address *addr, size_t size);
 
-void emitJumpTo(struct _GeneratedFunction *f, struct Label *l);
+void emitJumpTo(struct _GeneratedFunction *f, struct Label *l, Boolean isNear);
 void emitJumpByReg(struct _GeneratedFunction *f, enum Registers reg);
 void emitCall(struct _GeneratedFunction *f, enum Registers reg);
 void emitCallLiteral(struct _GeneratedFunction *f, Relocation *reloc);

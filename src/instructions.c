@@ -913,8 +913,7 @@ void emitCondJump(GeneratedFunction *f, struct Label *l, enum JumpCondition cond
   }
 }
 
-
-void emitJumpTo(GeneratedFunction *f, struct Label *l) {
+void emitJumpTo(GeneratedFunction *f, struct Label *l, Boolean isNear) {
   // jmp l
   Section *s = f->section;
   address pc = s->pc;
@@ -930,14 +929,21 @@ void emitJumpTo(GeneratedFunction *f, struct Label *l) {
           emitDisp32(f, d - 3);
       }
   } else {
-    emitByte(f, 0xE9);
-    emitDisp32(f, 0xDEADBEEF);
 
     struct LabelJump *lj = areanAllocate(f->arena, sizeof (struct LabelJump));
-    lj->instSize = 5;
     lj->instruction_cp = pc - start;
     lj->next = l->jumps;
     l->jumps = lj;
+
+    if (isNear) {
+      lj->instSize = 2;
+      emitByte(f, 0xEB);
+      emitByte(f, 0xFF);
+    } else {
+      lj->instSize = 5;
+      emitByte(f, 0xE9);
+      emitDisp32(f, 0xDEADBEEF);
+    }
   }
 }
 
