@@ -620,6 +620,7 @@ void emitArithRR(GeneratedFunction *f, enum Opcodes opcode, enum Registers l, en
   case OP_FMOD: unreachable("TODO");
   case OP_FOCMP: return emitSimpleFPArithRR(f, size == 8 ? 0x66 : -1, 0x0F, 0x2F, l, r); // comiss/comisd
   case OP_FUCMP: return emitSimpleFPArithRR(f, size == 8 ? 0x66 : -1, 0x0F, 0x2E, l, r); // ucomiss/ucomisd
+  case OP_PXOR:  return emitSimpleFPArithRR(f, size == 8 ? 0x66 : -1, 0x0F, 0xEF, l, r); // pxors/pxord
 
   default: unreachable("unreachable");
     }
