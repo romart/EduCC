@@ -1,0 +1,5 @@
+enum
+ {
+ FE_INVALID =
+ 0x01,
+ };
