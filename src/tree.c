@@ -89,8 +89,7 @@ Boolean isMultiplicative(ExpressionType op) {
   case EB_MUL:
   case EB_DIV:
   case EB_MOD:
-//  case EB_AND:
-//  case EB_ANDAND:
+  case EB_ANDAND:
       return TRUE;
   default:
       return FALSE;
