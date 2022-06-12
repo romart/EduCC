@@ -17,7 +17,9 @@ extern char *strdup (const char *__s);
 
 extern char *ctime_r (const time_t *__timer, char *__buf);
 
-static Token *expandMacro(ParserContext *ctx, Token *macro, Boolean evalDefined);
+static int counterState = 0;
+
+static Token *expandMacro(ParserContext *ctx, Token *macro, Token **next, Boolean evalDefined);
 
 typedef struct _MacroParam {
   const char *name;
@@ -55,6 +57,7 @@ static MacroDefinition *allocateMacroDef(ParserContext *ctx, const char *name, M
 typedef struct _MacroArg {
   MacroParam *param;
   Token *value;
+  Token *evaluated;
   struct _MacroArg *next;
 } MacroArg;
 
@@ -349,28 +352,16 @@ static Boolean isTokenConcat(const Token *t) {
   return n && n->rawCode == DSHARP;
 }
 
-static Token* expandEvaluatedSequence(ParserContext *ctx, Token* s, Boolean evalDefined) {
-  Token *t = s;
-
-  Token head = { 0 }, *current = &head;
-  head.next = s;
-
-  while (t && t->hs) {
-      current = current->next = expandMacro(ctx, t, evalDefined);
-      t = current->next;
-  }
-
-  return head.next;
-}
-
 static Token* expandSequence(ParserContext *ctx, Token* s, Boolean evalDefined) {
   Token *t = s;
 
   Token head = { 0 }, *current = &head;
 
   while (t) {
-      current = current->next = expandMacro(ctx, t, evalDefined);
-      t = current->next;
+      Token *o = t;
+      Token *n = expandMacro(ctx, t, &t, evalDefined);
+      if (o != n) continue;
+      current = current->next = n;
   }
 
   return head.next;
@@ -442,6 +433,8 @@ static Token *evaluateDefinedOp(ParserContext *ctx, Token *token, Boolean relaxe
     Boolean isDefined = isMacro(ctx, n);
     *next = n->next;
     Token *r = tokenizeString(ctx, token, isDefined ? "1" : "0", 2, TRUE);
+    r->hasLeadingSpace = token->hasLeadingSpace;
+    r->startOfLine = token->startOfLine;
     r->next = n;
     return r;
   }
@@ -452,6 +445,8 @@ static Token *evaluateDefinedOp(ParserContext *ctx, Token *token, Boolean relaxe
     reportDiagnostic(ctx, DIAG_MACRO_NAME_IS_ID, &coords);
     *next = n;
     Token *r = tokenizeString(ctx, token, "0", 2, TRUE);
+    r->hasLeadingSpace = token->hasLeadingSpace;
+    r->startOfLine = token->startOfLine;
     r->next = n;
     return r;
   }
@@ -459,18 +454,20 @@ static Token *evaluateDefinedOp(ParserContext *ctx, Token *token, Boolean relaxe
   return NULL;
 }
 
-static Token *expandMacro(ParserContext *ctx, Token *macro, Boolean evalDefined) {
+static Token *expandMacro(ParserContext *ctx, Token *macro, Token **next, Boolean evalDefined) {
 
+  *next = macro->next;
   if (macro->rawCode != IDENTIFIER) return macro;
 
   MacroDefinition *def = (MacroDefinition *)getFromHashMap(ctx->macroMap, (intptr_t)macro->id);
 
   if (def == NULL) {
       if (evalDefined && strcmp("defined", macro->id) == 0) {
-        Token *next;
-        Token *e = evaluateDefinedOp(ctx, macro, TRUE, &next);
+        Token *next2;
+        Token *e = evaluateDefinedOp(ctx, macro, TRUE, &next2);
         if (e) {
-          e->next = next;
+          e->next = next2;
+          *next = e;
           return e;
         }
       }
@@ -480,6 +477,10 @@ static Token *expandMacro(ParserContext *ctx, Token *macro, Boolean evalDefined)
   if (def->handler) {
       Token *r = def->handler(ctx, macro);
       r->next = macro->next;
+      r->startOfLine = macro->startOfLine;
+      r->hasLeadingSpace = macro->hasLeadingSpace;
+
+      *next = r;
       return r;
   }
 
@@ -702,11 +703,15 @@ static Token *expandMacro(ParserContext *ctx, Token *macro, Boolean evalDefined)
       Token *evaluated = NULL;
       if (arg) {
         Token *argValue = arg->value;
-        if (argValue) {
-          argValue = copySequence(ctx, argValue);
+        if (arg->evaluated) {
+          // prevent multiple evaluation of the same argument
+          // see pp-counter.c test for more details
+          evaluated = copySequence(ctx, arg->evaluated);
+        } else if (arg->value) {
           evaluated = expandSequence(ctx, argValue, evalDefined);
           evaluated->hasLeadingSpace = b->hasLeadingSpace;
           evaluated->startOfLine = b->startOfLine;
+          arg->evaluated = copySequence(ctx, evaluated);
         } else {
           b = b->next;
           continue;
@@ -732,18 +737,21 @@ static Token *expandMacro(ParserContext *ctx, Token *macro, Boolean evalDefined)
         p = t;
     }
     p->next = macroNext;
-    Token *evaluated = expandEvaluatedSequence(ctx, evalHead.next, evalDefined);
-    evaluated->hasLeadingSpace = macro->hasLeadingSpace;
-    evaluated->startOfLine = macro->startOfLine;
-    return evaluated;
+    evalHead.next->hasLeadingSpace = macro->hasLeadingSpace;
+    evalHead.next->startOfLine = macro->startOfLine;
+    return *next = evalHead.next;
   }
 
-  return macroNext;
+  *next = macroNext;
+
+  return NULL;
 }
 
-static const char *findIncludePath(ParserContext *ctx, const char *includeName, Boolean isdquoted) {
+static const char *findIncludePath(ParserContext *ctx, Token *include, const char *includeName, Boolean isdquoted) {
   if (isdquoted && includeName[0] != '/') {
-      char *copy = strdup(ctx->config->fileToCompile);
+      Token *original = originaToken(include);
+      assert(original->locInfo && original->locInfo->kind == LIK_FILE);
+      char *copy = strdup(original->locInfo->fileInfo.fileName);
       char *dir = dirname(copy);
       size_t l = strlen(dir) + 1 + strlen(includeName) + 1;
       char *path = heapAllocate(l);
@@ -808,7 +816,8 @@ static Token *parseInclude(ParserContext *ctx, Token *token) {
     tail = skipPPTokens(ctx, last->next);
   } else if (token->rawCode == IDENTIFIER) {
     if (isMacro(ctx, token)) {
-      Token *rToken = expandMacro(ctx, token, FALSE);
+      Token *rToken = NULL;
+      expandMacro(ctx, token, &rToken, FALSE);
       return parseInclude(ctx, rToken);
     } else {
       reportDiagnostic(ctx, DIAG_EXPECTED_FILENAME, &coords);
@@ -819,7 +828,7 @@ static Token *parseInclude(ParserContext *ctx, Token *token) {
     return token;
   }
 
-  fileName = findIncludePath(ctx, fileName, dquoted);
+  fileName = findIncludePath(ctx, token, fileName, dquoted);
 
   Token eof = { 0 };
   Token *includeTokens = fileName ? tokenizeFile(ctx, fileName, &eof) : NULL;
@@ -1013,8 +1022,6 @@ static Token *defineMacro(ParserContext *ctx, Token *token) {
 
   intptr_t old = putToHashMap(ctx->macroMap, (intptr_t)macroName, (intptr_t)def);
   if (old) {
-      // TODO: support proper comparison and do not report if bodies are equal
-      // Now temporary silenced to make tests work
       if (cmpMacroses((MacroDefinition*)old, def)) {
         reportDiagnostic(ctx, DIAG_PP_MACRO_REDEFINED, &coords, macroName);
       }
@@ -1054,16 +1061,15 @@ static Token *simplifyTokenSequence(ParserContext *ctx, Token *token) {
           cur = cur->next = evaluateDefinedOp(ctx, token, FALSE, &token);
           continue;
       } else if (token->rawCode == IDENTIFIER) {
-          Token *e = expandMacro(ctx, token, TRUE);
+          Token *o = token;
+          Token *e = expandMacro(ctx, token, &token, TRUE);
 
-          if (e == token) {
+          if (e == o) {
               // https://gcc.gnu.org/onlinedocs/cpp/If.html#If
               // Identifiers that are not macros, which are all considered to be the number zero.
               cur = cur->next = constToken(ctx, 0, token);
-              token = e->next;
               continue;
           } else {
-              token = e;
               continue;
           }
       } else {
@@ -1358,7 +1364,7 @@ static Token *counterMacroHandler(ParserContext *ctx, Token *t) {
   char *b2 = heapAllocate(l + 1);
   memcpy(b2, buffer, l);
 
-  return tokenizeString(ctx, t, buffer, l + 1, FALSE);
+  return tokenizeString(ctx, t, b2, l + 1, FALSE);
 }
 
 static Token *timestampMacroHandler(ParserContext *ctx, Token *t) {
@@ -1468,10 +1474,11 @@ Token *preprocessFile(ParserContext *ctx, Token *s, Token *tail) {
       t = handleDirecrive(ctx, t);
       continue;
     } else if (t->rawCode == IDENTIFIER) {
-      t = expandMacro(ctx, t, FALSE);
-      if (t == o->next) {
-          continue;
+      Token *n = expandMacro(ctx, t, &t, FALSE);
+      if (n == o) {
+          current = current->next = n;
       }
+      continue;
     }
 
     current->next = t;

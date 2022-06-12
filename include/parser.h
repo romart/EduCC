@@ -160,6 +160,7 @@ typedef struct _ParserContext {
 Token *nextToken(ParserContext *ctx);
 
 Token *tokenizeFile(ParserContext *ctx, const char *fileName, Token *tail);
+Token *tokenizeFileAndPP(ParserContext *ctx, const char *fileName, Token *tail);
 Token *tokenizeBuffer(ParserContext *ctx, LocationInfo *locInfo, unsigned *linePos, Token *tail);
 
 LocationInfo *allocateFileLocationInfo(const char *fileName, const char *buffer, size_t buffeSize, unsigned lineCount);
