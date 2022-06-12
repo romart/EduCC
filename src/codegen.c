@@ -845,6 +845,82 @@ static void generateBitExtend(GenerationContext *ctx, GeneratedFunction *f, Scop
   }
 }
 
+static void generateU8toF8(GeneratedFunction *f, enum Registers from, enum Registers to) {
+  /**
+   *        test    rax, rax
+   *        js      .L133
+   *        pxor    xmm0, xmm0
+   *        cvtsi2sd        xmm0, rax
+   *        jmp     .L135
+   * .L133:
+   *        mov     rdx, rax
+   *        shr     rdx
+   *        and     eax, 1
+   *        or      rdx, rax
+   *        pxor    xmm0, xmm0
+   *        cvtsi2sd        xmm0, rdx
+   *        addsd   xmm0, xmm0
+   * .L135:
+   *
+   **/
+
+  struct Label l1 = { 0 }, l2 = { 0 };
+
+  emitTestRR(f, from, from, 8);
+  emitCondJump(f, &l1, JC_SIGN, TRUE);
+
+  emitArithRR(f, OP_PXOR, to, to, 8);
+  emitConvertFP(f, 0xF2, 0x2A, from, to, TRUE);
+  emitJumpTo(f, &l2, TRUE);
+
+  bindLabel(f, &l1);
+  emitMoveRR(f, from, R_TMP, 8);
+  emitArithConst(f, OP_SHR, R_TMP, 1, 8);
+  emitArithConst(f, OP_AND, from, 1, 4);
+  emitArithRR(f, OP_OR, R_TMP, from, 8);
+  emitArithRR(f, OP_PXOR, to, to, 8);
+  emitConvertFP(f, 0xF2, 0x2A, from, to, TRUE);
+  emitArithRR(f, OP_FADD, to, to, 8);
+
+  bindLabel(f, &l2);
+}
+
+static void generateF8toU8(GeneratedFunction *f, enum Registers from, enum Registers to) {
+  /**
+   *       comisd  xmm0, QWORD PTR .LC9[rip]
+   *       jnb     .L139
+   *       movsd   xmm0, QWORD PTR [rbp-8]
+   *       cvttsd2si       rax, xmm0
+   *       jmp     .L140
+   * .L139:
+   *       movsd   xmm0, QWORD PTR [rbp-8]
+   *       movsd   xmm1, QWORD PTR .LC9[rip]
+   *       subsd   xmm0, xmm1
+   *       cvttsd2si       rax, xmm0
+   *       movabs  rdx, -9223372036854775808
+   *       xor     rax, rdx
+   * .L140:
+   */
+
+  struct Label l1 = { 0 }, l2 = { 0 };
+
+  emitMoveCR(f, 0x43e0000000000000L, R_TMP, 8);
+  emitMovdq(f, 0x66, 0x0F, 0x7E, R_TMP, R_FTMP, TRUE);
+  emitArithRR(f, OP_FOCMP, from, R_FTMP, 8);
+  emitCondJump(f, &l1, JC_A_E, TRUE);
+
+  emitConvertFP(f, 0xF2, 0x2C, from, to, TRUE);
+  emitJumpTo(f, &l2, TRUE);
+
+  bindLabel(f, &l1);
+  emitArithRR(f, OP_FSUB, from, R_FTMP, 8);
+  emitConvertFP(f, 0xF2, 0x2C, from, to, TRUE);
+  emitMoveCR(f, -9223372036854775808UL, R_TMP, 8);
+  emitArithRR(f, OP_XOR, to, R_TMP, 8);
+
+  bindLabel(f, &l2);
+}
+
 static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstCastExpression *cast) {
     TypeRef *fromType = cast->argument->type;
     TypeRef *toType = cast->type;
@@ -852,103 +928,221 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
     TypeId fromTypeId = typeToId(fromType);
     TypeId toTypeId = typeToId(toType);
 
-    size_t fromSize = typeIdSize(fromTypeId);
-    size_t toSize = typeIdSize(toTypeId);
-
     generateExpression(ctx, f, scope, cast->argument);
 
-    if (toTypeId == T_S1) {
-        if (fromTypeId >= T_F4) {
-            if (fromTypeId == T_F4) {
-              emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE); // cvttss2si eax,xmm0
-            } else if (fromTypeId == T_F8) {
-              emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE); // cvttsd2si eax,xmm0
-            } else {
-              unreachable("long double conversions are not implemented yet");
-            }
+    switch (fromTypeId) {
+    case T_S1:
+      switch (toTypeId) {
+        case T_S1: break;
+        case T_S2: emitConvertWDQ(f, 0x98, 4); break; // cwde
+        case T_S4: break;
+        case T_S8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
+        case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break;  // movzbx
+        case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break;  // movzwx
+        case T_U4: break;
+        case T_U8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
+        case T_F4: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2ss eax, xmm0
+        case T_F8: emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2sd eax, xmm0
+        case T_F10: break; // TODO
+        default: unreachable("unexpected type");
+      }
+      break;
+    case T_S2:
+        switch (toTypeId) {
+          case T_S1: emitMovxxRR(f, 0xBE, R_ACC, R_ACC); break; // movsb
+          case T_S2: break;
+          case T_S4: break;
+          case T_S8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
+          case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break; // movzbx
+          case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break; // movzwx
+          case T_U4: break;
+          case T_U8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
+          case T_F4: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2ss eax, xmm0
+          case T_F8: emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2sd eax, xmm0
+          case T_F10: break; // TODO
+          default: unreachable("unexpected type");
         }
-        emitMovxxRR(f, 0xBE, R_EAX, R_EAX); // movsx
-    } else if (toTypeId == T_U1) {
-        if (fromTypeId >= T_F4) {
-            if (fromTypeId == T_F4) {
-              emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE); // cvttss2si eax,xmm0
-            } else if (fromTypeId == T_F8) {
-              emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE); // cvttsd2si eax,xmm0
-            } else {
-              unreachable("long double conversions are not implemented yet");
-            }
+        break;
+    case T_S4:
+        switch (toTypeId) {
+          case T_S1: emitMovxxRR(f, 0xBE, R_ACC, R_ACC); break; // movsbx
+          case T_S2: emitConvertWDQ(f, 0x98, 4); break; // cwde
+          case T_S4: break;
+          case T_S8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
+          case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break;  // movzbx
+          case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break;  // movzwx
+          case T_U4: break;
+          case T_U8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
+          case T_F4: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2ss eax, xmm0
+          case T_F8: emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2sd eax, xmm0
+          case T_F10: break; // TODO
+          default: unreachable("unexpected type");
         }
-        emitMovxxRR(f, 0xB6, R_EAX, R_EAX); // movzx
-    } else if (toTypeId == T_S2) {
-        if (fromTypeId >= T_F4) {
-            if (fromTypeId == T_F4) {
-              emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE); // cvttss2si eax,xmm0
-            } else if (fromTypeId == T_F8) {
-              emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE); // cvttsd2si eax,xmm0
-            } else {
-              unreachable("long double conversions are not implemented yet");
-            }
+        break;
+    case T_S8:
+        switch (toTypeId) {
+          case T_S1: emitMovxxRR(f, 0xBE, R_ACC, R_ACC); break; // movsbx
+          case T_S2: emitConvertWDQ(f, 0x98, 4); break; // cwde
+          case T_S4: break;
+          case T_S8: break;
+          case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break;  // movzbx
+          case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break;  // movzwx
+          case T_U4: break;
+          case T_U8: break;
+          case T_F4: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, TRUE); break; // cvtsi2ss rax, xmm0
+          case T_F8: emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, TRUE); break; // cvtsi2sd rax, xmm0
+          case T_F10: break; // TODO
+          default: unreachable("unexpected type");
         }
-        emitConvertWDQ(f, 0x98, 4); // cwde
-    } else if (toTypeId == T_U2) {
-        if (fromTypeId >= T_F4) {
-            if (fromTypeId == T_F4) {
-              emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE); // cvttss2si eax,xmm0
-            } else if (fromTypeId == T_F8) {
-              emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE); // cvttsd2si eax,xmm0
-            } else {
-              unreachable("long double conversions are not implemented yet");
-            }
+        break;
+    case T_U1:
+        switch (toTypeId) {
+          case T_S1: emitMovxxRR(f, 0xBE, R_ACC, R_ACC); break; // movsbx
+          case T_S2: emitConvertWDQ(f, 0x98, 4); break; // cwde
+          case T_S4: break;
+          case T_S8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
+          case T_U1: break;
+          case T_U2: /*emitMovxxRR(f, 0xB7, R_ACC, R_ACC);*/emitConvertWDQ(f, 0x98, 4); break; // cwde
+          case T_U4: break;
+          case T_U8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
+          case T_F4: emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2ss eax, xmm0
+          case T_F8: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2sd eax, xmm0
+          case T_F10: break; // TODO
+          default: unreachable("unexpected type");
         }
-        emitMovxxRR(f, 0xB7, R_EAX, R_EAX); // movzx
-    } else if (toTypeId == T_S4 || toTypeId == T_U4) {
-        switch (fromTypeId) {
-        case T_F4: emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE); break;// cvttss2si eax,xmm0
-        case T_F8: emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE); break; // cvttsd2si eax,xmm0
-        case T_F10: unreachable("long double conversions are not implemented yet");
-        default: break;
+        break;
+    case T_U2:
+        switch (toTypeId) {
+          case T_S1: emitMovxxRR(f, 0xBE, R_ACC, R_ACC); break; // movsbx
+          case T_S2: emitConvertWDQ(f, 0x98, 4); break; // cwde
+          case T_S4: break;
+          case T_S8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
+          case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break;  // movzbx
+          case T_U2: break;
+          case T_U4: break;
+          case T_U8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
+          case T_F4: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2ss eax, xmm0
+          case T_F8: emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2sd eax, xmm0
+          case T_F10: break;
+          default: unreachable("unexpected type");
         }
-    } else if (toTypeId == T_S8 || toTypeId == T_U8) {
-        if (fromSize < 4) {
-            emitConvertWDQ(f, 0x98, 8); // cdqe
-        } else if (fromTypeId == T_U4) {
-            emitMoveRR(f, R_ACC, R_ACC, 4);
-        } else if (fromTypeId == T_S4) {
-            emitMovsxdRR(f, R_ACC, R_ACC, 8);
-        } else if (fromTypeId >= T_F4) {
-            if (toTypeId == T_S8) {
-                if (fromTypeId == T_F4) {
-                  emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, TRUE); // cvttss2si eax,xmm0
-                } else if (fromTypeId == T_F8) {
-                  emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, TRUE); // cvttsd2si eax,xmm0
-                } else {
-                  unreachable("long double conversions are not implemented yet");
-                }
-            } else {
-                unreachable("FP to unsigned long long conversions are not implemented yet");
-            }
+        break;
+    case T_U4:
+        switch (toTypeId) {
+          case T_S1: emitMovxxRR(f, 0xBE, R_ACC, R_ACC); break; // movsbx
+          case T_S2: emitConvertWDQ(f, 0x98, 4); break; // cwde
+          case T_S4: break;
+          case T_S8: emitMoveRR(f, R_ACC, R_ACC, sizeof(int32_t)); break; // mov
+          case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break;  // movzbx
+          case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break;  // movzwx
+          case T_U4: break;
+          case T_U8: emitMoveRR(f, R_ACC, R_ACC, 4); break; // mov
+          case T_F4:
+            emitMoveRR(f, R_ACC, R_ACC, sizeof(int32_t));
+            emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, FALSE); // cvtsi2ss eax, xmm0
+            break;
+          case T_F8:
+            emitMoveRR(f, R_ACC, R_ACC, sizeof(int32_t));
+            emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, FALSE); // cvtsi2ss eax, xmm0
+            break;
+          case T_F10:
+            emitMoveRR(f, R_ACC, R_ACC, sizeof(int32_t));
+            break;
+          default: unreachable("unexpected type");
         }
-    } else if (toTypeId < T_F10) {
-        if (fromTypeId < T_F4) {
-          if (fromTypeId == T_U8) {
-              unreachable("unsigned long long to FP conversions are not implemented yet");
-          } else {
-              emitConvertFP(f, toTypeId == T_F4 ? 0xF3 : 0xF2, 0x2A, R_ACC, R_FACC, fromTypeId == T_S8);
-          }
-        } else {
-            if (fromTypeId == T_F4) {
-                assert(toTypeId == T_F8);
-                emitConvertFP(f, 0xF3, 0x5A, R_FACC, R_FACC, FALSE); // cvtss2sd xmm0,xmm0
-            } else if (fromTypeId == T_F8) {
-                assert(toTypeId == T_F4);
-                emitConvertFP(f, 0xF2, 0x5A, R_FACC, R_FACC, FALSE); // cvtsd2ss xmm0,xmm0
-            } else {
-              unreachable("long double to FP conversions are not implemented yet");
-            }
+        break;
+    case T_U8:
+        switch (toTypeId) {
+          case T_S1: emitMovxxRR(f, 0xBE, R_ACC, R_ACC); break; // movsbx
+          case T_S2: emitConvertWDQ(f, 0x98, 4); break; // cwde
+          case T_S4: break;
+          case T_S8: break;
+          case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break;  // movzbx
+          case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break;  // movzwx
+          case T_U4: break;
+          case T_U8: break;
+          case T_F4: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, TRUE); break; // cvtsi2ss rax, xmm0
+          case T_F8: generateU8toF8(f, R_ACC, R_FACC); break;
+          case T_F10: break; // TODO
+          default: unreachable("unexpected type");
         }
-
-    } else {
-        unreachable("long double conversions are not implemented yet");
+        break;
+    case T_F4:
+        switch (toTypeId) {
+          case T_S1:
+            emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE); // cvttss2si eax, xmm0
+            emitMovxxRR(f, 0xBE, R_ACC, R_ACC); // movsbx
+            break;
+          case T_S2:
+            emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE); // cvttss2si eax, xmm0
+            emitConvertWDQ(f, 0x98, 4); // cwde
+            break;
+          case T_S4: emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE); break; // cvttss2si eax, xmm0
+          case T_S8: emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, TRUE); break; // cvttss2si eax, xmm0
+          case T_U1: break;
+            emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE);  // cvttss2si eax, xmm0
+            emitMovxxRR(f, 0xB6, R_ACC, R_ACC); // movzbx
+            break;
+          case T_U2:
+            emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE); // cvttss2si eax, xmm0
+            emitMovxxRR(f, 0xB7, R_ACC, R_ACC); // movzwx
+            break;
+          case T_U4: emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE); break; // cvttss2si eax, xmm0
+          case T_U8: emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, TRUE); break; // cvttss2si eax, xmm0
+          case T_F4: break;
+          case T_F8: emitConvertFP(f, 0xF3, 0x5A, R_FACC, R_FACC, FALSE); // cvtss2sd xmm0, xmm0
+          case T_F10: break; // TODO
+          default: unreachable("unexpected type");
+        }
+        break;
+    case T_F8:
+        switch (toTypeId) {
+          case T_S1:
+            emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE); // cvttsd2si eax, xmm0
+            emitMovxxRR(f, 0xBE, R_ACC, R_ACC); // movsx
+            break;
+          case T_S2:
+            emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE); // cvttsd2si eax, xmm0
+            emitConvertWDQ(f, 0x98, 4); // cwde
+            break;
+          case T_S4:
+            emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE);
+            break; // cvttsd2si eax, xmm0
+          case T_S8: emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, TRUE); break; // cvttsd2si eax, xmm0
+          case T_U1:
+            emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE); // cvttsd2si eax, xmm0
+            emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
+            break;
+          case T_U2:
+            emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE); // cvttsd2si eax,xmm0
+            emitMovxxRR(f, 0xB7, R_ACC, R_ACC); // movzwx
+            break;
+          case T_U4: emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE); break; // cvttsd2si eax,xmm0
+          case T_U8: generateF8toU8(f, R_FACC, R_ACC); break;
+          case T_F4: emitConvertFP(f, 0xF2, 0x5A, R_FACC, R_FACC, FALSE); break; // cvtss2sd xmm0,xmm0
+          case T_F8: break;
+          case T_F10: break; // TODO
+          default: unreachable("unexpected type");
+        }
+        break;
+    case T_F10:
+        switch (toTypeId) {
+          case T_S1: break;
+          case T_S2: break;
+          case T_S4: break;
+          case T_S8: break;
+          case T_U1: break;
+          case T_U2: break;
+          case T_U4: break;
+          case T_U8: break;
+          case T_F4: break;
+          case T_F8: break;
+          case T_F10: break;
+          default: unreachable("unexpected type");
+        }
+        break;
+    default:
+        unreachable("unexpected type");
     }
 }
 
