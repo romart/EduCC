@@ -838,7 +838,7 @@ static unsigned lexChar(ParserContext *ctx, Token *new, const char *buffer, size
 
 }
 
-static unsigned lexStringLiteral(ParserContext *ctx, Token *new, const char *buffer, size_t size) {
+static unsigned lexStringLiteral(ParserContext *ctx, Token *new, LocationInfo *locInfo, const char *buffer, size_t size) {
   unsigned l = 0;
 
   Boolean isWide = FALSE;
@@ -863,9 +863,14 @@ static unsigned lexStringLiteral(ParserContext *ctx, Token *new, const char *buf
   while (l < size) {
       char c = buffer[l];
       if (c == '\\') {
-          int v = 0;
-          l += lexEscapedLiteralSymbol(ctx, new->locInfo, &v, &buffer[l], size - l, isWide);
-          putSymbol(&sb, (char)v);
+          if (buffer[l+1] == '\n') {
+            l += 2;
+            locInfo->fileInfo.linesPos[locInfo->fileInfo.lineno++] = l;
+          } else {
+            int v = 0;
+            l += lexEscapedLiteralSymbol(ctx, new->locInfo, &v, &buffer[l], size - l, isWide);
+            putSymbol(&sb, (char)v);
+          }
           continue;
       }
       if (c == '\n') {
@@ -1073,7 +1078,7 @@ Token *tokenizeBuffer(ParserContext *ctx, LocationInfo *locInfo, unsigned *lineP
           tokenEnd = i;
           break;
         case '"':
-          i += lexStringLiteral(ctx, new, &buffer[i], bufferSize - tokenStart);
+          i += lexStringLiteral(ctx, new, locInfo, &buffer[i], bufferSize - tokenStart);
           tokenEnd = i;
           break;
         case '/': // or /* or /= or /
