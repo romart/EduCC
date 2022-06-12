@@ -565,7 +565,7 @@ static unsigned lexNumber(ParserContext *ctx, Token *new, const char *buffer, si
   size_t i = 0;
 
   while (i < size) {
-    if (buffer[0] && buffer[1] && strchr("eEpP", buffer[0]) && strchr("+-", buffer[1])) {
+    if (buffer[i] && buffer[i+1] && strchr("eEpP", buffer[i]) && strchr("+-", buffer[i+1])) {
       i += 2;
     } else if (isalfanum(buffer[i]))
       ++i;
