@@ -19,7 +19,7 @@ extern char *ctime_r (const time_t *__timer, char *__buf);
 
 static int counterState = 0;
 
-static Token *expandMacro(ParserContext *ctx, Token *macro, Token **next, Boolean evalDefined);
+static Boolean expandMacro(ParserContext *ctx, Token *macro, Token **next, Boolean evalDefined);
 
 typedef struct _MacroParam {
   const char *name;
@@ -358,10 +358,9 @@ static Token* expandSequence(ParserContext *ctx, Token* s, Boolean evalDefined) 
   Token head = { 0 }, *current = &head;
 
   while (t) {
-      Token *o = t;
-      Token *n = expandMacro(ctx, t, &t, evalDefined);
-      if (o != n) continue;
-      current = current->next = n;
+      if (expandMacro(ctx, t, &t, evalDefined)) continue;
+      current = current->next = t;
+      t = t->next;
   }
 
   return head.next;
@@ -454,10 +453,9 @@ static Token *evaluateDefinedOp(ParserContext *ctx, Token *token, Boolean relaxe
   return NULL;
 }
 
-static Token *expandMacro(ParserContext *ctx, Token *macro, Token **next, Boolean evalDefined) {
+static Boolean expandMacro(ParserContext *ctx, Token *macro, Token **next, Boolean evalDefined) {
 
-  *next = macro->next;
-  if (macro->rawCode != IDENTIFIER) return macro;
+  if (macro->rawCode != IDENTIFIER) return FALSE;
 
   MacroDefinition *def = (MacroDefinition *)getFromHashMap(ctx->macroMap, (intptr_t)macro->id);
 
@@ -468,10 +466,10 @@ static Token *expandMacro(ParserContext *ctx, Token *macro, Token **next, Boolea
         if (e) {
           e->next = next2;
           *next = e;
-          return e;
+          return TRUE;
         }
       }
-      return macro;
+      return FALSE;
   }
 
   if (def->handler) {
@@ -481,10 +479,10 @@ static Token *expandMacro(ParserContext *ctx, Token *macro, Token **next, Boolea
       r->hasLeadingSpace = macro->hasLeadingSpace;
 
       *next = r;
-      return r;
+      return TRUE;
   }
 
-  if (hidesetContains(macro->hs, def->name)) return macro;
+  if (hidesetContains(macro->hs, def->name)) return FALSE;
 
   Coordinates macroCoords = { macro, macro };
   Token *n = macro->next;
@@ -495,7 +493,7 @@ static Token *expandMacro(ParserContext *ctx, Token *macro, Token **next, Boolea
     // b = foo 10
     // b = foo <EOF>
 
-    return macro;
+    return FALSE;
   }
 
   MacroArg argHead = { 0 };
@@ -739,12 +737,12 @@ static Token *expandMacro(ParserContext *ctx, Token *macro, Token **next, Boolea
     p->next = macroNext;
     evalHead.next->hasLeadingSpace = macro->hasLeadingSpace;
     evalHead.next->startOfLine = macro->startOfLine;
-    return *next = evalHead.next;
+    *next = evalHead.next;
+  } else {
+    *next = macroNext;
   }
 
-  *next = macroNext;
-
-  return NULL;
+  return TRUE;
 }
 
 static const char *findIncludePath(ParserContext *ctx, Token *include, const char *includeName, Boolean isdquoted) {
@@ -1062,16 +1060,14 @@ static Token *simplifyTokenSequence(ParserContext *ctx, Token *token) {
           continue;
       } else if (token->rawCode == IDENTIFIER) {
           Token *o = token;
-          Token *e = expandMacro(ctx, token, &token, TRUE);
 
-          if (e == o) {
+          if (!expandMacro(ctx, token, &token, TRUE)) {
               // https://gcc.gnu.org/onlinedocs/cpp/If.html#If
               // Identifiers that are not macros, which are all considered to be the number zero.
               cur = cur->next = constToken(ctx, 0, token);
-              continue;
-          } else {
-              continue;
+              token = token->next;
           }
+          continue;
       } else {
           cur = cur->next = token;
       }
@@ -1303,6 +1299,7 @@ static Token *handleDirecrive(ParserContext *ctx, Token *token) {
     reportDiagnostic(ctx, DIAG_PP_WITHOUT_IF, &coords, "endif");
     return directiveToken->next;
   } else if (!strcmp("line", directive)) {
+    // TODO
     return skipPPTokens(ctx, token->next);
   } else if (!strcmp("error", directive)) {
     coords.left = token;
@@ -1310,6 +1307,7 @@ static Token *handleDirecrive(ParserContext *ctx, Token *token) {
     reportDiagnostic(ctx, DIAG_PP_ERROR, &coords, token->next ? token->next->value.text ? token->next->value.text : "" : "");
     return token->next ? token->next->next : NULL;
   } else if (!strcmp("pragma", directive)) {
+    // TODO
     return skipPPTokens(ctx, token->next);
   } else {
     reportDiagnostic(ctx, DIAG_INVALID_PP_DIRECTIVE, &coords, directiveToken);
@@ -1469,23 +1467,15 @@ Token *preprocessFile(ParserContext *ctx, Token *s, Token *tail) {
   Token *t = s, *p = NULL;
 
   while (t) {
-    Token *o = t;
     if (t->rawCode == '#' && t->startOfLine) {
       t = handleDirecrive(ctx, t);
       continue;
-    } else if (t->rawCode == IDENTIFIER) {
-      Token *n = expandMacro(ctx, t, &t, FALSE);
-      if (n == o) {
-          current = current->next = n;
-      }
+    } else if (expandMacro(ctx, t, &t, FALSE)) {
       continue;
     }
 
-    current->next = t;
-    if (t) {
-      current = t;
-      t = t->next;
-    }
+    current = current->next = t;
+    t = t->next;
   }
 
   current->next = tail;
