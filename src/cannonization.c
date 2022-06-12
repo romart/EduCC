@@ -69,7 +69,9 @@ static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpressio
   expr->binaryExpr.right = right;
 
   Boolean isReal = isRealType(expr->type);
-  Boolean isComute = isCommute(expr->op) && !isReal;
+  if (isReal) return expr;
+
+  Boolean isComute = isCommute(expr->op);
 
   // 1 op x -> x op 1
   if (isComute && left->op == E_CONST) {
