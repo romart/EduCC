@@ -2465,6 +2465,13 @@ static enum JumpCondition generateFloatCondition(GenerationContext *ctx, Generat
 
       if (right->op == EU_DEREF) {
           translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
+          if (addr.reloc) {
+              emitLea(f, &addr, R_TMP);
+              addr.base = R_TMP;
+              addr.index = R_BAD;
+              addr.imm = addr.scale = 0;
+              addr.reloc = NULL;
+          }
           emitPopRegF(f, R_FTMP2, isD);
           emitArithAR(f, OP_FUCMP, R_FTMP2, &addr, opSize);
           emitSetccR(f, setcc, R_ACC);
