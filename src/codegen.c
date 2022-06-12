@@ -879,7 +879,7 @@ static void generateU8toF8(GeneratedFunction *f, enum Registers from, enum Regis
   emitArithConst(f, OP_AND, from, 1, 4);
   emitArithRR(f, OP_OR, R_TMP, from, 8);
   emitArithRR(f, OP_PXOR, to, to, 8);
-  emitConvertFP(f, 0xF2, 0x2A, from, to, TRUE);
+  emitConvertFP(f, 0xF2, 0x2A, R_TMP, to, TRUE);
   emitArithRR(f, OP_FADD, to, to, 8);
 
   bindLabel(f, &l2);
@@ -905,7 +905,7 @@ static void generateF8toU8(GeneratedFunction *f, enum Registers from, enum Regis
   struct Label l1 = { 0 }, l2 = { 0 };
 
   emitMoveCR(f, 0x43e0000000000000L, R_TMP, 8);
-  emitMovdq(f, 0x66, 0x0F, 0x7E, R_TMP, R_FTMP, TRUE);
+  emitMovdq(f, 0x66, 0x0F, 0x6E, R_TMP, R_FTMP, TRUE);
   emitArithRR(f, OP_FOCMP, from, R_FTMP, 8);
   emitCondJump(f, &l1, JC_A_E, TRUE);
 
