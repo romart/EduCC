@@ -3097,11 +3097,11 @@ static unsigned needSpace(char c, const Token *p, const Token *t) {
   int pcode = p->rawCode;
   int ncode = t->rawCode;
 
-  return 'E' == c ? '+' == ncode || '-' == ncode
-      : '+' == pcode ? INC_OP == ncode || '+' == ncode
-      : '-' == pcode ? DEC_OP == ncode || '-' == ncode
-      : pcode == IDENTIFIER ? ncode == IDENTIFIER
-      : pcode == I_CONSTANT_RAW || pcode == F_CONSTANT_RAW ? ncode == IDENTIFIER
+  return 'E' == c ? '+' == ncode || '-' == ncode // 0x1E + 1 vs 0x1E+1
+      : '+' == pcode ? INC_OP == ncode || '+' == ncode // + ++ vs +++ or + + vs ++
+      : '-' == pcode ? DEC_OP == ncode || '-' == ncode // - -- vs --- or - - vs --
+      : pcode == IDENTIFIER ? ncode == IDENTIFIER // a b vs ab
+      : pcode == I_CONSTANT_RAW || pcode == F_CONSTANT_RAW ? ncode == IDENTIFIER || ncode == F_CONSTANT_RAW || ncode == I_CONSTANT_RAW // 0 x12 vs 0x12 or 1 2 vs 12
       : 0;
 }
 
@@ -3152,7 +3152,7 @@ void compileFile(Configuration * config) {
   context.stateFlags.inPP = 1;
 
   Token eof = { 0 };
-  Token *startToken = tokenizeFile(&context, config->fileToCompile, &eof);
+  Token *startToken = tokenizeFileAndPP(&context, config->fileToCompile, &eof);
 
   if (!startToken) {
       fprintf(stderr, "Cannot open file %s\n", config->fileToCompile);

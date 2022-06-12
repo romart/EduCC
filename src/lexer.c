@@ -147,9 +147,6 @@ Token *tokenizeFile(ParserContext *ctx, const char *fileName, Token *tail) {
 
   if (buffer == NULL) return NULL;
 
-  const char *oldfile = ctx->config->fileToCompile;
-  ctx->config->fileToCompile = fileName;
-
   unsigned lineCount = countLinesInBuffer(buffer);
 
   LocationInfo *locInfo = allocateFileLocationInfo(fileName, buffer, bufferSize, lineCount);
@@ -157,12 +154,22 @@ Token *tokenizeFile(ParserContext *ctx, const char *fileName, Token *tail) {
   locInfo->next = ctx->locationInfo;
   ctx->locationInfo = locInfo;
 
-  Token *s = tokenizeBuffer(ctx, locInfo, locInfo->fileInfo.linesPos, NULL);
-  Token *pp = preprocessFile(ctx, s, tail);
+  Token *s = tokenizeBuffer(ctx, locInfo, locInfo->fileInfo.linesPos, tail);
+
+  return s;
+}
+
+Token *tokenizeFileAndPP(ParserContext *ctx, const char *fileName, Token *tail) {
+
+  const char *oldfile = ctx->config->fileToCompile;
+  ctx->config->fileToCompile = fileName;
+
+  Token *tokenized = tokenizeFile(ctx, fileName, NULL);
+  Token *preprocessed = preprocessFile(ctx, tokenized, tail);
 
   ctx->config->fileToCompile = oldfile;
 
-  return pp;
+  return preprocessed;
 }
 
 static Boolean isDigit(char c) {
