@@ -1096,7 +1096,7 @@ static void generateLogicalBinary(GenerationContext *ctx, GeneratedFunction *f, 
   emitSetccR(f, cc, R_ACC);
   emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
 
-  emitJumpTo(f, &endB);
+  emitJumpTo(f, &endB, TRUE);
   bindLabel(f, &elseB);
   emitMoveCR(f, binOp->op == EB_ANDAND ? 0 : 1, R_ACC, sizeof(int32_t));
   bindLabel(f, &endB);
@@ -1614,7 +1614,7 @@ static Boolean generateAlloca(GenerationContext *ctx, GeneratedFunction *f, Scop
   emitArithConst(f, OP_ADD, to, dataSize, dataSize);
   emitArithConst(f, OP_ADD, from, dataSize, dataSize);
 
-  emitJumpTo(f, &head);
+  emitJumpTo(f, &head, TRUE);
 
   bindLabel(f, &tail);
 
@@ -1887,7 +1887,7 @@ static void generateVaArg(GenerationContext *ctx, GeneratedFunction *f, Scope *s
       emitArithConst(f, OP_ADD, R_TMP, dataSize, sizeof(uint32_t));
       valist_addr.imm = fp_offset_off;
       emitStore(f, R_TMP, &valist_addr, T_U4);
-      emitJumpTo(f, &doneLabl);
+      emitJumpTo(f, &doneLabl, TRUE);
   } else if (isScalarType(vatype)) {
       int32_t gp_offset_off = memberOffset(vastruct, "gp_offset");
       valist_addr.imm = gp_offset_off;
@@ -1906,7 +1906,7 @@ static void generateVaArg(GenerationContext *ctx, GeneratedFunction *f, Scope *s
       emitArithConst(f, OP_ADD, R_TMP, dataSize, sizeof(uint32_t));
       valist_addr.imm = gp_offset_off;
       emitStore(f, R_TMP, &valist_addr, T_U4);
-      emitJumpTo(f, &doneLabl);
+      emitJumpTo(f, &doneLabl, TRUE);
   }
 
   bindLabel(f, &memLabl);
@@ -1983,7 +1983,7 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
 
         assert(ternary->ifTrue);
         generateExpression(ctx, f, scope, ternary->ifTrue);
-        emitJumpTo(f, &endLabel);
+        emitJumpTo(f, &endLabel, FALSE);
 
         assert(ternary->ifFalse);
         bindLabel(f, &elseLabel);
@@ -2238,9 +2238,9 @@ static int generateSwitchStatement(GenerationContext *ctx, GeneratedFunction *f,
   }
 
   if (stmt->hasDefault) {
-      emitJumpTo(f, &defaultLabel);
+      emitJumpTo(f, &defaultLabel, FALSE);
   } else {
-      emitJumpTo(f, &switchBreak);
+      emitJumpTo(f, &switchBreak, FALSE);
   }
 
   generateStatement(ctx, f, stmt->body, scope, frameOffset);
@@ -2451,7 +2451,7 @@ static int generateIfStatement(GenerationContext *ctx, GeneratedFunction *f, Ast
   size_t frameSize = generateStatement(ctx, f, stmt->thenBranch, scope, frameOffset);
 
   if (stmt->elseBranch) {
-      emitJumpTo(f, &endLabel);
+      emitJumpTo(f, &endLabel, FALSE);
       bindLabel(f, &elseLabel);
       frameSize = max(frameSize, generateStatement(ctx, f, stmt->elseBranch, scope, frameOffset));
   }
@@ -2487,7 +2487,7 @@ static int generateLoopStatement(GenerationContext *ctx, GeneratedFunction *f, A
       enum JumpCondition cc = generateCondition(ctx, f, scope, stmt->condition, FALSE);
       emitCondJump(f, &loopHead, cc, FALSE);
   } else {
-      emitJumpTo(f, &loopHead);
+      emitJumpTo(f, &loopHead, FALSE);
   }
 
   bindLabel(f, &loopTail);
@@ -2525,7 +2525,7 @@ static int generateForStatement(GenerationContext *ctx, GeneratedFunction *f, As
     generateExpression(ctx, f, scope, stmt->modifier);
   }
 
-  emitJumpTo(f, &loopHead);
+  emitJumpTo(f, &loopHead, FALSE);
   bindLabel(f, &loopTail);
 
   ctx->breakLabel = oldBreak;
@@ -2580,7 +2580,7 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
           l = allocateLabel(ctx);
           putToHashMap(ctx->labelMap, (intptr_t)stmt->jumpStmt.label, (intptr_t)l);
       }
-      emitJumpTo(f, l);
+      emitJumpTo(f, l, FALSE);
       break;
   }
   case SK_GOTO_P: {
@@ -2616,11 +2616,11 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
       }
   case SK_BREAK:
         assert(ctx->breakLabel);
-        emitJumpTo(f, ctx->breakLabel);
+        emitJumpTo(f, ctx->breakLabel, FALSE);
         break;
   case SK_CONTINUE:
         assert(ctx->continueLabel);
-        emitJumpTo(f, ctx->continueLabel);
+        emitJumpTo(f, ctx->continueLabel, FALSE);
         break;
   case SK_IF:
       generateIfStatement(ctx, f, &stmt->ifStmt, scope, frameOffset);
