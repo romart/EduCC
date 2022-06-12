@@ -98,6 +98,7 @@ def runParserTest(compiler, workingDir, dirname, name):
 def runCodegenTest(compiler, workingDir, dirname, name):
     global numOfFailedTests
     testFilePath = dirname + '/' + name + '.c'
+    argsFilePath = dirname + '/' + name + '.args'
 
     outputDir = workingDir + '/' + dirname
 
@@ -114,6 +115,14 @@ def runCodegenTest(compiler, workingDir, dirname, name):
 
     if path.exists(binFileName):
         os.remove(binFileName);
+
+    args = []
+    if path.exists(argsFilePath):
+        with open(argsFilePath) as argsFile:
+            for argLine in argsFile:
+                args.append(argLine.strip())
+    else:
+        args.append("")
 
     err = open(errFilePath, 'w+')
     compialtionCommand = [compiler, "-oneline" , "-o", objFileName, testFilePath]
@@ -132,21 +141,27 @@ def runCodegenTest(compiler, workingDir, dirname, name):
         print(f"  Compilation crashed (exit code {exit_code})")
         numOfFailedTests = numOfFailedTests + 1
     else:
-        linkage = Popen(["gcc", objFileName, "-o" , binFileName], stdout=sys.stdout, stderr=sys.stderr)
+        linkage = Popen(["gcc", objFileName, "-o" , binFileName, "-lm"], stdout=sys.stdout, stderr=sys.stderr)
         exit_code = linkage.wait()
         if exit_code != 0:
             print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
             print(f"  Linkage crashed (exit code {exit_code})")
             numOfFailedTests = numOfFailedTests + 1
         else:
-            execution = Popen([binFileName], stdout=sys.stdout, stderr=sys.stderr)
-            exit_code = execution.wait()
-            if exit_code != 0:
-                print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-                print(f"  Execution exit code is not 0 ({exit_code})")
-                numOfFailedTests = numOfFailedTests + 1
-            else:
-                print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
+            for arg in args:
+                runCommand = [binFileName]
+                if arg:
+                    runCommand.extend(arg.split())
+                execution = Popen(runCommand, stdout=sys.stdout, stderr=sys.stderr)
+                exit_code = execution.wait()
+                if exit_code != 0:
+                    print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
+                    print(f"  Execution exit code is not 0 ({exit_code})")
+                    if arg:
+                        print(f"  Argument: '{arg}'")
+                    numOfFailedTests = numOfFailedTests + 1
+                else:
+                    print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
 
 
 def runPPTest(compiler, workingDir, dirname, name):
