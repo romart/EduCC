@@ -1863,7 +1863,8 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   unsigned stackArgSize = 0;
 
   if (isStructualType(returnType) && returnTypeSize > sizeof(intptr_t)) {
-      stackArgSize = returnTypeSize;
+      unsigned align = max(8, typeAlignment(returnType));
+      stackArgSize = ALIGN_SIZE(returnTypeSize, align);
       intRegArgs = firstIntRegArg = 1;
   }
 
@@ -1874,7 +1875,8 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
 
       TypeRef *t = tmp->expression->type;
 
-      unsigned argSize = max(4, computeTypeSize(t));
+      unsigned alignent = max(8, typeAlignment(t));
+      unsigned argSize = max(8, computeTypeSize(t));
 
       ++count;
 
@@ -1892,7 +1894,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
         }
       }
 
-      stackArgSize = ALIGN_SIZE(stackArgSize, argSize);
+      stackArgSize = ALIGN_SIZE(stackArgSize, alignent);
 
       offsets[count - 1] = stackArgSize;
 
@@ -1908,7 +1910,8 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
     emitArithConst(f, OP_SUB, R_ESP, alignedStackSize, sizeof(intptr_t));
 
   if (isStructualType(returnType) && returnTypeSize > sizeof(intptr_t)) {
-      offset = ALIGN_SIZE(returnTypeSize, sizeof(intptr_t));
+      unsigned align = max(8, typeAlignment(returnType));
+      offset = ALIGN_SIZE(returnTypeSize, align);
       r_offsets[idx] = offset;
       r_types[idx] = returnType;
       ++idx;
@@ -1920,12 +1923,14 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
     AstExpression *arg = args->expression;
     TypeRef *argType = arg->type;
 
-    unsigned typeSize = max(4, computeTypeSize(argType));
+    unsigned alignent = max(8, typeAlignment(argType));
+    unsigned argSize = max(8, computeTypeSize(argType));
+
     int32_t rspOffset = offsets[count - 1];
 
     Address dst = { R_ESP, R_BAD, 0, rspOffset, NULL, NULL };
 
-    if (isStructualType(argType) && typeSize > sizeof(intptr_t)) {
+    if (isStructualType(argType) && argSize > sizeof(intptr_t)) {
       Address addr = { 0 };
       translateAddress(ctx, f, scope, arg->op == EU_DEREF ? arg->unaryExpr.argument : arg, &addr);
       dst.imm = rspOffset + (f->stackOffset - stackBase);
@@ -1950,11 +1955,11 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
             ++idx;
             if (isStructualType(argType)) {
                 Address addr = { R_ACC, R_BAD, 0, 0, NULL, NULL };
-                emitLoad(f, &addr, R_ACC, typeSize);
+                emitLoad(f, &addr, R_ACC, argSize);
             }
             emitPushReg(f, R_ACC);
         } else {
-            emitMoveRA(f, R_ACC, &dst, typeSize);
+            emitMoveRA(f, R_ACC, &dst, argSize);
         }
       }
 
@@ -2002,10 +2007,8 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
 
   Boolean retFP = isRealType(returnType);
 
-  if (fpRegArgs) {
+  if (fpRegArgs && calleeType->functionTypeDesc.isVariadic) {
     emitMoveCR(f, fpRegArgs, R_ACC, sizeof(int32_t));
-  } else {
-    emitArithRR(f, OP_XOR, R_ACC, R_ACC, sizeof(int64_t));
   }
 
   if (callee->op == E_NAMEREF) {
@@ -2034,6 +2037,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
       case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break;
       case T_S2: emitMovxxRR(f, 0xBF, R_ACC, R_ACC); break;
       case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break;
+      default: break;
       }
   }
 
@@ -2905,8 +2909,8 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
   for (; param; param = param->next) {
     TypeRef *paramType = param->type;
     GeneratedVariable *gp = allocateGenVarialbe(ctx, param);
-    size_t size = max(sizeof(int32_t), computeTypeSize(paramType));
-    size_t align = min(size, sizeof(intptr_t));
+    size_t size = max(computeTypeSize(paramType), sizeof(intptr_t));
+    size_t align = max(typeAlignment(paramType), sizeof(intptr_t));
 
     if (isStructualType(paramType) && size > sizeof(intptr_t)) {
         int32_t alignedOffset = ALIGN_SIZE(stackParamOffset, align);
