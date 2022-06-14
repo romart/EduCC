@@ -124,6 +124,7 @@ void verifyFunctionReturnType(ParserContext *ctx, Declarator *declarator, TypeRe
 
 
 Symbol* findSymbol(ParserContext *ctx, const char *name);
+Symbol *newSymbol(ParserContext *ctx, SymbolKind kind, const char *name);
 Symbol* declareSymbol(ParserContext *ctx, SymbolKind kind, const char *name);
 Symbol* findOrDeclareSymbol(ParserContext* ctx, SymbolKind kind, const char* name);
 
