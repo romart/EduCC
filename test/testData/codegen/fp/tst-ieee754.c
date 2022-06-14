@@ -81,11 +81,11 @@
 
 static float flt_max = FLT_MAX;
 static double dbl_max = DBL_MAX;
-//static long double ldbl_max = LDBL_MAX;
+static long double ldbl_max = LDBL_MAX;
 
 static float flt_epsilon = FLT_EPSILON;
 static double dbl_epsilon = DBL_EPSILON;
-//static long double ldbl_epsilon = LDBL_EPSILON;
+static long double ldbl_epsilon = LDBL_EPSILON;
 
 /* <float.h> constants */
 static void float_h (void)
@@ -101,22 +101,22 @@ static void float_h (void)
 
   printf ("FLT_MAX_EXP = %d\n", (int) FLT_MAX_EXP);
   printf ("DBL_MAX_EXP = %d\n", (int) DBL_MAX_EXP);
-//  printf ("LDBL_MAX_EXP = %d\n\n", (int) LDBL_MAX_EXP);
+  printf ("LDBL_MAX_EXP = %d\n\n", (int) LDBL_MAX_EXP);
 
   PREC_EPSILON (float, FLT_EPSILON, "");
   PREC_EPSILON (double, DBL_EPSILON, "");
-//  PREC_EPSILON (long double, LDBL_EPSILON, "L");
+  PREC_EPSILON (long double, LDBL_EPSILON, "L");
   putchar ('\n');
 
   printf ("FLT_MIN = %g = %a\n", (double) FLT_MIN, (double) FLT_MIN);
   printf ("DBL_MIN = %g = %a\n", (double) DBL_MIN, (double) DBL_MIN);
-//  printf ("LDBL_MIN = %Lg = %La\n\n",
-//          (long double) LDBL_MIN, (long double) LDBL_MIN);
+  printf ("LDBL_MIN = %Lg = %La\n\n",
+          (long double) LDBL_MIN, (long double) LDBL_MIN);
 
   printf ("FLT_MAX = %g = %a\n", (double) FLT_MAX, (double) FLT_MAX);
   printf ("DBL_MAX = %g = %a\n", (double) DBL_MAX, (double) DBL_MAX);
-//  printf ("LDBL_MAX = %Lg = %La\n\n",
-//          (long double) LDBL_MAX, (long double) LDBL_MAX);
+  printf ("LDBL_MAX = %Lg = %La\n\n",
+          (long double) LDBL_MAX, (long double) LDBL_MAX);
 }
 
 #define TSIZEOF(T) printf ("sizeof(" #T ") = %d\n", (int) sizeof(T))
@@ -125,7 +125,7 @@ static void float_sizeof (void)
 {
   TSIZEOF (float);
   TSIZEOF (double);
-//  TSIZEOF (long double);
+  TSIZEOF (long double);
   putchar ('\n');
 }
 
@@ -281,7 +281,7 @@ static void tstall (void)
 {
   float fm = FLT_MAX, fe = FLT_EPSILON;
   double dm = DBL_MAX, de = DBL_EPSILON;
-//  long double lm = LDBL_MAX, le = LDBL_EPSILON;
+  long double lm = LDBL_MAX, le = LDBL_EPSILON;
 
   rnd_detect ();
   tstcast ();
@@ -302,15 +302,15 @@ static void tstall (void)
   tstconst ();
   TSTDIV (float, "");
   TSTDIV (double, "");
-//  TSTDIV (long double, "L");
+  TSTDIV (long double, "L");
 
   printf ("Dec 1.1  = %a\n", (double) 1.1);
   printf ("FLT_MAX  = %a%s\n", (double) fm, ERRSTR (fm != flt_max));
   printf ("DBL_MAX  = %a%s\n", dm, ERRSTR (dm != dbl_max));
-//  printf ("LDBL_MAX = %La%s\n", lm, ERRSTR (lm != ldbl_max));
+  printf ("LDBL_MAX = %La%s\n", lm, ERRSTR (lm != ldbl_max));
   printf ("FLT_EPSILON  = %a%s\n", (double) fe, ERRSTR (fe != flt_epsilon));
   printf ("DBL_EPSILON  = %a%s\n", de, ERRSTR (de != dbl_epsilon));
-//  printf ("LDBL_EPSILON = %La%s\n", le, ERRSTR (le != ldbl_epsilon));
+  printf ("LDBL_EPSILON = %La%s\n", le, ERRSTR (le != ldbl_epsilon));
 
   tstpow ();
 }
@@ -361,24 +361,24 @@ static void tsteval_method (void)
  * ia64 platforms. See:
  *     https://gcc.gnu.org/bugzilla/show_bug.cgi?id=36578
  */
-//static void ldcast_test (void)
-//{
-//  volatile double a = 4294967219.0;
-//  volatile double b = 4294967429.0;
-//  double c, d;
-//  long double al, bl;
+static void ldcast_test (void)
+{
+  volatile double a = 4294967219.0;
+  volatile double b = 4294967429.0;
+  double c, d;
+  long double al, bl;
 
-//  al = a;
-//  bl = b;
-//  c = (long double) a * (long double) b;
-//  d = al * bl;
-//  if (c != d)
-//    printf ("\nBUG: Casts to long double do not seem to be taken into "
-//            "account when\nthe result to stored to a variable of type "
-//            "double. If your compiler\nis gcc (version < 4.3.4), this "
-//            "may be the following bug:\n    "
-//            "https://gcc.gnu.org/bugzilla/show_bug.cgi?id=36578\n");
-//}
+  al = a;
+  bl = b;
+  c = (long double) a * (long double) b;
+  d = al * bl;
+  if (c != d)
+    printf ("\nBUG: Casts to long double do not seem to be taken into "
+            "account when\nthe result to stored to a variable of type "
+            "double. If your compiler\nis gcc (version < 4.3.4), this "
+            "may be the following bug:\n    "
+            "https://gcc.gnu.org/bugzilla/show_bug.cgi?id=36578\n");
+}
 
 static void tstnan (void)
 {
@@ -462,20 +462,20 @@ static void double_to_unsigned (void)
             t1 ? "incorrect" : "correct", t2 ? ", FE_INVALID" : "");
 }
 
-//static void ibm_ldconv (void)
-//{
-//#define CAT1(X) 1 ## X
-//#define CAT2(X) CAT1(X)
-//#define LD0 .000000000000000000000000000000000001L
-//#define LD1 CAT2(LD0)
-//  long double x = 1.0L + LD0, y = LD1;
+static void ibm_ldconv (void)
+{
+#define CAT1(X) 1 ## X
+#define CAT2(X) CAT1(X)
+#define LD0 .000000000000000000000000000000000001L
+#define LD1 CAT2(LD0)
+  long double x = 1.0L + LD0, y = LD1;
 
-//  if (x > 1.0L && y == 1.0L)
-//    {
-//      printf ("\nBad conversion of " MAKE_STR(LD1) "\n");
-//      printf ("Got 1 instead of about 1 + %La\n", x - 1.0L);
-//    }
-//}
+  if (x > 1.0L && y == 1.0L)
+    {
+      printf ("\nBad conversion of " MAKE_STR(LD1) "\n");
+      printf ("Got 1 instead of about 1 + %La\n", x - 1.0L);
+    }
+}
 
 int main (void)
 {
@@ -484,15 +484,15 @@ int main (void)
   float_h ();
   float_sizeof ();
   tsteval_method ();
-//  ldcast_test ();
+  ldcast_test ();
   tstnan ();
   tstinvalid ();
   fused_madd_test ();
   double_to_unsigned ();
 
-//  if (LDBL_MIN_EXP == -968 && LDBL_MAX_EXP == 1024 &&
-//      LDBL_MANT_DIG == 106)  /* IBM long double format, i.e. double-double */
-//    ibm_ldconv ();
+  if (LDBL_MIN_EXP == -968 && LDBL_MAX_EXP == 1024 &&
+      LDBL_MANT_DIG == 106)  /* IBM long double format, i.e. double-double */
+    ibm_ldconv ();
 
   printf ("\nRounding to nearest\n");
 #ifdef FE_TONEAREST

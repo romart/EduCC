@@ -110,9 +110,9 @@ FILE test/testData/parser/negative/expressions/numericalConsts.c
   FUN signed int testFloatingPoint
   BEGIN
     float f1 = \
-      123564564654564545283489792.000000
+      123564564654564545468039168.000000
     float f2 = \
-      1235444654654654705938989056.000000
+      1235444654654654646547644416.000000
     double d1 = \
       431.000000
     double d2 = \
