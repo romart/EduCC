@@ -2668,10 +2668,6 @@ static void emitReturn(GenerationContext *ctx, GeneratedFunction *f) {
   emitRet(f, 0);
 }
 
-static void moveTosToRet(GenerationContext *ctx, GeneratedFunction *f, size_t size) {
-
-}
-
 static unsigned walkCaseLabels(AstStatement *body, struct CaseLabel *caseLabels, unsigned idx) {
   unsigned visited = 0;
   switch (body->statementKind) {
