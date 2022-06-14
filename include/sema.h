@@ -14,6 +14,7 @@ enum {
 };
 
 int typeIdSize(TypeId id);
+TypeId typeToId(TypeRef *type);
 int computeTypeSize(TypeRef *type);
 int computeSUETypeSize(ParserContext *ctx, AstSUEDeclaration *declaration);
 

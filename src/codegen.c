@@ -430,21 +430,6 @@ static void bindLabel(GeneratedFunction *f, struct Label *l) {
   l->refs = NULL;
 }
 
-static TypeId typeToId(TypeRef *type) {
-  switch (type->kind) {
-  case TR_VALUE: {
-        TypeId tid = type->descriptorDesc->typeId;
-        if (tid == T_ENUM) tid = T_S4;
-        return tid;
-  }
-  case TR_POINTED:
-  case TR_FUNCTION:
-  case TR_ARRAY: return T_U8;
-  case TR_BITFIELD: return type->bitFieldDesc.storageType->descriptorDesc->typeId;
-  default: unreachable("Unknown type ref"); return T_ERROR;
-    }
-}
-
 static void emitLoad(GeneratedFunction *f, Address *from, enum Registers to, TypeId typeId) {
   switch (typeId) {
   case T_S1: emitMovxxAR(f, 0xBE, from, to); break;
