@@ -628,7 +628,7 @@ void emitArithRR(GeneratedFunction *f, enum Opcodes opcode, enum Registers l, en
 
 
 void emitArithConst(GeneratedFunction *f, enum Opcodes opcode, enum Registers r, int64_t c, size_t size) {
-  if ((uint64_t)(uint32_t)c != (uint32_t)c) {
+  if ((uint64_t)(uint32_t)c != c) {
     emitMoveCR(f, c, R_R8, size);
     emitArithRR(f, opcode, r, R_R8, size);
   } else {
