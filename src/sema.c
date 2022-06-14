@@ -2180,10 +2180,15 @@ static int existedValueProcessor(ParserContext *ctx, Symbol *s, void *value) {
   TypeRef *newType = newValue->type;
 
   if (typesEquals(oldType, newType)) {
-      // TODO: link declarations to list
+      if (oldValue->flags.bits.isExternal || newValue->flags.bits.isExternal) {
+          // TODO: link declarations to list
+
+      } else {
+          reportDiagnostic(ctx, DIAG_MEMBER_REDEFINITION, &newValue->coordinates, s->name, newType, oldType);
+      }
   } else {
       Coordinates coords = { ctx->token, ctx->token };
-      reportDiagnostic(ctx, DIAG_VALUE_REDEFINITION_TYPES, &coords, s->name, newType, oldType);
+      reportDiagnostic(ctx, DIAG_VALUE_REDEFINITION_TYPES, &newValue->coordinates, s->name, newType, oldType);
   }
 }
 
