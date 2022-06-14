@@ -233,6 +233,17 @@ void emitNegR(struct _GeneratedFunction *f, enum Registers reg, size_t size);
 void emitNegA(struct _GeneratedFunction *f, Address *addr, size_t size);
 void emitZeroReg(struct _GeneratedFunction *f, enum Registers reg);
 
+void emitFPArith(struct _GeneratedFunction *f, enum Opcodes opcode, uint8_t stId, Boolean doPop);
+void emitFPArithMem(struct _GeneratedFunction *f, enum Opcodes opcode, Address *addr);
+void emitFPLoad(struct _GeneratedFunction *f, Address *addr, int tid);
+void emitFPIntLoad(struct _GeneratedFunction *f, Address *addr, int32_t size);
+void emitFPStore(struct _GeneratedFunction *f, Address *addr, int tid);
+void emitFPIntStore(struct _GeneratedFunction *f, Address *addr, int32_t size);
+void emitFPPop(struct _GeneratedFunction *f, uint8_t stId);
+void emitFPnoArg(struct _GeneratedFunction *f, uint8_t opByte);
+void emitFPnoArgMem(struct _GeneratedFunction *f, Address *addr, int digit);
+
+
 void emitSetccR(struct _GeneratedFunction *f, enum JumpCondition cc, enum Registers reg);
 
 void emitTestRR(struct _GeneratedFunction *f, enum Registers l, enum Registers r, size_t s);
