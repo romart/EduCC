@@ -140,6 +140,7 @@ typedef struct _ParserContext {
       unsigned hasSmallStructs: 1;
       unsigned inPP : 1;
       unsigned caseCount;
+      unsigned returnStructBuffer;
     } stateFlags;
 
     struct {
@@ -147,7 +148,6 @@ typedef struct _ParserContext {
       UsedLabel *usedLabels;
     } labels;
 
-    AstFunctionDeclaration *currentFunction;
     TypeRef *functionReturnType;
     AstValueDeclaration *locals;
 
