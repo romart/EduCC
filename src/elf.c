@@ -195,7 +195,7 @@ static unsigned serializeSymbolTable(ElfFile *elfFile, GeneratedFile *file, unsi
             if (s->kind == ValueSymbol && s->variableDesc->gen == NULL) {
                 serializeExternalSymbol(symTableSection, strSym, reloc->symbolData.symbolName);
                 s->symbolTableIndex = idx++;
-            } else if (s->kind == FunctionSymbol && s->function->gen == NULL) {
+            } else if (s->kind == FunctionSymbol && (s->function == NULL || s->function->gen == NULL)) {
                 serializeExternalSymbol(symTableSection, strSym, reloc->symbolData.symbolName);
                 s->symbolTableIndex = idx++;
             }
@@ -362,7 +362,7 @@ static void relocateStaticSymbols(Relocation *reloc, uint8_t *buffer) {
           } else {
               assert(s->kind == FunctionSymbol);
               AstFunctionDeclaration *f = s->function;
-              if (f->flags.bits.isStatic) {
+              if (f && f->flags.bits.isStatic) {
                   GeneratedFunction *gen = f->gen;
                   relocateStaticSymbol(buffer, reloc->applySection->offset, reloc->applySectionOffset, gen->section->offset, gen->sectionOffset, reloc->addend);
                   reloc = reloc->next;
