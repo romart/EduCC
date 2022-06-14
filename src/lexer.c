@@ -66,7 +66,7 @@ static void dumpToken(char *buffer, size_t bsize, Token *token) {
   }
 
   if (token->rawCode == F_CONSTANT_RAW) {
-      l = snprintf(bf, bsize, ", float value '%f'", token->value.dv);
+      l = snprintf(bf, bsize, ", float value '%Lf'", token->value.ldv);
       bf += l; bsize -= l;
   }
 
@@ -473,11 +473,11 @@ static void parseFloatLiteral(Token *new, unsigned flags, const char *buffer, si
     copy = strndup(buffer, size);
   }
 
-  double r;
-  sscanf(copy, "%lf", &r);
+  long double r;
+  sscanf(copy, "%Lf", &r);
   new->code = flags & SEEN_FSUFFIX ? F_CONSTANT : D_CONSTANT;
   new->rawCode = F_CONSTANT_RAW;
-  new->value.dv = r;
+  new->value.ldv = r;
 
   if (size >= 64) {
     free(copy);
@@ -1112,7 +1112,8 @@ Token *tokenizeBuffer(ParserContext *ctx, LocationInfo *locInfo, unsigned *lineP
           if (i < bufferSize) {
               if ('0' <= buffer[i] && buffer[i] <= '9') { // .1
                 --i;
-                tokenEnd = lexNumber(ctx, new, &buffer[i], bufferSize - i);
+                i += lexNumber(ctx, new, &buffer[i], bufferSize - i);
+                tokenEnd = i;
               } else if (buffer[i] == '.') { // .. or ...
                   new->code = new->rawCode = DDOT; // ..
                   tokenEnd = ++i;

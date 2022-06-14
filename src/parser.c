@@ -342,7 +342,7 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
         case F_CONSTANT: typeId = T_F4; goto fconst;
         case D_CONSTANT: typeId = T_F8; goto fconst;
         fconst: {
-            float64_const_t f = ctx->token->value.dv;
+            float80_const_t f = ctx->token->value.ldv;
             result = createAstConst(ctx, &coords, CK_FLOAT_CONST, &f);
             result->type = makePrimitiveType(ctx, typeId, flags.storage);
             break;
@@ -519,7 +519,7 @@ static AstExpression *createUnaryIncDecExpression(ParserContext *ctx, Coordinate
   AstExpression *offset = NULL;
 
   if (isRealType(type)) {
-    double d = 1.0;
+    long double d = 1.0;
     offset = createAstConst(ctx, coords, CK_FLOAT_CONST, &d);
     offset->type = type;
   } else if (isPointerLikeType(type)) {

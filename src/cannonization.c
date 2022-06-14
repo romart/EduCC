@@ -622,8 +622,19 @@ static AstExpression *cannonizePostIncDec(ParserContext *ctx, AstExpression *exp
   ExpressionType asg_op = expr->op == EU_POST_DEC ? EB_ASG_SUB : EB_ASG_ADD;
   ExpressionType snd_op = expr->op == EU_POST_DEC ? EB_ADD : EB_SUB;
 
-  AstExpression *deltaConst = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &delta);
-  deltaConst->type = isPointerLikeType(type) ? makePrimitiveType(ctx, T_S8, 0) : type;
+
+  AstExpression *deltaConst = NULL;
+
+  TypeId tid = typeToId(type);
+
+  if (tid < T_F4) {
+    deltaConst = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &delta);
+  } else {
+    long double d = delta;
+    deltaConst = createAstConst(ctx, &expr->coordinates, CK_FLOAT_CONST, &d);
+  }
+
+  deltaConst->type = isPointerLikeType(type) ? makePrimitiveType(ctx, tid, 0) : type;
   argument->type = type;
 
   AstExpression *asg = createBinaryExpression(ctx, asg_op, type, argument, deltaConst);

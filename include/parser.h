@@ -47,8 +47,7 @@ typedef struct _Token {
 
     union {
       uint64_t iv; // holds integer const
-      double dv;  // holds double const
-      /*long */double ldv; // holds long double const (yes it's different from double)
+      long double ldv; // holds long double const (yes it's different from double)
       const char *text; // holds _cleared_ string literal
     } value;
 
