@@ -2078,13 +2078,15 @@ int isTypeName(ParserContext *ctx, const char* name, struct _Scope* scope) {
     return s && s->kind == TypedefSymbol;
 }
 
+Symbol *newSymbol(ParserContext *ctx, SymbolKind kind, const char *name) {
+  Symbol *s = (Symbol *)areanAllocate(ctx->memory.typeArena, sizeof(Symbol));
+  s->kind = kind;
+  s->name = name;
+  return s;
+}
 
-Symbol* declareSymbol(ParserContext *ctx, SymbolKind kind, const char *name) {
-    int symbolSize = sizeof(Symbol);
-    Symbol *s = (Symbol *)areanAllocate(ctx->memory.typeArena, symbolSize);
-    s->kind = kind;
-    s->name = name;
-
+Symbol *declareSymbol(ParserContext *ctx, SymbolKind kind, const char *name) {
+    Symbol *s = newSymbol(ctx, kind, name);
     Scope *scope = ctx->currentScope;
     putToHashMap(scope->symbols, (intptr_t)name, (intptr_t)s);
 
