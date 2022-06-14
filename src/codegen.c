@@ -66,6 +66,7 @@ typedef struct _GenerationContext {
   unsigned caseCount;
   struct CaseLabel *caseLabels;
 
+  Symbol *memsetSymbol;
 
   Section *bss;
   Section *rodata;
@@ -543,6 +544,18 @@ static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFun
 static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression, Address *addr);
 static void storeBitField(GeneratedFunction *f, TypeRef *t, enum Registers from, Address *addr);
 
+static void emitSymbolCall(GenerationContext *ctx, GeneratedFunction *f, Symbol *s) {
+  Relocation *newReloc = allocateRelocation(ctx);
+  newReloc->applySection = f->section;
+  newReloc->symbolData.symbolName = s->name;
+  newReloc->symbolData.symbol = s;
+  newReloc->kind = RK_SYMBOL;
+  newReloc->next = f->section->reloc;
+  f->section->reloc = newReloc;
+
+  emitCallLiteral(f, newReloc);
+}
+
 static void copyStructTo(GeneratedFunction *f, TypeRef *type, Address *src, Address *dst) {
 
   assert(isStructualType(type) || isUnionType(type));
@@ -552,7 +565,6 @@ static void copyStructTo(GeneratedFunction *f, TypeRef *type, Address *src, Addr
   int32_t copied = 0;
 
   while (copied < size) {
-
       int32_t chunkSize;
       int32_t left = size - copied;
 
@@ -572,8 +584,12 @@ static void copyStructTo(GeneratedFunction *f, TypeRef *type, Address *src, Addr
   }
 }
 
+static Boolean isNullConst(AstExpression *expr) {
+  if (expr->op != E_CONST) return FALSE;
+  return expr->constExpr.i == 0;
+}
 
-static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, int32_t typeSize, Address *dst, AstInitializer *initializer) {
+static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, int32_t typeSize, Address *dst, AstInitializer *initializer, Boolean skipNull) {
   size_t emitted = 0;
 
   switch (initializer->kind) {
@@ -585,6 +601,10 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
       int32_t offset = initializer->offset;
       Address addr = *dst;
       addr.imm += offset;
+
+      if (skipNull && isNullConst(initializer->expression)) {
+          return offset + slotSize;
+      }
 
       generateExpression(ctx, f, scope, initializer->expression);
 
@@ -613,7 +633,7 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
     case IK_LIST: {
         AstInitializerList *inits = initializer->initializerList;
         while (inits) {
-            emitted = emitInitializerImpl(ctx, f, scope, typeSize, dst, inits->initializer);
+            emitted = emitInitializerImpl(ctx, f, scope, typeSize, dst, inits->initializer, skipNull);
 
             inits = inits->next;
         }
@@ -631,23 +651,34 @@ static void emitLocalInitializer(GenerationContext *ctx, GeneratedFunction *f, S
   Address addr = { R_EBP, R_BAD, 0, frameOffset };
 
   size_t typeSize = computeTypeSize(type);
-  size_t emitted = emitInitializerImpl(ctx, f, scope, typeSize, &addr, initializer);
+  int32_t align = typeAlignment(type);
 
-  if ((isStructualType(type) || isUnionType(type)) && emitted < typeSize) {
-      addr.imm += emitted;
-      emitArithRR(f, OP_XOR, R_ACC, R_ACC, sizeof (intptr_t));
-      int32_t delta1 = ALIGN_SIZE(emitted, sizeof (intptr_t));
-      while (emitted < delta1 && emitted < typeSize) {
-          emitMoveRA(f, R_ACC, &addr, sizeof(uint8_t));
-          addr.imm += sizeof(uint8_t);
-          emitted += sizeof(uint8_t);
-      }
+  if (typeSize >= 16) {
+      emitLea(f, &addr, R_ARG_0);
+      emitArithRR(f, OP_XOR, R_ARG_1, R_ARG_1, sizeof (intptr_t));
+      emitMoveCR(f, typeSize, R_ARG_2, sizeof (intptr_t));
+      emitSymbolCall(ctx, f, ctx->memsetSymbol);
+      emitInitializerImpl(ctx, f, scope, typeSize, &addr, initializer, TRUE);
+  } else {
 
-      while (emitted < typeSize) {
-        emitMoveRA(f, R_ACC, &addr, sizeof(intptr_t));
-        addr.imm += sizeof(intptr_t);
-        emitted += sizeof(intptr_t);
-      }
+    size_t emitted = emitInitializerImpl(ctx, f, scope, typeSize, &addr, initializer, FALSE);
+
+    if ((isStructualType(type) || isUnionType(type)) && emitted < typeSize) {
+        addr.imm += emitted;
+        emitArithRR(f, OP_XOR, R_ACC, R_ACC, sizeof (intptr_t));
+        int32_t delta1 = ALIGN_SIZE(emitted, sizeof (intptr_t));
+        while (emitted < delta1 && emitted < typeSize) {
+            emitMoveRA(f, R_ACC, &addr, sizeof(uint8_t));
+            addr.imm += sizeof(uint8_t);
+            emitted += sizeof(uint8_t);
+        }
+
+        while (emitted < typeSize) {
+          emitMoveRA(f, R_ACC, &addr, sizeof(intptr_t));
+          addr.imm += sizeof(intptr_t);
+          emitted += sizeof(intptr_t);
+        }
+    }
   }
 }
 
@@ -2304,16 +2335,17 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   }
 
   if (callee->op == E_NAMEREF) {
-    Symbol *s = callee->nameRefExpr.s;
-    Relocation *newReloc = allocateRelocation(ctx);
-    newReloc->applySection = f->section;
-    newReloc->symbolData.symbolName = s->name;
-    newReloc->symbolData.symbol = s;
-    newReloc->kind = RK_SYMBOL;
-    newReloc->next = f->section->reloc;
-    f->section->reloc = newReloc;
+    emitSymbolCall(ctx, f, callee->nameRefExpr.s);
+//    Symbol *s = callee->nameRefExpr.s;
+//    Relocation *newReloc = allocateRelocation(ctx);
+//    newReloc->applySection = f->section;
+//    newReloc->symbolData.symbolName = s->name;
+//    newReloc->symbolData.symbol = s;
+//    newReloc->kind = RK_SYMBOL;
+//    newReloc->next = f->section->reloc;
+//    f->section->reloc = newReloc;
 
-    emitCallLiteral(f, newReloc);
+//    emitCallLiteral(f, newReloc);
   } else {
     emitCall(f, R_R10);
   }
@@ -3518,6 +3550,13 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, AstFile *astFile) {
   GeneratedFile *file = allocateGenFile(&ctx);
   ctx.file = file;
   file->name = astFile->fileName;
+
+  Symbol *memsetSymbol = findSymbol(pctx, "memset");
+  if (memsetSymbol == NULL || memsetSymbol->kind != FunctionSymbol) {
+      memsetSymbol = newSymbol(pctx, FunctionSymbol, "memset");
+  }
+
+  ctx.memsetSymbol = memsetSymbol;
 
   ctx.text = &text;
   ctx.bss = &bss;
