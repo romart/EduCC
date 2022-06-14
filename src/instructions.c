@@ -373,7 +373,7 @@ static void emitSimpleArithRC(GeneratedFunction *f, uint8_t  opcode, uint8_t opc
 
   if (size == 2) emitByte(f, 0x66);
 
-  emitRex(f, r, R_BAD, R_BAD, size == 8);
+  emitRex(f, R_BAD, r, R_BAD, size == 8);
 
   emitByte(f, size == 1 ? opcode - 1 : opcode);
 
@@ -652,6 +652,60 @@ void emitArithConst(GeneratedFunction *f, enum Opcodes opcode, enum Registers r,
       default: unreachable("unreachable");
         }
   }
+}
+
+void emitFPArith(GeneratedFunction *f, enum Opcodes opcode, uint8_t stId, Boolean doPop) {
+  switch (opcode) {
+  case OP_FADD: emitByte(f, doPop ? 0xDE : 0xDC); emitByte(f, 0xC0 + stId); break;
+  case OP_FSUB: emitByte(f, doPop ? 0xDE : 0xDC); emitByte(f, 0xE8 + stId); break;
+  case OP_FMUL: emitByte(f, doPop ? 0xDE : 0xDC); emitByte(f, 0xC8 + stId); break;
+  case OP_FDIV: emitByte(f, doPop ? 0xDE : 0xDC); emitByte(f, 0xF8 + stId); break;
+  case OP_FOCMP: emitByte(f, doPop ? 0xDF : 0xDB); emitByte(f, 0xF0 + stId); break;
+  case OP_FUCMP: emitByte(f, doPop ? 0xDF : 0xDB); emitByte(f, 0xE8 + stId); break;
+    default:
+      unreachable("Unsupported F80 operation");
+    }
+}
+
+void emitFPLoad(GeneratedFunction *f, Address *addr, int tid) {
+  switch (tid) {
+    case T_F4: emitByte(f, 0xD9); encodeAR(f, addr, 0); break;
+    case T_F8: emitByte(f, 0xDD); encodeAR(f, addr, 0); break;
+    case T_F10:emitByte(f, 0xDB); encodeAR(f, addr, 5); break;
+  }
+}
+
+void emitFPIntLoad(GeneratedFunction *f, Address *addr, int32_t size) {
+  emitByte(f, size == 4 ? 0xDB : 0xDF);
+  encodeAR(f, addr, size == 8 ? 5 : 0);
+}
+
+void emitFPIntStore(GeneratedFunction *f, Address *addr, int32_t size) {
+  emitByte(f, size == 4 ? 0xDB : 0xDF);
+  encodeAR(f, addr, size == 8 ? 7 : 3);
+}
+
+void emitFPStore(GeneratedFunction *f, Address *addr, int tid) {
+  switch (tid) {
+    case T_F4: emitByte(f, 0xD9); encodeAR(f, addr, 3); break;
+    case T_F8: emitByte(f, 0xDD); encodeAR(f, addr, 3); break;
+    case T_F10:emitByte(f, 0xDB); encodeAR(f, addr, 7); break;
+  }
+}
+
+void emitFPPop(GeneratedFunction *f, uint8_t stId) {
+  emitByte(f, 0xDD);
+  emitByte(f, 0xD8 + stId);
+}
+
+void emitFPnoArg(GeneratedFunction *f, uint8_t opByte) {
+  emitByte(f, 0xD9);
+  emitByte(f, opByte);
+}
+
+void emitFPnoArgMem(GeneratedFunction *f, Address *addr, int digit) {
+  emitByte(f, 0xD9);
+  encodeAR(f, addr, digit);
 }
 
 void emitNot(GeneratedFunction *f, enum Registers reg, size_t size) {
