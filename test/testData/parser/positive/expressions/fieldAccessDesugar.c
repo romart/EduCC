@@ -70,7 +70,7 @@ int testStructValued3(int i) {
   int c = s3.s2.p_s2->c;
   int d = s3.s1_arr[i].b;
   int e = s3.p_s2_arr[i + 1]->p_s2->s1.b;
-  int e = s3.p_s2_arr[i + 1]->p_s2->c;
+  int f = s3.p_s2_arr[i + 1]->p_s2->c;
 }
 
 int testStructPointed3(struct S3 *p_s3, int i) {
@@ -78,7 +78,7 @@ int testStructPointed3(struct S3 *p_s3, int i) {
   int c = p_s3->s2.p_s2->c;
   int d = p_s3->s1_arr[i].b;
   int e = p_s3->p_s2_arr[i + 1]->p_s2->s1.b;
-  int e = p_s3->p_s2_arr[i + 1]->p_s2->c;
+  int f = p_s3->p_s2_arr[i + 1]->p_s2->c;
 }
 
 int testStructPointed4(struct S4 *p_s4, int i) {
@@ -90,7 +90,7 @@ int testStructPointed4(struct S4 *p_s4, int i) {
   int c = p_s4->s3.s2.p_s2->c;
   int d = p_s4->s3.s1_arr[i].b;
   int e = p_s4->s3.p_s2_arr[i + 15]->p_s2->s1.b;
-  int e = p_s4->s3.p_s2_arr[i + 15]->p_s2->c;
+  int f = p_s4->s3.p_s2_arr[i + 15]->p_s2->c;
 }
 
 int testStructValued(int i) {

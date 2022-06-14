@@ -2,5 +2,6 @@ test/testData/parser/negative/incorrectFunctions.c:1:5: error: function cannot r
 test/testData/parser/negative/incorrectFunctions.c:4:4: error: function cannot return function type '{signed int (signed int)}'
 test/testData/parser/negative/incorrectFunctions.c:6:5: error: Array of functions is illegal type '({signed int ()})[20]'
 test/testData/parser/negative/incorrectFunctions.c:6:14: error: redefinition of 'fas' as different kind of symbol
+test/testData/parser/negative/incorrectFunctions.c:9:16: error: redefinition of 'x'
 test/testData/parser/negative/incorrectFunctions.c:9:5: error: function cannot return function type '{signed int (double)}'
 test/testData/parser/negative/incorrectFunctions.c:17:5: error: function cannot return array type 'signed int[200]'
