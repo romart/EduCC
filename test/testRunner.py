@@ -277,6 +277,12 @@ def main():
             if path.is_dir():
                 walkDirectory(path, 0, lambda a: runTestForData(a, compiler, workingDir, testMode))
 
+
+    if numOfFailedTests:
+        print(CBOLD + CRED + f"Failed tests: {numOfFailedTests}" + RESET)
+    else:
+        print(CBOLD + CGREEN + f"All tests passed" + RESET)
+
     exit (numOfFailedTests)
 
 
