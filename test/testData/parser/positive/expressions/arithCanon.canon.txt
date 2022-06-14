@@ -151,28 +151,28 @@ FILE test/testData/parser/positive/expressions/arithCanon.c
       (signed int)(*a >> *b << *c)
     signed int g = \
       (signed int)(*a << *b + *c)
-    signed int d = \
+    signed int h = \
       (signed int)(*c >> *b + 10)
-    signed int e = \
+    signed int i = \
       (signed int)(*c << *b >> 10)
-    signed int f = \
+    signed int j = \
       (signed int)(*c >> *b << 10)
-    signed int g = \
+    signed int k = \
       (signed int)(*c << *b + 10)
-    signed int h = \
+    signed int l = \
       (signed int)(*c >> *c + 12)
-    signed int i = \
+    signed int m = \
       (signed int)(*c << 12 >> *c)
-    signed int j = \
+    signed int n = \
       (signed int)(*c >> 12 << *c)
-    signed int k = \
+    signed int o = \
       (signed int)(*c << *c + 12)
-    signed int h = \
+    signed int p = \
       *a >> 12
-    signed int i = \
+    signed int q = \
       *a << 7 >> 5
-    signed int j = \
+    signed int r = \
       *a >> 7 << 5
-    signed int k = \
+    signed int s = \
       *a << 12    
   END

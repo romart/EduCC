@@ -99,18 +99,18 @@ void testShift() {
   int f = a >> b << c;
   int g = a << b << c;
 
-  int d = c >> b >> 10;
-  int e = c << b >> 10;
-  int f = c >> b << 10;
-  int g = c << b << 10;
+  int h = c >> b >> 10;
+  int i = c << b >> 10;
+  int j = c >> b << 10;
+  int k = c << b << 10;
 
-  int h = c >> 12 >> c;
-  int i = c << 12 >> c;
-  int j = c >> 12 << c;
-  int k = c << 12 << c;
+  int l = c >> 12 >> c;
+  int m = c << 12 >> c;
+  int n = c >> 12 << c;
+  int o = c << 12 << c;
 
-  int h = a >> 7 >> 5;
-  int i = a << 7 >> 5;
-  int j = a >> 7 << 5;
-  int k = a << 7 << 5;
+  int p = a >> 7 >> 5;
+  int q = a << 7 >> 5;
+  int r = a >> 7 << 5;
+  int s = a << 7 << 5;
 }

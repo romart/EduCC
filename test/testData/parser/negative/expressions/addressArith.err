@@ -17,7 +17,9 @@ test/testData/parser/negative/expressions/addressArith.c:65:35: error: arithmeti
 test/testData/parser/negative/expressions/addressArith.c:72:17: error: invalid operands to binary expression ('*signed int' and 'float')
 test/testData/parser/negative/expressions/addressArith.c:73:14: error: invalid operands to binary expression ('float' and '*signed int')
 test/testData/parser/negative/expressions/addressArith.c:77:17: error: invalid operands to binary expression ('C signed int' and '*signed int')
+test/testData/parser/negative/expressions/addressArith.c:77:3: error: redefinition of 'ptr1'
 test/testData/parser/negative/expressions/addressArith.c:78:17: error: invalid operands to binary expression ('C signed int' and '*signed int')
+test/testData/parser/negative/expressions/addressArith.c:78:3: error: redefinition of 'ptr2'
 test/testData/parser/negative/expressions/addressArith.c:79:27: error: invalid operands to binary expression ('C signed int' and '*signed int')
 test/testData/parser/negative/expressions/addressArith.c:81:23: error: arithmetic on a pointer to an incomplete type 'STRUCT S3'
 test/testData/parser/negative/expressions/addressArith.c:82:27: error: arithmetic on a pointer to an incomplete type 'STRUCT S3'

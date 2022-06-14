@@ -25,7 +25,7 @@ test/testData/parser/negative/expressions/initializers.c:25:59: warning: excess 
 test/testData/parser/negative/expressions/initializers.c:31:34: warning: excess elements in scalar initializer
 test/testData/parser/negative/expressions/initializers.c:32:34: warning: excess elements in scalar initializer
 test/testData/parser/negative/expressions/initializers.c:36:11: error: assigning to 'float' from incompatible type '*signed int'
-test/testData/parser/negative/expressions/initializers.c:36:13: error: redefinition of 'f' with a different type: 'float' vs 'signed int[9]'
+test/testData/parser/negative/expressions/initializers.c:36:1: error: redefinition of 'f' with a different type: 'float' vs 'signed int[9]'
 test/testData/parser/negative/expressions/initializers.c:37:5: error: definition of variable with array type needs an explicit size or an initializer
 test/testData/parser/negative/expressions/initializers.c:38:14: error: array initializer must be an initializer list
 test/testData/parser/negative/expressions/initializers.c:45:1: error: variable has incomplete type 'void'
