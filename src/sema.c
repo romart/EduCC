@@ -1193,7 +1193,8 @@ static AstInitializer *fillInitializer(ParserContext *ctx, Coordinates *coords, 
       if (type->kind == TR_POINTED) {
         new->expression = createAstConst(ctx, coords, CK_INT_CONST, &c);
       } else if (isRealType(type)) {
-        new->expression = createAstConst(ctx, coords, CK_FLOAT_CONST, &c);
+        long double cc = 0.0;
+        new->expression = createAstConst(ctx, coords, CK_FLOAT_CONST, &cc);
       } else {
         new->expression = createAstConst(ctx, coords, CK_INT_CONST, &c);
       }
@@ -1574,9 +1575,15 @@ static AstInitializer *finalizeScalarInitializer(ParserContext *ctx, TypeRef *ty
           if (initializer->next)
           coords.right = initializer->next->coords.right;
 
-          ConstKind ck = isRealType(type) ? CK_FLOAT_CONST : CK_INT_CONST;
-          uint64_t v = 0;
-          AstExpression *constNull = createAstConst(ctx, &coords, ck, &v);
+          AstExpression *constNull = NULL;
+          if (isRealType(type)) {
+            long double v = 0.0;
+            constNull = createAstConst(ctx, &coords, CK_FLOAT_CONST, &v);
+          } else {
+            uint64_t v = 0;
+            constNull = createAstConst(ctx, &coords, CK_INT_CONST, &v);
+          }
+
           constNull->type = type;
           new->expression = constNull;
           new->slotType = type;

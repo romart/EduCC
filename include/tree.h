@@ -88,7 +88,7 @@ Boolean isShiftOp(ExpressionType op);
 
 typedef signed long long sint64_const_t;
 typedef unsigned long long int64_const_t;
-typedef double float64_const_t;
+typedef long double float80_const_t;
 typedef const char *literal_const_t;
 
 typedef enum _ConstKind {
@@ -102,7 +102,7 @@ typedef struct ConstOp {
   union {
     // TODO: is that OK to distinguish signed and unsinged consts
       int64_const_t i;
-      float64_const_t f;
+      float80_const_t f;
       literal_const_t l;
       struct _TypeDesc* t;
   };

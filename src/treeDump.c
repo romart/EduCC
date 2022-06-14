@@ -49,7 +49,7 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
         AstConst *cnts = &expr->constExpr;
         switch (cnts->op) {
         case CK_INT_CONST: result += fprintf(output, "%lld", cnts->i); break;
-        case CK_FLOAT_CONST: result += fprintf(output, "%f", cnts->f); break;
+        case CK_FLOAT_CONST: result += fprintf(output, "%Lf", cnts->f); break;
         case CK_STRING_LITERAL: result += fprintf(output, "\"%s\"", cnts->l); break;
         }
         break;

@@ -306,10 +306,89 @@ typedef union {
   double d;
 } DoubleBytes;
 
-static void emitFloatConst(GenerationContext *ctx, GeneratedFunction *f, AstConst *_const, size_t size, Address *addr) {
+typedef union {
+  uint8_t bytes[sizeof(long double)];
+  uint64_t qwords[2];
+  long double ld;
+} LongDoubleBytes;
+
+static void emitFloatIntoSection(Section *s, TypeId tid, long double v) {
+  if (tid == T_F4) {
+      FloatBytes fb; fb.f = (float)v;
+      emitSectionByte(s, fb.bytes[0]);
+      emitSectionByte(s, fb.bytes[1]);
+      emitSectionByte(s, fb.bytes[2]);
+      emitSectionByte(s, fb.bytes[3]);
+  } else if (tid == T_F8) {
+      DoubleBytes db; db.d = (double)v;
+      emitSectionByte(s, db.bytes[0]);
+      emitSectionByte(s, db.bytes[1]);
+      emitSectionByte(s, db.bytes[2]);
+      emitSectionByte(s, db.bytes[3]);
+      emitSectionByte(s, db.bytes[4]);
+      emitSectionByte(s, db.bytes[5]);
+      emitSectionByte(s, db.bytes[6]);
+      emitSectionByte(s, db.bytes[7]);
+   } else {
+      assert(tid == T_F10);
+      LongDoubleBytes ldb = { 0 }; ldb.ld = v;
+      emitSectionByte(s, (uint8_t)(ldb.bytes[0]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[1]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[2]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[3]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[4]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[5]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[6]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[7]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[8]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[9]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[10]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[11]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[12]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[13]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[14]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[15]));
+   }
+}
+
+static Boolean emitFloatConst(GenerationContext *ctx, GeneratedFunction *f, AstConst *_const, TypeId tid, Address *addr) {
   assert(_const->op == CK_FLOAT_CONST);
   ptrdiff_t offset = ctx->rodata->pc - ctx->rodata->start;
+  size_t size = typeIdSize(tid);
   ptrdiff_t alligned = ALIGN_SIZE(offset, size);
+
+
+  if (tid == T_F10) {
+      // check for special constants
+
+      long double ld = _const->f;
+      LongDoubleBytes ldb;
+      ldb.qwords[0] = ldb.qwords[1] = 0;
+      ldb.ld = ld;
+
+      if (ldb.qwords[0] == 0x0UL && ldb.qwords[1] == 0x0UL) { // +0.0
+          emitFPnoArg(f, 0xEE);
+          return FALSE;
+      } else /*if (ldb.qwords[0] == 0x8000000000000000UL && ldb.qwords[1] == 0x3fffUL) { // +1.0
+          emitFPnoArg(f, 0xE8);
+          return FALSE;
+      } else */ if (ldb.qwords[0] == 0xc90fdaa22168c235UL && ldb.qwords[1] == 0x4000) { // pi
+          emitFPnoArg(f, 0xEB);
+          return FALSE;
+      } else if (ldb.qwords[0] == 0xd49a784bcd1b8afe && ldb.qwords[1] == 0x4000) { // lb(10)
+          emitFPnoArg(f, 0xE9);
+          return FALSE;
+      } else if (ldb.qwords[0] == 0xb8aa3b295c17f0bcUL && ldb.qwords[1] == 0x3fff) { // lb(e)
+          emitFPnoArg(f, 0xEA);
+          return FALSE;
+      } else if (ldb.qwords[0] == 0x9a209a84fbcff799UL && ldb.qwords[1] == 0x3ffd) { // lg(2)
+          emitFPnoArg(f, 0xEC);
+          return FALSE;
+      } else if (ldb.qwords[0] == 0xb17217f7d1cf79acUL && ldb.qwords[1] == 0x3ffe) { // ln(2)
+          emitFPnoArg(f, 0xED);
+          return FALSE;
+      }
+  }
 
   while (offset < alligned) {
       emitSectionByte(ctx->rodata, 0x00);
@@ -324,31 +403,15 @@ static void emitFloatConst(GenerationContext *ctx, GeneratedFunction *f, AstCons
   reloc->next = f->section->reloc;
   f->section->reloc = reloc;
 
-
-  if (size == 4) {
-      FloatBytes fb; fb.f = (float)_const->f;
-      emitSectionByte(ctx->rodata, fb.bytes[0]);
-      emitSectionByte(ctx->rodata, fb.bytes[1]);
-      emitSectionByte(ctx->rodata, fb.bytes[2]);
-      emitSectionByte(ctx->rodata, fb.bytes[3]);
-  } else if (size == 8) {
-      DoubleBytes db; db.d = _const->f;
-      emitSectionByte(ctx->rodata, db.bytes[0]);
-      emitSectionByte(ctx->rodata, db.bytes[1]);
-      emitSectionByte(ctx->rodata, db.bytes[2]);
-      emitSectionByte(ctx->rodata, db.bytes[3]);
-      emitSectionByte(ctx->rodata, db.bytes[4]);
-      emitSectionByte(ctx->rodata, db.bytes[5]);
-      emitSectionByte(ctx->rodata, db.bytes[6]);
-      emitSectionByte(ctx->rodata, db.bytes[7]);
-   } else {
-      unreachable("long double consts are not supported yet");
-   }
+  // TODO: support predefined F10 consts
+  emitFloatIntoSection(ctx->rodata, tid, _const->f);
 
   addr->base = R_RIP;
   addr->index = R_BAD;
   addr->reloc = reloc;
   addr->scale = addr->imm = 0;
+
+  return TRUE;
 }
 
 static int parseIfHex(char c) {
@@ -372,21 +435,25 @@ static void emitStringWithEscaping(Section *section, const char *str) {
   emitSectionByte(section, '\0');
 }
 
-static void emitConst(GenerationContext *ctx, GeneratedFunction *f, AstConst *_const, size_t size) {
+static void emitConst(GenerationContext *ctx, GeneratedFunction *f, AstConst *_const, TypeId tid) {
   // movq #const, %rax
   int64_t c = 0;
   switch (_const->op) {
   case CK_FLOAT_CONST: {
         Address addr = { 0 };
-
-        emitFloatConst(ctx, f, _const, size, &addr);
-        emitMovfpAR(f, &addr, R_FACC, size);
-
+        if (emitFloatConst(ctx, f, _const, tid, &addr)) {
+          switch (tid) {
+            case T_F4: emitMovfpAR(f, &addr, R_FACC, 4); break;
+            case T_F8: emitMovfpAR(f, &addr, R_FACC, 8); break;
+            case T_F10: emitFPLoad(f, &addr, T_F10); break;
+            default: unreachable("Unknown FP type ID");
+          }
+        }
         break;
       }
   case CK_INT_CONST:
       c = _const->i;
-      emitMoveCR(f, c, R_ACC, size);
+      emitMoveCR(f, c, R_ACC, typeIdSize(tid));
       break;
   case CK_STRING_LITERAL: {
         const char *l = _const->l;
@@ -442,7 +509,7 @@ static void emitLoad(GeneratedFunction *f, Address *from, enum Registers to, Typ
   case T_U8: emitMoveAR(f, from, to, sizeof(uint64_t)); break;
   case T_F4: emitMovfpAR(f, from, to, sizeof(float)); break;
   case T_F8: emitMovfpAR(f, from, to, sizeof(double)); break;
-  case T_F10: unreachable("long double is not supported yet");
+  case T_F10: emitFPLoad(f, from, T_F10); break;// to st(0)
   default: unreachable("Unknown memory slot type");
   }
 }
@@ -459,7 +526,7 @@ static void emitStore(GeneratedFunction *f, enum Registers from, Address *to, Ty
   case T_U8: emitMoveRA(f, from, to, sizeof(uint64_t)); break;
   case T_F4: emitMovfpRA(f, from, to, sizeof(float)); break;
   case T_F8: emitMovfpRA(f, from, to, sizeof(double)); break;
-  case T_F10: unreachable("long double is not supported yet");
+  case T_F10: assert(from == R_BAD); emitFPStore(f, to, T_F10); break;// from st(0)
   default: unreachable("Unknown memory slot type");
   }
 }
@@ -516,8 +583,13 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
 
       if ((offset + slotSize) <= typeSize) {
         if (isRealType(slotType)) {
-            Boolean isD = slotSize > sizeof(float);
-            emitMovfpRA(f, R_FACC, &addr, slotSize);
+            TypeId sid = slotType->descriptorDesc->typeId;
+            if (sid == T_F10) {
+              emitFPStore(f, &addr, T_F10);
+            } else {
+              Boolean isD = slotSize > sizeof(float);
+              emitMovfpRA(f, R_FACC, &addr, slotSize);
+            }
         } else if (isStructualType(slotType) || isUnionType(slotType)) {
             Address src = { R_ACC, R_BAD, 0, 0 };
             copyStructTo(f, expr->type, &src, &addr);
@@ -678,7 +750,7 @@ static size_t fillInitializer(GenerationContext *ctx, Section *section, AstIniti
                 }
                 break;
               case sizeof(double): {
-                  DoubleBytes db; db.d = cexpr->f;
+                  DoubleBytes db; db.d = (double)cexpr->f;
                   emitSectionByte(section, (uint8_t)(db.bytes[0]));
                   emitSectionByte(section, (uint8_t)(db.bytes[1]));
                   emitSectionByte(section, (uint8_t)(db.bytes[2]));
@@ -689,8 +761,26 @@ static size_t fillInitializer(GenerationContext *ctx, Section *section, AstIniti
                   emitSectionByte(section, (uint8_t)(db.bytes[7]));
                 }
                 break;
-              case sizeof(long double):
-                unreachable("long double is not supported yet");
+              case sizeof(long double): {
+                  LongDoubleBytes ldb; ldb.ld = cexpr->f;
+                  emitSectionByte(section, (uint8_t)(ldb.bytes[0]));
+                  emitSectionByte(section, (uint8_t)(ldb.bytes[1]));
+                  emitSectionByte(section, (uint8_t)(ldb.bytes[2]));
+                  emitSectionByte(section, (uint8_t)(ldb.bytes[3]));
+                  emitSectionByte(section, (uint8_t)(ldb.bytes[4]));
+                  emitSectionByte(section, (uint8_t)(ldb.bytes[5]));
+                  emitSectionByte(section, (uint8_t)(ldb.bytes[6]));
+                  emitSectionByte(section, (uint8_t)(ldb.bytes[7]));
+                  emitSectionByte(section, (uint8_t)(ldb.bytes[8]));
+                  emitSectionByte(section, (uint8_t)(ldb.bytes[9]));
+                  emitSectionByte(section, (uint8_t)(ldb.bytes[10]));
+                  emitSectionByte(section, (uint8_t)(ldb.bytes[11]));
+                  emitSectionByte(section, (uint8_t)(ldb.bytes[12]));
+                  emitSectionByte(section, (uint8_t)(ldb.bytes[13]));
+                  emitSectionByte(section, (uint8_t)(ldb.bytes[14]));
+                  emitSectionByte(section, (uint8_t)(ldb.bytes[15]));
+              }
+              break;
               default:
                 unreachable("Unknown float const");
               }
@@ -870,6 +960,38 @@ static void generateU8toF8(GeneratedFunction *f, enum Registers from, enum Regis
   bindLabel(f, &l2);
 }
 
+static void generateU8toF10(GenerationContext *ctx, GeneratedFunction *f, enum Registers from) {
+  /**
+   *       fild    QWORD PTR [rbp-8]
+   *       cmp     QWORD PTR [rbp-8], 0
+   *       jns     .L152
+
+   *       fld     TBYTE PTR .MAX_ULONG
+   *       faddp   st(1), st
+   * .L152:
+   *
+   */
+
+  Address tos = { R_ESP, R_BAD };
+  struct Label l = { 0 };
+
+  emitPushReg(f, from);
+  emitFPIntLoad(f, &tos, 8);
+  emitTestRR(f, from, from, 8);
+  emitCondJump(f, &l, JC_NOT_SIGN, TRUE);
+
+  AstConst cv = { 0 };
+  cv.op = CK_FLOAT_CONST;
+  cv.f = 18446744073709551616.0;
+  Address magic = { 0 };
+  emitFloatConst(ctx, f, &cv, T_F10, &magic);
+  emitFPLoad(f, &magic, T_F10);
+  emitFPArith(f, OP_FADD, 1, TRUE);
+
+  bindLabel(f, &l);
+  emitPopReg(f, from);
+}
+
 static void generateF8toU8(GeneratedFunction *f, enum Registers from, enum Registers to) {
   /**
    *       comisd  xmm0, QWORD PTR .LC9[rip]
@@ -906,6 +1028,115 @@ static void generateF8toU8(GeneratedFunction *f, enum Registers from, enum Regis
   bindLabel(f, &l2);
 }
 
+static void generateF10toInt(GeneratedFunction *f, enum Registers to, TypeId tid) {
+  Address oldCtrl = { R_ESP, R_BAD, 0, -4 };
+  Address newCtrl = { R_ESP, R_BAD, 0, -2 };
+  Address result = { R_ESP, R_BAD, 0, -16 };
+
+  int32_t size = 0;
+  switch (tid) {
+    case T_S1: tid = T_U1;
+    case T_U1:
+    case T_U2: size = 2; break;
+    case T_S2: tid = T_U2;
+    case T_U4: size = 4; break;
+    case T_S8:
+    case T_S4: size = 8; break;
+    default: unreachable("Unexpected integer type ID");
+  }
+
+  emitFPnoArgMem(f, &oldCtrl, 7); // fnstcw
+  emitMovxxAR(f, 0xB7, &oldCtrl, R_ACC); // movzwx
+  emitArithConst(f, OP_OR, R_ACC, 0x0C00, 2); // or 0x0c00
+  emitStore(f, R_ACC, &newCtrl, T_U2);
+  emitFPnoArgMem(f, &newCtrl, 5); // fldcw
+  emitFPIntStore(f, &result, size); // fistp
+  emitFPnoArgMem(f, &oldCtrl, 5); // fldcw
+
+  emitLoad(f, &result, R_ACC, tid);
+}
+
+static void generateF10toU8(GenerationContext *ctx, GeneratedFunction *f, enum Registers to) {
+
+  /**
+   *         fld     TBYTE PTR .LC12[rip]
+   *         fld     TBYTE PTR [rbp+16]
+   *         fcomip  st, st(1)
+   *         fstp    st(0)
+   *         jnb     .L1
+   *         fld     TBYTE PTR [rbp+16]
+   *         fnstcw  WORD PTR [rbp-2]
+   *         movzx   eax, WORD PTR [rbp-2]
+   *         or      ah, 12
+   *         mov     WORD PTR [rbp-4], ax
+   *         fldcw   WORD PTR [rbp-4]
+   *         fistp   QWORD PTR [rbp-16]
+   *         fldcw   WORD PTR [rbp-2]
+   *         mov     rdx, QWORD PTR [rbp-16]
+   *         jmp     .L2
+   * .L1:
+   *         fld     TBYTE PTR [rbp+16]
+   *         fld     TBYTE PTR .LC12[rip]
+   *         fsubp   st(1), st
+   *         fnstcw  WORD PTR [rbp-2]
+   *         movzx   eax, WORD PTR [rbp-2]
+   *         or      ah, 12
+   *         mov     WORD PTR [rbp-4], ax
+   *         fldcw   WORD PTR [rbp-4]
+   *         fistp   QWORD PTR [rbp-16]
+   *         fldcw   WORD PTR [rbp-2]
+   *         mov     rdx, QWORD PTR [rbp-16]
+   *         movabs  rax, -9223372036854775808
+   *         xor     rdx, rax
+   * .L2:
+   */
+
+
+  Address oldCtrl = { R_ESP, R_BAD, 0, -4 };
+  Address newCtrl = { R_ESP, R_BAD, 0, -2 };
+  Address result = { R_ESP, R_BAD, 0, -16 };
+
+  struct Label l1 = { 0 }, l2 = { 0 };
+
+  AstConst cv = { 0 };
+  cv.op = CK_FLOAT_CONST;
+  cv.f = 18446744073709551616.0;
+  Address magic = { 0 };
+  emitFloatConst(ctx, f, &cv, T_F10, &magic);
+
+  emitFPnoArg(f, 0xC9); // xchg
+
+  emitFPArith(f, OP_FOCMP, 1, FALSE);
+  emitCondJump(f, &l1, JC_A_E, TRUE);
+
+  emitFPnoArgMem(f, &oldCtrl, 7); // fnstcw
+  emitMovxxAR(f, 0xB7, &oldCtrl, R_ACC); // movzwx
+  emitArithConst(f, OP_OR, R_ACC, 0x0C00, 2); // or 0x0c00
+  emitStore(f, R_ACC, &newCtrl, T_U2);
+  emitFPnoArgMem(f, &newCtrl, 5); // fldcw
+  emitFPIntStore(f, &result, 8); // fistp
+  emitFPnoArgMem(f, &oldCtrl, 5); // fldcw
+  emitLoad(f, &result, R_ACC, T_U8);
+  emitJumpTo(f, &l2, TRUE);
+
+  bindLabel(f, &l1);
+  emitFPnoArg(f, 0xC9); // xchg
+  emitFPArith(f, OP_FSUB, 1, TRUE);
+  emitFPnoArgMem(f, &oldCtrl, 7); // fnstcw
+  emitMovxxAR(f, 0xB7, &oldCtrl, R_ACC); // movzwx
+  emitArithConst(f, OP_OR, R_ACC, 0x0C00, 2); // or 0x0c00
+  emitStore(f, R_ACC, &newCtrl, T_U2);
+  emitFPnoArgMem(f, &newCtrl, 5); // fldcw
+  emitFPIntStore(f, &result, 8); // fistp
+  emitFPnoArgMem(f, &oldCtrl, 5); // fldcw
+  emitLoad(f, &result, R_TMP, T_U8);
+  emitMoveCR(f, -9223372036854775808UL, R_ACC, 8);
+  emitArithRR(f, OP_XOR, R_ACC, R_TMP, 8);
+
+  bindLabel(f, &l2);
+  emitFPPop(f, 0);
+}
+
 static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstCastExpression *cast) {
     TypeRef *fromType = cast->argument->type;
     TypeRef *toType = cast->type;
@@ -914,6 +1145,8 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
     TypeId toTypeId = typeToId(toType);
 
     generateExpression(ctx, f, scope, cast->argument);
+
+    Address tos = { R_ESP, R_BAD };
 
     switch (fromTypeId) {
     case T_S1:
@@ -928,7 +1161,12 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
         case T_U8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
         case T_F4: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2ss eax, xmm0
         case T_F8: emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2sd eax, xmm0
-        case T_F10: break; // TODO
+        case T_F10:
+          emitConvertWDQ(f, 0x98, 4);
+          emitPushReg(f, R_ACC);
+          emitFPIntLoad(f, &tos, 2);
+          emitPopReg(f, R_ACC);
+          break;
         default: unreachable("unexpected type");
       }
       break;
@@ -944,7 +1182,11 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           case T_U8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
           case T_F4: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2ss eax, xmm0
           case T_F8: emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2sd eax, xmm0
-          case T_F10: break; // TODO
+          case T_F10:
+            emitPushReg(f, R_ACC);
+            emitFPIntLoad(f, &tos, 2);
+            emitPopReg(f, R_ACC);
+            break;
           default: unreachable("unexpected type");
         }
         break;
@@ -960,7 +1202,11 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           case T_U8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
           case T_F4: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2ss eax, xmm0
           case T_F8: emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2sd eax, xmm0
-          case T_F10: break; // TODO
+          case T_F10:
+            emitPushReg(f, R_ACC);
+            emitFPIntLoad(f, &tos, 4);
+            emitPopReg(f, R_ACC);
+            break;
           default: unreachable("unexpected type");
         }
         break;
@@ -976,7 +1222,11 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           case T_U8: break;
           case T_F4: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, TRUE); break; // cvtsi2ss rax, xmm0
           case T_F8: emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, TRUE); break; // cvtsi2sd rax, xmm0
-          case T_F10: break; // TODO
+          case T_F10:
+            emitPushReg(f, R_ACC);
+            emitFPIntLoad(f, &tos, 8);
+            emitPopReg(f, R_ACC);
+            break;
           default: unreachable("unexpected type");
         }
         break;
@@ -987,12 +1237,17 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           case T_S4: break;
           case T_S8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
           case T_U1: break;
-          case T_U2: /*emitMovxxRR(f, 0xB7, R_ACC, R_ACC);*/emitConvertWDQ(f, 0x98, 4); break; // cwde
+          case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break; // movzbx
           case T_U4: break;
           case T_U8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
           case T_F4: emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2ss eax, xmm0
           case T_F8: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2sd eax, xmm0
-          case T_F10: break; // TODO
+          case T_F10:
+            emitMovxxRR(f, 0xB7, R_ACC, R_ACC);
+            emitPushReg(f, R_ACC);
+            emitFPIntLoad(f, &tos, 2);
+            emitPopReg(f, R_ACC);
+            break;
           default: unreachable("unexpected type");
         }
         break;
@@ -1008,7 +1263,11 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           case T_U8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
           case T_F4: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2ss eax, xmm0
           case T_F8: emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2sd eax, xmm0
-          case T_F10: break;
+          case T_F10:
+            emitPushReg(f, R_ACC);
+            emitFPIntLoad(f, &tos, 2);
+            emitPopReg(f, R_ACC);
+            break;
           default: unreachable("unexpected type");
         }
         break;
@@ -1031,7 +1290,9 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
             emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, FALSE); // cvtsi2ss eax, xmm0
             break;
           case T_F10:
-            emitMoveRR(f, R_ACC, R_ACC, sizeof(int32_t));
+            emitPushReg(f, R_ACC);
+            emitFPIntLoad(f, &tos, 4);
+            emitPopReg(f, R_ACC);
             break;
           default: unreachable("unexpected type");
         }
@@ -1048,7 +1309,7 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           case T_U8: break;
           case T_F4: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, TRUE); break; // cvtsi2ss rax, xmm0
           case T_F8: generateU8toF8(f, R_ACC, R_FACC); break;
-          case T_F10: break; // TODO
+          case T_F10: generateU8toF10(ctx, f, R_ACC); break;
           default: unreachable("unexpected type");
         }
         break;
@@ -1076,7 +1337,11 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           case T_U8: emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, TRUE); break; // cvttss2si eax, xmm0
           case T_F4: break;
           case T_F8: emitConvertFP(f, 0xF3, 0x5A, R_FACC, R_FACC, FALSE); // cvtss2sd xmm0, xmm0
-          case T_F10: break; // TODO
+          case T_F10:
+            emitPushRegF(f, R_FACC, TRUE);
+            emitFPLoad(f, &tos, T_F4);
+            emitPopRegF(f, R_FACC, TRUE);
+            break;
           default: unreachable("unexpected type");
         }
         break;
@@ -1106,22 +1371,30 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           case T_U8: generateF8toU8(f, R_FACC, R_ACC); break;
           case T_F4: emitConvertFP(f, 0xF2, 0x5A, R_FACC, R_FACC, FALSE); break; // cvtss2sd xmm0,xmm0
           case T_F8: break;
-          case T_F10: break; // TODO
+          case T_F10:
+            emitPushRegF(f, R_FACC, TRUE);
+            emitFPLoad(f, &tos, T_F8);
+            emitPopRegF(f, R_FACC, TRUE);
+            break;
           default: unreachable("unexpected type");
         }
         break;
     case T_F10:
         switch (toTypeId) {
-          case T_S1: break;
-          case T_S2: break;
-          case T_S4: break;
-          case T_S8: break;
-          case T_U1: break;
-          case T_U2: break;
-          case T_U4: break;
-          case T_U8: break;
-          case T_F4: break;
-          case T_F8: break;
+          case T_S1:
+          case T_S2:
+          case T_S4:
+          case T_S8:
+          case T_U1:
+          case T_U2:
+          case T_U4: generateF10toInt(f, R_ACC, toTypeId); break;
+          case T_U8: generateF10toU8(ctx, f, R_ACC); break;
+          case T_F4:
+          case T_F8:
+            tos.imm = -8;
+            emitFPStore(f, &tos, toTypeId);
+            emitLoad(f, &tos, R_FACC, toTypeId);
+            break;
           case T_F10: break;
           default: unreachable("unexpected type");
         }
@@ -1152,10 +1425,14 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
 
   enum Opcodes opcode = selectOpcode(binOp->op, binOp->type);
 
-  if (right->op == E_CONST) {
-      if (isFP) {
+  if (rid == T_F10) {
+      // TODO: probably it worth to be poped and pushed after evaluation to FP stack
+      generateExpression(ctx, f, scope, right);
+      emitFPArith(f, opcode, 1, TRUE);
+  } else if (right->op == E_CONST) {
+      if (rid == T_F4 || rid == T_F8) {
         Address addr = { 0 };
-        emitFloatConst(ctx, f, &right->constExpr, opSize, &addr);
+        emitFloatConst(ctx, f, &right->constExpr, rid, &addr);
         emitArithAR(f, opcode, R_FACC, &addr, opSize);
       } else {
         uint64_t cnst = right->constExpr.i;
@@ -1503,7 +1780,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
   }
 
 
-  if (!((addrExpr->op == E_NAMEREF || addrExpr->op == E_CONST) && op == EB_ASSIGN)) {
+  if (!((addrExpr->op == E_NAMEREF || addrExpr->op == E_CONST) && op == EB_ASSIGN) && lTypeId != T_F10) {
     if (isFP) {
       emitPushRegF(f, R_FACC, isD);
     } else {
@@ -1521,7 +1798,10 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
   if (op == EB_ASSIGN) {
       // a = b
 
-      if (lType->kind == TR_BITFIELD) {
+      if (lTypeId == T_F10) {
+          emitStore(f, R_BAD, &addr, lTypeId);
+          emitLoad(f, &addr, R_BAD, T_F10);
+      } else if (lType->kind == TR_BITFIELD) {
           assert(stackPending == 0);
           TypeRef *storageType = lType->bitFieldDesc.storageType;
 
@@ -1589,7 +1869,18 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
       }
   } else {
     assert(stackPending == 0);
-    if (lType->kind == TR_BITFIELD) {
+    enum Opcodes opcode = selectAssignOpcode(op, lType);
+    if (lTypeId == T_F10) {
+        if (addr.reloc) {
+            emitLea(f, &addr, R_EDI);
+            addr.base = R_EDI; addr.reloc = NULL;
+        }
+        emitLoad(f, &addr, R_BAD, T_F10);
+        emitFPnoArg(f, 0xC9); // xchg
+        emitFPArith(f, opcode, 1, TRUE);
+        emitStore(f, R_BAD, &addr, T_F10);
+        emitLoad(f, &addr, R_BAD, T_F10);
+    } else if (lType->kind == TR_BITFIELD) {
         TypeRef *storageType = lType->bitFieldDesc.storageType;
 
         emitLea(f, &addr, R_EDI);
@@ -1609,7 +1900,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
         if (isFP) {
             emitLoad(f, &addr, R_FACC, lTypeId);
             emitPopRegF(f, R_FTMP, isD);
-            emitArithRR(f, selectAssignOpcode(op, lType), R_FACC, R_FTMP, typeSize);
+            emitArithRR(f, opcode, R_FACC, R_FTMP, typeSize);
             emitStore(f, R_FACC, &addr, rTypeId);
         } else {
             if (addr.reloc) {
@@ -1626,7 +1917,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
             }
 
             emitPopReg(f, reg);
-            emitArithRR(f, selectAssignOpcode(op, lType), R_TMP, reg, typeSize);
+            emitArithRR(f, opcode, R_TMP, reg, typeSize);
             emitStore(f, R_TMP, &addr, rTypeId);
             emitMoveRR(f, R_TMP, R_ACC, typeSize);
             if (reg != R_TMP2) {
@@ -1867,7 +2158,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
       ++count;
 
       if (isRealType(t)) {
-        if (fpRegArgs < R_FP_PARAM_COUNT) {
+        if (fpRegArgs < R_FP_PARAM_COUNT && argSize <= 8) {
           ++fpRegArgs;
           lastFpRegArg = count;
           continue;
@@ -1928,13 +2219,17 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
       dst.imm = rspOffset + (f->stackOffset - stackBase);
 
       if (isRealType(argType)) {
-        if (count <= lastFpRegArg) {
-            r_offsets[totalRegArg - idx - 1] = rspOffset;
-            r_types[totalRegArg - idx - 1] = argType;
-            ++idx;
-            emitPushRegF(f, R_FACC, TRUE);
-        } else {
-            emitMovfpRA(f, R_FACC, &dst, typeSize);
+        if (argSize <= 8) {
+          if (count <= lastFpRegArg) {
+              r_offsets[totalRegArg - idx - 1] = rspOffset;
+              r_types[totalRegArg - idx - 1] = argType;
+              ++idx;
+              emitPushRegF(f, R_FACC, TRUE);
+          } else {
+              emitMovfpRA(f, R_FACC, &dst, argSize);
+          }
+        } else { // F10
+          emitFPStore(f, &dst, T_F10);
         }
       } else {
         if (count <= lastIntRegArg) {
@@ -1985,8 +2280,10 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           emitLea(f, &saddr, intArgumentRegs[ir++]);
       } else {
           if (isRealType(argType)) {
-            enum Registers fpArg = fpArgumentRegs[fr++];
-            emitPopRegF(f, fpArg, TRUE);
+            if (argSize <= 8) {
+              enum Registers fpArg = fpArgumentRegs[fr++];
+              emitPopRegF(f, fpArg, TRUE);
+            }
           } else {
             emitPopReg(f, intArgumentRegs[ir++]);
           }
@@ -2133,7 +2430,8 @@ static void emitFPNeg(GenerationContext *ctx, GeneratedFunction *f, TypeId id) {
       emitMovdq(f, 0x66, 0x0F, 0x6E, R_ACC, R_FACC, TRUE);
       break;
    case T_F10:
-      unreachable("long double arith is not implemented yet");
+      emitFPnoArg(f, 0xE0);
+      break;
    default:
       unreachable("unexpected FP type");
     }
@@ -2142,13 +2440,13 @@ static void emitFPNeg(GenerationContext *ctx, GeneratedFunction *f, TypeId id) {
 // result is in accamulator
 static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
   Address addr = { 0 };
-  size_t typeSize = computeTypeSize(expression->type);
+  TypeId typeId = typeToId(expression->type);
   switch (expression->op) {
     case E_PAREN:
       generateExpression(ctx, f, scope, expression->parened);
       break;
     case E_CONST:
-      emitConst(ctx, f, &expression->constExpr, typeSize);
+      emitConst(ctx, f, &expression->constExpr, typeId);
       break;
     case E_VA_ARG:
       generateVaArg(ctx, f, scope, expression);
@@ -2245,7 +2543,7 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
           emitLea(f, &addr, R_ACC);
         }
       } else {
-        emitLoad(f, &addr, R_ACC, typeToId(expression->type));
+        emitLoad(f, &addr, R_ACC, typeId);
       }
       break;
     case EU_PLUS:
@@ -2256,7 +2554,7 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
       if (isRealType(expression->type)) {
           emitFPNeg(ctx, f, expression->type->descriptorDesc->typeId);
       } else {
-          emitNegR(f, R_ACC, typeSize);
+          emitNegR(f, R_ACC, typeIdSize(typeId));
       }
       break;
     case EU_TILDA:
@@ -2449,14 +2747,23 @@ static enum JumpCondition generateFloatCondition(GenerationContext *ctx, Generat
   Boolean isD = lid == T_F8;
 
   generateExpression(ctx, f, scope, left);
-  emitPushRegF(f, R_FACC, isD);
+
+  if (lid != T_F10) {
+    emitPushRegF(f, R_FACC, isD);
+  }
 
   Address addr = { 0 };
   if (op == EB_EQ || op == EB_NE) {
 
       enum JumpCondition setcc = op == EB_EQ ? JC_NOT_PARITY : JC_PARITY;
 
-      if (right->op == EU_DEREF) {
+      if (rid == T_F10) {
+          generateExpression(ctx, f, scope, right);
+          emitFPArith(f, OP_FUCMP, 1, FALSE);
+          emitSetccR(f, setcc, R_ACC);
+          emitFPArith(f, OP_FUCMP, 1, TRUE);
+          emitFPPop(f, 0);
+      } else if (right->op == EU_DEREF) {
           translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
           if (addr.reloc) {
               emitLea(f, &addr, R_TMP);
@@ -2492,7 +2799,11 @@ static enum JumpCondition generateFloatCondition(GenerationContext *ctx, Generat
 
       return invertion ? JC_ZERO : JC_NOT_ZERO;
   } else if (op == EB_LT || op == EB_LE) {
-      if (right->op == EU_DEREF) {
+      if (rid == T_F10) {
+          generateExpression(ctx, f, scope, right);
+          emitFPArith(f, OP_FOCMP, 1, TRUE);
+          emitFPPop(f, 0);
+      } else if (right->op == EU_DEREF) {
           translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
           emitPopReg(f, R_ACC);
           emitArithAR(f, OP_FOCMP, R_FACC, &addr, opSize);
@@ -2504,8 +2815,14 @@ static enum JumpCondition generateFloatCondition(GenerationContext *ctx, Generat
       return op == EB_LT ? invertion ? JC_NOT_L : JC_L : invertion ? JC_NOT_LE : JC_LE;
   } else {
       generateExpression(ctx, f, scope, right);
-      emitPopReg(f, R_FTMP);
-      emitArithRR(f, OP_FOCMP, R_FACC, R_FTMP, opSize);
+      if (rid == T_F10) {
+        emitFPnoArg(f, 0xC9); // change st(0) with st(1)
+        emitFPArith(f, OP_FOCMP, 1, TRUE);
+        emitFPPop(f, 0);
+      } else {
+        emitPopReg(f, R_FTMP);
+        emitArithRR(f, OP_FOCMP, R_FACC, R_FTMP, opSize);
+      }
       return op == EB_GT ? invertion ? JC_NOT_G : JC_G : invertion ? JC_NOT_GE : JC_GE;
   }
 
@@ -2764,6 +3081,10 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
   case SK_EMPTY: break;
   case SK_EXPR_STMT:
       generateExpression(ctx, f, scope, stmt->exprStmt.expression);
+      if (typeToId(stmt->exprStmt.expression->type) == T_F10) {
+          // clean up FP processor stack
+          emitFPPop(f, 0);
+      }
       break;
   case SK_LABEL:
       generateLabel(ctx, f, &stmt->labelStmt, scope, frameOffset);
@@ -2906,7 +3227,7 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
         gp->baseOffset = alignedOffset;
         stackParamOffset = alignedOffset + size;
     } else if (isRealType(paramType)) {
-        if (fpRegParams < R_FP_PARAM_COUNT) {
+        if (fpRegParams < R_FP_PARAM_COUNT && size <= 8) {
             baseOffset += size;
             baseOffset = ALIGN_SIZE(baseOffset, align);
             gp->baseOffset = addr.imm = -baseOffset;

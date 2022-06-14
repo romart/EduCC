@@ -14,7 +14,7 @@ static Boolean derefIntConst(AstConst *astConst, int64_const_t *result) {
   return FALSE;
 }
 
-static Boolean derefFloatConst(AstConst *astConst, float64_const_t *result) {
+static Boolean derefFloatConst(AstConst *astConst, float80_const_t *result) {
   if (astConst->op == CK_FLOAT_CONST) {
       *result = astConst->f;
       return TRUE;
@@ -46,23 +46,23 @@ static int64_const_t ee_i_u_dec(int64_const_t i) {
 
 // float -> float
 
-static float64_const_t ee_f_u_minus(float64_const_t f) {
+static float80_const_t ee_f_u_minus(float80_const_t f) {
   return -f;
 }
 
-//static float64_const_t ee_f_u_tilda(float64_const_t f) {
+//static float80_const_t ee_f_u_tilda(float80_const_t f) {
 //  return ~f;
 //}
 
-static float64_const_t ee_f_u_exl(float64_const_t f) {
+static float80_const_t ee_f_u_exl(float80_const_t f) {
   return !f;
 }
 
-static float64_const_t ee_f_u_inc(float64_const_t f) {
+static float80_const_t ee_f_u_inc(float80_const_t f) {
   return f + 1.0f;
 }
 
-static float64_const_t ee_f_u_dec(float64_const_t f) {
+static float80_const_t ee_f_u_dec(float80_const_t f) {
   return f - 1.0f;
 }
 
@@ -123,7 +123,8 @@ static int64_const_t ee_i_b_eq(int64_const_t l, int64_const_t r) {
 }
 
 static int64_const_t ee_i_b_ne(int64_const_t l, int64_const_t r) {
-  return l != r;
+  int rs = l != r;
+  return rs;
 }
 
 static int64_const_t ee_i_b_lt(int64_const_t l, int64_const_t r) {
@@ -144,51 +145,52 @@ static int64_const_t ee_i_b_ge(int64_const_t l, int64_const_t r) {
 
 // float, float -> float
 
-static float64_const_t ee_f_b_plus(float64_const_t l, float64_const_t r) {
+static float80_const_t ee_f_b_plus(float80_const_t l, float80_const_t r) {
   return l + r;
 }
 
-static float64_const_t ee_f_b_minus(float64_const_t l, float64_const_t r) {
+static float80_const_t ee_f_b_minus(float80_const_t l, float80_const_t r) {
   return l - r;
 }
 
-static float64_const_t ee_f_b_mul(float64_const_t l, float64_const_t r) {
+static float80_const_t ee_f_b_mul(float80_const_t l, float80_const_t r) {
   return l * r;
 }
 
-static float64_const_t ee_f_b_div(float64_const_t l, float64_const_t r) {
+static float80_const_t ee_f_b_div(float80_const_t l, float80_const_t r) {
   return l / r;
 }
 
-static float64_const_t ee_f_b_andand(float64_const_t l, float64_const_t r) {
+static int64_const_t ee_f_b_andand(float80_const_t l, float80_const_t r) {
   return l && r;
 }
 
-static float64_const_t ee_f_b_oror(float64_const_t l, float64_const_t r) {
+static int64_const_t ee_f_b_oror(float80_const_t l, float80_const_t r) {
   return l || r;
 }
 
-static float64_const_t ee_f_b_eq(float64_const_t l, float64_const_t r) {
-  return l == r;
+static int64_const_t ee_f_b_eq(float80_const_t l, float80_const_t r) {
+  int rs = l == r;
+  return rs;
 }
 
-static float64_const_t ee_f_b_ne(float64_const_t l, float64_const_t r) {
+static int64_const_t ee_f_b_ne(float80_const_t l, float80_const_t r) {
   return l != r;
 }
 
-static float64_const_t ee_f_b_lt(float64_const_t l, float64_const_t r) {
+static int64_const_t ee_f_b_lt(float80_const_t l, float80_const_t r) {
   return l < r;
 }
 
-static float64_const_t ee_f_b_le(float64_const_t l, float64_const_t r) {
+static int64_const_t ee_f_b_le(float80_const_t l, float80_const_t r) {
   return l <= r;
 }
 
-static float64_const_t ee_f_b_gt(float64_const_t l, float64_const_t r) {
+static int64_const_t ee_f_b_gt(float80_const_t l, float80_const_t r) {
   return l > r;
 }
 
-static float64_const_t ee_f_b_ge(float64_const_t l, float64_const_t r) {
+static int64_const_t ee_f_b_ge(float80_const_t l, float80_const_t r) {
   return l >= r;
 }
 
@@ -200,10 +202,11 @@ static int div_check(int64_const_t l, int64_const_t r) {
   return r != 0;
 }
 
-typedef float64_const_t (*float_unary_evaluate)(float64_const_t);
+typedef float80_const_t (*float_unary_evaluate)(float80_const_t);
 typedef int64_const_t (*int_unary_evaluate)(int64_const_t);
 
-typedef float64_const_t (*float_binary_evaluate)(float64_const_t, float64_const_t);
+typedef float80_const_t (*float_binary_evaluate)(float80_const_t, float80_const_t);
+typedef int64_const_t (*float2int_binary_evaluate)(float80_const_t, float80_const_t);
 typedef int64_const_t (*int_binary_evaluate)(int64_const_t, int64_const_t);
 
 typedef int (*evaluateChecker)(int64_const_t, int64_const_t);
@@ -213,7 +216,7 @@ static Coordinates noCoords = { NULL, NULL };
 static AstConst *evaluateUnaryConst(ParserContext *ctx, AstConst *expr, int_unary_evaluate eInt, float_unary_evaluate eFloat) {
   if (expr->op == CK_FLOAT_CONST) {
       if (eFloat == NULL) return NULL; // cannot evaluate
-      float64_const_t v = eFloat(expr->f);
+      float80_const_t v = eFloat(expr->f);
       return &createAstConst(ctx, &noCoords, expr->op, &v)->constExpr;
   } else {
       int64_const_t v = 0;
@@ -223,24 +226,55 @@ static AstConst *evaluateUnaryConst(ParserContext *ctx, AstConst *expr, int_unar
   }
 }
 
-static AstConst *evaluateBinaryConst(ParserContext *ctx, AstConst *left, AstConst *right, evaluateChecker checker, int_binary_evaluate eInt, float_binary_evaluate eFloat) {
+static AstConst *evaluateBinaryCondConst(ParserContext *ctx, AstConst *left, AstConst *right, evaluateChecker checker, int_binary_evaluate eInt, float2int_binary_evaluate eFloat) {
   if (left->op == CK_FLOAT_CONST || right->op == CK_FLOAT_CONST) {
       if (eFloat == NULL) return NULL; // cannot evaluate
-      float64_const_t lv, rv;
+      float80_const_t lv, rv;
       sint64_const_t iv = 0;
       if (left->op == CK_FLOAT_CONST && right->op == CK_FLOAT_CONST) {
           lv = left->f;
           rv = right->f;
       } else if (left->op != CK_FLOAT_CONST) {
           derefIntConst(left, (int64_const_t *)&iv);
-          lv = (float64_const_t)iv;
+          lv = (float80_const_t)iv;
           rv = right->f;
       } else {
           derefIntConst(right, (int64_const_t *)&iv);
           lv = left->f;
-          rv = (float64_const_t)iv;
+          rv = (float80_const_t)iv;
       }
-      float64_const_t v = eFloat(lv, rv);
+      int64_const_t v = eFloat(lv, rv);
+      return &createAstConst(ctx, &noCoords, CK_INT_CONST, &v)->constExpr;
+  } else {
+      int64_const_t lv = 0, rv = 0;
+      derefIntConst(left, &lv);
+      derefIntConst(right, &rv);
+      if (checker(lv, rv)) {
+        int64_const_t v = eInt(lv, rv);
+        return &createAstConst(ctx, &noCoords, CK_INT_CONST, &v)->constExpr;
+      }
+      return NULL;
+  }
+}
+
+static AstConst *evaluateBinaryConst(ParserContext *ctx, AstConst *left, AstConst *right, evaluateChecker checker, int_binary_evaluate eInt, float_binary_evaluate eFloat) {
+  if (left->op == CK_FLOAT_CONST || right->op == CK_FLOAT_CONST) {
+      if (eFloat == NULL) return NULL; // cannot evaluate
+      float80_const_t lv, rv;
+      sint64_const_t iv = 0;
+      if (left->op == CK_FLOAT_CONST && right->op == CK_FLOAT_CONST) {
+          lv = left->f;
+          rv = right->f;
+      } else if (left->op != CK_FLOAT_CONST) {
+          derefIntConst(left, (int64_const_t *)&iv);
+          lv = (float80_const_t)iv;
+          rv = right->f;
+      } else {
+          derefIntConst(right, (int64_const_t *)&iv);
+          lv = left->f;
+          rv = (float80_const_t)iv;
+      }
+      float80_const_t v = eFloat(lv, rv);
       return &createAstConst(ctx, &noCoords, CK_FLOAT_CONST, &v)->constExpr;
   } else {
       int64_const_t lv = 0, rv = 0;
@@ -305,10 +339,9 @@ static AstConst* evalCast(ParserContext *ctx, TypeRef *toType, AstConst *arg) {
          arg->f = arg->op == CK_FLOAT_CONST ? (double)arg->f : (double)((int64_t)arg->i);
          arg->op = CK_FLOAT_CONST;
          break;
-       case T_F10: // TODO: storage is small a bit
-         unreachable("long double arith is not implemented yet");
-//         arg->f = arg->op == CK_FLOAT_CONST ? (long double)arg->f : (long double)arg->i;
-//         arg->op = CK_FLOAT_CONST;
+       case T_F10:
+         arg->f = arg->op == CK_FLOAT_CONST ? (long double)arg->f : (long double)((int64_t)arg->i);
+         arg->op = CK_FLOAT_CONST;
          break;
        default:
          return NULL;
@@ -323,7 +356,7 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
   if (isErrorType(expression->type)) return NULL; // cannot evaluate error expression
 
   int64_const_t ic;
-  float64_const_t fc;
+  float80_const_t fc;
   float f = 4.2f;
   float f2;
   int ii;
@@ -332,6 +365,7 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
   float_unary_evaluate un_f_eval = NULL;
   int_binary_evaluate bin_i_eval = NULL;
   float_binary_evaluate bin_f_eval = NULL;
+  float2int_binary_evaluate bin_f2i_eval = NULL;
   evaluateChecker chk_eval = no_checks;
 
   switch (op) {
@@ -348,20 +382,27 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
     case EB_AND: bin_i_eval = ee_i_b_and; goto binary; // only int
     case EB_OR:  bin_i_eval = ee_i_b_or;  goto binary;// only int
     case EB_XOR: bin_i_eval = ee_i_b_xor; goto binary; // only int
-    case EB_ANDAND: bin_i_eval = ee_i_b_andand; bin_f_eval = ee_f_b_andand; goto binary;
-    case EB_OROR:   bin_i_eval = ee_i_b_oror; bin_f_eval = ee_f_b_oror; goto binary;
-    case EB_EQ: bin_i_eval = ee_i_b_eq; bin_f_eval = ee_f_b_eq; goto binary;
-    case EB_NE: bin_i_eval = ee_i_b_ne; bin_f_eval = ee_f_b_ne; goto binary;
-    case EB_LT: bin_i_eval = ee_i_b_lt; bin_f_eval = ee_f_b_lt; goto binary;
-    case EB_LE: bin_i_eval = ee_i_b_le; bin_f_eval = ee_f_b_le; goto binary;
-    case EB_GT: bin_i_eval = ee_i_b_gt; bin_f_eval = ee_f_b_gt; goto binary;
-    case EB_GE: bin_i_eval = ee_i_b_ge; bin_f_eval = ee_f_b_ge; goto binary;
     binary: {
       AstConst *left = eval(ctx, expression->binaryExpr.left);
       if (left == NULL) return NULL;
       AstConst *right = eval(ctx, expression->binaryExpr.right);
       if (right == NULL) return NULL;
       return evaluateBinaryConst(ctx, left, right, chk_eval, bin_i_eval, bin_f_eval);
+    }
+    case EB_ANDAND: bin_i_eval = ee_i_b_andand; bin_f2i_eval = ee_f_b_andand; goto cond;
+    case EB_OROR:   bin_i_eval = ee_i_b_oror; bin_f2i_eval = ee_f_b_oror; goto cond;
+    case EB_EQ: bin_i_eval = ee_i_b_eq; bin_f2i_eval = ee_f_b_eq; goto cond;
+    case EB_NE: bin_i_eval = ee_i_b_ne; bin_f2i_eval = ee_f_b_ne; goto cond;
+    case EB_LT: bin_i_eval = ee_i_b_lt; bin_f2i_eval = ee_f_b_lt; goto cond;
+    case EB_LE: bin_i_eval = ee_i_b_le; bin_f2i_eval = ee_f_b_le; goto cond;
+    case EB_GT: bin_i_eval = ee_i_b_gt; bin_f2i_eval = ee_f_b_gt; goto cond;
+    case EB_GE: bin_i_eval = ee_i_b_ge; bin_f2i_eval = ee_f_b_ge; goto cond;
+    cond: {
+        AstConst *left = eval(ctx, expression->binaryExpr.left);
+        if (left == NULL) return NULL;
+        AstConst *right = eval(ctx, expression->binaryExpr.right);
+        if (right == NULL) return NULL;
+        return evaluateBinaryCondConst(ctx, left, right, chk_eval, bin_i_eval, bin_f2i_eval);
     }
     case E_TERNARY: {
         AstConst *cond = eval(ctx, expression->ternaryExpr.condition);
