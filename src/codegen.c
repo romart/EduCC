@@ -351,13 +351,7 @@ static void emitFloatIntoSection(Section *s, TypeId tid, long double v) {
    }
 }
 
-static Boolean emitFloatConst(GenerationContext *ctx, GeneratedFunction *f, AstConst *_const, TypeId tid, Address *addr) {
-  assert(_const->op == CK_FLOAT_CONST);
-  ptrdiff_t offset = ctx->rodata->pc - ctx->rodata->start;
-  size_t size = typeIdSize(tid);
-  ptrdiff_t alligned = ALIGN_SIZE(offset, size);
-
-
+static Boolean maybeSpecialConst(GeneratedFunction *f, AstConst *_const, TypeId tid) {
   if (tid == T_F10) {
       // check for special constants
 
@@ -368,26 +362,39 @@ static Boolean emitFloatConst(GenerationContext *ctx, GeneratedFunction *f, AstC
 
       if (ldb.qwords[0] == 0x0UL && ldb.qwords[1] == 0x0UL) { // +0.0
           emitFPnoArg(f, 0xEE);
-          return FALSE;
-      } else /*if (ldb.qwords[0] == 0x8000000000000000UL && ldb.qwords[1] == 0x3fffUL) { // +1.0
+          return TRUE;
+      } else if (ldb.qwords[0] == 0x8000000000000000UL && ldb.qwords[1] == 0x3fffUL) { // +1.0
           emitFPnoArg(f, 0xE8);
-          return FALSE;
-      } else */ if (ldb.qwords[0] == 0xc90fdaa22168c235UL && ldb.qwords[1] == 0x4000) { // pi
+          return TRUE;
+      } else if (ldb.qwords[0] == 0xc90fdaa22168c235UL && ldb.qwords[1] == 0x4000) { // pi
           emitFPnoArg(f, 0xEB);
-          return FALSE;
+          return TRUE;
       } else if (ldb.qwords[0] == 0xd49a784bcd1b8afe && ldb.qwords[1] == 0x4000) { // lb(10)
           emitFPnoArg(f, 0xE9);
-          return FALSE;
+          return TRUE;
       } else if (ldb.qwords[0] == 0xb8aa3b295c17f0bcUL && ldb.qwords[1] == 0x3fff) { // lb(e)
           emitFPnoArg(f, 0xEA);
-          return FALSE;
+          return TRUE;
       } else if (ldb.qwords[0] == 0x9a209a84fbcff799UL && ldb.qwords[1] == 0x3ffd) { // lg(2)
           emitFPnoArg(f, 0xEC);
-          return FALSE;
+          return TRUE;
       } else if (ldb.qwords[0] == 0xb17217f7d1cf79acUL && ldb.qwords[1] == 0x3ffe) { // ln(2)
           emitFPnoArg(f, 0xED);
-          return FALSE;
+          return TRUE;
       }
+  }
+  return FALSE;
+}
+
+static Boolean emitFloatConst(GenerationContext *ctx, GeneratedFunction *f, AstConst *_const, TypeId tid, Address *addr) {
+  assert(_const->op == CK_FLOAT_CONST);
+  ptrdiff_t offset = ctx->rodata->pc - ctx->rodata->start;
+  size_t size = typeIdSize(tid);
+  ptrdiff_t alligned = ALIGN_SIZE(offset, size);
+
+
+  if (maybeSpecialConst(f, _const, tid)) {
+      return FALSE;
   }
 
   while (offset < alligned) {
