@@ -469,6 +469,7 @@ typedef struct _AstFunctionDeclaration {
   unsigned isVariadic : 1;
 
   struct _Symbol *symbol;
+  unsigned structReturnSize;
 
   struct _GeneratedFunction *gen;
 } AstFunctionDeclaration;
@@ -494,7 +495,7 @@ typedef struct _AstFunctionDefinition { // _AstFunctionDefinition
   AstValueDeclaration *locals;
   AstValueDeclaration *va_area;
   struct _Scope *scope;
-  unsigned hasSmallStructs : 1;
+  unsigned returnStructBuffer;
 } AstFunctionDefinition;
 
 typedef enum _TranslationUnitKind {

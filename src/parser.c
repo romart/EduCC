@@ -481,6 +481,9 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
             consume(ctx, ')');
             left = createCallExpression(ctx, &coords, left, arguments);
             left->type = computeFunctionReturnType(ctx, &coords, calleeType);
+            if (isStructualType(left->type) || isUnionType(left->type)) {
+                ctx->stateFlags.returnStructBuffer = max(ctx->stateFlags.returnStructBuffer, computeTypeSize(left->type));
+            }
             break;
         case '.':    op = EF_DOT; goto acc;// '.' IDENTIFIER
         case PTR_OP: op = EF_ARROW; // PTR_OP IDENTIFIER
@@ -2944,7 +2947,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
   AstValueDeclaration *va_area_var = NULL;
   ctx->locals = NULL;
   ctx->functionReturnType = functionDeclaration ? functionDeclaration->returnType : makeErrorRef(ctx);
-  ctx->stateFlags.hasSmallStructs = 0;
+  ctx->stateFlags.returnStructBuffer = 0;
   ctx->currentScope = functionScope;
 
   if (functionDeclaration && functionDeclaration->isVariadic) {
@@ -2965,7 +2968,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
     definition->scope = functionScope;
     definition->locals = ctx->locals;
     definition->va_area = va_area_var;
-    definition->hasSmallStructs = ctx->stateFlags.hasSmallStructs;
+    definition->returnStructBuffer = ctx->stateFlags.returnStructBuffer;
 
     AstTranslationUnit *newUnit = createTranslationUnit(ctx, NULL, definition);
     addToFile(file, newUnit);
