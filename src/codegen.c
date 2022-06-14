@@ -1860,6 +1860,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   for (; tmp; tmp = tmp->next) ++argsCount;
 
   int32_t *offsets = alloca(argsCount * sizeof (int32_t));
+  unsigned stackDelta = (f->stackOffset / 8) % 2 * 8;
   unsigned stackArgSize = 0;
 
   if (isStructualType(returnType) && returnTypeSize > sizeof(intptr_t)) {
@@ -1901,13 +1902,15 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
       stackArgSize += argSize;
   }
 
-  unsigned alignedStackSize = ALIGN_SIZE(stackArgSize, 2 * sizeof(intptr_t));
+  unsigned alignedStackSize = ALIGN_SIZE(stackArgSize, 2 * sizeof(intptr_t)) + stackDelta;
   unsigned delta = alignedStackSize - stackArgSize;
 
   unsigned totalRegArg = intRegArgs + fpRegArgs;
 
-  if (alignedStackSize)
+  if (alignedStackSize) {
     emitArithConst(f, OP_SUB, R_ESP, alignedStackSize, sizeof(intptr_t));
+    f->stackOffset += alignedStackSize;
+  }
 
   if (isStructualType(returnType) && returnTypeSize > sizeof(intptr_t)) {
       unsigned align = max(8, typeAlignment(returnType));
@@ -1993,7 +1996,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
       TypeRef *argType = r_types[i];
       size_t argSize = computeTypeSize(argType);
       if (isStructualType(argType) && argSize > sizeof(intptr_t)) {
-          saddr.imm = r_offsets[i] + f->stackOffset;
+          saddr.imm = r_offsets[i] + f->stackOffset - stackBase;
           emitLea(f, &saddr, intArgumentRegs[ir++]);
       } else {
           if (isRealType(argType)) {
@@ -2042,6 +2045,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   }
 
   if (alignedStackSize) {
+    f->stackOffset -= alignedStackSize;
     emitArithConst(f, OP_ADD, R_ESP, alignedStackSize, sizeof(intptr_t));
   }
 }
