@@ -2267,6 +2267,22 @@ int typeIdSize(TypeId id) {
   return builtInTypeDescriptors[id].size;
 }
 
+TypeId typeToId(TypeRef *type) {
+ switch (type->kind) {
+ case TR_VALUE: {
+       TypeId tid = type->descriptorDesc->typeId;
+       if (tid == T_ENUM) tid = T_S4;
+       return tid;
+ }
+ case TR_POINTED:
+ case TR_FUNCTION:
+ case TR_ARRAY: return T_U8;
+ case TR_BITFIELD: return type->bitFieldDesc.storageType->descriptorDesc->typeId;
+ default: unreachable("Unknown type ref"); return T_ERROR;
+   }
+}
+
+
 int computeTypeSize(TypeRef *type) {
   if (type->kind == TR_VALUE) {
       return type->descriptorDesc->size;
