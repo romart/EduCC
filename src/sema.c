@@ -262,6 +262,12 @@ Boolean isUnionType(TypeRef *type) {
   return FALSE;
 }
 
+Boolean isCompositeType(TypeRef *type) {
+  if (type->kind == TR_VALUE && (type->descriptorDesc->typeId == T_UNION || type->descriptorDesc->typeId == T_STRUCT))
+    return TRUE;
+  return FALSE;
+}
+
 Boolean isVoidType(TypeRef *type) {
   if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_VOID)
     return TRUE;
