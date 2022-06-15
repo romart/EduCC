@@ -1425,6 +1425,8 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *typ
               assert(expr->type->kind == TR_ARRAY);
               type->arrayTypeDesc.size = expr->type->arrayTypeDesc.size;
               AstInitializer *init = stringLiteralToInitializer(ctx, &expr->coordinates, expr->constExpr.l, offset);
+              init->slotType = type;
+              init->offset = offset;
               *next = initializer->next;
               return init;
           } else {
