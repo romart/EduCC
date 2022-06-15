@@ -65,6 +65,11 @@ int main(int argc, char** argv) {
     } else if (strncmp("-O", arg, 2) == 0) {
         // optimization? lol
         continue;
+    } else if (strcmp("-fno-common", arg) == 0) {
+        // it's default
+    } else if (strncmp("-W", arg, 2) == 0) {
+        // ignore
+        // it's default
     } else {
       config.fileToCompile = argv[i];
       compileFile(&config);
