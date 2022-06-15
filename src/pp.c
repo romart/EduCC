@@ -1260,7 +1260,9 @@ static Token *diagnosticDirective(ParserContext *ctx, Token *start, enum Diagnos
   Token *next = last->next;
   last->next = NULL;
 
-  const char *message = joinToStringTokenSequence(ctx, start);
+  Token *messageToken = expandSequence(ctx, start->next, FALSE);
+
+  const char *message = joinToStringTokenSequence(ctx, messageToken);
   Coordinates coords = { start->next, last };
 
   reportDiagnostic(ctx, id, &coords, message);
@@ -1268,9 +1270,83 @@ static Token *diagnosticDirective(ParserContext *ctx, Token *start, enum Diagnos
   return next;
 }
 
-static Token *handleDirecrive(ParserContext *ctx, Token *token) {
+static LineChunk *newLineChunk(const char *file, unsigned newLineNumber, Token *orig) {
+  assert(orig->expanded == NULL);
 
-  YYSTYPE dummy = 0;
+  unsigned rawLine = tokenRawLine(orig);
+
+  LineChunk *newChunk = heapAllocate(sizeof(LineChunk));
+
+  newChunk->overrideFileName = file;
+  newChunk->overrideLineNumber = newLineNumber;
+  newChunk->posLineNumber = rawLine;
+
+  return newChunk;
+}
+
+static Token *lineDirective(ParserContext *ctx, Token *start) {
+  Token *last = findLastPPToken(ctx, start->next);
+
+  Token *next = last->next;
+  last->next = NULL;
+
+  Token *expanded = expandSequence(ctx, start->next, FALSE);
+
+  assert(start->rawCode == '#');
+  Token *directive = start->next;
+  assert(directive->rawCode == IDENTIFIER);
+
+  Token *lineNum = directive->next;
+
+  if (lineNum == NULL) {
+      Coordinates coords = { start, directive };
+      reportDiagnostic(ctx, DIAG_PP_LINE_UNEXPECTED_EOL, &coords);
+      return next;
+  }
+
+  if (lineNum->rawCode != I_CONSTANT_RAW) {
+      Coordinates coords = { lineNum, lineNum };
+      char *copy = strndup(lineNum->pos, lineNum->length);
+      reportDiagnostic(ctx, DIAG_PP_LINE_NOT_POSITIVE_INT, &coords, copy);
+      free(copy);
+      return next;
+  }
+
+  unsigned newLineNumber = lineNum->value.iv;
+
+  Token *fileName = lineNum->next;
+  const char *newFileName = NULL;
+  if (fileName) {
+      if (fileName->rawCode != STRING_LITERAL) {
+          Coordinates coords = { fileName, fileName };
+          char *copy = strndup(fileName->pos, fileName->length);
+          reportDiagnostic(ctx, DIAG_PP_LINE_NOT_FILE_NAME, &coords, copy);
+          free(copy);
+          return next;
+      }
+      newFileName = fileName->value.text;
+      if (fileName->next) {
+          Coordinates coords = { fileName->next, fileName->next };
+          char *copy = strndup(fileName->next->pos, fileName->next->length);
+          reportDiagnostic(ctx, DIAG_PP_LINE_EXTRA_TOKEN_AT_END, &coords, copy);
+          free(copy);
+      }
+  }
+
+
+  Token *original = originaToken(directive);
+  LocationInfo *locInfo = original->locInfo;
+
+  assert(locInfo->kind == LIK_FILE);
+
+  LineChunk *chunk = newLineChunk(newFileName, newLineNumber, original);
+  chunk->next = locInfo->fileInfo.chunks;
+  locInfo->fileInfo.chunks = chunk;
+
+  return next;
+}
+
+static Token *handleDirecrive(ParserContext *ctx, Token *token) {
 
   unsigned bOffset = 0;
 
@@ -1313,8 +1389,7 @@ static Token *handleDirecrive(ParserContext *ctx, Token *token) {
     reportDiagnostic(ctx, DIAG_PP_WITHOUT_IF, &coords, "endif");
     return directiveToken->next;
   } else if (!strcmp("line", directive)) {
-    // TODO
-    return skipPPTokens(ctx, token->next);
+    return lineDirective(ctx, token);
   } else if (!strcmp("error", directive)) {
     return diagnosticDirective(ctx, token, DIAG_PP_ERROR);
   } else if (!strcmp("warning", directive)) {
@@ -1336,26 +1411,27 @@ Token *originaToken(Token *t) {
   return t;
 }
 
+
 static Token *fileMacroHandler(ParserContext *ctx, Token *t) {
 
-  LocationInfo *locInfo = originaToken(t)->locInfo;
+  Token *origToken = originaToken(t);
 
-  return stringToken(ctx, t, locInfo->fileInfo.fileName);
+  unsigned line = 0;
+  const char *file = NULL;
+
+  fileAndLine(origToken, &line, &file);
+
+  return stringToken(ctx, t, file);
 }
 
 static Token *lineMacroHandler(ParserContext *ctx, Token *t) {
 
   t = originaToken(t);
 
-  unsigned lineNum;
-  unsigned lineMax = t->locInfo->fileInfo.lineno;
-  unsigned *lineMap = t->locInfo->fileInfo.linesPos;
-  unsigned pos = t->pos - t->locInfo->buffer;
+  unsigned lineNum = 0;
+  const char *file = NULL;
 
-  for (lineNum = 0; lineNum < lineMax; ++lineNum) {
-      unsigned lineOffset = lineMap[lineNum];
-      if (pos < lineOffset) break;
-  }
+  fileAndLine(t, &lineNum, &file);
 
   char b[20] = { 0 };
   size_t l = sprintf(b, "%u", lineNum);

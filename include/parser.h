@@ -89,6 +89,13 @@ enum LocationInfoKind {
   LIK_CONST_MACRO
 };
 
+typedef struct _LineChunk {
+  const char *overrideFileName;
+  unsigned overrideLineNumber;
+  unsigned posLineNumber;
+  struct _LineChunk *next;
+} LineChunk;
+
 typedef struct _LocationInfo {
   const char *buffer;
   size_t bufferSize;
@@ -99,6 +106,7 @@ typedef struct _LocationInfo {
     unsigned *linesPos;
     unsigned lineno;
     unsigned lineCount;
+    struct _LineChunk *chunks; // required for #line PP directive support
   } fileInfo;
 
   struct _LocationInfo *next;

@@ -128,6 +128,7 @@
   DIAGNOSTIC_DEF(WARNING, PP, EXTRA_TOKENS, "extra tokens at end of #include directive"), \
   DIAGNOSTIC_DEF(ERROR, PP, MACRO_NAME_IS_ID, "macro name must be an identifier"), \
   DIAGNOSTIC_DEF(ERROR, PP, PP_ERROR, "%s"), \
+  DIAGNOSTIC_DEF(WARNING, PP, PP_WARNING, "%s"), \
   DIAGNOSTIC_DEF(ERROR, PP, PP_CANNOT_EVALUATE, "cannot evaluate expression"), \
   DIAGNOSTIC_DEF(ERROR, PP, PP_WITHOUT_IF, "#%s without #if"), \
   DIAGNOSTIC_DEF(ERROR, PP, PP_UNTERMINATED_COND_DIRECTIVE, "unterminated conditional directive"), \
@@ -138,4 +139,9 @@
   DIAGNOSTIC_DEF(ERROR, PP, PP_WRONG_CONCAT_OP_PLACE, "'##' cannot appear at either begin or end of a macro expansion"), \
   DIAGNOSTIC_DEF(WARNING, PP, PP_MACRO_REDEFINED, "'%s' redefined"), \
   DIAGNOSTIC_DEF(WARNING, PP, PP_DEFINED_NOT_A_NAME, "'defined' cannot be used as a macro name"), \
-  DIAGNOSTIC_DEF(WARNING, PP, PP_EXTRA_TOKEN_ENDOF_DIRECTIVE, "extra tokens at end of #%s directive")
+  DIAGNOSTIC_DEF(WARNING, PP, PP_EXTRA_TOKEN_ENDOF_DIRECTIVE, "extra tokens at end of #%s directive"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_LINE_NOT_POSITIVE_INT, "'%s' after #line is not a positive integer"), \
+  DIAGNOSTIC_DEF(WARNING, PP, PP_LINE_EXTRA_TOKEN_AT_END, "extra tokens at end of #line directive") , \
+  DIAGNOSTIC_DEF(WARNING, PP, PP_LINE_NOT_FILE_NAME, "'%s' is not a valid filename"), \
+  DIAGNOSTIC_DEF(WARNING, PP, PP_LINE_UNEXPECTED_EOL, "unexpected end of line after #line")
+

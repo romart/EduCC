@@ -344,15 +344,19 @@ void printDiagnostic(FILE *output, Diagnostic *diagnostic, Boolean verbose) {
   }
 
   LocationInfo *locInfo = diagnostic->location.locInfo;
+  unsigned pLine = diagnostic->location.lineStart;
+  const char *pFile = NULL;
 
   if (locInfo->kind == LIK_FILE) {
-    fprintf(output, "%s:", locInfo->fileInfo.fileName);
+    findFileAndLine(locInfo, pLine, &pLine, &pFile);
   } else {
-    fprintf(output, "#macro:");
+    pFile = "#macro";
   }
 
+  fprintf(output, "%s:", pFile);
+
   if (diagnostic->location.lineStart >= 0) {
-      fprintf(output, "%d:%d:", diagnostic->location.lineStart, diagnostic->location.colStart);
+    fprintf(output, "%d:%d:", pLine, diagnostic->location.colStart);
   }
 
   const Severity *severity = getSeverity(diagnostic->descriptor->severityKind);
