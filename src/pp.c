@@ -828,6 +828,10 @@ static Token *parseInclude(ParserContext *ctx, Token *token) {
 
   fileName = findIncludePath(ctx, token, fileName, dquoted);
 
+  if (isInHashMap(ctx->pragmaOnceMap, (intptr_t)fileName)) {
+      return tail;
+  }
+
   Token eof = { 0 };
   Token *includeTokens = fileName ? tokenizeFile(ctx, fileName, &eof) : NULL;
   if (includeTokens == NULL) {
@@ -1346,6 +1350,28 @@ static Token *lineDirective(ParserContext *ctx, Token *start) {
   return next;
 }
 
+static Token *pragmaDirective(ParserContext *ctx, Token *start) {
+  Token *last = findLastPPToken(ctx, start->next);
+
+  Token *next = last->next;
+  last->next = NULL;
+
+  assert(start->rawCode == '#');
+  Token *directive = start->next;
+  assert(directive->rawCode == IDENTIFIER);
+
+  Token *arg1 = directive->next;
+  if (arg1 && arg1->rawCode == IDENTIFIER) {
+      if (strcmp("once", arg1->id) == 0) {
+          Token * orig = originaToken(arg1);
+          const char *f = orig->locInfo->fileInfo.fileName;
+          putToHashMap(ctx->pragmaOnceMap, (intptr_t)f, (intptr_t)f);
+      }
+  }
+
+  return next;
+}
+
 static Token *handleDirecrive(ParserContext *ctx, Token *token) {
 
   unsigned bOffset = 0;
@@ -1395,8 +1421,7 @@ static Token *handleDirecrive(ParserContext *ctx, Token *token) {
   } else if (!strcmp("warning", directive)) {
     return diagnosticDirective(ctx, token, DIAG_PP_WARNING);
   } else if (!strcmp("pragma", directive)) {
-    // TODO
-    return skipPPTokens(ctx, token->next);
+    return pragmaDirective(ctx, token);
   } else {
     reportDiagnostic(ctx, DIAG_INVALID_PP_DIRECTIVE, &coords, directiveToken);
     return directiveToken;
