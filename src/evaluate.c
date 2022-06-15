@@ -185,7 +185,7 @@ static int64_const_t ee_i_b_ge_s(int64_const_t l, int64_const_t r) {
 }
 
 static int64_const_t ee_i_b_lt_u(int64_const_t l, int64_const_t r) {
-  return (sint64_const_t)l < (sint64_const_t)r;
+  return l < r;
 }
 
 static int64_const_t ee_i_b_le_u(int64_const_t l, int64_const_t r) {
