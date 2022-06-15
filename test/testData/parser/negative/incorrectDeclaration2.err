@@ -1,16 +1,4 @@
 test/testData/parser/negative/incorrectDeclaration2.c:2:1: warning: type specifier missing, defaults to 'int'
 test/testData/parser/negative/incorrectDeclaration2.c:2:1: warning: declaration does not declare anything
 test/testData/parser/negative/incorrectDeclaration2.c:2:1: error: unexpected token / '/' instead of {
-test/testData/parser/negative/incorrectDeclaration2.c:2:3: error: use of undeclared identifier 'TODO'
-test/testData/parser/negative/incorrectDeclaration2.c:6:1: error: unexpected token INT 'int' instead of ;
-test/testData/parser/negative/incorrectDeclaration2.c:6:5: error: unexpected token [ '[' instead of (
-test/testData/parser/negative/incorrectDeclaration2.c:6:6: error: unexpected token ] ']' instead of (
-test/testData/parser/negative/incorrectDeclaration2.c:6:7: error: use of undeclared identifier 'ff'
-test/testData/parser/negative/incorrectDeclaration2.c:6:10: error: unexpected token { '{' instead of )
-test/testData/parser/negative/incorrectDeclaration2.c:8:1: error: unexpected token } '}' instead of )
-test/testData/parser/negative/incorrectDeclaration2.c:10:1: error: unexpected token INT 'int' instead of ;
-test/testData/parser/negative/incorrectDeclaration2.c:10:5: error: use of undeclared identifier 'foo'
-test/testData/parser/negative/incorrectDeclaration2.c:10:8: error: unexpected token , ',' instead of (
-test/testData/parser/negative/incorrectDeclaration2.c:10:10: error: unexpected token ) ')' instead of (
-test/testData/parser/negative/incorrectDeclaration2.c:10:12: error: unexpected token { '{' instead of (
-test/testData/parser/negative/incorrectDeclaration2.c:12:1: error: unexpected token } '}' instead of (
+test/testData/parser/negative/incorrectDeclaration2.c:2:3: error: unexpected token IDENTIFIER 'TODO' instead of ;
