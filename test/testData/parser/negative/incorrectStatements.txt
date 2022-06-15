@@ -4,7 +4,18 @@ FILE test/testData/parser/negative/incorrectStatements.c
   BEGIN
     IF (*a)
     THEN
-      (ERROR EXPR)
+      ERROR EXPR
     END_IF
-    ((((((((ERROR EXPR((*a)))((((*a)))))))))))
+    FOR (ERROR EXPR; ERROR EXPR; ERROR EXPR)
+
+    END_FOR    
+  END
+----
+  signed int
+----
+  FUN signed int gar 
+    #0: signed int a
+  BEGIN
+    RETURN (signed int)ERROR EXPR
+    ERROR EXPR    
   END

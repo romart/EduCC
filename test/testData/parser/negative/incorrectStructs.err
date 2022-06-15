@@ -1,8 +1,5 @@
 test/testData/parser/negative/incorrectStructs.c:4:5: error: type name does not allow storage class to be specified
 test/testData/parser/negative/incorrectStructs.c:9:9: error: unexpected token IDENTIFIER 'v1' instead of ;
-test/testData/parser/negative/incorrectStructs.c:9:11: warning: declaration does not declare anything
 test/testData/parser/negative/incorrectStructs.c:10:9: error: unexpected token IDENTIFIER 'v2' instead of ;
-test/testData/parser/negative/incorrectStructs.c:10:11: warning: declaration does not declare anything
 test/testData/parser/negative/incorrectStructs.c:11:9: error: unexpected token IDENTIFIER 'v3' instead of ;
-test/testData/parser/negative/incorrectStructs.c:11:11: warning: declaration does not declare anything
 test/testData/parser/negative/incorrectStructs.c:9:5: error: field 'ss1' has incomplete type 'ERROR TYPE'

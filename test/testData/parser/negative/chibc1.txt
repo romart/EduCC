@@ -1,0 +1,20 @@
+FILE test/testData/parser/negative/chibc1.c
+  STRUCT Type
+    signed int kind #0
+  STRUCT_END
+----
+  S FUN void pop 
+    #0: *C signed char c
+  BEGIN
+    
+  END
+----
+  S FUN void store 
+    #0: signed int Type
+  BEGIN
+    pop("%rdi")
+    SWITCH (ERROR EXPR)
+      CASE 1: RETURN
+      CASE 2: pop(";;")      
+    END_SWITCH    
+  END
