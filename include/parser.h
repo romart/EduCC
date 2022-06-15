@@ -160,6 +160,7 @@ typedef struct _ParserContext {
     AstValueDeclaration *locals;
 
     HashMap *macroMap;
+    HashMap *pragmaOnceMap;
 
 } ParserContext;
 

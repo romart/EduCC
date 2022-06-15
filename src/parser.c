@@ -2996,6 +2996,7 @@ static void initializeContext(ParserContext *ctx) {
   ctx->rootScope = ctx->currentScope = newScope(ctx, NULL);
 
   ctx->macroMap = createHashMap(DEFAULT_MAP_CAPACITY, stringHashCode, stringCmp);
+  ctx->pragmaOnceMap = createHashMap(DEFAULT_MAP_CAPACITY, stringHashCode, stringCmp);
 
   initializeProprocessor(ctx);
 }
@@ -3033,6 +3034,7 @@ static void releaseContext(ParserContext *ctx) {
   }
 
   releaseHashMap(ctx->macroMap);
+  releaseHashMap(ctx->pragmaOnceMap);
 }
 
 static Boolean printDiagnostics(Diagnostics *diagnostics, Boolean verbose) {
