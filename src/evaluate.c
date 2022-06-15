@@ -68,47 +68,88 @@ static float80_const_t ee_f_u_dec(float80_const_t f) {
 
 // int, int -> int
 
-static int64_const_t ee_i_b_plus(int64_const_t l, int64_const_t r) {
+static int64_const_t ee_i_b_plus_s(int64_const_t l, int64_const_t r) {
+  return (sint64_const_t)l + (sint64_const_t)r;
+}
+
+static int64_const_t ee_i_b_minus_s(int64_const_t l, int64_const_t r) {
+  return (sint64_const_t)l - (sint64_const_t)r;
+}
+
+static int64_const_t ee_i_b_mul_s(int64_const_t l, int64_const_t r) {
+  return (sint64_const_t)l * (sint64_const_t)r;
+}
+
+static int64_const_t ee_i_b_div_s(int64_const_t l, int64_const_t r) {
+  return (sint64_const_t)l / (sint64_const_t)r;
+}
+
+static int64_const_t ee_i_b_mod_s(int64_const_t l, int64_const_t r) {
+  return (sint64_const_t)l % (sint64_const_t)r;
+}
+
+static int64_const_t ee_i_b_lhs_s(int64_const_t l, int64_const_t r) {
+  return (sint64_const_t)l << (sint64_const_t)r;
+}
+
+static int64_const_t ee_i_b_rhs_s(int64_const_t l, int64_const_t r) {
+  return (sint64_const_t)l >> (sint64_const_t)r;
+}
+
+static int64_const_t ee_i_b_and_s(int64_const_t l, int64_const_t r) {
+  return (sint64_const_t)l & (sint64_const_t)r;
+}
+
+static int64_const_t ee_i_b_or_s(int64_const_t l, int64_const_t r) {
+  return (sint64_const_t)l | (sint64_const_t)r;
+}
+
+static int64_const_t ee_i_b_xor_s(int64_const_t l, int64_const_t r) {
+  return (sint64_const_t)l ^ (sint64_const_t)r;
+}
+
+// unsigned, unsigned -> unsigned
+
+static int64_const_t ee_i_b_plus_u(int64_const_t l, int64_const_t r) {
   return l + r;
 }
 
-static int64_const_t ee_i_b_minus(int64_const_t l, int64_const_t r) {
+static int64_const_t ee_i_b_minus_u(int64_const_t l, int64_const_t r) {
   return l - r;
 }
 
-static int64_const_t ee_i_b_mul(int64_const_t l, int64_const_t r) {
+static int64_const_t ee_i_b_mul_u(int64_const_t l, int64_const_t r) {
   return l * r;
 }
 
-static int64_const_t ee_i_b_div(int64_const_t l, int64_const_t r) {
-  // TODO: handle r == 0
+static int64_const_t ee_i_b_div_u(int64_const_t l, int64_const_t r) {
   return l / r;
 }
 
-static int64_const_t ee_i_b_mod(int64_const_t l, int64_const_t r) {
-  // TODO: handle r == 0
+static int64_const_t ee_i_b_mod_u(int64_const_t l, int64_const_t r) {
   return l % r;
 }
 
-static int64_const_t ee_i_b_lhs(int64_const_t l, int64_const_t r) {
+static int64_const_t ee_i_b_lhs_u(int64_const_t l, int64_const_t r) {
   return l << r;
 }
 
-static int64_const_t ee_i_b_rhs(int64_const_t l, int64_const_t r) {
+static int64_const_t ee_i_b_rhs_u(int64_const_t l, int64_const_t r) {
   return l >> r;
 }
 
-static int64_const_t ee_i_b_and(int64_const_t l, int64_const_t r) {
+static int64_const_t ee_i_b_and_u(int64_const_t l, int64_const_t r) {
   return l & r;
 }
 
-static int64_const_t ee_i_b_or(int64_const_t l, int64_const_t r) {
+static int64_const_t ee_i_b_or_u(int64_const_t l, int64_const_t r) {
   return l | r;
 }
 
-static int64_const_t ee_i_b_xor(int64_const_t l, int64_const_t r) {
+static int64_const_t ee_i_b_xor_u(int64_const_t l, int64_const_t r) {
   return l ^ r;
 }
+
 
 static int64_const_t ee_i_b_andand(int64_const_t l, int64_const_t r) {
   return l && r;
@@ -127,19 +168,35 @@ static int64_const_t ee_i_b_ne(int64_const_t l, int64_const_t r) {
   return rs;
 }
 
-static int64_const_t ee_i_b_lt(int64_const_t l, int64_const_t r) {
-  return l < r;
+static int64_const_t ee_i_b_lt_s(int64_const_t l, int64_const_t r) {
+  return (sint64_const_t)l < (sint64_const_t)r;
 }
 
-static int64_const_t ee_i_b_le(int64_const_t l, int64_const_t r) {
+static int64_const_t ee_i_b_le_s(int64_const_t l, int64_const_t r) {
+  return (sint64_const_t)l <= (sint64_const_t)r;
+}
+
+static int64_const_t ee_i_b_gt_s(int64_const_t l, int64_const_t r) {
+  return (sint64_const_t)l > (sint64_const_t)r;
+}
+
+static int64_const_t ee_i_b_ge_s(int64_const_t l, int64_const_t r) {
+  return (sint64_const_t)l >= (sint64_const_t)r;
+}
+
+static int64_const_t ee_i_b_lt_u(int64_const_t l, int64_const_t r) {
+  return (sint64_const_t)l < (sint64_const_t)r;
+}
+
+static int64_const_t ee_i_b_le_u(int64_const_t l, int64_const_t r) {
   return l <= r;
 }
 
-static int64_const_t ee_i_b_gt(int64_const_t l, int64_const_t r) {
+static int64_const_t ee_i_b_gt_u(int64_const_t l, int64_const_t r) {
   return l > r;
 }
 
-static int64_const_t ee_i_b_ge(int64_const_t l, int64_const_t r) {
+static int64_const_t ee_i_b_ge_u(int64_const_t l, int64_const_t r) {
   return l >= r;
 }
 
@@ -170,8 +227,7 @@ static int64_const_t ee_f_b_oror(float80_const_t l, float80_const_t r) {
 }
 
 static int64_const_t ee_f_b_eq(float80_const_t l, float80_const_t r) {
-  int rs = l == r;
-  return rs;
+  return l == r;
 }
 
 static int64_const_t ee_f_b_ne(float80_const_t l, float80_const_t r) {
@@ -368,35 +424,46 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
   float2int_binary_evaluate bin_f2i_eval = NULL;
   evaluateChecker chk_eval = no_checks;
 
+  Boolean isU = isUnsignedType(expression->type);
+  Boolean isDiv = FALSE;
+
   switch (op) {
     case E_CONST: return &expression->constExpr;
     case EB_COMMA:
       return eval(ctx, expression->binaryExpr.right);
-    case EB_ADD: bin_i_eval = ee_i_b_plus; bin_f_eval = ee_f_b_plus; goto binary;
-    case EB_SUB: bin_i_eval = ee_i_b_minus; bin_f_eval = ee_f_b_minus; goto binary;
-    case EB_MUL: bin_i_eval = ee_i_b_mul; bin_f_eval = ee_f_b_mul; goto binary;
-    case EB_DIV: bin_i_eval = ee_i_b_div; bin_f_eval = ee_f_b_div; chk_eval = div_check; goto binary;
-    case EB_MOD: bin_i_eval = ee_i_b_mod; chk_eval = div_check; goto binary; // only int
-    case EB_LHS: bin_i_eval = ee_i_b_lhs; goto binary; // only int
-    case EB_RHS: bin_i_eval = ee_i_b_rhs; goto binary; // only int
-    case EB_AND: bin_i_eval = ee_i_b_and; goto binary; // only int
-    case EB_OR:  bin_i_eval = ee_i_b_or;  goto binary;// only int
-    case EB_XOR: bin_i_eval = ee_i_b_xor; goto binary; // only int
+    case EB_ADD: bin_i_eval = isU ? ee_i_b_plus_u : ee_i_b_plus_s; bin_f_eval = ee_f_b_plus; goto binary;
+    case EB_SUB: bin_i_eval = isU ? ee_i_b_minus_u : ee_i_b_minus_s; bin_f_eval = ee_f_b_minus; goto binary;
+    case EB_MUL: bin_i_eval = isU ? ee_i_b_mul_u : ee_i_b_mul_s; bin_f_eval = ee_f_b_mul; goto binary;
+    case EB_DIV: bin_i_eval = isU ? ee_i_b_div_u : ee_i_b_div_s; bin_f_eval = ee_f_b_div; chk_eval = div_check; isDiv = TRUE; goto binary;
+    case EB_MOD: bin_i_eval = isU ? ee_i_b_mod_u : ee_i_b_mod_s; chk_eval = div_check; isDiv = TRUE; goto binary; // only int
+    case EB_LHS: bin_i_eval = isU ? ee_i_b_lhs_u : ee_i_b_lhs_s; goto binary; // only int
+    case EB_RHS: bin_i_eval = isU ? ee_i_b_rhs_u : ee_i_b_rhs_s; goto binary; // only int
+    case EB_AND: bin_i_eval = isU ? ee_i_b_and_u : ee_i_b_and_s; goto binary; // only int
+    case EB_OR:  bin_i_eval = isU ? ee_i_b_or_u : ee_i_b_or_s;  goto binary;// only int
+    case EB_XOR: bin_i_eval = isU ? ee_i_b_xor_u : ee_i_b_xor_s; goto binary; // only int
     binary: {
       AstConst *left = eval(ctx, expression->binaryExpr.left);
       if (left == NULL) return NULL;
       AstConst *right = eval(ctx, expression->binaryExpr.right);
       if (right == NULL) return NULL;
+      if (isDiv && right->op == CK_INT_CONST && right->i == 0) {
+          // Do not evaluate division by zero
+          AstExpression *oldLeft = expression->binaryExpr.left;
+          expression->binaryExpr.left = createAstConst2(ctx, &oldLeft->coordinates, oldLeft->type, left);
+          AstExpression *oldRight = expression->binaryExpr.right;
+          expression->binaryExpr.right = createAstConst2(ctx, &oldRight->coordinates, oldRight->type, right);
+          return NULL;
+      }
       return evaluateBinaryConst(ctx, left, right, chk_eval, bin_i_eval, bin_f_eval);
     }
     case EB_ANDAND: bin_i_eval = ee_i_b_andand; bin_f2i_eval = ee_f_b_andand; goto cond;
     case EB_OROR:   bin_i_eval = ee_i_b_oror; bin_f2i_eval = ee_f_b_oror; goto cond;
     case EB_EQ: bin_i_eval = ee_i_b_eq; bin_f2i_eval = ee_f_b_eq; goto cond;
     case EB_NE: bin_i_eval = ee_i_b_ne; bin_f2i_eval = ee_f_b_ne; goto cond;
-    case EB_LT: bin_i_eval = ee_i_b_lt; bin_f2i_eval = ee_f_b_lt; goto cond;
-    case EB_LE: bin_i_eval = ee_i_b_le; bin_f2i_eval = ee_f_b_le; goto cond;
-    case EB_GT: bin_i_eval = ee_i_b_gt; bin_f2i_eval = ee_f_b_gt; goto cond;
-    case EB_GE: bin_i_eval = ee_i_b_ge; bin_f2i_eval = ee_f_b_ge; goto cond;
+    case EB_LT: bin_i_eval = isU ? ee_i_b_lt_u : ee_i_b_lt_s; bin_f2i_eval = ee_f_b_lt; goto cond;
+    case EB_LE: bin_i_eval = isU ? ee_i_b_le_u : ee_i_b_le_s; bin_f2i_eval = ee_f_b_le; goto cond;
+    case EB_GT: bin_i_eval = isU ? ee_i_b_gt_u : ee_i_b_gt_s; bin_f2i_eval = ee_f_b_gt; goto cond;
+    case EB_GE: bin_i_eval = isU ? ee_i_b_ge_u : ee_i_b_ge_s; bin_f2i_eval = ee_f_b_ge; goto cond;
     cond: {
         AstConst *left = eval(ctx, expression->binaryExpr.left);
         if (left == NULL) return NULL;
