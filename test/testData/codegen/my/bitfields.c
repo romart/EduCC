@@ -1,6 +1,5 @@
 #include <stdio.h>
 
-
 struct {
   char a;
   int b : 5;
@@ -10,7 +9,6 @@ struct {
 int main() {
 
   if (1 != sizeof(struct {int x:1; })) return 1;
-//  if (8 != sizeof(struct {long x:1; })) return 2;
 
   struct bit1 {
     short a;
@@ -46,9 +44,9 @@ int main() {
   if (x2.d != 4) return 13;
   if (x2.e != 5) return 14;
 
-//  if (1 != g45.a) return 15;
-//  if (2 != g45.b) return 16;
-//  if (3 != g45.c) return 17;
+  if (1 != g45.a) return 15;
+  if (2 != g45.b) return 16;
+  if (3 != g45.c) return 17;
 
   if (0 != g46.a) return 18;
   if (0 != g46.b) return 19;
@@ -71,10 +69,6 @@ int main() {
   if (2 != ++x4.a) return 24;
   if (3 != ++x4.b) return 25;
   if (4 != ++x4.c) return 26;
-
-//  ASSERT(4, sizeof(struct {int a:3; int c:1; int c:5;}));
-//  ASSERT(8, sizeof(struct {int a:3; int:0; int c:5;}));
-//  ASSERT(4, sizeof(struct {int a:3; int:0;}));
 
   printf("OK\n");
   return 0;
