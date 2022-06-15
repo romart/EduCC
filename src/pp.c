@@ -754,13 +754,14 @@ static const char *findIncludePath(ParserContext *ctx, Token *include, const cha
       size_t l = strlen(dir) + 1 + strlen(includeName) + 1;
       char *path = heapAllocate(l);
       snprintf(path, l, "%s/%s", dir, includeName);
+      free(copy);
       if (access(path, F_OK) == 0) {
           char *result = allocateString(ctx, l);
           strncpy(result, path, l);
-          releaseHeap(dir);
           releaseHeap(path);
           return result;
       }
+      releaseHeap(path);
   }
 
   if (includeName[0] == '/') return includeName;
@@ -826,16 +827,16 @@ static Token *parseInclude(ParserContext *ctx, Token *token) {
     return token;
   }
 
-  fileName = findIncludePath(ctx, token, fileName, dquoted);
+  const char *foundFile = findIncludePath(ctx, token, fileName, dquoted);
 
-  if (isInHashMap(ctx->pragmaOnceMap, (intptr_t)fileName)) {
+  if (foundFile && isInHashMap(ctx->pragmaOnceMap, (intptr_t)foundFile)) {
       return tail;
   }
 
   Token eof = { 0 };
-  Token *includeTokens = fileName ? tokenizeFile(ctx, fileName, &eof) : NULL;
+  Token *includeTokens = foundFile ? tokenizeFile(ctx, foundFile, &eof) : NULL;
   if (includeTokens == NULL) {
-    reportDiagnostic(ctx, DIAG_INCLUDE_FILE_NOT_FOUND, &coords, fileName);
+    reportDiagnostic(ctx, DIAG_INCLUDE_FILE_NOT_FOUND, &coords, foundFile ? foundFile : fileName);
     return tail;
   }
 
