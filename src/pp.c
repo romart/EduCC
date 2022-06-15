@@ -1254,6 +1254,20 @@ static Token *endif(ParserContext *ctx, Token *token) {
   return token;
 }
 
+static Token *diagnosticDirective(ParserContext *ctx, Token *start, enum DiagnosticId id) {
+  Token *last = findLastPPToken(ctx, start->next);
+
+  Token *next = last->next;
+  last->next = NULL;
+
+  const char *message = joinToStringTokenSequence(ctx, start);
+  Coordinates coords = { start->next, last };
+
+  reportDiagnostic(ctx, id, &coords, message);
+
+  return next;
+}
+
 static Token *handleDirecrive(ParserContext *ctx, Token *token) {
 
   YYSTYPE dummy = 0;
@@ -1302,10 +1316,9 @@ static Token *handleDirecrive(ParserContext *ctx, Token *token) {
     // TODO
     return skipPPTokens(ctx, token->next);
   } else if (!strcmp("error", directive)) {
-    coords.left = token;
-    coords.right = token->next ? token->next : token;
-    reportDiagnostic(ctx, DIAG_PP_ERROR, &coords, token->next ? token->next->value.text ? token->next->value.text : "" : "");
-    return token->next ? token->next->next : NULL;
+    return diagnosticDirective(ctx, token, DIAG_PP_ERROR);
+  } else if (!strcmp("warning", directive)) {
+    return diagnosticDirective(ctx, token, DIAG_PP_WARNING);
   } else if (!strcmp("pragma", directive)) {
     // TODO
     return skipPPTokens(ctx, token->next);
