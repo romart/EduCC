@@ -95,11 +95,16 @@ enum Tokens {
 
 #undef TOKEN_DEF
 
-typedef size_t YYLTYPE;
-typedef int YYSTYPE;
-
+struct _Token;
+struct _LocationInfo;
 
 const char* tokenName(int token);
 const char* tokenNameInBuffer(int token, char* buff);
+
+
+unsigned tokenRawLine(struct _Token *t);
+
+void fileAndLine(struct _Token *token, unsigned *linePtr, const char **filePtr);
+void findFileAndLine(struct _LocationInfo *locInfo, unsigned origLine, unsigned *linePtr, const char **filePtr);
 
 #endif // __TOKENS_H__

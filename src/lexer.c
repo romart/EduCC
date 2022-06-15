@@ -167,6 +167,13 @@ LocationInfo *allocateFileLocationInfo(const char *fileName, const char *buffer,
 
   locInfo->fileInfo.fileName = fileName;
 
+  LineChunk *newChunk = heapAllocate(sizeof(LineChunk));
+  newChunk->overrideFileName = fileName;
+  newChunk->posLineNumber = 0;
+  newChunk->overrideLineNumber = 1;
+
+  locInfo->fileInfo.chunks = newChunk;
+
   locInfo->buffer = buffer;
   locInfo->bufferSize = buffeSize;
 
