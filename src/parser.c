@@ -45,12 +45,14 @@ static void expect(ParserContext *ctx, int token) {
     }
 }
 
-static void consume(ParserContext *ctx, int expected) {
+static Boolean consume(ParserContext *ctx, int expected) {
     int token = ctx->token->code;
     if (token && token != expected) {
         reportUnexpectedToken(ctx, expected);
+        return FALSE;
     }
     nextToken(ctx);
+    return TRUE;
 }
 
 static void consumeRaw(ParserContext *ctx, int expected) {
@@ -59,6 +61,20 @@ static void consumeRaw(ParserContext *ctx, int expected) {
         reportUnexpectedToken(ctx, expected);
     }
     nextToken(ctx);
+}
+
+static void skipUntil(ParserContext *ctx, int until) {
+  int code = ctx->token->code;
+
+  while (code && code != until) {
+      code = nextToken(ctx)->code;
+  }
+  nextToken(ctx);
+}
+
+static void consumeOrSkip(ParserContext *ctx, int expected) {
+  if (!consume(ctx, expected))
+    skipUntil(ctx, expected);
 }
 
 static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, DeclaratorScope scope);
@@ -376,16 +392,16 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
             result->type = makeArrayType(ctx, length + 1, makePrimitiveType(ctx, T_S1, 0));
             return result;
         }
-        case 0:
-          return createErrorExpression(ctx, &coords);
-        default: {
-            consume(ctx, '(');
-            AstExpression* expr = parseExpression(ctx, scope);
-            coords.right = ctx->token;
-            consume(ctx, ')');
+        case '(':
+          consume(ctx, '(');
+          AstExpression* expr = parseExpression(ctx, scope);
+          coords.right = ctx->token;
+          consume(ctx, ')');
 
-            return createParenExpression(ctx, &coords, expr);
-        }
+          return createParenExpression(ctx, &coords, expr);
+        default:
+          nextToken(ctx);
+          return createErrorExpression(ctx, &coords);
     }
 
     nextToken(ctx);
@@ -1203,7 +1219,7 @@ static AstSUEDeclaration* parseEnumDeclaration(ParserContext *ctx, struct _Scope
 
       members = parseEnumeratorList(ctx, scope);
       coords.right = ctx->token;
-      consume(ctx, '}');
+      consumeOrSkip(ctx, '}');
     }
 
     return createSUEDeclaration(ctx, &coords, DK_ENUM, TRUE, name, members, sizeof(int32_t));
@@ -1527,7 +1543,7 @@ static AstSUEDeclaration* parseStructOrUnionDeclaration(ParserContext *ctx, Decl
     members = parseStructDeclarationList(ctx, factor, scope);
 
     coords.right = ctx->token;
-    consume(ctx, '}');
+    consumeOrSkip(ctx, '}');
 
 done:
 
@@ -2020,7 +2036,7 @@ static AstInitializer* parseInitializer(ParserContext *ctx, struct _Scope* scope
             ++numOfInits;
         }
         coords.right = ctx->token;
-        consume(ctx, '}');
+        consumeOrSkip(ctx, '}');
         result = createAstInitializer(ctx, &coords, IK_LIST);
         result->initializerList = head;
         result->numOfInitializers = numOfInits;
@@ -2203,7 +2219,7 @@ static void parseFunctionDeclaratorPart(ParserContext *ctx, Declarator *declarat
 
   ctx->currentScope = paramScope->parent;
 
-  consume(ctx, ')');
+  consumeOrSkip(ctx, ')');
 }
 
 static void parseArrayDeclaratorPart(ParserContext *ctx, Declarator *declarator) {
@@ -2223,7 +2239,7 @@ static void parseArrayDeclaratorPart(ParserContext *ctx, Declarator *declarator)
   part->next = declarator->declaratorParts;
   declarator->declaratorParts = part;
 
-  consume(ctx, ']');
+  consumeOrSkip(ctx, ']');
 }
 
 /**
@@ -2258,10 +2274,11 @@ static void parseDirectDeclarator(ParserContext *ctx, Declarator *declarator) {
             if (isDeclarationSpecifierToken(ctx->token->code)) {
                 parseFunctionDeclaratorPart(ctx, declarator);
             } else {
-                consume(ctx, '(');
-                parseDeclarator(ctx, declarator);
-                declarator->coordinates.right = ctx->token;
-                consume(ctx, ')');
+                if (consume(ctx, '(')) {
+                  parseDeclarator(ctx, declarator);
+                  declarator->coordinates.right = ctx->token;
+                  consumeOrSkip(ctx, ')');
+                }
             }
         }
     } else {
@@ -2376,7 +2393,8 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
     unsigned oldCaseCount = 0;
     unsigned oldHasDefault = 0;
     Coordinates coords = { ctx->token, ctx->token };
-    switch (ctx->token->code) {
+    int cc = ctx->token->code;
+    switch (cc) {
     case CASE:
         if (!ctx->stateFlags.inSwitch) {
             reportDiagnostic(ctx, DIAG_SWITCH_LABEL_NOT_IN_SWITCH, &coords, "case");
@@ -2539,7 +2557,8 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
     default:
         expr = parseExpression(ctx, scope);
         verifyStatementLevelExpression(ctx, expr);
-        consume(ctx, ';');
+        consumeOrSkip(ctx, ';');
+
         return createExprStatement(ctx, expr);
     }
 }
@@ -2661,7 +2680,7 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                 }
             }
 
-            consume(ctx, ';');
+            consumeOrSkip(ctx, ';');
         } else {
             AstStatement *statement = parseStatement(ctx, NULL);
             AstStatementList *node = allocateStmtList(ctx, statement);
@@ -2672,7 +2691,7 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
     }
 
     coords.right = ctx->token;
-    consume(ctx, '}');
+    consumeOrSkip(ctx, '}');
 
     return createBlockStatement(ctx, &coords, ctx->currentScope, head);
 }
