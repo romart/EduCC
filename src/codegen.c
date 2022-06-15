@@ -352,6 +352,25 @@ static void emitFloatIntoSection(Section *s, TypeId tid, long double v) {
    }
 }
 
+
+static void emitIntIntoSection(Section *s, uint64_t v, size_t size) {
+  emitSectionByte(s, (uint8_t)(v));
+  if (size > 1) {
+      emitSectionByte(s, (uint8_t)(v >> 8));
+  }
+  if (size > 2) {
+      emitSectionByte(s, (uint8_t)(v >> 16));
+      emitSectionByte(s, (uint8_t)(v >> 24));
+  }
+  if (size > 4) {
+      emitSectionByte(s, (uint8_t)(v >> 32));
+      emitSectionByte(s, (uint8_t)(v >> 40));
+      emitSectionByte(s, (uint8_t)(v >> 48));
+      emitSectionByte(s, (uint8_t)(v >> 56));
+  }
+}
+
+
 static Boolean maybeSpecialConst(GeneratedFunction *f, AstConst *_const, TypeId tid) {
   if (tid == T_F10) {
       // check for special constants
@@ -737,6 +756,50 @@ static size_t fillReference(GenerationContext *ctx, Section *section, AstExpress
   return sizeof(intptr_t);
 }
 
+#define ROL(x, y) ((x) << (y)) | ((x) >> (64 - (y)))
+
+static size_t emitStaticBitField(ParserContext *ctx, Section *section, AstInitializerList *inits, AstInitializerList **next, int32_t startOffset) {
+
+
+  int32_t slotOffset = inits->initializer->offset;
+  int32_t storageSize = computeTypeSize(inits->initializer->slotType->bitFieldDesc.storageType);
+
+  uint64_t r = 0;
+
+
+  for (;inits; inits = inits->next) {
+      AstInitializer *init = inits->initializer;
+      if (init->offset != slotOffset) {
+          break;
+      }
+
+      assert(init->kind == IK_EXPRESSION);
+      TypeRef *slotType = init->slotType;
+      AstConst *cexpr = eval(ctx, init->expression);
+      assert(cexpr);
+      uint64_t v = cexpr->i;
+      unsigned w = slotType->bitFieldDesc.width;
+      unsigned s = slotType->bitFieldDesc.offset;
+      v &= (ROL(1UL, w) - 1);
+      v <<= s;
+      r |= v;
+
+  }
+
+  *next = inits;
+
+  int32_t sectionOffset = section->pc - section->start;
+  int32_t initOffset = sectionOffset - startOffset;
+
+  while (initOffset < slotOffset) {
+      emitSectionByte(section, 0x00);
+      ++initOffset;
+  }
+
+  emitIntIntoSection(section, r, storageSize);
+  return storageSize;
+}
+
 static size_t fillInitializer(GenerationContext *ctx, Section *section, AstInitializer *init, int32_t startOffset, size_t size) {
 
   if (size <= 0) return 0;
@@ -756,74 +819,12 @@ static size_t fillInitializer(GenerationContext *ctx, Section *section, AstIniti
           // probably it's a refernce to symbol
           return fillReference(ctx, section, expr, size);
       }
+
       TypeRef *constType = expr->type;
-      size_t constSize = computeTypeSize(constType);
+      TypeRef *slotType = init->slotType;
       switch (expr->constExpr.op) {
-      case CK_INT_CONST: {
-          uint64_t lconst = cexpr->i;
-          emitSectionByte(section, (uint8_t)(lconst));
-          if (constSize > 1) {
-              emitSectionByte(section, (uint8_t)(lconst >> 8));
-          }
-          if (constSize > 2) {
-              emitSectionByte(section, (uint8_t)(lconst >> 16));
-              emitSectionByte(section, (uint8_t)(lconst >> 24));
-          }
-          if (constSize > 4) {
-              emitSectionByte(section, (uint8_t)(lconst >> 32));
-              emitSectionByte(section, (uint8_t)(lconst >> 40));
-              emitSectionByte(section, (uint8_t)(lconst >> 48));
-              emitSectionByte(section, (uint8_t)(lconst >> 56));
-          }
-          break;
-        }
-        case CK_FLOAT_CONST: {
-            switch (constSize) {
-              case sizeof(float): {
-                  FloatBytes fb; fb.f = (float)cexpr->f;
-                  emitSectionByte(section, (uint8_t)(fb.bytes[0]));
-                  emitSectionByte(section, (uint8_t)(fb.bytes[1]));
-                  emitSectionByte(section, (uint8_t)(fb.bytes[2]));
-                  emitSectionByte(section, (uint8_t)(fb.bytes[3]));
-                }
-                break;
-              case sizeof(double): {
-                  DoubleBytes db; db.d = (double)cexpr->f;
-                  emitSectionByte(section, (uint8_t)(db.bytes[0]));
-                  emitSectionByte(section, (uint8_t)(db.bytes[1]));
-                  emitSectionByte(section, (uint8_t)(db.bytes[2]));
-                  emitSectionByte(section, (uint8_t)(db.bytes[3]));
-                  emitSectionByte(section, (uint8_t)(db.bytes[4]));
-                  emitSectionByte(section, (uint8_t)(db.bytes[5]));
-                  emitSectionByte(section, (uint8_t)(db.bytes[6]));
-                  emitSectionByte(section, (uint8_t)(db.bytes[7]));
-                }
-                break;
-              case sizeof(long double): {
-                  LongDoubleBytes ldb; ldb.ld = cexpr->f;
-                  emitSectionByte(section, (uint8_t)(ldb.bytes[0]));
-                  emitSectionByte(section, (uint8_t)(ldb.bytes[1]));
-                  emitSectionByte(section, (uint8_t)(ldb.bytes[2]));
-                  emitSectionByte(section, (uint8_t)(ldb.bytes[3]));
-                  emitSectionByte(section, (uint8_t)(ldb.bytes[4]));
-                  emitSectionByte(section, (uint8_t)(ldb.bytes[5]));
-                  emitSectionByte(section, (uint8_t)(ldb.bytes[6]));
-                  emitSectionByte(section, (uint8_t)(ldb.bytes[7]));
-                  emitSectionByte(section, (uint8_t)(ldb.bytes[8]));
-                  emitSectionByte(section, (uint8_t)(ldb.bytes[9]));
-                  emitSectionByte(section, (uint8_t)(ldb.bytes[10]));
-                  emitSectionByte(section, (uint8_t)(ldb.bytes[11]));
-                  emitSectionByte(section, (uint8_t)(ldb.bytes[12]));
-                  emitSectionByte(section, (uint8_t)(ldb.bytes[13]));
-                  emitSectionByte(section, (uint8_t)(ldb.bytes[14]));
-                  emitSectionByte(section, (uint8_t)(ldb.bytes[15]));
-              }
-              break;
-              default:
-                unreachable("Unknown float const");
-              }
-            break;
-        }
+      case CK_INT_CONST: emitIntIntoSection(section, cexpr->i, computeTypeSize(constType)); break;
+      case CK_FLOAT_CONST: emitFloatIntoSection(section, typeToId(constType), cexpr->f); break;
       case CK_STRING_LITERAL: {
         Section *rodata = ctx->rodata;
         ptrdiff_t literalSectionOffset = rodata->pc - rodata->start;
@@ -863,10 +864,18 @@ static size_t fillInitializer(GenerationContext *ctx, Section *section, AstIniti
     AstInitializerList *inits = init->initializerList;
 
     while (inits) {
-        size_t thisResult = fillInitializer(ctx, section, inits->initializer, startOffset, size);
+
+        TypeRef *slotType = inits->initializer->slotType;
+        size_t thisResult = 0;
+
+        if (slotType->kind == TR_BITFIELD) {
+          thisResult = emitStaticBitField(ctx->parserContext, section, inits, &inits, startOffset);
+        } else {
+          thisResult = fillInitializer(ctx, section, inits->initializer, startOffset, size);
+          inits = inits->next;
+        }
         size -= thisResult;
         result += thisResult;
-        inits = inits->next;
     }
 
     return result;
