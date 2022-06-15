@@ -165,6 +165,8 @@ Token *tokenizeBuffer(ParserContext *ctx, LocationInfo *locInfo, unsigned *lineP
 LocationInfo *allocateFileLocationInfo(const char *fileName, const char *buffer, size_t buffeSize, unsigned lineCount);
 LocationInfo *allocateMacroLocationInfo(const char *buffer, size_t buffeSize, Boolean isConst);
 
+const char *joinToStringTokenSequence(ParserContext *ctx, Token *s);
+
 char *allocateString(ParserContext *ctx, size_t size);
 Token *allocToken(ParserContext *ctx);
 

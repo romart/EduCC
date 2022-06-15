@@ -3091,52 +3091,6 @@ static void printMemoryStatistics(ParserContext *ctx) {
   fflush(stdout);
 }
 
-static unsigned needSpace(char c, const Token *p, const Token *t) {
-  if (t == NULL || p == NULL) return 0;
-  if (t->length == 0 || t->startOfLine) return 0;
-
-  char nc = t->pos[0];
-
-  int pcode = p->rawCode;
-  int ncode = t->rawCode;
-
-  return 'E' == c ? '+' == ncode || '-' == ncode // 0x1E + 1 vs 0x1E+1
-      : '+' == pcode ? INC_OP == ncode || '+' == ncode // + ++ vs +++ or + + vs ++
-      : '-' == pcode ? DEC_OP == ncode || '-' == ncode // - -- vs --- or - - vs --
-      : pcode == IDENTIFIER ? ncode == IDENTIFIER // a b vs ab
-      : pcode == I_CONSTANT_RAW || pcode == F_CONSTANT_RAW ? ncode == IDENTIFIER || ncode == F_CONSTANT_RAW || ncode == I_CONSTANT_RAW // 0 x12 vs 0x12 or 1 2 vs 12
-      : 0;
-}
-
-const char *joinToStringTokenSequence(ParserContext *ctx, Token *s) {
-
-  StringBuffer sb = { 0 };
-
-  Token *t = s, *p = NULL;
-
-  while (t && t->rawCode) {
-      if (sb.idx && t->startOfLine) {
-          putSymbol(&sb, '\n');
-      }
-
-      if (t->hasLeadingSpace || sb.ptr && needSpace(sb.ptr[sb.idx - 1], p, t)) {
-          putSymbol(&sb, ' ');
-      }
-
-      unsigned idx;
-      for (idx = 0; idx < t->length; ++idx) {
-          putSymbol(&sb, t->pos[idx]);
-      }
-
-      p = t;
-      t = t->next;
-  }
-
-  return sb.ptr;
-}
-
-
-
 static void printPPOutput(ParserContext *ctx) {
   const char *r = joinToStringTokenSequence(ctx, ctx->firstToken);
   if (r) {
