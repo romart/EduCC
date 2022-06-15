@@ -2296,7 +2296,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   for (i = 0; i < totalRegArg; ++i) {
       TypeRef *argType = r_types[i];
       size_t argSize = computeTypeSize(argType);
-      if (isStructualType(argType) && argSize > sizeof(intptr_t)) {
+      if (isCompositeType(argType) && argSize > sizeof(intptr_t)) {
           saddr.imm = r_offsets[i] + f->stackOffset - stackBase;
           emitLea(f, &saddr, intArgumentRegs[ir++]);
       } else {
@@ -3389,7 +3389,7 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
   if (gen->section->pc[-1] != 0xC3) {
     TypeRef * returnType = f->declaration->returnType;
     size_t returnTypeSize = computeTypeSize(returnType);
-    if (isStructualType(returnType) && returnTypeSize > sizeof(intptr_t)) {
+    if (isCompositeType(returnType) && returnTypeSize > sizeof(intptr_t)) {
         Address addr = { R_EBP, R_BAD, 0, gen->returnStructAddressOffset, NULL, NULL };
         emitMoveAR(gen, &addr, R_EAX, sizeof(intptr_t));
     }
