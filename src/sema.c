@@ -8,7 +8,7 @@
 
 static TypeEqualityKind structualTypesEquality(TypeDesc *d1, TypeDesc *d2, TypeId kind) {
   if (d1->typeId == kind && d2->typeId == kind) {
-      if (d1->structInfo == d2->structInfo) {
+      if (d1->typeDefinition == d2->typeDefinition) {
         return TEK_EQUAL;
       } else {
         return TEK_NOT_EQUAL;
@@ -46,7 +46,7 @@ static TypeEqualityKind typeDescriprorEquals(TypeDesc *d1, TypeDesc *d2) {
   if (unionCheck != TEK_UNKNOWN) return unionCheck;
 
   if (d1->typeId == T_ENUM && d2->typeId == T_ENUM) {
-    if (d1->structInfo == d2->structInfo) {
+    if (d1->typeDefinition == d2->typeDefinition) {
         return TEK_EQUAL;
     } else {
         return TEK_NOT_EQUAL;
@@ -332,7 +332,7 @@ Boolean is_va_list_Type(TypeRef *type) {
 
   if (pointed->descriptorDesc->typeId != T_STRUCT) return FALSE;
 
-  AstSUEDeclaration *decl = pointed->descriptorDesc->structInfo;
+  TypeDefiniton *decl = pointed->descriptorDesc->typeDefinition;
 
   return strcmp("__va_elem", decl->name) == 0;
 }
@@ -383,10 +383,12 @@ int32_t typeAlignment(TypeRef *type) {
           return sizeof(long double);
       case T_STRUCT:
       case T_UNION:
-          return effectiveType->descriptorDesc->structInfo->align;
+          return effectiveType->descriptorDesc->typeDefinition->align;
+      case T_VOID:
       case T_ERROR:
           return -1;
-      default: unreachable("Unknown type ID");
+      default:
+          unreachable("Unknown type ID");
       }
       break;
 
@@ -396,14 +398,10 @@ int32_t typeAlignment(TypeRef *type) {
   return 1;
 }
 
-int32_t memberOffset(AstSUEDeclaration *declaration, const char *memberName) {
-  AstStructMember *member = declaration->members;
-  for (; member; member = member->next) {
-      if (member->kind != SM_DECLARATOR) continue;
+int32_t memberOffset(TypeDefiniton *declaration, const char *memberName) {
+  StructualMember *member = findStructualMember(declaration, memberName);
 
-      if (strcmp(memberName, member->declarator->name) == 0)
-        return member->declarator->offset;
-  }
+  if (member) return member->offset;
 
   return -1;
 }
@@ -456,9 +454,20 @@ TypeRef *computeFunctionReturnType(ParserContext *ctx, Coordinates *coords, Type
     return returnType;
 }
 
+StructualMember *findStructualMember(TypeDefiniton *definition, const char *name) {
+  StructualMember *member = definition->members;
 
+  while (member) {
+      if (strcmp(member->name, name) == 0) {
+          break;
+      }
+      member = member->next;
+  }
 
-AstStructDeclarator *computeMemberDeclarator(ParserContext *ctx, Coordinates *coords, TypeRef *_receiverType, const char *memberName, ExpressionType op) {
+  return member;
+}
+
+StructualMember *computeMember(ParserContext *ctx, Coordinates *coords, TypeRef *_receiverType, const char *memberName, ExpressionType op) {
   assert(op == EF_DOT || op == EF_ARROW);
   if (isErrorType(_receiverType) || memberName == NULL) return NULL;
 
@@ -475,37 +484,20 @@ AstStructDeclarator *computeMemberDeclarator(ParserContext *ctx, Coordinates *co
     }
   }
 
-
-  if (!isStructualType(receiverType) && !isUnionType(receiverType)) {
+  if (!isCompositeType(receiverType)) {
       reportDiagnostic(ctx, DIAG_MEMBER_REF_NOT_A_STRUCTUAL, coords, receiverType);
       return NULL;
   }
 
-  AstSUEDeclaration *declaration = receiverType->descriptorDesc->structInfo;
+  TypeDefiniton *declaration = receiverType->descriptorDesc->typeDefinition;
 
-  AstStructDeclarator *memberDeclarator = NULL;
+  StructualMember *member = findStructualMember(declaration, memberName);
 
-  AstStructMember *member = declaration->members;
-
-  while (member) {
-      if (member->kind == SM_DECLARATOR) {
-        AstStructDeclarator *declarator = member->declarator;
-        if (strcmp(declarator->name, memberName) == 0) {
-            memberDeclarator = declarator;
-            break;
-        }
-      }
-      member = member->next;
-  }
-
-
-  if (memberDeclarator == NULL) {
+  if (member == NULL) {
       reportDiagnostic(ctx, DIAG_NO_MEMBER_NAME, coords, memberName, receiverType);
-      return NULL;
   }
 
-
-  return memberDeclarator;
+  return member;
 }
 
 TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op) {
@@ -931,19 +923,16 @@ Boolean checkExpressionIsAssignable(ParserContext *ctx, Coordinates *coords, Ast
   }
 }
 
-static Boolean checkUnionIsCastableToType(ParserContext *ctx, Coordinates *coords, TypeRef *from, AstSUEDeclaration *unionDecl, Boolean report) {
-  assert(unionDecl->kind == DK_UNION);
+static Boolean checkUnionIsCastableToType(ParserContext *ctx, Coordinates *coords, TypeRef *from, TypeDefiniton *definition, Boolean report) {
+  assert(definition->kind == TDK_UNION);
 
-  AstStructMember *member = unionDecl->members;
+  StructualMember *member = definition->members;
 
   while (member) {
-      if (member->kind == SM_DECLARATOR) {
-        AstStructDeclarator *declarator = member->declarator;
-        if (typeEquality(declarator->typeRef, from) == TEK_EQUAL) {
-            return TRUE;
-        }
-      }
-      member = member->next;
+    if (typeEquality(member->type, from) == TEK_EQUAL) {
+        return TRUE;
+    }
+    member = member->next;
   }
 
   if (report) {
@@ -967,7 +956,7 @@ Boolean checkTypeIsCastable(ParserContext *ctx, Coordinates *coords, TypeRef *to
   if (to->kind == TR_VALUE) {
       TypeDesc *desc = to->descriptorDesc;
       if (desc->typeId == T_STRUCT) {
-          if (from->kind == TR_VALUE && desc->structInfo == from->descriptorDesc->structInfo) {
+          if (from->kind == TR_VALUE && desc->typeDefinition == from->descriptorDesc->typeDefinition) {
               return TRUE;
           }
           if (report) {
@@ -976,10 +965,10 @@ Boolean checkTypeIsCastable(ParserContext *ctx, Coordinates *coords, TypeRef *to
           return FALSE;
       }
       if (desc->typeId == T_UNION) {
-          if (from->kind == TR_VALUE && desc->structInfo == from->descriptorDesc->structInfo) {
+          if (from->kind == TR_VALUE && desc->typeDefinition == from->descriptorDesc->typeDefinition) {
               return TRUE;
           }
-          return checkUnionIsCastableToType(ctx, coords, from, desc->structInfo, report);
+          return checkUnionIsCastableToType(ctx, coords, from, desc->typeDefinition, report);
       }
   }
 
@@ -1232,39 +1221,27 @@ static AstInitializer *fillInitializer(ParserContext *ctx, Coordinates *coords, 
           ++elementCount;
       }
   } else if (isStructualType(type)) {
-      AstSUEDeclaration *declaration = type->descriptorDesc->structInfo;
-      assert(declaration);
+      TypeDefiniton *definition = type->descriptorDesc->typeDefinition;
+      assert(definition);
 
-      AstStructMember *member = declaration->members;
+      StructualMember *member = definition->members;
 
       for (; member; member = member->next) {
-          if (member->kind != SM_DECLARATOR) {
-              continue;
-          }
-
-          AstStructDeclarator *declarator = member->declarator;
-
           AstInitializerList *newNode = createAstInitializerList(ctx);
 
-          newNode->initializer = fillInitializer(ctx, coords, declarator->typeRef, offset + declarator->offset);
+          newNode->initializer = fillInitializer(ctx, coords, member->type, offset + member->offset);
 
           current = current->next = newNode;
           ++elementCount;
       }
   } else if (isUnionType(type)) {
-      AstSUEDeclaration *declaration = type->descriptorDesc->structInfo;
-      assert(declaration);
+      TypeDefiniton *definition = type->descriptorDesc->typeDefinition;
+      assert(definition);
 
-      AstStructMember *member = declaration->members;
-
-      for (; member; member = member->next) {
-          if (member->kind == SM_DECLARATOR) {
-              AstInitializerList *newNode = createAstInitializerList(ctx);
-              newNode->initializer = fillInitializer(ctx, coords, member->declarator->typeRef, offset + 0);
-              current = current->next = newNode;
-              break;
-          }
-      }
+      StructualMember *member = definition->members;
+      AstInitializerList *newNode = createAstInitializerList(ctx);
+      newNode->initializer = fillInitializer(ctx, coords, member->type, offset + 0);
+      current = current->next = newNode;
   }
 
   new->initializerList = head.next;
@@ -1275,8 +1252,8 @@ static AstInitializer *fillInitializer(ParserContext *ctx, Coordinates *coords, 
 
 static AstInitializer *finalizeStructInitializer(ParserContext *ctx, TypeRef *type, ParsedInitializer *initializer, ParsedInitializer **next, int32_t offset, Boolean isTopLevel) {
   assert(isStructualType(type));
-  AstSUEDeclaration *declaration = type->descriptorDesc->structInfo;
-  assert(declaration->kind == DK_STRUCT);
+  TypeDefiniton *definition = type->descriptorDesc->typeDefinition;
+  assert(definition->kind == TDK_STRUCT);
 
   AstExpression *expr = initializer->expression;
 
@@ -1305,7 +1282,7 @@ static AstInitializer *finalizeStructInitializer(ParserContext *ctx, TypeRef *ty
 
   Coordinates coords = initializer->coords;
 
-  AstStructMember *member = declaration->members;
+  StructualMember *member = definition->members;
   AstInitializerList head = { 0 };
   AstInitializerList *newInit = &head;
 
@@ -1314,20 +1291,14 @@ static AstInitializer *finalizeStructInitializer(ParserContext *ctx, TypeRef *ty
   unsigned memberCount = 0;
 
   while (member && initializer) {
-      if (member->kind != SM_DECLARATOR) {
-          member = member->next;
-          continue;
-      }
-
       if (initializer->level < level) {
           break;
       }
 
       ++memberCount;
 
-      AstStructDeclarator *declarator = member->declarator;
-      TypeRef *memberType = declarator->typeRef;
-      int32_t memberOffset = offset + declarator->offset;
+      TypeRef *memberType = member->type;
+      int32_t memberOffset = offset + member->offset;
 
       AstInitializerList *newNode = createAstInitializerList(ctx);
 
@@ -1349,14 +1320,9 @@ static AstInitializer *finalizeStructInitializer(ParserContext *ctx, TypeRef *ty
 
 
   for (; member; member = member->next) {
-      if (member->kind != SM_DECLARATOR) {
-          continue;
-      }
-
-      AstStructDeclarator *declarator = member->declarator;
       AstInitializerList *newNode = createAstInitializerList(ctx);
 
-      newNode->initializer = fillInitializer(ctx, &coords, declarator->typeRef, offset + declarator->offset);
+      newNode->initializer = fillInitializer(ctx, &coords, member->type, offset + member->offset);
 
       newInit = newInit->next = newNode;
       ++memberCount;
@@ -1515,7 +1481,7 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *typ
 static AstInitializer *finalizeUnionInitializer(ParserContext *ctx, TypeRef *type, ParsedInitializer *initializer, ParsedInitializer **next, int32_t offset, Boolean isTopLevel) {
   assert(isUnionType(type));
 
-  AstSUEDeclaration *declaration = type->descriptorDesc->structInfo;
+  TypeDefiniton *definition = type->descriptorDesc->typeDefinition;
   AstExpression *expr = initializer->expression;
 
   if (expr) {
@@ -1541,16 +1507,10 @@ static AstInitializer *finalizeUnionInitializer(ParserContext *ctx, TypeRef *typ
       }
   }
 
-  AstStructMember *member = declaration->members;
-
-  for (; member && member->kind != SM_DECLARATOR; member = member->next) ;
-
-  assert(member);
-
+  StructualMember *member = definition->members;
   Coordinates *coords = &initializer->coords;
-  AstStructDeclarator *declarator = member->declarator;
-  TypeRef *memberType = declarator->typeRef;
-  int32_t memberOffset = offset + declarator->offset;
+  TypeRef *memberType = member->type;
+  int32_t memberOffset = offset + member->offset;
 
   AstInitializerList *newNode = createAstInitializerList(ctx);
 
@@ -2209,34 +2169,34 @@ Symbol *declareValueSymbol(ParserContext *ctx, const char *name, AstValueDeclara
   return declareGenericSymbol(ctx, ValueSymbol, name, declaration, existedValueProcessor, newValueProcessor);
 }
 
-Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeId, const char *symbolName, AstSUEDeclaration *declaration) {
+Symbol *declareTypeSymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeId, const char *symbolName, TypeDefiniton *definition) {
   Symbol *s = findSymbolInScope(ctx->currentScope, symbolName); // TODO: allow local struct redeclaration
 
-  const char *name = declaration->name;
+  const char *name = definition->name;
 
   TypeDesc *typeDescriptor;
   if (!s) {
       s = declareSymbol(ctx, symbolKind, symbolName);
       int typeSize = UNKNOWN_SIZE;
-      if (declaration->isDefinition) {
-        typeSize = computeSUETypeSize(ctx, declaration);
+      if (definition->members) {
+        typeSize = computeTypeDefinitionSize(ctx, definition);
       }
       typeDescriptor = s->typeDescriptor = createTypeDescriptor(ctx, typeId, name, typeSize);
-      typeDescriptor->structInfo = declaration;
+      typeDescriptor->typeDefinition = definition;
   } else {
       if (s->kind != symbolKind) {
-          reportDiagnostic(ctx, DIAG_USE_WITH_DIFFERENT_TAG, &declaration->coordinates, name);
+          reportDiagnostic(ctx, DIAG_USE_WITH_DIFFERENT_TAG, &definition->coordinates, name);
           // TODO: also point to already defined one
       } else {
           typeDescriptor = s->typeDescriptor;
-          AstSUEDeclaration *existedDeclaration = typeDescriptor->structInfo;
-          if (declaration->members) {
+          TypeDefiniton *existedDeclaration = typeDescriptor->typeDefinition;
+          if (definition->members) {
             if (existedDeclaration->members) {
-              reportDiagnostic(ctx, DIAG_MEMBER_REDEFINITION, &declaration->coordinates, name);
-                // TODO: also point to already defined one
+              reportDiagnostic(ctx, DIAG_MEMBER_REDEFINITION, &definition->coordinates, name);
+              // TODO: also point to already defined one
             } else {
-                typeDescriptor->structInfo = declaration;
-                typeDescriptor->size = computeSUETypeSize(ctx, declaration);
+              typeDescriptor->typeDefinition = definition;
+              typeDescriptor->size = computeTypeDefinitionSize(ctx, definition);
             }
           }
       }
@@ -2248,9 +2208,7 @@ Symbol *declareEnumConstantSymbol(ParserContext *ctx, EnumConstant *enumerator) 
   Symbol *s = findSymbolInScope(ctx->currentScope, enumerator->name);
   if (s) {
       enum DiagnosticId diag = s->kind == EnumConstSymbol ? DIAG_ENUMERATOR_REDEFINITION : DIAG_MEMBER_REDEFINITION;
-      // TODO: fix location
-      Coordinates coords = { ctx->token, ctx->token };
-      reportDiagnostic(ctx, diag, &coords, enumerator->name);
+      reportDiagnostic(ctx, diag, &enumerator->coordinates, enumerator->name);
       return NULL; // or 's'?
   }
 
@@ -2333,74 +2291,35 @@ int computeTypeSize(TypeRef *type) {
   return POINTER_TYPE_SIZE;
 }
 
-static int computeUnionTypeSize(ParserContext *ctx, AstSUEDeclaration *declaration) {
-  assert(declaration->kind == DK_UNION);
-  assert(declaration->isDefinition);
-
+static int32_t computeStructualTypeSize(ParserContext *ctx, StructualMember *members, int32_t align, Boolean isUnion) {
   int result = 0;
 
-  AstStructMember *member = declaration->members;
+  for (; members; members = members->next) {
+    TypeRef *type = members->type;
 
-  for (;member; member = member->next) {
-      assert(member->kind != SM_ENUMERATOR);
-      if (member->kind == SM_DECLARATOR) {
-         AstStructDeclarator *declarator = member->declarator;
-
-         TypeRef *type = declarator->typeRef;
-
-         int tmp = computeTypeSize(declarator->typeRef);
-         if (tmp < 0) {
-             reportDiagnostic(ctx, DIAG_FIELD_INCOMPLETE_TYPE, &declarator->coordinates, declarator->name, declarator->typeRef);
-             return UNKNOWN_SIZE;
-         }
-         result = max(result, tmp);
-      }
+    int memberTypeSize = computeTypeSize(type);
+    if (memberTypeSize < 0) {
+        reportDiagnostic(ctx, DIAG_FIELD_INCOMPLETE_TYPE, &members->coordinates, members->name, type);
+        return UNKNOWN_SIZE;
+    }
+    result = isUnion ? max(result, memberTypeSize) : max(result, members->offset + memberTypeSize);
   }
 
-  return ALIGN_SIZE(result, declaration->align);
+  return ALIGN_SIZE(result, align);
 }
 
-static int computeStructTypeSize(ParserContext *ctx, AstSUEDeclaration *declaration) {
-  assert(declaration->kind == DK_STRUCT);
-  assert(declaration->isDefinition);
 
-  unsigned result = 0;
-
-  AstStructMember *member = declaration->members;
-
-  for (;member; member = member->next) {
-      assert(member->kind != SM_ENUMERATOR);
-      if (member->kind == SM_DECLARATOR) {
-         AstStructDeclarator *declarator = member->declarator;
-         TypeRef *memberType = declarator->typeRef;
-         int32_t memberTypeSize = computeTypeSize(memberType);
-         if (memberTypeSize < 0) {
-             reportDiagnostic(ctx, DIAG_FIELD_INCOMPLETE_TYPE, &declarator->coordinates, declarator->name, declarator->typeRef);
-             return UNKNOWN_SIZE;
-         }
-         result = max(result, member->declarator->offset + memberTypeSize);
-      }
-  }
-
-  return ALIGN_SIZE(result, declaration->align); // it should be aligned because array
-}
-
-int computeSUETypeSize(ParserContext *ctx, AstSUEDeclaration *declaration) {
-  if (!declaration->isDefinition) {
+int32_t computeTypeDefinitionSize(ParserContext *ctx, TypeDefiniton *definition) {
+  if (!definition->isDefined) {
       // report diagnostic
       return UNKNOWN_SIZE;
   }
 
-  if (declaration->kind == DK_UNION) {
-    return computeUnionTypeSize(ctx, declaration);
+  if (definition->kind == TDK_ENUM) {
+      return builtInTypeDescriptors[T_S4].size;
   }
 
-  if (declaration->kind == DK_STRUCT) {
-    return computeStructTypeSize(ctx, declaration);
-  }
-
-  assert(declaration->kind == DK_ENUM);
-  return builtInTypeDescriptors[T_S4].size;
+  return computeStructualTypeSize(ctx, definition->members, definition->align, definition->kind == TDK_UNION);
 }
 
 TypeRef *makePrimitiveType(ParserContext *ctx, TypeId id, unsigned flags) {
@@ -2455,41 +2374,8 @@ TypeRef *makeFunctionType(ParserContext *ctx, TypeRef *returnType, FunctionParam
       parameter = parameter->next;
     }
     result->functionTypeDesc.parameters = head.next;
-    params->parameters = NULL;
 
     return result;
-}
-
-TypeRef *makeFunctionReturnType(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator) {
-
-    assert(declarator->functionDeclarator);
-    TypeRef *type = specifiers->basicType;
-
-    DeclaratorPart *part = declarator->declaratorParts;
-
-    while (part) {
-        switch (part->kind) {
-        case DPK_POINTER:
-            type = makePointedType(ctx, part->flags.storage, type);
-            break;
-        case DPK_ARRAY:
-            type = makeArrayType(ctx, part->arraySize, type);
-            break;
-        case DPK_FUNCTION:
-            if (part == declarator->functionDeclarator)
-              return type;
-            else
-              type = makeFunctionType(ctx, type, &part->parameters);
-            break;
-        case DPK_NONE:
-        default:
-            unreachable("UNKNOWN Declarator Part");
-        }
-        part = part->next;
-     }
-
-    reportDiagnostic(ctx, DIAG_EXPECTED_FUNCTION_DECLARATOR, &declarator->coordinates);
-    return makeErrorRef(ctx);
 }
 
 void verifyFunctionReturnType(ParserContext *ctx, Declarator *declarator, TypeRef *returnType) {

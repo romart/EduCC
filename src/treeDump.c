@@ -485,11 +485,11 @@ static int dumpAstValueDeclarationImpl(FILE *output, int indent, AstValueDeclara
 int renderTypeDesc(TypeDesc *desc, char *b, int bufferSize) {
   switch (desc->typeId) {
     case T_ENUM:
-      return snprintf(b, bufferSize, "ENUM %s", desc->structInfo->name);
+      return snprintf(b, bufferSize, "ENUM %s", desc->typeDefinition->name);
     case T_UNION:
-      return snprintf(b, bufferSize, "UNION %s", desc->structInfo->name);
+      return snprintf(b, bufferSize, "UNION %s", desc->typeDefinition->name);
     case T_STRUCT:
-      return snprintf(b, bufferSize, "STRUCT %s", desc->structInfo->name);
+      return snprintf(b, bufferSize, "STRUCT %s", desc->typeDefinition->name);
     case T_ERROR:
       return snprintf(b, bufferSize, "ERROR TYPE");
     default:
@@ -667,44 +667,47 @@ static int dumpAstFuntionDeclarationImpl(FILE *output, int indent, AstFunctionDe
   return result;
 }
 
-static int dumpAstSUEDeclarationImpl(FILE *output, int indent, AstSUEDeclaration *structDeclaration) {
+static int dumpTypeDefinitionImpl(FILE *output, int indent, TypeDefiniton *definition) {
   int result = putIndent(output, indent);
 
-  DeclarationKind kind = structDeclaration->kind;
-  int isEnum = kind == DK_ENUM;
-  const char *prefix = kind == DK_STRUCT ? "STRUCT" : isEnum ? "ENUM" : "UNION";
-  result += fprintf(output, "%s", prefix);
+  enum TypeDefinitionKind kind = definition->kind;
 
-  if (structDeclaration->name) {
-    result += fprintf(output, " %s", structDeclaration->name);
+  if (kind == TDK_TYPEDEF) {
+      result += fprintf(output, "TYPEDF %s = ", definition->name ? definition->name : "<no_name>");
+      result += dumpTypeRefImpl(output, 0, definition->type);
+      return result;
   }
 
-  AstStructMember *member = structDeclaration->members;
-  if (member) {
-    result += fprintf(output, "\n");
-    while (member) {
-      if (isEnum) {
-        assert(member->kind == SM_ENUMERATOR);
-        EnumConstant *enumerator = member->enumerator;
-        result += putIndent(output, indent + 2);
-        result += fprintf(output, "%s = %d", enumerator->name, enumerator->value);
-      } else {
-        if (member->kind == SM_DECLARATOR) {
-          AstStructDeclarator *declarator = member->declarator;
-          assert(declarator != NULL);
-          result += dumpTypeRefImpl(output, indent + 2, declarator->typeRef);
-          result += fprintf(output, " %s #%u", declarator->name, declarator->offset);
-        } else {
-          AstDeclaration *declaration = member->declaration;
-          assert(member->kind == SM_DECLARATION && declaration != NULL);
-          result += dumpAstDeclarationImpl(output, indent + 2, declaration);
-        }
+  int isEnum = kind == TDK_ENUM;
+  const char *prefix = kind == TDK_STRUCT ? "STRUCT" : isEnum ? "ENUM" : "UNION";
+  result += fprintf(output, "%s", prefix);
+
+  if (definition->name) {
+    result += fprintf(output, " %s", definition->name);
+  }
+
+  if (isEnum) {
+      EnumConstant *enumerator = definition->enumerators;
+      if (enumerator) result += fprintf(output, "\n");
+      for (; enumerator; enumerator = enumerator->next) {
+          result += putIndent(output, indent + 2);
+          result += fprintf(output, "%s = %d\n", enumerator->name, enumerator->value);
       }
-      result += fprintf(output, "\n");
-      member = member->next;
-    }
-    result += putIndent(output, indent);
-    result += fprintf(output, "%s_END", prefix);
+      if (definition->enumerators) {
+          result += putIndent(output, indent);
+          result += fprintf(output, "ENUM_END");
+      }
+  } else {
+      StructualMember *member = definition->members;
+      if (member) result += fprintf(output, "\n");
+      for (; member; member = member->next) {
+          result += dumpTypeRefImpl(output, indent + 2, member->type);
+          result += fprintf(output, " %s #%u\n", member->name, member->offset);
+      }
+      if (definition->members) {
+        result += putIndent(output, indent);
+        result += fprintf(output, "%s_END", prefix);
+      }
   }
 
   return result;
@@ -714,21 +717,11 @@ static int dumpAstDeclarationImpl(FILE *output, int indent, AstDeclaration *decl
   int result = 0;
 
   switch (decl->kind) {
-  case DK_ENUM:
-  case DK_STRUCT:
-  case DK_UNION:
-      result += dumpAstSUEDeclarationImpl(output, indent, decl->structDeclaration);
-      return result;
   case DK_PROTOTYPE:
       result += dumpAstFuntionDeclarationImpl(output, indent, decl->functionProrotype);
       return result;
   case DK_VAR:
       result += dumpAstValueDeclarationImpl(output, indent, decl->variableDeclaration);
-      return result;
-  case DK_TYPEDEF:
-      result += putIndent(output, indent);
-      result += fprintf(output, "TYPEDF %s = ", decl->name);
-      result += dumpTypeRefImpl(output, 0, decl->typeDefinition.definedType);
       return result;
   }
 
@@ -760,9 +753,23 @@ static int dumpTranslationUnitImpl(FILE *output, int indent, AstTranslationUnit 
   }
 }
 
-int dumpAstFile(FILE *output, AstFile *file) {
+
+static int dumpTypeDefinitions(FILE *output, int indent, TypeDefiniton *typeDefinitions) {
+
+  if (typeDefinitions == NULL) return 0;
+
+  int result = dumpTypeDefinitions(output, indent, typeDefinitions->next);
+
+  result += dumpTypeDefinitionImpl(output, indent, typeDefinitions);
+  result += fprintf(output, "\n----\n");
+
+  return result;
+}
+
+int dumpAstFile(FILE *output, AstFile *file, TypeDefiniton *typeDefinitions) {
   int r = 0;
   r += fprintf(output, "FILE %s\n", file->fileName);
+  r += dumpTypeDefinitions(output, 2, typeDefinitions);
   int i = 0;
   AstTranslationUnit *unit = file->units;
   while (unit) {

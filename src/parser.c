@@ -13,8 +13,6 @@
 #include "treeDump.h"
 #include "diagnostics.h"
 
-#define INITIAL_FILE_CAPACITY 30
-
 extern TypeDesc *errorTypeDescriptor;
 extern TypeDesc builtInTypeDescriptors[];
 
@@ -79,6 +77,8 @@ static void consumeOrSkip(ParserContext *ctx, int expected) {
 
 static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, DeclaratorScope scope);
 static void parseDeclarator(ParserContext *ctx, Declarator *declarator);
+static TypeDefiniton *processTypedef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator);
+static AstDeclaration *parseDeclaration(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator, TypeRef *type, Boolean isTopLevel);
 
 static void verifyDeclarator(ParserContext *ctx, Declarator *declarator, DeclaratorScope scope);
 static Boolean verifyDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, DeclaratorScope scope);
@@ -509,9 +509,9 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *
             consumeRaw(ctx, IDENTIFIER);
             coords.right  = ctx->token;
             TypeRef *receiverType = left->type;
-            AstStructDeclarator *declarator = computeMemberDeclarator(ctx, &coords, receiverType, id, op);
-            if (declarator) {
-              left = createFieldExpression(ctx, &coords, op, left, declarator);
+            StructualMember *member = computeMember(ctx, &coords, receiverType, id, op);
+            if (member) {
+              left = createFieldExpression(ctx, &coords, op, left, member);
             } else {
               left = createErrorExpression(ctx, &coords);
             }
@@ -656,7 +656,7 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
                         unreachable("Very suspissios, symbol is NULL");
                     }
                 } else if (argument->op == EF_ARROW || argument->op == EF_DOT) {
-                    TypeRef *fieldType = argument->fieldExpr.member->typeRef;
+                    TypeRef *fieldType = argument->fieldExpr.member->type;
                     if (fieldType->kind == TR_BITFIELD) {
                         reportDiagnostic(ctx, DIAG_BIT_FIELD_ADDRESS, &coords);
                     }
@@ -1139,6 +1139,7 @@ static AstAttribute *parseAttributes(ParserContext *ctx) {
 }
 
 
+
 /**
 enumerator_list
     : enumerator ( ',' enumerator)*
@@ -1148,45 +1149,40 @@ enumerator
     : IDENTIFIER ('=' constant_expression)?
     ;
 */
-static AstStructMember *parseEnumeratorList(ParserContext *ctx, struct _Scope* scope) {
-    AstStructMember *head = NULL, *tail = NULL;
-    int64_const_t idx = 0;
-    do {
-        int token = ctx->token->code;
-        if (token == '}') break;
-        Coordinates coords = { ctx->token, ctx->token };
-        const char* name = NULL;
-        if (token == IDENTIFIER) {
-            name = ctx->token->id;
-            token = nextToken(ctx)->code;
-        } else {
-            reportDiagnostic(ctx, DIAG_ENUM_LIST_ID_EXPECT, &coords, token);
-        }
+static EnumConstant *parseEnumeratorList(ParserContext *ctx) {
+  EnumConstant head = { 0 }, *current = &head;
+  int32_t idx = 0;
+  do {
+    int token = ctx->token->code;
+    if (token == '}') break;
+    Coordinates coords = { ctx->token, ctx->token };
+    const char* name = NULL;
+    if (token == IDENTIFIER) {
+      name = ctx->token->id;
+      token = nextToken(ctx)->code;
+    } else {
+      reportDiagnostic(ctx, DIAG_ENUM_LIST_ID_EXPECT, &coords, token);
+    }
 
-        int64_t v = idx;
-        if (nextTokenIf(ctx, '=')) {
-            coords.right = ctx->token; // TODO: fix
-            parseAsIntConst(ctx, &v);
-            idx = v + 1;
-        } else {
-            v = idx++;
-        }
+    int64_t v = idx;
+    if (nextTokenIf(ctx, '=')) {
+      coords.right = ctx->token;
+      parseAsIntConst(ctx, &v);
+      idx = v + 1;
+    } else {
+      v = idx++;
+    }
 
-        if (name) {
-          EnumConstant *enumerator = createEnumConst(ctx, &coords, name, v);
-          declareEnumConstantSymbol(ctx, enumerator);
-          AstStructMember *member = createStructMember(ctx, NULL, NULL, enumerator);
-          if (tail) {
-              tail->next = member;
-          } else {
-              head = member;
-          }
-          tail = member;
-        }
-    } while (nextTokenIf(ctx, ','));
+    if (name) {
+      EnumConstant *enumerator = createEnumConstant(ctx, &coords, name, v);
+      current = current->next = enumerator;
+      declareEnumConstantSymbol(ctx, enumerator);
+    }
+  } while (nextTokenIf(ctx, ','));
 
-    return head;
+  return head.next;
 }
+
 
 /**
 
@@ -1194,10 +1190,10 @@ enum_specifier
     : ENUM IDENTIFIER? ('{' enumerator_list ','? '}')?
     ;
  */
-static AstSUEDeclaration* parseEnumDeclaration(ParserContext *ctx, struct _Scope* scope) {
+static TypeDefiniton* parseEnumDeclaration(ParserContext *ctx) {
     const char *name = NULL;
 
-    AstStructMember *members = NULL;
+    EnumConstant *enumerators = NULL;
     Coordinates coords = { ctx->token, ctx->token };
     consume(ctx, ENUM);
     int token = ctx->token->code;
@@ -1217,19 +1213,25 @@ static AstSUEDeclaration* parseEnumDeclaration(ParserContext *ctx, struct _Scope
           reportDiagnostic(ctx, DIAG_EMPTY_ENUM, &coords);
       }
 
-      members = parseEnumeratorList(ctx, scope);
+      enumerators = parseEnumeratorList(ctx);
       coords.right = ctx->token;
       consumeOrSkip(ctx, '}');
     }
 
-    return createSUEDeclaration(ctx, &coords, DK_ENUM, TRUE, name, members, sizeof(int32_t));
+    TypeDefiniton *definition = createTypeDefiniton(ctx, TDK_ENUM, &coords, name);
+    definition->size = definition->align = sizeof (int32_t);
+    definition->enumerators = enumerators;
+    definition->isDefined = enumerators != NULL;
+
+    return definition;
 }
 
 int32_t alignMemberOffset(TypeRef *memberType, int32_t offset) {
   return ALIGN_SIZE(offset, typeAlignment(memberType));
 }
 
-static int32_t adjustBitFieldStorage(ParserContext *ctx, AstStructMember *chain, unsigned chainWidth, unsigned *offset) {
+
+static int32_t adjustBitFieldStorage(ParserContext *ctx, StructualMember *chain, unsigned chainWidth, unsigned *offset) {
   TypeId sid, uid;
   unsigned align;
 
@@ -1251,18 +1253,53 @@ static int32_t adjustBitFieldStorage(ParserContext *ctx, AstStructMember *chain,
   *offset = ALIGN_SIZE(*offset, align);
 
   for (;chain; chain = chain->next) {
-      if (chain->kind != SM_DECLARATOR) continue;
-
-      TypeRef *bfType = chain->declarator->typeRef;
+      TypeRef *bfType = chain->type;
       if (bfType->kind == TR_BITFIELD) {
         TypeRef *storageType = bfType->bitFieldDesc.storageType;
         bfType->bitFieldDesc.storageType = isUnsignedType(storageType) ? uType : sType;
       }
-      chain->declarator->offset = *offset;
+      chain->offset = *offset;
   }
 
   return align;
 }
+
+
+static Boolean checkIfBitfieldCorrect(ParserContext *ctx, TypeRef *type, const char *name, Coordinates *coords, int32_t w) {
+
+  if (!isIntegerType(type)) {
+    if (name) {
+      reportDiagnostic(ctx, DIAG_BIT_FIELD_TYPE_NON_INT, coords, name, type);
+    } else {
+      reportDiagnostic(ctx, DIAG_ANON_BIT_FIELD_TYPE_NON_INT, coords, type);
+    }
+    return FALSE;
+  }
+
+
+  if (w < 0) {
+    if (name) {
+      reportDiagnostic(ctx, DIAG_BIT_FIELD_NEGATIVE_WIDTH, coords, name, w);
+    } else {
+      reportDiagnostic(ctx, DIAG_ANON_BIT_FIELD_NEGATIVE_WIDTH, coords, w);
+    }
+    return FALSE;
+  }
+
+  int typeSize = type->descriptorDesc->size;
+  int typeWidth = typeSize * BYTE_BIT_SIZE;
+  if (w > typeWidth) {
+    if (name) {
+      reportDiagnostic(ctx, DIAG_EXCEED_BIT_FIELD_TYPE_WIDTH, coords, name, w, typeWidth);
+    } else {
+      reportDiagnostic(ctx, DIAG_EXCEED_ANON_BIT_FIELD_TYPE_WIDTH, coords, w, typeWidth);
+    }
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
 
 /**
 struct_declaration_list
@@ -1290,12 +1327,12 @@ struct_declarator
     | declarator ':' constant_expression
     ;
 */
-static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned factor, struct _Scope* scope) {
-  AstStructMember head = { 0 }, *current = &head;
+static StructualMember *parseStructDeclarationList(ParserContext *ctx, unsigned factor) {
+    StructualMember head = { 0 }, *current = &head;
     int token = ctx->token->code;
     unsigned offset = 0;
     unsigned bitOffset = 0;
-    AstStructMember *bitfieldChain = NULL;
+    StructualMember *bitfieldChain = NULL;
     unsigned bfChainWidth = 0;
     do {
         DeclarationSpecifiers specifiers = { 0 };
@@ -1303,53 +1340,32 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
         parseDeclarationSpecifiers(ctx, &specifiers, DS_STRUCT);
         Coordinates coords = specifiers.coordinates;
 
-        if (specifiers.defined) {
-            // TODO: it doesn't work like this
-            AstSUEDeclaration *definition = specifiers.defined;
-            Boolean isAnon = strstr(definition->name, "<anon") == definition->name;
+        TypeDefiniton *definition = specifiers.definition;
+        if (definition) {
+          if (definition->kind == TDK_STRUCT || definition->kind == TDK_UNION) {
+            const char *definitionName = definition->name;
+            Boolean isAnon = strstr(definitionName, "<anon") == definitionName;
             if (isAnon && nextTokenIf(ctx, ';')) {
-                /** Handle that case
-                 *
-                 * struct S {
-                 *   int a;
-                 *
-                 *   struct {
-                 *     int b;
-                 *   };
-                 */
-
-                AstStructMember *members = definition->members;
-
-                unsigned size = 0;
-
-                offset = ALIGN_SIZE(offset, definition->align);
-
-                for (; members; members = members->next) {
-                    if (members->kind == SM_DECLARATOR) {
-                      AstStructDeclarator *declarator = members->declarator;
-                      int32_t memberOffset = declarator->offset;
-                      TypeRef *memberType = declarator->typeRef;
-                      int32_t typeSize = computeTypeSize(memberType);
-                      // TODO: flexible struct
-                      if (typeSize != UNKNOWN_SIZE) {
-                        members->declarator->offset += offset;
-                        if (definition->kind == DK_STRUCT) {
-                          size = memberOffset + typeSize;
-                        } else {
-                          size = max(size, memberOffset + typeSize);
-                        }
-                      }
-                    }
-                    current = current->next = members;
+              StructualMember *members = definition->members;
+              size_t size = 0;
+              for (; members; members = members->next) {
+                int32_t memberOffset = members->offset;
+                int32_t typeSize = computeTypeSize(members->type);
+                // TODO: flexible struct
+                if (typeSize != UNKNOWN_SIZE) {
+                  members->offset += offset;
+                  if (definition->kind == TDK_STRUCT) {
+                    size = memberOffset + typeSize;
+                  } else {
+                    size = max(size, memberOffset + typeSize);
+                  }
                 }
-
-                offset += size * factor;
-                continue;
-            } else {
-                AstDeclaration *declaration = createAstDeclaration(ctx, definition->kind, definition->name);
-                declaration->structDeclaration = definition;
-                current = current->next = createStructMember(ctx, declaration, NULL, NULL);
+                current = current->next = members;
+              }
+              offset += size * factor;
+              continue;
             }
+          }
         }
 
         for (;;) {
@@ -1368,80 +1384,54 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
 
             const char *name = declarator.identificator;
 
-            if (name == NULL && specifiers.defined) {
-                /** Handle that case
-                 *
-                 * struct S {
-                 *   int a;
-                 *
-                 *   struct N {
-                 *     int b;
-                 *   };
-                 */
-                ;
+            if (!name && definition && definition->isDefined) {
+              /** Handle that case
+               *
+               * struct S {
+               *   int a;
+               *
+               *   struct N {
+               *     int b;
+               *   };
+               */
             } else {
               coords.right = declarator.coordinates.right;
               TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
               if (hasWidth) {
-                  // TODO: coordinates
-                  if (isIntegerType(type)) {
-                    if (width < 0) {
-                        if (name) {
-                          reportDiagnostic(ctx, DIAG_BIT_FIELD_NEGATIVE_WIDTH, &declarator.coordinates, name, width);
-                        } else {
-                          reportDiagnostic(ctx, DIAG_ANON_BIT_FIELD_NEGATIVE_WIDTH, &specifiers.coordinates, width);
-                        }
-                    } else {
-                      int typeSize = type->descriptorDesc->size;
-                      int typeWidth = typeSize * BYTE_BIT_SIZE;
-                      if (width > typeWidth) {
-                        if (name) {
-                          reportDiagnostic(ctx, DIAG_EXCEED_BIT_FIELD_TYPE_WIDTH, &declarator.coordinates, name, width, typeWidth);
-                        } else {
-                          reportDiagnostic(ctx, DIAG_EXCEED_ANON_BIT_FIELD_TYPE_WIDTH, &specifiers.coordinates, width, typeWidth);
-                        }
-                      }
-
-                      const static unsigned maxWidth = sizeof(uint64_t) * BYTE_BIT_SIZE;
-                      if (bitfieldChain) {
-                        if (width > 0 && (maxWidth - bitOffset) <= width) {
-                          int32_t storageSize = adjustBitFieldStorage(ctx, bitfieldChain, bfChainWidth, &offset);
-                          bitOffset = 0;
-                          bfChainWidth = 0;
-                          bitfieldChain = NULL;
-                          offset += storageSize * factor;
-                        }
-                      }
-
-                      type = makeBitFieldType(ctx, type, bitOffset, width);
-
-                      bitOffset += width * factor;
-
-                      if (factor) {
-                        bfChainWidth += width;
-                      } else {
-                        bfChainWidth = max(bfChainWidth, width);
-                      }
-
-                      if (width == 0) {
-                        if (name) {
-                           reportDiagnostic(ctx, DIAG_ZERO_NAMED_BIT_FIELD, &declarator.idCoordinates, name);
-                        }
-
-                        int32_t storageSize = adjustBitFieldStorage(ctx, bitfieldChain, bfChainWidth, &offset);
-                        bitfieldChain = NULL;
-                        bitOffset = bfChainWidth = 0;
-                        offset += storageSize * factor;
-                        goto end;
-                      }
+                if (checkIfBitfieldCorrect(ctx, type, name, name ? &declarator.coordinates : &specifiers.coordinates, width)) {
+                  const static unsigned maxWidth = sizeof(uint64_t) * BYTE_BIT_SIZE;
+                  if (bitfieldChain) {
+                    if (width > 0 && (maxWidth - bitOffset) <= width) {
+                      int32_t storageSize = adjustBitFieldStorage(ctx, bitfieldChain, bfChainWidth, &offset);
+                      bitOffset = 0;
+                      bfChainWidth = 0;
+                      bitfieldChain = NULL;
+                      offset += storageSize * factor;
                     }
-                  } else {
-                      if (name) {
-                        reportDiagnostic(ctx, DIAG_BIT_FIELD_TYPE_NON_INT, &declarator.coordinates, name, type);
-                      } else {
-                        reportDiagnostic(ctx, DIAG_ANON_BIT_FIELD_TYPE_NON_INT, &declarator.coordinates, type);
-                      }
                   }
+
+                  type = makeBitFieldType(ctx, type, bitOffset, width);
+
+                  bitOffset += width * factor;
+
+                  if (factor) {
+                    bfChainWidth += width;
+                  } else {
+                    bfChainWidth = max(bfChainWidth, width);
+                  }
+
+                  if (width == 0) {
+                    if (name) {
+                       reportDiagnostic(ctx, DIAG_ZERO_NAMED_BIT_FIELD, &declarator.idCoordinates, name);
+                    }
+
+                    int32_t storageSize = adjustBitFieldStorage(ctx, bitfieldChain, bfChainWidth, &offset);
+                    bitfieldChain = NULL;
+                    bitOffset = bfChainWidth = 0;
+                    offset += storageSize * factor;
+                    goto end;
+                  }
+                }
               } else if (bitfieldChain) {
                   int32_t storageSize = adjustBitFieldStorage(ctx, bitfieldChain, bfChainWidth, &offset);
                   offset += storageSize * factor;
@@ -1453,8 +1443,7 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
                 offset = alignMemberOffset(type, offset);
               }
 
-              AstStructDeclarator *structDeclarator = createStructDeclarator(ctx, &coords, type, name, offset);
-              current = current->next = createStructMember(ctx, NULL, structDeclarator, NULL);
+              current = current->next = createStructualMember(ctx, &coords, name, type, offset);
 
               if (hasWidth && bitfieldChain == NULL) {
                   bitfieldChain = current;
@@ -1480,15 +1469,13 @@ static AstStructMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
     return head.next;
 }
 
-static int32_t computeStructAlignment(AstStructMember *members) {
+static int32_t computeStructAlignment(StructualMember *members) {
   int32_t biggestSize = 1;
 
   for (; members; members = members->next) {
-      if (members->kind != SM_DECLARATOR) continue;
-
-      TypeRef *memberType = members->declarator->typeRef;
+      TypeRef *memberType = members->type;
       if (isStructualType(memberType)) {
-          biggestSize = max(biggestSize, memberType->descriptorDesc->structInfo->align);
+          biggestSize = max(biggestSize, memberType->descriptorDesc->typeDefinition->align);
       } else if (memberType->kind == TR_ARRAY) {
           biggestSize = max(biggestSize, computeTypeSize(memberType->arrayTypeDesc.elementType));
       } else {
@@ -1511,9 +1498,9 @@ struct_or_union
     | UNION
     ;
  */
-static AstSUEDeclaration* parseStructOrUnionDeclaration(ParserContext *ctx, DeclarationKind kind, struct _Scope* scope) {
+static TypeDefiniton *parseStructOrUnionDeclaration(ParserContext *ctx, enum TypeDefinitionKind kind) {
     const char *name = NULL;
-    AstStructMember *members = NULL;
+    StructualMember *members = NULL;
     Boolean isDefinition = FALSE;
 
     Coordinates coords = { ctx->token };
@@ -1540,15 +1527,22 @@ static AstSUEDeclaration* parseStructOrUnionDeclaration(ParserContext *ctx, Decl
         goto done;
     }
 
-    members = parseStructDeclarationList(ctx, factor, scope);
+    members = parseStructDeclarationList(ctx, factor);
 
     coords.right = ctx->token;
     consumeOrSkip(ctx, '}');
 
-done:
+done:;
 
-    return createSUEDeclaration(ctx, &coords, kind, isDefinition, name, members, computeStructAlignment(members));
+    TypeDefiniton *definition = createTypeDefiniton(ctx, kind, &coords, name);
+    definition->align = computeStructAlignment(members);
+    definition->isDefined = isDefinition;
+    definition->members = members;
+
+    return definition;
 }
+
+
 
 /**
 declaration_specifiers
@@ -1766,7 +1760,6 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
     unsigned tmp = 0;
     const char *tmp_s = NULL;
 
-    const char *prefix;
     TypeId typeId;
     SymbolKind symbolId;
 
@@ -1859,43 +1852,44 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
                 }
             }
             break;
-        case STRUCT: typeId = T_STRUCT; symbolId = StructSymbol; prefix = "$"; goto sue;
-        case UNION:  typeId = T_UNION; symbolId = UnionSymbol; prefix = "|"; goto sue;
-        case ENUM:   typeId = T_ENUM; symbolId = EnumSymbol; prefix = "#"; goto sue;
+        case STRUCT: typeId = T_STRUCT; symbolId = StructSymbol; goto sue;
+        case UNION:  typeId = T_UNION; symbolId = UnionSymbol; goto sue;
+        case ENUM:   typeId = T_ENUM; symbolId = EnumSymbol; goto sue;
         sue:
         seenTypeSpecifier = TRUE;
         {
             enum StructSpecifierKind ssk = guessStructualMode(ctx);
+            TypeDefiniton *definition = typeId == T_ENUM
+                ? parseEnumDeclaration(ctx)
+                : parseStructOrUnionDeclaration(ctx, typeId == T_STRUCT ? TDK_STRUCT : TDK_UNION);
 
-            AstSUEDeclaration *declaration = typeId == T_ENUM
-                ? parseEnumDeclaration(ctx, NULL)
-                : parseStructOrUnionDeclaration(ctx, typeId == T_STRUCT ? DK_STRUCT : DK_UNION, NULL);
+            specifiers->definition = definition;
+            if (definition->isDefined) {
+              definition->next = ctx->typeDefinitions;
+              ctx->typeDefinitions = definition;
+            }
 
-            if (ssk == SSK_DEFINITION)
-              specifiers->defined = declaration;
-
-            coords.right = declaration->coordinates.right;
-            const char* name = declaration->name;
+            coords.right = definition->coordinates.right;
+            const char* name = definition->name;
             char tmpBuf[1024];
             int size = 0;
 
-            prefix = "$";
             TypeDesc *typeDescriptor = NULL;
             if (name) { // TODO: should not be done here
                 int len = strlen(name);
                 char *symbolName = allocateString(ctx, len + 1 + 1);
-                size = sprintf(symbolName, "%s%s", prefix, name);
+                size = sprintf(symbolName, "$%s", name);
 
                 Symbol *s = NULL;
                 if (ssk == SSK_REFERENCE) {
                     s = findSymbol(ctx, symbolName);
                     if (s && s->kind != symbolId) {
-                        reportDiagnostic(ctx, DIAG_USE_WITH_DIFFERENT_TAG, &declaration->coordinates, name);
+                        reportDiagnostic(ctx, DIAG_USE_WITH_DIFFERENT_TAG, &definition->coordinates, name);
                     }
                 }
 
                 if (s == NULL) {
-                    s = declareSUESymbol(ctx, symbolId, typeId, symbolName, declaration);
+                    s = declareTypeSymbol(ctx, symbolId, typeId, symbolName, definition);
                 }
 
                 typeDescriptor = s ? s->typeDescriptor : NULL;
@@ -1904,15 +1898,15 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
                   size = sprintf(tmpBuf, "<anon$%d>", ctx->anonSymbolsCounter++);
                   name = allocateString(ctx, size + 1);
                   memcpy((char *)name, tmpBuf, size + 1);
-                  declaration->name = name;
-                  int typeSize = computeSUETypeSize(ctx, declaration);
+                  definition->name = name;
+                  int typeSize = computeTypeDefinitionSize(ctx, definition);
                   if (typeSize < 0) {
-                      reportDiagnostic(ctx, DIAG_NON_COMPUTE_DECL_SIZE, &declaration->coordinates);
+                      reportDiagnostic(ctx, DIAG_NON_COMPUTE_DECL_SIZE, &definition->coordinates);
                   }
                   typeDescriptor = createTypeDescriptor(ctx, typeId, name, typeSize);
-                  typeDescriptor->structInfo = declaration;
+                  typeDescriptor->typeDefinition = definition;
                 } else {
-                  reportDiagnostic(ctx, DIAG_ANON_STRUCT_IS_DEFINITION, &declaration->coordinates);
+                  reportDiagnostic(ctx, DIAG_ANON_STRUCT_IS_DEFINITION, &definition->coordinates);
                 }
             }
 
@@ -1962,7 +1956,7 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
             verifyDeclarationSpecifiers(ctx, specifiers, scope);
             return;
         }
-        }
+      }
     } while (nextToken(ctx));
 }
 
@@ -2020,25 +2014,20 @@ static AstInitializer* parseInitializer(ParserContext *ctx, struct _Scope* scope
     AstInitializer *result;
 
     if (nextTokenIf(ctx, '{')) {
-        AstInitializerList *head = NULL, *tail = NULL;
+        AstInitializerList head = { 0 }, *current = &head;
         int numOfInits = 0;
         while (ctx->token->code != '}') {
             AstInitializerList *next = createAstInitializerList(ctx);
             AstInitializer* initializer = parseInitializer(ctx, scope);
             next->initializer = initializer;
             nextTokenIf(ctx, ',');
-            if (tail) {
-                tail->next = next;
-            } else {
-                head = next;
-            }
-            tail = next;
+            current = current->next = next;
             ++numOfInits;
         }
         coords.right = ctx->token;
         consumeOrSkip(ctx, '}');
         result = createAstInitializer(ctx, &coords, IK_LIST);
-        result->initializerList = head;
+        result->initializerList = head.next;
         result->numOfInitializers = numOfInits;
     } else {
         expr = parseAssignmentExpression(ctx, scope);
@@ -2085,7 +2074,7 @@ parameter_list
  */
 static void parseParameterList(ParserContext *ctx, FunctionParams *params, struct _Scope* scope) {
     int idx = 0;
-    AstValueDeclaration *head = NULL, *tail = NULL;
+    AstValueDeclaration head = { 0 }, *current = &head;
 
     int ellipsisIdx = -1;
 
@@ -2151,16 +2140,12 @@ static void parseParameterList(ParserContext *ctx, FunctionParams *params, struc
           parameter->symbol = declareValueSymbol(ctx, name, parameter);
           parameter->flags.bits.isLocal = 1;
 
-          if (tail) {
-            tail->next = parameter;
-          } else {
-            head = parameter;
-          }
-          tail = parameter;
+          current = current->next = parameter;
+
         }
     } while (nextTokenIf(ctx, ','));
 
-    params->parameters = head;
+    params->parameters = head.next;
 }
 
 /**
@@ -2213,8 +2198,8 @@ static void parseFunctionDeclaratorPart(ParserContext *ctx, Declarator *declarat
 
   part->next = declarator->declaratorParts;
 
-  if (declarator->functionDeclarator == NULL)
-    declarator->functionDeclarator = declarator->declaratorParts ? NULL : part;
+//  if (declarator->functionDeclarator == NULL)
+//    declarator->functionDeclarator = declarator->declaratorParts ? NULL : part;
   declarator->declaratorParts = part;
 
   ctx->currentScope = paramScope->parent;
@@ -2592,25 +2577,13 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
     consume(ctx, '{');
 
     Scope *blockScope = ctx->currentScope;
-    AstStatementList *head = NULL, *tail = NULL;
+    AstStatementList head = { 0 }, *current = &head;
 
     while (ctx->token->code && ctx->token->code != '}') {
         if (isDeclarationSpecifierToken(ctx->token->code)) {
             DeclarationSpecifiers specifiers = { 0 };
             specifiers.coordinates.left = specifiers.coordinates.right = ctx->token;
             parseDeclarationSpecifiers(ctx, &specifiers, DS_STATEMENT);
-            Coordinates coords2 = specifiers.coordinates;
-
-            if (specifiers.defined) {
-                AstDeclaration *declaration = createAstDeclaration(ctx, specifiers.defined->kind, specifiers.defined->name);
-                declaration->structDeclaration = specifiers.defined;
-                AstStatement *declStmt = createDeclStatement(ctx, &coords2, declaration);
-                AstStatementList *node = allocateStmtList(ctx, declStmt);
-                if (tail) tail->next = node;
-                else head = node;
-                tail = node;
-            }
-
             if (ctx->token->code != ';') {
                 do {
                     Declarator declarator = { 0 };
@@ -2618,64 +2591,18 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
                     parseDeclarator(ctx, &declarator);
                     verifyDeclarator(ctx, &declarator, DS_STATEMENT);
 
-                    const char *name = declarator.identificator;
-                    coords2.right = declarator.coordinates.right;
-                    TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
-                    AstInitializer* initializer = NULL;
-                    Coordinates eqCoords = { ctx->token, ctx->token };
-                    if (nextTokenIf(ctx, '=')) {
-                        Boolean isTypeOk = verifyValueType(ctx, &coords2, type);
-                        if (!isTypeOk) type = makeErrorRef(ctx);
-                        if (specifiers.flags.bits.isExternal) {
-                            reportDiagnostic(ctx, DIAG_EXTERN_VAR_INIT, &declarator.coordinates);
-                        }
-
-                        initializer = parseInitializer(ctx, NULL);
-                        initializer = finalizeInitializer(ctx, type, initializer, specifiers.flags.bits.isStatic);
-                        coords2.right = initializer->coordinates.right;
-                    } else {
-                        if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE && !specifiers.flags.bits.isExternal) {
-                            reportDiagnostic(ctx, DIAG_ARRAY_EXPLICIT_SIZE_OR_INIT, &coords2);
-                        }
-                    }
-
-                    AstDeclaration *declaration = NULL;
                     if (specifiers.flags.bits.isTypedef) {
-                        if (initializer != NULL) {
-                            eqCoords.right = coords2.right;
-                            reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &eqCoords);
-                        }
-                        declareTypeDef(ctx, name, type);
-                        declaration = createAstDeclaration(ctx, DK_TYPEDEF, name);
-                        declaration->typeDefinition.coordinates = coords2;
-                        declaration->typeDefinition.definedType = type;
+                        processTypedef(ctx, &specifiers, &declarator);
                     } else {
-                        Boolean isTypeOk = verifyValueType(ctx, &coords2, type);
-                        if (!isTypeOk) type = makeErrorRef(ctx);
-                        declaration = createAstDeclaration(ctx, DK_VAR, name);
-                        AstValueDeclaration *valueDeclaration =
-                            createAstValueDeclaration(ctx, &coords2, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
-                        declaration->variableDeclaration = valueDeclaration;
-                        if (!valueDeclaration->flags.bits.isStatic) {
-                            valueDeclaration->flags.bits.isLocal = 1;
-                            valueDeclaration->next = ctx->locals;
-                            ctx->locals = valueDeclaration;
-
-                        }
-                        valueDeclaration->symbol = declareValueSymbol(ctx, name, valueDeclaration);
-                    }
-
-                    if (declaration) {
-                      AstStatement *declStmt = createDeclStatement(ctx, &coords2, declaration);
-                      AstStatementList *node = allocateStmtList(ctx, declStmt);
-                      if (tail) tail->next = node;
-                      else head = node;
-                      tail = node;
+                        TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
+                        AstDeclaration *declaration = parseDeclaration(ctx, &specifiers, &declarator, type, FALSE);
+                        AstStatement *declStmt = createDeclStatement(ctx, &declaration->variableDeclaration->coordinates, declaration);
+                        current = current->next = allocateStmtList(ctx, declStmt);
                     }
                 } while (nextTokenIf(ctx, ','));
             } else {
                 // TODO: typedef int;
-                if (specifiers.defined == NULL)  {
+                if (specifiers.definition == NULL)  {
                   reportDiagnostic(ctx, DIAG_DECLARES_NOTHING, &specifiers.coordinates);
                 }
             }
@@ -2683,17 +2610,14 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
             consumeOrSkip(ctx, ';');
         } else {
             AstStatement *statement = parseStatement(ctx, NULL);
-            AstStatementList *node = allocateStmtList(ctx, statement);
-            if (tail) tail->next = node;
-            else head = node;
-            tail = node;
+            current = current->next = allocateStmtList(ctx, statement);
         }
     }
 
     coords.right = ctx->token;
     consumeOrSkip(ctx, '}');
 
-    return createBlockStatement(ctx, &coords, ctx->currentScope, head);
+    return createBlockStatement(ctx, &coords, ctx->currentScope, head.next);
 }
 
 static AstStatement *parseCompoundStatement(ParserContext *ctx) {
@@ -2733,6 +2657,7 @@ static Boolean verifyDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecif
       flags.bits.isRegister = 0;
       if (flags.storage) {
           reportDiagnostic(ctx, DIAG_INVALID_STORAGE_ON_PARAM, &specifiers->coordinates);
+          return TRUE;
       }
       break;
     default:
@@ -2814,6 +2739,129 @@ static void verifyLabels(ParserContext *ctx) {
   }
 }
 
+static DeclaratorPart *findFunctionalPart(Declarator *declarator) {
+  DeclaratorPart *dp = declarator->declaratorParts;
+  DeclaratorPart *result = NULL;
+
+  for (; dp; dp = dp->next) {
+      if (dp->kind == DPK_FUNCTION) result = dp;
+  }
+
+  return result;
+}
+
+static AstTranslationUnit *parseFunctionDeclaration(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator, TypeRef *functionalType) {
+  DeclaratorPart *functionalPart = findFunctionalPart(declarator);
+  assert(functionalPart != NULL);
+  TypeRef *returnType = functionalType->functionTypeDesc.returnType;
+  const char *funName = declarator->identificator;
+  Coordinates coords = { specifiers->coordinates.left, declarator->coordinates.right };
+  AstValueDeclaration *params = functionalPart->parameters.parameters;
+
+  if (ctx->token->code == '=') {
+      Coordinates eqCoords = { ctx->token };
+      nextToken(ctx);
+      AstInitializer *initializer = parseInitializer(ctx, NULL);
+      eqCoords.right = initializer->coordinates.right;
+      reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &eqCoords);
+  };
+
+
+  AstFunctionDeclaration *declaration = createFunctionDeclaration(ctx, &coords, returnType, funName, specifiers->flags.storage, params, functionalPart->parameters.isVariadic);
+  declaration->symbol = declareFunctionSymbol(ctx, funName, declaration);
+
+  if (ctx->token->code != '{') {
+      AstDeclaration *astDeclaration = createAstDeclaration(ctx, DK_PROTOTYPE, funName);
+      astDeclaration->functionProrotype = declaration;
+      return createTranslationUnit(ctx, astDeclaration, NULL);
+  }
+
+  Scope *functionScope = functionalPart->parameters.scope;
+
+  AstValueDeclaration *va_area_var = NULL;
+  ctx->locals = NULL;
+  ctx->functionReturnType = returnType;
+  ctx->stateFlags.returnStructBuffer = 0;
+  ctx->currentScope = functionScope;
+
+  if (declaration->isVariadic) {
+      TypeRef *vatype = makeArrayType(ctx, 4 + 6 + 8, makePrimitiveType(ctx, T_U8, 0));
+      Coordinates vacoords = { ctx->token, ctx->token };
+      va_area_var = createAstValueDeclaration(ctx, &vacoords, VD_VARIABLE, vatype, "__va_area__", 0, 0, NULL);
+      va_area_var->flags.bits.isLocal = 1;
+      va_area_var->symbol = declareValueSymbol(ctx, va_area_var->name, va_area_var);
+  }
+
+  AstStatement *body = parseFunctionBody(ctx);
+  verifyLabels(ctx);
+  ctx->functionReturnType = NULL;
+  ctx->currentScope = functionScope->parent;
+
+  AstFunctionDefinition *definition = createFunctionDefinition(ctx, declaration, functionScope, body);
+  definition->scope = functionScope;
+  definition->locals = ctx->locals;
+  definition->va_area = va_area_var;
+  definition->returnStructBuffer = ctx->stateFlags.returnStructBuffer;
+
+  return createTranslationUnit(ctx, NULL, definition);
+}
+
+static AstDeclaration *parseDeclaration(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator, TypeRef *type, Boolean isTopLevel) {
+  Coordinates coords = { specifiers->coordinates.left, declarator->coordinates.right };
+
+  Boolean isTypeOk = verifyValueType(ctx, &coords, type);
+
+  if (!isTypeOk) type = makeErrorRef(ctx);
+
+  const char *name = declarator->identificator;
+
+  isTopLevel |= specifiers->flags.bits.isStatic;
+
+  AstInitializer *initializer = NULL;
+  if (nextTokenIf(ctx, '=')) {
+    if (specifiers->flags.bits.isExternal) {
+      reportDiagnostic(ctx, DIAG_EXTERN_VAR_INIT, &declarator->coordinates);
+    }
+    initializer = parseInitializer(ctx, NULL);
+    initializer = finalizeInitializer(ctx, type, initializer, isTopLevel);
+  } else if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE && !(specifiers->flags.bits.isExternal)) {
+    reportDiagnostic(ctx, DIAG_ARRAY_EXPLICIT_SIZE_OR_INIT, &declarator->coordinates);
+  }
+
+  AstValueDeclaration *valueDeclaration = createAstValueDeclaration(ctx, &coords, VD_VARIABLE, type, name, 0, specifiers->flags.storage, initializer);
+  valueDeclaration->symbol = declareValueSymbol(ctx, name, valueDeclaration);
+  AstDeclaration *declaration = createAstDeclaration(ctx, DK_VAR, name);
+  declaration->variableDeclaration = valueDeclaration;
+
+  if (!isTopLevel) {
+      valueDeclaration->flags.bits.isLocal = 1;
+      valueDeclaration->next = ctx->locals;
+      ctx->locals = valueDeclaration;
+  }
+
+  return declaration;
+}
+
+static TypeDefiniton *processTypedef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator) {
+  assert(specifiers->flags.bits.isTypedef);
+  if (ctx->token->code == '=') {
+      Coordinates eqCoords = { ctx->token };
+      AstInitializer *initializer = parseInitializer(ctx, NULL);
+      eqCoords.right = initializer->coordinates.right;
+      reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &eqCoords);
+  }
+
+  TypeRef *type = makeTypeRef(ctx, specifiers, declarator);
+  const char *name = declarator->identificator;
+  Coordinates coords = { specifiers->coordinates.left, declarator->coordinates.right };
+  if (name) {
+    declareTypeDef(ctx, name, type);
+  } else {
+    reportDiagnostic(ctx, DIAG_TYPEDEF_WITHOUT_NAME, &coords);
+  }
+  return createTypedefDefinition(ctx, &coords, name, type);
+}
+
 /**
   external_declaration
     : function_definition
@@ -2848,158 +2896,51 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
   DeclarationSpecifiers specifiers = { 0 };
   specifiers.coordinates.left = specifiers.coordinates.right = ctx->token;
   parseDeclarationSpecifiers(ctx, &specifiers, DS_FILE);
-  Coordinates coords = specifiers.coordinates;
 
-  Boolean isTypeDefDeclaration = specifiers.flags.bits.isTypedef != 0 ? TRUE : FALSE;
-
-  if (specifiers.defined) {
-    AstSUEDeclaration *defined = specifiers.defined;
-    AstDeclaration *declaration = createAstDeclaration(ctx, defined->kind, defined->name);
-    declaration->structDeclaration = defined;
-    addToFile(file, createTranslationUnit(ctx, declaration, NULL));
-  }
+  Boolean isTypeDefDeclaration = specifiers.flags.bits.isTypedef;
 
   if (nextTokenIf(ctx, ';')) {
       if (isTypeDefDeclaration) {
           reportDiagnostic(ctx, DIAG_TYPEDEF_WITHOUT_NAME, &specifiers.coordinates);
+      } else if (specifiers.definition == NULL) {
+          reportDiagnostic(ctx, DIAG_DECLARES_NOTHING, &specifiers.coordinates);
       }
-      // TODO: declares nothing
       return;
   }
 
-  int id_idx = 0;
-  const char *funName = NULL;
-  AstFunctionDeclaration *functionDeclaration = NULL;
-  Scope *functionScope = NULL;
+  int unitIdx = 0;
   do {
     Declarator declarator = { 0 };
     AstInitializer *initializer = NULL;
-    functionDeclaration = NULL;
     declarator.coordinates.left = declarator.coordinates.right = ctx->token;
     parseDeclarator(ctx, &declarator);
-
-    DeclaratorPart *funDeclarator = declarator.functionDeclarator;
-    Coordinates eqCoords = { ctx->token };
-    if (nextTokenIf(ctx, '=')) {
-        if (specifiers.flags.bits.isExternal) {
-            reportDiagnostic(ctx, DIAG_EXTERN_VAR_INIT, &declarator.coordinates);
-        }
-        initializer = parseInitializer(ctx, NULL);
-    };
-
-    if (initializer != NULL) {
-        if (isTypeDefDeclaration || funDeclarator) {
-            eqCoords.right = initializer->coordinates.right;
-            reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &eqCoords);
-        }
-    }
-
     verifyDeclarator(ctx, &declarator, DS_FILE);
 
-    const char *name = declarator.identificator;
-    coords.right = declarator.coordinates.right;
-
     AstDeclaration *declaration = NULL;
+    TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
 
-    if (isTypeDefDeclaration) {
-      TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
-      declareTypeDef(ctx, name, type);
-      declaration = createAstDeclaration(ctx, DK_TYPEDEF, name);
-      declaration->typeDefinition.definedType = type;
-      declaration->typeDefinition.coordinates = coords;
-    } else if (funDeclarator) {
-      assert(funDeclarator->kind == DPK_FUNCTION);
-      TypeRef *returnType = makeFunctionReturnType(ctx, &specifiers, &declarator);
-      verifyFunctionReturnType(ctx, &declarator, returnType);
-      unsigned i;
-      funName = name;
-
-      AstValueDeclaration *params = funDeclarator->parameters.parameters;
-      functionDeclaration = createFunctionDeclaration(ctx, &coords, returnType, funName, specifiers.flags.storage, params, funDeclarator->parameters.isVariadic);
-      functionDeclaration->symbol = declareFunctionSymbol(ctx, name, functionDeclaration);
-
-      if (ctx->token->code == '{') {
-          if (id_idx != 0) {
-              Coordinates coords3 = { ctx->token, ctx->token };
-              reportDiagnostic(ctx, DIAG_EXPECTED_SEMI_AFTER_TL_DECLARATOR, &coords3);
-          }
-          functionScope = funDeclarator->parameters.scope;
-          break;
-      } else {
-          declaration = createAstDeclaration(ctx, DK_PROTOTYPE, name);
-          declaration->functionProrotype = functionDeclaration;
+    if (isTypeDefDeclaration) { // typedef x y;
+      processTypedef(ctx, &specifiers, &declarator);
+    } else if (type->kind == TR_FUNCTION) { // int foo(int x) | int bar(int y) {}
+      if (ctx->token->code == '{' && unitIdx) {
+          Coordinates coords3 = { ctx->token, ctx->token };
+          reportDiagnostic(ctx, DIAG_EXPECTED_SEMI_AFTER_TL_DECLARATOR, &coords3);
       }
-    } else {
-        TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
-        Boolean isTypeOk = verifyValueType(ctx, &coords, type);
-        if (!isTypeOk) type = makeErrorRef(ctx);
-        if (initializer) {
-          initializer = finalizeInitializer(ctx, type, initializer, TRUE);
-        } else {
-          if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE && !specifiers.flags.bits.isExternal) {
-              reportDiagnostic(ctx, DIAG_ARRAY_EXPLICIT_SIZE_OR_INIT, &declarator.coordinates);
-          }
-        }
-        AstValueDeclaration *valueDeclaration = createAstValueDeclaration(ctx, &coords, VD_VARIABLE, type, name, 0, specifiers.flags.storage, initializer);
-        valueDeclaration->symbol = declareValueSymbol(ctx, name, valueDeclaration);
-        declaration = createAstDeclaration(ctx, DK_VAR, name);
-        declaration->variableDeclaration = valueDeclaration;
-    }
-    if (declaration) {
+
+      AstTranslationUnit *unit = parseFunctionDeclaration(ctx, &specifiers, &declarator, type);
+      addToFile(file, unit);
+      if (unit->kind == TU_FUNCTION_DEFINITION) {
+        return;
+      }
+    } else { // int var = 10;
+      AstDeclaration *declaration = parseDeclaration(ctx, &specifiers, &declarator, type, TRUE);
       addToFile(file, createTranslationUnit(ctx, declaration, NULL));
     }
-    ++id_idx;
+    ++unitIdx;
   } while (nextTokenIf(ctx, ','));
 
-
-  // it's function definition
-
-  // K&R param syntax is not supported yet
-
-  if (nextTokenIf(ctx, ';')) return;
-
-  if (functionScope == NULL) {
-      // some error ocured
-      functionScope = newScope(ctx, ctx->currentScope);
-  }
-
-  AstValueDeclaration *va_area_var = NULL;
-  ctx->locals = NULL;
-  ctx->functionReturnType = functionDeclaration ? functionDeclaration->returnType : makeErrorRef(ctx);
-  ctx->stateFlags.returnStructBuffer = 0;
-  ctx->currentScope = functionScope;
-
-  if (functionDeclaration && functionDeclaration->isVariadic) {
-      TypeRef *vatype = makeArrayType(ctx, 4 + 6 + 8, makePrimitiveType(ctx, T_U8, 0));
-      Coordinates vacoords = { ctx->token, ctx->token };
-      va_area_var = createAstValueDeclaration(ctx, &vacoords, VD_VARIABLE, vatype, "__va_area__", 0, 0, NULL);
-      va_area_var->flags.bits.isLocal = 1;
-      va_area_var->symbol = declareValueSymbol(ctx, va_area_var->name, va_area_var);
-  }
-
-  AstStatement *body = parseFunctionBody(ctx);
-  verifyLabels(ctx);
-  ctx->functionReturnType = NULL;
-  ctx->currentScope = functionScope->parent;
-
-  if (functionDeclaration) {
-    AstFunctionDefinition *definition = createFunctionDefinition(ctx, functionDeclaration, functionScope, body);
-    definition->scope = functionScope;
-    definition->locals = ctx->locals;
-    definition->va_area = va_area_var;
-    definition->returnStructBuffer = ctx->stateFlags.returnStructBuffer;
-
-    AstTranslationUnit *newUnit = createTranslationUnit(ctx, NULL, definition);
-    addToFile(file, newUnit);
-  }
+  consumeOrSkip(ctx, ';');
 }
-
-/**
-ast_file
-    : declaration
-    | ast_file declaration
-    ;
-*/
 
 static void initializeContext(ParserContext *ctx) {
   ctx->anonSymbolsCounter = 0;
@@ -3091,10 +3032,10 @@ static AstFile *parseFile(ParserContext *ctx) {
   return astFile;
 }
 
-static void dumpFile(AstFile *file, const char* dumpFile) {
+static void dumpFile(AstFile *file, TypeDefiniton *typeDefinitions, const char* dumpFile) {
   remove(dumpFile);
   FILE* toDump = fopen(dumpFile, "w");
-  dumpAstFile(toDump, file);
+  dumpAstFile(toDump, file, typeDefinitions);
   fclose(toDump);
 }
 
@@ -3156,13 +3097,13 @@ void compileFile(Configuration * config) {
   }
 
   if (config->dumpFileName) {
-      dumpFile(astFile, config->dumpFileName);
+      dumpFile(astFile, context.typeDefinitions, config->dumpFileName);
   }
 
   if (!hasError) {
     cannonizeAstFile(&context, astFile);
     if (config->canonDumpFileName) {
-      dumpFile(astFile, config->canonDumpFileName);
+      dumpFile(astFile, context.typeDefinitions, config->canonDumpFileName);
     }
 
     if (!config->skipCodegen) {

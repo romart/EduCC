@@ -8,7 +8,7 @@
 
 // dump
 
-int dumpAstFile(FILE *output, AstFile *file);
+int dumpAstFile(FILE *output, AstFile *file, TypeDefiniton *typeDefinitions);
 int dumpAstExpression(FILE *output, AstExpression *expr);
 int dumpAstStatement(FILE *output, AstStatement *stmt);
 int dumpAstDeclaration(FILE *output, AstDeclaration *declaration);

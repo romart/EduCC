@@ -16,11 +16,11 @@ enum {
 int typeIdSize(TypeId id);
 TypeId typeToId(TypeRef *type);
 int computeTypeSize(TypeRef *type);
-int computeSUETypeSize(ParserContext *ctx, AstSUEDeclaration *declaration);
+int32_t computeTypeDefinitionSize(ParserContext *ctx, TypeDefiniton *definition);
 
 
 TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, Coordinates *coords, TypeRef *arrayType, TypeRef *indexType);
-AstStructDeclarator *computeMemberDeclarator(ParserContext *ctx, Coordinates *coords, TypeRef *receiverType, const char *memberName, ExpressionType op);
+StructualMember *computeMember(ParserContext *ctx, Coordinates *coords, TypeRef *_receiverType, const char *memberName, ExpressionType op);
 TypeRef *computeFunctionReturnType(ParserContext *ctx, Coordinates *coords, TypeRef *calleeType);
 TypeRef *computeIncDecType(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, Boolean isDec);
 TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, ExpressionType op);
@@ -50,7 +50,8 @@ Boolean is_va_list_Type(TypeRef *type);
 
 Boolean isAssignableTypes(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, AstExpression *fromExpr, Boolean init);
 
-int32_t memberOffset(AstSUEDeclaration *declaration, const char *memberName);
+StructualMember *findStructualMember(TypeDefiniton *definition, const char *name);
+int32_t memberOffset(TypeDefiniton *declaration, const char *memberName);
 int32_t typeAlignment(TypeRef *type);
 
 void verifyGotoExpression(ParserContext *ctx, AstExpression *expr);
@@ -96,7 +97,8 @@ typedef enum _SymbolKind {
     TypedefSymbol,
     ValueSymbol,
     EnumSymbol, /** TODO: not sure about it */
-    EnumConstSymbol
+    EnumConstSymbol,
+    TypeDefinitionSymbol
 } SymbolKind;
 
 typedef struct _Symbol {
@@ -107,6 +109,7 @@ typedef struct _Symbol {
 
     union {
         struct _AstFunctionDeclaration *function; // FunctionSymbol
+        struct _TypeDefinition *typeDefinition;
         TypeDesc *typeDescriptor; // StructSymbol | UnionSymbol | EnumSymbol, struct S;
         TypeRef * typeref; // TypedefSymbol, typedef struct TS* ts_t;
         struct _AstValueDeclaration *variableDesc; // ValueSymbol, int a = 10 | int foo(int value)
@@ -132,7 +135,7 @@ Symbol* findOrDeclareSymbol(ParserContext* ctx, SymbolKind kind, const char* nam
 Symbol *declareTypeDef(ParserContext *ctx, const char *name, TypeRef *type);
 Symbol *declareValueSymbol(ParserContext *ctx, const char *name, AstValueDeclaration *declaration);
 Symbol *declareFunctionSymbol(ParserContext *ctx, const char *name, AstFunctionDeclaration *declaration);
-Symbol *declareSUESymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeId, const char *name, AstSUEDeclaration *declaration);
+Symbol *declareTypeSymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeId, const char *symbolName, TypeDefiniton *definition);
 Symbol *declareEnumConstantSymbol(ParserContext *ctx, EnumConstant *enumerator);
 
 Scope *newScope(ParserContext *ctx, Scope *parent);
@@ -142,7 +145,6 @@ TypeRef *makeBasicType(ParserContext *ctx, TypeDesc *descriptor, unsigned flags)
 TypeRef* makePointedType(ParserContext *ctx, unsigned flags, TypeRef *pointedTo);
 TypeRef *makeArrayType(ParserContext *ctx, int size, TypeRef *elementType);
 TypeRef *makeFunctionType(ParserContext *ctx, TypeRef *returnType, FunctionParams *params);
-TypeRef *makeFunctionReturnType(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator);
 TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator);
 TypeRef *makeBitFieldType(ParserContext *ctx, TypeRef *storage, unsigned offset, unsigned width);
 TypeRef *makeErrorRef(ParserContext *ctx);

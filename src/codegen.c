@@ -579,7 +579,7 @@ static void copyStructTo(GeneratedFunction *f, TypeRef *type, Address *src, Addr
 
   assert(isStructualType(type) || isUnionType(type));
 
-  int32_t align = type->descriptorDesc->structInfo->align;
+  int32_t align = type->descriptorDesc->typeDefinition->align;
   int32_t size = computeTypeSize(type);
   int32_t copied = 0;
 
@@ -2362,7 +2362,7 @@ static void generateVaArg(GenerationContext *ctx, GeneratedFunction *f, Scope *s
   TypeRef *valistType = expression->vaArg.va_list->type;
   Address valist_addr = { R_EDI, R_BAD, 0, 0, NULL, NULL };
   assert(is_va_list_Type(valistType));
-  AstSUEDeclaration *vastruct = valistType->pointedTo.toType->descriptorDesc->structInfo;
+  TypeDefiniton *vastruct = valistType->pointedTo.toType->descriptorDesc->typeDefinition;
   const static int32_t dataSize = sizeof(intptr_t);
 
   /**
