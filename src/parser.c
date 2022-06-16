@@ -2370,6 +2370,24 @@ static void defineLabel(ParserContext *ctx, const char *label, AstStatement *lbl
   }
 }
 
+static AstDeclaration *parseForInitial(ParserContext *ctx) {
+  DeclarationSpecifiers specifiers = { 0 };
+  specifiers.coordinates.left = specifiers.coordinates.right = ctx->token;
+  parseDeclarationSpecifiers(ctx, &specifiers, DS_FOR);
+
+  Declarator declarator = { 0 };
+  declarator.coordinates.left = declarator.coordinates.right = ctx->token;
+  parseDeclarator(ctx, &declarator);
+  verifyDeclarator(ctx, &declarator, DS_FOR);
+
+  AstDeclaration *result = NULL;
+  if (declarator.identificator) {
+      TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
+      result = parseDeclaration(ctx, &specifiers, &declarator, type, FALSE);
+  }
+
+}
+
 static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
     AstExpression *expr, *expr2, *expr3;
     AstStatement *stmt;
@@ -2456,7 +2474,19 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         consume(ctx, FOR); // for
         consume(ctx, '('); // for(
 
-        expr = ctx->token->code != ';' ? parseExpression(ctx, scope) : NULL;
+        ctx->currentScope = newScope(ctx, ctx->currentScope);
+
+        AstStatement *initial = NULL;
+        if (ctx->token->code != ';') {
+            // check if language version >= C99
+            if (isDeclarationSpecifierToken(ctx->token->code)) {
+                AstDeclaration *decl = parseForInitial(ctx);
+                initial = createDeclStatement(ctx, &decl->variableDeclaration->coordinates, decl);
+            } else {
+                AstExpression *expr = parseExpression(ctx, scope);
+                initial = createExprStatement(ctx, expr);
+            }
+        }
         consume(ctx, ';'); // for( ...;
 
         expr2 = ctx->token->code != ';' ? parseExpression(ctx, scope) : NULL;
@@ -2470,8 +2500,10 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         stmt = parseStatement(ctx, scope); // for( ...; ...; ...) ...
         ctx->stateFlags.inLoop = oldFlag;
 
+        ctx->currentScope = ctx->currentScope->parent;
+
         coords.right = stmt->coordinates.right;
-        return createForStatement(ctx, &coords, expr, expr2, expr3, stmt);
+        return createForStatement(ctx, &coords, initial, expr2, expr3, stmt);
     case GOTO:
         consume(ctx, GOTO);
         if (nextTokenIf(ctx, '*')) {
@@ -2660,6 +2692,15 @@ static Boolean verifyDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecif
           return TRUE;
       }
       break;
+    case DS_FOR:
+      if (flags.bits.isTypedef) {
+          reportDiagnostic(ctx, DIAG_NON_VAR_IN_FOR, &specifiers->coordinates);
+          return TRUE;
+      }
+      if (flags.bits.isExternal || flags.bits.isStatic) {
+          reportDiagnostic(ctx, DIAG_NON_LOCAL_IN_FOR, &specifiers->coordinates);
+          return TRUE;
+      }
     default:
       break;
   }
@@ -2673,6 +2714,7 @@ static void verifyDeclarator(ParserContext *ctx, Declarator *declarator, Declara
   case DS_FILE:
   case DS_STATEMENT:
   case DS_STRUCT:
+  case DS_FOR:
       if (declarator->identificator == NULL) {
           reportDiagnostic(ctx, DIAG_DECLARES_NOTHING, &declarator->coordinates);
       }

@@ -834,7 +834,7 @@ static AstStatement *transformStatement(ParserContext *ctx, AstStatement *stmt) 
       break;
     case SK_FOR:
       if (stmt->forStmt.initial)
-        stmt->forStmt.initial = transformExpression(ctx, stmt->forStmt.initial);
+        stmt->forStmt.initial = transformStatement(ctx, stmt->forStmt.initial);
       if (stmt->forStmt.condition)
         stmt->forStmt.condition = transformExpression(ctx, stmt->forStmt.condition);
       if (stmt->forStmt.modifier)
