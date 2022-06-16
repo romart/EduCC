@@ -1,12 +1,13 @@
 FILE test/testData/parser/negative/incorrectStructs.c
+  STRUCT <anon$0>
+    double x #0
+    ****STRUCT XXX xx #8
+  STRUCT_END
+----
   STRUCT SS
     signed int a #0
     signed int b #4
     signed int d #8
-    STRUCT <anon$0>
-      double x #0
-      ****STRUCT XXX xx #8
-    STRUCT_END
     STRUCT <anon$0> ss1 #16
     *STRUCT <anon$0> ss2 #32
     **STRUCT <anon$0> ss3 #40
@@ -23,3 +24,4 @@ FILE test/testData/parser/negative/incorrectStructs.c
     *ERROR TYPE pv3 #0
     **ERROR TYPE pv3 #8
   STRUCT_END
+----

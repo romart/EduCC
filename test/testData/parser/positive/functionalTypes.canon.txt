@@ -1,4 +1,6 @@
 FILE test/testData/parser/positive/functionalTypes.c
+  TYPEDF f_t = *{signed int (signed int, signed int)}
+----
   FUN *signed int qux 
     #0: ******{signed int (*****{double (*STRUCT S)})} f
   BEGIN
@@ -11,8 +13,6 @@ FILE test/testData/parser/positive/functionalTypes.c
   (((***{*signed int (*{*signed int (signed int, **{**signed int (signed int, **signed int)})}, signed int)})[40])[30])[20] x
 ----
   (*{*signed int (signed int)})[10] xx
-----
-  TYPEDF f_t = *{signed int (signed int, signed int)}
 ----
   FUN void foo 
     #0: *C signed char

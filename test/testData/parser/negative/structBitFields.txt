@@ -7,12 +7,12 @@ FILE test/testData/parser/negative/structBitFields.c
   STRUCT ExceedBFSize
     unsigned int:0:32 not_exceed #0
     unsigned long:0:64 not_exceed_l #8
-    unsigned long:0:33 exceed #16
-    unsigned long:0:65 exceed_l #24
-    unsigned int:65:53 exceed2 #24
-    unsigned int:118:32 (null) #24
-    unsigned int:22:33 (null) #24
-    unsigned int:55:53 (null) #24
+    unsigned int exceed #8
+    unsigned long exceed_l #8
+    unsigned int exceed2 #8
+    unsigned int:0:32 (null) #16
+    unsigned int (null) #16
+    unsigned int (null) #16
   STRUCT_END
 ----
   STRUCT F
@@ -23,3 +23,4 @@ FILE test/testData/parser/negative/structBitFields.c
     float f_bf #0
     STRUCT F (null) #0
   STRUCT_END
+----

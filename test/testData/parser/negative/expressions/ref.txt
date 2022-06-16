@@ -26,5 +26,5 @@ FILE test/testData/parser/negative/expressions/ref.c
     &(*a)--
     &((float)*a)
     &(*s).f
-    &(*ps)->f2
+    &(*ps)->f2    
   END

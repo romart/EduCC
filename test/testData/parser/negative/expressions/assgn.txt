@@ -12,5 +12,5 @@ FILE test/testData/parser/negative/expressions/assgn.c
     *a -= 1 = *a
     0 = *a
     *c = *a
-    **pc = *a
+    **pc = *a    
   END

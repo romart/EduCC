@@ -13,9 +13,4 @@ FILE test/testData/parser/negative/incorrectStatements.c
 ----
   signed int
 ----
-  FUN signed int gar 
-    #0: signed int a
-  BEGIN
-    RETURN (signed int)ERROR EXPR
-    ERROR EXPR    
-  END
+  signed int

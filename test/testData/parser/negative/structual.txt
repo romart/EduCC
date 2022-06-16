@@ -13,3 +13,4 @@ FILE test/testData/parser/negative/structual.c
     *STRUCT S1 e1 #8
     *STRUCT S1 u1 #16
   STRUCT_END
+----

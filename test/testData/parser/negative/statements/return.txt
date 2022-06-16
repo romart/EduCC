@@ -6,23 +6,23 @@ FILE test/testData/parser/negative/statements/return.c
   FUN signed int testInt 
     #0: STRUCT S s
   BEGIN
-    RETURN *s
+    RETURN *s    
   END
 ----
   FUN float testFloat 
     #0: *signed int ptr
   BEGIN
-    RETURN *ptr
+    RETURN *ptr    
   END
 ----
   FUN *signed int testPtr 
     #0: float f
   BEGIN
-    RETURN *f
+    RETURN *f    
   END
 ----
   FUN STRUCT S testStruct 
     #0: signed int a
   BEGIN
-    RETURN *a
+    RETURN *a    
   END

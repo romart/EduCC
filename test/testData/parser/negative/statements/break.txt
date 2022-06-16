@@ -7,7 +7,7 @@ FILE test/testData/parser/negative/statements/break.c
   BEGIN
     BREAK
     WHILE (*a)
-      *a = foo(*a)
+      *a = foo(*a)      
     END_WHILE
     BREAK    
   END
@@ -17,7 +17,7 @@ FILE test/testData/parser/negative/statements/break.c
   BEGIN
     BREAK
     DO
-      *a = foo(*a)
+      *a = foo(*a)      
     WHILE (*a)
     BREAK    
   END
@@ -30,7 +30,7 @@ FILE test/testData/parser/negative/statements/break.c
       0
     signed int i
     FOR (*i = 0; *i < *a; *i += 1)
-      *r += foo(*i)
+      *r += foo(*i)      
     END_FOR
     BREAK    
   END
@@ -53,5 +53,5 @@ FILE test/testData/parser/negative/statements/break.c
       BREAK      
     END_SWITCH
     BREAK
-    RETURN *r
+    RETURN *r    
   END

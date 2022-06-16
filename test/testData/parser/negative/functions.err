@@ -8,3 +8,4 @@ test/testData/parser/negative/functions.c:13:18: error: 'void' must be the first
 test/testData/parser/negative/functions.c:15:7: error: unexpected token INT 'int' instead of )
 test/testData/parser/negative/functions.c:15:6: warning: declaration does not declare anything
 test/testData/parser/negative/functions.c:15:1: error: variable has incomplete type 'void'
+test/testData/parser/negative/functions.c:15:12: error: unexpected token { '{' instead of ;

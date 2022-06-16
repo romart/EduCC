@@ -1,4 +1,6 @@
 FILE test/testData/parser/negative/expressions/ternaryOp.c
+  STRUCT S
+----
   signed int i
 ----
   float f
@@ -9,9 +11,7 @@ FILE test/testData/parser/negative/expressions/ternaryOp.c
 ----
   signed int[20] arr
 ----
-  STRUCT S
-----
-  STRUCT S s
+  ERROR TYPE s
 ----
   *STRUCT S ps
 ----
@@ -66,5 +66,5 @@ FILE test/testData/parser/negative/expressions/ternaryOp.c
     *cond ? *ps : *pf
     *cond ? *ps : arr
     *cond ? *ps : *s
-    *cond ? *ps : *ps
+    *cond ? *ps : *ps    
   END
