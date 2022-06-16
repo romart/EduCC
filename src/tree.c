@@ -149,68 +149,6 @@ AstAttribute *createAttribute(ParserContext *ctx, Coordinates *coords, AstAttrib
 
 // declarations
 
-EnumConstant *createEnumConst(ParserContext *ctx, Coordinates *coords, const char* name, int64_const_t value) {
-    EnumConstant* result = (EnumConstant*)areanAllocate(ctx->memory.astArena, sizeof(EnumConstant));
-
-    result->coordinates.left = coords->left;
-    result->coordinates.right = coords->right;
-
-    result->name = name;
-    result->value = value;
-
-    return result;
-}
-
-AstStructMember* createStructMember(ParserContext *ctx, AstDeclaration *declaration, AstStructDeclarator *declarator, EnumConstant *enumerator) {
-    AstStructMember* result = (AstStructMember*)areanAllocate(ctx->memory.astArena, sizeof(AstStructMember));
-
-    if (declaration) {
-        assert(declarator == NULL);
-        assert(enumerator == NULL);
-        result->kind = SM_DECLARATION;
-        result->declaration = declaration;
-    } else if (declarator) {
-        assert(enumerator == NULL);
-        result->kind = SM_DECLARATOR;
-        result->declarator = declarator;
-    } else {
-        result->kind = SM_ENUMERATOR;
-        result->enumerator = enumerator;
-    }
-
-    return result;
-}
-
-
-AstStructDeclarator* createStructDeclarator(ParserContext *ctx, Coordinates *coords, TypeRef *type, const char *name, unsigned offset) {
-    AstStructDeclarator* result = (AstStructDeclarator*)areanAllocate(ctx->memory.astArena, sizeof(AstStructDeclarator));
-
-    result->coordinates.left = coords->left;
-    result->coordinates.right = coords->right;
-
-    result->offset = offset;
-
-    result->name = name;
-    result->typeRef = type;
-
-    return result;
-}
-
-AstSUEDeclaration *createSUEDeclaration(ParserContext *ctx, Coordinates *coords, DeclarationKind kind, Boolean isDefinition, const char *name, AstStructMember *members, int32_t align) {
-    AstSUEDeclaration *result = (AstSUEDeclaration*)areanAllocate(ctx->memory.astArena, sizeof(AstSUEDeclaration));
-
-    result->coordinates.left = coords->left;
-    result->coordinates.right = coords->right;
-
-    result->kind = kind;
-    result->name = name;
-    result->members = members;
-    result->isDefinition = isDefinition;
-    result->align = align;
-
-    return result;
-}
-
 AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, Coordinates *coords, ValueKind kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer) {
     AstValueDeclaration *result = (AstValueDeclaration *)areanAllocate(ctx->memory.astArena, sizeof (AstValueDeclaration));
 
@@ -436,12 +374,12 @@ AstExpression *createVaArgExpression(ParserContext *ctx, Coordinates *coords, As
   return result;
 }
 
-AstExpression *createFieldExpression(ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *receiver, AstStructDeclarator *member) {
+AstExpression *createFieldExpression(ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *receiver, StructualMember *member) {
     AstExpression *result = allocAstExpression(ctx, coords);
     result->op = op;
     result->fieldExpr.recevier = receiver;
     result->fieldExpr.member = member;
-    result->type = member->typeRef;
+    result->type = member->type;
 
     return result;
 }
@@ -574,3 +512,50 @@ AstExpression *deparen(AstExpression *expr) {
   if (expr->op == E_PAREN) return deparen(expr->parened);
   return expr;
 }
+
+
+EnumConstant *createEnumConstant(ParserContext *ctx, Coordinates *coords, const char *name, int32_t v) {
+  EnumConstant *def = areanAllocate(ctx->memory.typeArena, sizeof(EnumConstant));
+
+  def->coordinates.left = coords->left;
+  def->coordinates.right = coords->right;
+
+  def->name = name;
+  def->value = v;
+
+  return def;
+}
+
+StructualMember *createStructualMember(ParserContext *ctx, Coordinates *coords, const char *name, TypeRef *type, int32_t offset) {
+  StructualMember *def = areanAllocate(ctx->memory.typeArena, sizeof(StructualMember));
+
+  def->coordinates.left = coords->left;
+  def->coordinates.right = coords->right;
+
+  def->name = name;
+  def->type = type;
+  def->offset = offset;
+
+  return def;
+}
+
+TypeDefiniton *createTypeDefiniton(ParserContext *ctx, enum TypeDefinitionKind kind, Coordinates *coords, const char *name) {
+  TypeDefiniton *def = areanAllocate(ctx->memory.typeArena, sizeof(TypeDefiniton));
+  def->coordinates = *coords;
+  def->name = name;
+  def->kind = kind;
+  def->scope = ctx->currentScope;
+  return def;
+}
+
+TypeDefiniton *createTypedefDefinition(ParserContext *ctx, Coordinates *coords, const char *name, TypeRef *type) {
+  TypeDefiniton *def = createTypeDefiniton(ctx, TDK_TYPEDEF, coords, name);
+  def->align = typeAlignment(type);
+  def->size = computeTypeSize(type);
+  def->type = type;
+  def->next = ctx->typeDefinitions;
+  ctx->typeDefinitions = def;
+
+  return def;
+}
+

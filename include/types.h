@@ -68,7 +68,7 @@ typedef struct _TypeDesc {
   TypeId typeId;
   int size;
   const char *name;
-  struct _AstSUEDeclaration *structInfo;
+  struct _TypeDefinition *typeDefinition;
 } TypeDesc;
 
 typedef struct _BitFieldTypeDescriptor {

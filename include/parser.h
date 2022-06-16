@@ -158,6 +158,7 @@ typedef struct _ParserContext {
 
     TypeRef *functionReturnType;
     AstValueDeclaration *locals;
+    TypeDefiniton *typeDefinitions;
 
     HashMap *macroMap;
     HashMap *pragmaOnceMap;

@@ -423,7 +423,7 @@ static AstExpression *cannonizeSubExpression(ParserContext *ctx, AstExpression *
   return cannonizeBinaryExpression(ctx, expr);
 }
 
-static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression *receiver, AstStructDeclarator *member, AstExpression *orig, Boolean deBit) {
+static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression *receiver, StructualMember *member, AstExpression *orig, Boolean deBit) {
   AstExpression *offset = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &member->offset);
   offset->type = makePrimitiveType(ctx, T_U8, 0);
 
@@ -431,7 +431,7 @@ static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression
   receiver->type = voidPtrType(ctx);
 
   AstExpression *offsetedPtr = createBinaryExpression(ctx, EB_ADD, receiver->type, receiver, offset);
-  TypeRef *memberType = member->typeRef;
+  TypeRef *memberType = member->type;
   TypeRef *ptrType = NULL;
 
   if (memberType->kind == TR_BITFIELD) {

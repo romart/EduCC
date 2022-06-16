@@ -150,7 +150,7 @@ typedef struct _AstCallExpression {
 
 typedef struct _AstFieldExpression {
     struct _AstExpression* recevier;
-    struct _AstStructDeclarator *member;
+    struct _StructualMember *member;
 } AstFieldExpression;
 
 typedef struct _AstVaArgument {
@@ -254,10 +254,10 @@ typedef struct _AstLoopStatement {
 } AstLoopStatement;
 
 typedef struct _AstForStatement {
-    AstExpression* initial;
+    AstExpression *initial;
     AstExpression *condition;
     AstExpression *modifier;
-    struct _AstStatement* body;
+    struct _AstStatement *body;
 } AstForStatement;
 
 typedef struct _AstJumpStatement {
@@ -369,7 +369,8 @@ typedef enum _DeclaratorScope {
   DS_STATEMENT,
   DS_CAST,
   DS_SIZEOF,
-  DS_VA_ARG
+  DS_VA_ARG,
+  DS_FOR
 } DeclaratorScope;
 
 typedef struct _Declarator {
@@ -383,15 +384,9 @@ typedef struct _Declarator {
 typedef struct _EnumConstant {
     Coordinates coordinates;
     const char* name;
-    int value;
+    int32_t value;
+    struct _EnumConstant *next;
 } EnumConstant;
-
-typedef struct _AstStructDeclarator {
-    Coordinates coordinates;
-    TypeRef *typeRef;
-    const char *name;
-    unsigned offset;
-} AstStructDeclarator;
 
 typedef enum _StructMember {
   SM_DECLARATOR,
@@ -399,39 +394,53 @@ typedef enum _StructMember {
   SM_ENUMERATOR
 } StructMember;
 
-typedef struct _AstStructMember {
-  StructMember kind; // SM_DECLARATOR | SM_DECLARATION
+enum TypeDefinitionKind {
+  TDK_STRUCT,
+  TDK_UNION,
+  TDK_ENUM,
+  TDK_TYPEDEF
+};
+
+typedef struct _StructualMember {
+  Coordinates coordinates;
+  const char *name;
+  TypeRef *type;
+  int32_t offset;
+
+  struct _StructualMember *next;
+} StructualMember;
+
+
+typedef struct _TypeDefinition {
+  Coordinates coordinates;
+  enum TypeDefinitionKind kind;
+  uint32_t isDefined : 1;
+
+  const char *name;
+  int32_t size;
+  int32_t align;
+
+  struct _Scope *scope;
   union {
-    AstStructDeclarator *declarator;
-    struct _AstDeclaration *declaration;
-    EnumConstant *enumerator;
+    EnumConstant *enumerators;
+    StructualMember *members; // struct or enum
+    TypeRef *type;
   };
-  struct _AstStructMember *next;
-} AstStructMember;
+  struct _TypeDefinition *next;
+} TypeDefiniton;
+
 
 typedef enum _DeclarationKind {
-  DK_ENUM,
-  DK_STRUCT,
-  DK_UNION,
-  DK_TYPEDEF,
   DK_VAR,
   DK_PROTOTYPE
 } DeclarationKind;
 
-typedef struct _AstSUEDeclaration { // Struct | Union | Enum declaration
-    Coordinates coordinates;
-    DeclarationKind kind; // DK_UNION | DK_STRUCT | DK_ENUM
-    const char *name;
-    AstStructMember *members; // linked list
-    int32_t align;
-    unsigned isDefinition : 1;
-} AstSUEDeclaration;
 
 typedef struct _DeclarationSpecifiers {
   Coordinates coordinates;
   SpecifierFlags flags;
   TypeRef *basicType;
-  AstSUEDeclaration *defined;
+  TypeDefiniton *definition;
 } DeclarationSpecifiers;
 
 typedef enum _ValueKind {
@@ -479,7 +488,6 @@ typedef struct _AstDeclaration {
   DeclarationKind kind; // DK
   const char *name;
   union {
-    AstSUEDeclaration *structDeclaration; // DK_ENUM | DK_STRUCT | DK_UNION
     struct {
       TypeRef *definedType; // DK_TYPEDEF
       Coordinates coordinates;
@@ -536,13 +544,8 @@ AstAttribute *createAttribute(struct _ParserContext *ctx, Coordinates *coords, A
 AstAttributeList *createAttributeList(struct _ParserContext *ctx, Coordinates *coords, const char *attribName, const char *argument);
 AstIdentifierList *createIdentifierList(struct _ParserContext *ctx, Coordinates *coords, const char *name);
 
-EnumConstant *createEnumConst(struct _ParserContext *ctx, Coordinates *coords, const char* name, int64_const_t value);
-
 AstInitializerList *createAstInitializerList(struct _ParserContext *ctx);
 AstInitializer *createAstInitializer(struct _ParserContext *ctx, Coordinates *coords, InitializerKind kind);
-AstStructDeclarator *createStructDeclarator(struct _ParserContext *ctx, Coordinates *coords, TypeRef *type, const char *name, unsigned offset);
-AstStructMember* createStructMember(struct _ParserContext *ctx, AstDeclaration *declaration, AstStructDeclarator *declarator, EnumConstant *enumerator);
-AstSUEDeclaration *createSUEDeclaration(struct _ParserContext *ctx, Coordinates *coords, DeclarationKind kind, unsigned isDefinition, const char *name, AstStructMember *members, int32_t align);
 AstFunctionDeclaration *createFunctionDeclaration(struct _ParserContext *ctx, Coordinates *coords, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, Boolean isVariadic);
 AstValueDeclaration *createAstValueDeclaration(struct _ParserContext *ctx, Coordinates *coords, ValueKind kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer);
 
@@ -565,7 +568,7 @@ AstExpression *createBinaryExpression(struct _ParserContext *ctx, ExpressionType
 AstExpression *createUnaryExpression(struct _ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *argument);
 AstExpression *createNameRef(struct _ParserContext *ctx, Coordinates *coords, const char *name, struct _Symbol *s);
 AstExpression *createCallExpression(struct _ParserContext *ctx, Coordinates *coords, AstExpression *callee, AstExpressionList *arguments);
-AstExpression *createFieldExpression(struct _ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *receiver, AstStructDeclarator *member);
+AstExpression *createFieldExpression(struct _ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *receiver, StructualMember *member);
 AstExpression *createParenExpression(struct _ParserContext *ctx, Coordinates *coords, AstExpression *parened);
 AstExpression *createLabelRefExpression(struct _ParserContext *ctx, Coordinates *coords, const char *label);
 AstExpression *createErrorExpression(struct _ParserContext *ctx, Coordinates *coords);
@@ -584,4 +587,11 @@ AstStatement *createJumpStatement(struct _ParserContext *ctx, Coordinates *coord
 AstStatement *createEmptyStatement(struct _ParserContext *ctx, Coordinates *coords);
 AstStatement *createErrorStatement(struct _ParserContext *ctx, Coordinates *coords);
 
+
+TypeDefiniton *createTypeDefiniton(struct _ParserContext *ctx, enum TypeDefinitionKind kind, Coordinates *coords, const char *name);
+TypeDefiniton *createTypedefDefinition(struct _ParserContext *ctx, Coordinates *coords, const char *name, TypeRef *type);
+StructualMember *createStructualMember(struct _ParserContext *ctx, Coordinates *coords, const char *name, TypeRef *type, int32_t offset);
+EnumConstant *createEnumConstant(struct _ParserContext *ctx, Coordinates *coords, const char *name, int32_t v);
+
 #endif // __TREE_H__
+
