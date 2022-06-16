@@ -1,2 +1,4 @@
 test/testData/parser/negative/typedefInit.c:2:16: error: illegal initializer (only variables can be initialized)
+test/testData/parser/negative/typedefInit.c:2:18: error: unexpected token I_CONSTANT '10' instead of ;
 test/testData/parser/negative/typedefInit.c:5:17: error: illegal initializer (only variables can be initialized)
+test/testData/parser/negative/typedefInit.c:5:19: error: unexpected token IDENTIFIER 'i' instead of ;

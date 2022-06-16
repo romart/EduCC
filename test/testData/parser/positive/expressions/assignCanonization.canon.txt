@@ -9,6 +9,16 @@ FILE test/testData/parser/positive/expressions/assignCanonization.c
     STRUCT S1[10] as #0
   STRUCT_END
 ----
+  STRUCT S3
+    double d #0
+    unsigned int:0:10 f1 #8
+    unsigned int:10:15 f2 #8
+  STRUCT_END
+----
+  STRUCT S4
+    STRUCT S3[10] as3 #0
+  STRUCT_END
+----
   FUN void testStructValue 
     #0: signed int i
   BEGIN
@@ -38,16 +48,6 @@ FILE test/testData/parser/positive/expressions/assignCanonization.c
     *(*s2 + ((*i += 1) - 1) * 88 + ((*i += 1) - 1) * 4 + 8) -= 40
     *(*s2 + *(*s1 + 4) * 88 + ((*i += 1) - 1) * 4 + 8) *= *(*s2 + *i * 88 + *(*s2 + *(*s1 + 4) * 88 + 4) * 4 + 8)
   END
-----
-  STRUCT S3
-    double d #0
-    unsigned int:0:10 f1 #8
-    unsigned int:10:15 f2 #8
-  STRUCT_END
-----
-  STRUCT S4
-    STRUCT S3[10] as3 #0
-  STRUCT_END
 ----
   FUN void testStructBitField 
     #0: *STRUCT S4 s4

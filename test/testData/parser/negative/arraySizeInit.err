@@ -1,2 +1,2 @@
 test/testData/parser/negative/arraySizeInit.c:2:5: error: definition of variable with array type needs an explicit size or an initializer
-test/testData/parser/negative/arraySizeInit.c:6:3: error: definition of variable with array type needs an explicit size or an initializer
+test/testData/parser/negative/arraySizeInit.c:6:7: error: definition of variable with array type needs an explicit size or an initializer

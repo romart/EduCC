@@ -6,5 +6,5 @@ FILE test/testData/parser/negative/externInit.c
     #0: signed int b
   BEGIN
     E signed int l = \
-      *b
+      *b    
   END

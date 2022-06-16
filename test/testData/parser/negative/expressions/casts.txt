@@ -41,5 +41,5 @@ FILE test/testData/parser/negative/expressions/casts.c
     (STRUCT S)*l
     (float)*l
     (signed long)*f
-    (signed int[20])*pa
+    (signed int[20])*pa    
   END

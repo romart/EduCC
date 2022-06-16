@@ -4,7 +4,7 @@ test/testData/parser/negative/incorrectStatements.c:8:7: error: unexpected token
 test/testData/parser/negative/incorrectStatements.c:8:12: error: unexpected token ; ';' instead of )
 test/testData/parser/negative/incorrectStatements.c:11:1: warning: type specifier missing, defaults to 'int'
 test/testData/parser/negative/incorrectStatements.c:11:1: warning: declaration does not declare anything
-test/testData/parser/negative/incorrectStatements.c:11:1: error: unexpected token } '}' instead of {
-test/testData/parser/negative/incorrectStatements.c:16:15: error: unexpected token ELSE 'else' instead of )
-test/testData/parser/negative/incorrectStatements.c:16:19: error: unexpected token ) ')' instead of ;
-test/testData/parser/negative/incorrectStatements.c:16:20: error: unexpected token IDENTIFIER 'a' instead of ;
+test/testData/parser/negative/incorrectStatements.c:11:1: error: unexpected token } '}' instead of ;
+test/testData/parser/negative/incorrectStatements.c:17:1: warning: type specifier missing, defaults to 'int'
+test/testData/parser/negative/incorrectStatements.c:17:1: warning: declaration does not declare anything
+test/testData/parser/negative/incorrectStatements.c:17:1: error: unexpected token } '}' instead of ;

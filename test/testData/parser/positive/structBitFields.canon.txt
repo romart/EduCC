@@ -14,3 +14,4 @@ FILE test/testData/parser/positive/structBitFields.c
     unsigned long:61:1 uf6 #16
     signed long:0:33 llf #24
   STRUCT_END
+----

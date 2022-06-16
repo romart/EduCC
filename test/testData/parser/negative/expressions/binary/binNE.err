@@ -1,3 +1,7 @@
+test/testData/parser/negative/expressions/binary/binNE.c:11:1: error: variable has incomplete type 'STRUCT S1'
+test/testData/parser/negative/expressions/binary/binNE.c:11:1: error: variable has incomplete type 'STRUCT S1'
+test/testData/parser/negative/expressions/binary/binNE.c:12:1: error: variable has incomplete type 'STRUCT S2'
+test/testData/parser/negative/expressions/binary/binNE.c:12:1: error: variable has incomplete type 'STRUCT S2'
 test/testData/parser/negative/expressions/binary/binNE.c:15:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:16:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:17:3: warning: expression result unused
@@ -12,14 +16,10 @@ test/testData/parser/negative/expressions/binary/binNE.c:22:6: warning: comparis
 test/testData/parser/negative/expressions/binary/binNE.c:22:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:23:6: warning: comparison between pointer and integer ('signed int' and 'signed int[20]')
 test/testData/parser/negative/expressions/binary/binNE.c:23:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:24:6: error: invalid operands to binary expression ('signed int' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:25:6: error: invalid operands to binary expression ('signed int' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:26:6: warning: comparison between pointer and integer ('signed int' and '*STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:26:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:27:6: warning: comparison between pointer and integer ('signed int' and '*STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:27:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:28:6: error: invalid operands to binary expression ('signed int' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:29:6: error: invalid operands to binary expression ('signed int' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:30:6: warning: comparison between pointer and integer ('signed int' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:30:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:31:6: warning: comparison between pointer and integer ('signed int' and '*STRUCT S2')
@@ -38,14 +38,10 @@ test/testData/parser/negative/expressions/binary/binNE.c:39:6: warning: comparis
 test/testData/parser/negative/expressions/binary/binNE.c:39:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:40:6: warning: comparison between pointer and integer ('signed int' and 'signed int[20]')
 test/testData/parser/negative/expressions/binary/binNE.c:40:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:41:6: error: invalid operands to binary expression ('signed int' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:42:6: error: invalid operands to binary expression ('signed int' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:43:6: warning: comparison between pointer and integer ('signed int' and '*STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:43:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:44:6: warning: comparison between pointer and integer ('signed int' and '*STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:44:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:45:6: error: invalid operands to binary expression ('signed int' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:46:6: error: invalid operands to binary expression ('signed int' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:47:6: warning: comparison between pointer and integer ('signed int' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:47:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:48:6: warning: comparison between pointer and integer ('signed int' and '*STRUCT S2')
@@ -59,12 +55,8 @@ test/testData/parser/negative/expressions/binary/binNE.c:54:6: error: invalid op
 test/testData/parser/negative/expressions/binary/binNE.c:55:6: error: invalid operands to binary expression ('float' and '*float')
 test/testData/parser/negative/expressions/binary/binNE.c:56:6: error: invalid operands to binary expression ('float' and 'signed int[20]')
 test/testData/parser/negative/expressions/binary/binNE.c:57:6: error: invalid operands to binary expression ('float' and 'signed int[20]')
-test/testData/parser/negative/expressions/binary/binNE.c:58:6: error: invalid operands to binary expression ('float' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:59:6: error: invalid operands to binary expression ('float' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:60:6: error: invalid operands to binary expression ('float' and '*STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:61:6: error: invalid operands to binary expression ('float' and '*STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:62:6: error: invalid operands to binary expression ('float' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:63:6: error: invalid operands to binary expression ('float' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:64:6: error: invalid operands to binary expression ('float' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:65:6: error: invalid operands to binary expression ('float' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:66:3: warning: expression result unused
@@ -76,12 +68,8 @@ test/testData/parser/negative/expressions/binary/binNE.c:71:6: error: invalid op
 test/testData/parser/negative/expressions/binary/binNE.c:72:6: error: invalid operands to binary expression ('float' and '*float')
 test/testData/parser/negative/expressions/binary/binNE.c:73:6: error: invalid operands to binary expression ('float' and 'signed int[20]')
 test/testData/parser/negative/expressions/binary/binNE.c:74:6: error: invalid operands to binary expression ('float' and 'signed int[20]')
-test/testData/parser/negative/expressions/binary/binNE.c:75:6: error: invalid operands to binary expression ('float' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:76:6: error: invalid operands to binary expression ('float' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:77:6: error: invalid operands to binary expression ('float' and '*STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:78:6: error: invalid operands to binary expression ('float' and '*STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:79:6: error: invalid operands to binary expression ('float' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:80:6: error: invalid operands to binary expression ('float' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:81:6: error: invalid operands to binary expression ('float' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:82:6: error: invalid operands to binary expression ('float' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:83:7: warning: comparison between pointer and integer ('*signed int' and 'signed int')
@@ -96,12 +84,8 @@ test/testData/parser/negative/expressions/binary/binNE.c:88:3: warning: expressi
 test/testData/parser/negative/expressions/binary/binNE.c:89:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:90:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:91:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:92:7: error: invalid operands to binary expression ('*signed int' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:93:7: error: invalid operands to binary expression ('*signed int' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:94:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:95:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:96:7: error: invalid operands to binary expression ('*signed int' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:97:7: error: invalid operands to binary expression ('*signed int' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:98:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:99:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:100:3: warning: expression result unused
@@ -118,14 +102,10 @@ test/testData/parser/negative/expressions/binary/binNE.c:107:7: warning: compari
 test/testData/parser/negative/expressions/binary/binNE.c:107:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:108:7: warning: comparison between pointer and integer ('signed int' and 'signed int[20]')
 test/testData/parser/negative/expressions/binary/binNE.c:108:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:109:7: error: invalid operands to binary expression ('signed int' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:110:7: error: invalid operands to binary expression ('signed int' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:111:7: warning: comparison between pointer and integer ('signed int' and '*STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:111:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:112:7: warning: comparison between pointer and integer ('signed int' and '*STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:112:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:113:7: error: invalid operands to binary expression ('signed int' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:114:7: error: invalid operands to binary expression ('signed int' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:115:7: warning: comparison between pointer and integer ('signed int' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:115:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:116:7: warning: comparison between pointer and integer ('signed int' and '*STRUCT S2')
@@ -142,12 +122,8 @@ test/testData/parser/negative/expressions/binary/binNE.c:122:3: warning: express
 test/testData/parser/negative/expressions/binary/binNE.c:123:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:124:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:125:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:126:7: error: invalid operands to binary expression ('*float' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:127:7: error: invalid operands to binary expression ('*float' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:128:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:129:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:130:7: error: invalid operands to binary expression ('*float' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:131:7: error: invalid operands to binary expression ('*float' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:132:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:133:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:134:7: warning: comparison between pointer and integer ('*float' and 'signed int')
@@ -162,12 +138,8 @@ test/testData/parser/negative/expressions/binary/binNE.c:139:3: warning: express
 test/testData/parser/negative/expressions/binary/binNE.c:140:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:141:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:142:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:143:7: error: invalid operands to binary expression ('*float' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:144:7: error: invalid operands to binary expression ('*float' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:145:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:146:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:147:7: error: invalid operands to binary expression ('*float' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:148:7: error: invalid operands to binary expression ('*float' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:149:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:150:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:151:8: warning: comparison between pointer and integer ('signed int[20]' and 'signed int')
@@ -182,12 +154,8 @@ test/testData/parser/negative/expressions/binary/binNE.c:156:3: warning: express
 test/testData/parser/negative/expressions/binary/binNE.c:157:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:158:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:159:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:160:8: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:161:8: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:162:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:163:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:164:8: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:165:8: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:166:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:167:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:168:8: warning: comparison between pointer and integer ('signed int[20]' and 'signed int')
@@ -202,48 +170,10 @@ test/testData/parser/negative/expressions/binary/binNE.c:173:3: warning: express
 test/testData/parser/negative/expressions/binary/binNE.c:174:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:175:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:176:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:177:8: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:178:8: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:179:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:180:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:181:8: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:182:8: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:183:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:184:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:185:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int')
-test/testData/parser/negative/expressions/binary/binNE.c:186:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int')
-test/testData/parser/negative/expressions/binary/binNE.c:187:7: error: invalid operands to binary expression ('STRUCT S1' and 'float')
-test/testData/parser/negative/expressions/binary/binNE.c:188:7: error: invalid operands to binary expression ('STRUCT S1' and 'float')
-test/testData/parser/negative/expressions/binary/binNE.c:189:7: error: invalid operands to binary expression ('STRUCT S1' and '*signed int')
-test/testData/parser/negative/expressions/binary/binNE.c:190:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int')
-test/testData/parser/negative/expressions/binary/binNE.c:191:7: error: invalid operands to binary expression ('STRUCT S1' and '*float')
-test/testData/parser/negative/expressions/binary/binNE.c:192:7: error: invalid operands to binary expression ('STRUCT S1' and '*float')
-test/testData/parser/negative/expressions/binary/binNE.c:193:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int[20]')
-test/testData/parser/negative/expressions/binary/binNE.c:194:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int[20]')
-test/testData/parser/negative/expressions/binary/binNE.c:195:7: error: invalid operands to binary expression ('STRUCT S1' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:196:7: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:197:7: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:198:7: error: invalid operands to binary expression ('STRUCT S1' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:199:7: error: invalid operands to binary expression ('STRUCT S1' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:200:7: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:201:7: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:202:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int')
-test/testData/parser/negative/expressions/binary/binNE.c:203:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int')
-test/testData/parser/negative/expressions/binary/binNE.c:204:7: error: invalid operands to binary expression ('STRUCT S1' and 'float')
-test/testData/parser/negative/expressions/binary/binNE.c:205:7: error: invalid operands to binary expression ('STRUCT S1' and 'float')
-test/testData/parser/negative/expressions/binary/binNE.c:206:7: error: invalid operands to binary expression ('STRUCT S1' and '*signed int')
-test/testData/parser/negative/expressions/binary/binNE.c:207:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int')
-test/testData/parser/negative/expressions/binary/binNE.c:208:7: error: invalid operands to binary expression ('STRUCT S1' and '*float')
-test/testData/parser/negative/expressions/binary/binNE.c:209:7: error: invalid operands to binary expression ('STRUCT S1' and '*float')
-test/testData/parser/negative/expressions/binary/binNE.c:210:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int[20]')
-test/testData/parser/negative/expressions/binary/binNE.c:211:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int[20]')
-test/testData/parser/negative/expressions/binary/binNE.c:212:7: error: invalid operands to binary expression ('STRUCT S1' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:213:7: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:214:7: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:215:7: error: invalid operands to binary expression ('STRUCT S1' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:216:7: error: invalid operands to binary expression ('STRUCT S1' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:217:7: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:218:7: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:219:8: warning: comparison between pointer and integer ('*STRUCT S1' and 'signed int')
 test/testData/parser/negative/expressions/binary/binNE.c:219:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:220:8: warning: comparison between pointer and integer ('*STRUCT S1' and 'signed int')
@@ -257,11 +187,7 @@ test/testData/parser/negative/expressions/binary/binNE.c:225:3: warning: express
 test/testData/parser/negative/expressions/binary/binNE.c:226:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:227:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:228:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:229:8: error: invalid operands to binary expression ('*STRUCT S1' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:230:8: error: invalid operands to binary expression ('*STRUCT S1' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:231:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:232:8: error: invalid operands to binary expression ('*STRUCT S1' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:233:8: error: invalid operands to binary expression ('*STRUCT S1' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:234:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:235:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:236:8: warning: comparison between pointer and integer ('*STRUCT S1' and 'signed int')
@@ -277,47 +203,9 @@ test/testData/parser/negative/expressions/binary/binNE.c:242:3: warning: express
 test/testData/parser/negative/expressions/binary/binNE.c:243:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:244:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:245:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:246:8: error: invalid operands to binary expression ('*STRUCT S1' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:247:8: error: invalid operands to binary expression ('*STRUCT S1' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:248:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:249:8: error: invalid operands to binary expression ('*STRUCT S1' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:250:8: error: invalid operands to binary expression ('*STRUCT S1' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:251:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:252:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:253:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int')
-test/testData/parser/negative/expressions/binary/binNE.c:254:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int')
-test/testData/parser/negative/expressions/binary/binNE.c:255:7: error: invalid operands to binary expression ('STRUCT S2' and 'float')
-test/testData/parser/negative/expressions/binary/binNE.c:256:7: error: invalid operands to binary expression ('STRUCT S2' and 'float')
-test/testData/parser/negative/expressions/binary/binNE.c:257:7: error: invalid operands to binary expression ('STRUCT S2' and '*signed int')
-test/testData/parser/negative/expressions/binary/binNE.c:258:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int')
-test/testData/parser/negative/expressions/binary/binNE.c:259:7: error: invalid operands to binary expression ('STRUCT S2' and '*float')
-test/testData/parser/negative/expressions/binary/binNE.c:260:7: error: invalid operands to binary expression ('STRUCT S2' and '*float')
-test/testData/parser/negative/expressions/binary/binNE.c:261:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int[20]')
-test/testData/parser/negative/expressions/binary/binNE.c:262:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int[20]')
-test/testData/parser/negative/expressions/binary/binNE.c:263:7: error: invalid operands to binary expression ('STRUCT S2' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:264:7: error: invalid operands to binary expression ('STRUCT S2' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:265:7: error: invalid operands to binary expression ('STRUCT S2' and '*STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:266:7: error: invalid operands to binary expression ('STRUCT S2' and '*STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:267:7: error: invalid operands to binary expression ('STRUCT S2' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:268:7: error: invalid operands to binary expression ('STRUCT S2' and '*STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:269:7: error: invalid operands to binary expression ('STRUCT S2' and '*STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:270:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int')
-test/testData/parser/negative/expressions/binary/binNE.c:271:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int')
-test/testData/parser/negative/expressions/binary/binNE.c:272:7: error: invalid operands to binary expression ('STRUCT S2' and 'float')
-test/testData/parser/negative/expressions/binary/binNE.c:273:7: error: invalid operands to binary expression ('STRUCT S2' and 'float')
-test/testData/parser/negative/expressions/binary/binNE.c:274:7: error: invalid operands to binary expression ('STRUCT S2' and '*signed int')
-test/testData/parser/negative/expressions/binary/binNE.c:275:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int')
-test/testData/parser/negative/expressions/binary/binNE.c:276:7: error: invalid operands to binary expression ('STRUCT S2' and '*float')
-test/testData/parser/negative/expressions/binary/binNE.c:277:7: error: invalid operands to binary expression ('STRUCT S2' and '*float')
-test/testData/parser/negative/expressions/binary/binNE.c:278:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int[20]')
-test/testData/parser/negative/expressions/binary/binNE.c:279:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int[20]')
-test/testData/parser/negative/expressions/binary/binNE.c:280:7: error: invalid operands to binary expression ('STRUCT S2' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:281:7: error: invalid operands to binary expression ('STRUCT S2' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:282:7: error: invalid operands to binary expression ('STRUCT S2' and '*STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:283:7: error: invalid operands to binary expression ('STRUCT S2' and '*STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:284:7: error: invalid operands to binary expression ('STRUCT S2' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:285:7: error: invalid operands to binary expression ('STRUCT S2' and '*STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:286:7: error: invalid operands to binary expression ('STRUCT S2' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:287:8: warning: comparison between pointer and integer ('*STRUCT S2' and 'signed int')
 test/testData/parser/negative/expressions/binary/binNE.c:287:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:288:8: warning: comparison between pointer and integer ('*STRUCT S2' and 'signed int')
@@ -331,12 +219,8 @@ test/testData/parser/negative/expressions/binary/binNE.c:293:3: warning: express
 test/testData/parser/negative/expressions/binary/binNE.c:294:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:295:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:296:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:297:8: error: invalid operands to binary expression ('*STRUCT S2' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:298:8: error: invalid operands to binary expression ('*STRUCT S2' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:299:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:300:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:301:8: error: invalid operands to binary expression ('*STRUCT S2' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:302:8: error: invalid operands to binary expression ('*STRUCT S2' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:303:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:304:8: warning: comparison between pointer and integer ('*STRUCT S2' and 'signed int')
 test/testData/parser/negative/expressions/binary/binNE.c:304:3: warning: expression result unused
@@ -351,10 +235,6 @@ test/testData/parser/negative/expressions/binary/binNE.c:310:3: warning: express
 test/testData/parser/negative/expressions/binary/binNE.c:311:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:312:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:313:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:314:8: error: invalid operands to binary expression ('*STRUCT S2' and 'STRUCT S1')
-test/testData/parser/negative/expressions/binary/binNE.c:315:8: error: invalid operands to binary expression ('*STRUCT S2' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binNE.c:316:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binNE.c:317:3: warning: expression result unused
-test/testData/parser/negative/expressions/binary/binNE.c:318:8: error: invalid operands to binary expression ('*STRUCT S2' and 'STRUCT S2')
-test/testData/parser/negative/expressions/binary/binNE.c:319:8: error: invalid operands to binary expression ('*STRUCT S2' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binNE.c:320:3: warning: expression result unused

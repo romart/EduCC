@@ -1,4 +1,8 @@
 FILE test/testData/parser/negative/expressions/binary/binDiv.c
+  STRUCT S1
+----
+  STRUCT S2
+----
   signed int i1
 ----
   signed int i2
@@ -19,21 +23,17 @@ FILE test/testData/parser/negative/expressions/binary/binDiv.c
 ----
   signed int[20] arr2
 ----
-  STRUCT S1
+  ERROR TYPE s11
 ----
-  STRUCT S2
-----
-  STRUCT S1 s11
-----
-  STRUCT S1 s12
+  ERROR TYPE s12
 ----
   *STRUCT S1 ps11
 ----
   *STRUCT S1 ps12
 ----
-  STRUCT S2 s21
+  ERROR TYPE s21
 ----
-  STRUCT S2 s22
+  ERROR TYPE s22
 ----
   *STRUCT S2 ps21
 ----

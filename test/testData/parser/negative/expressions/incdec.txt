@@ -62,5 +62,5 @@ FILE test/testData/parser/negative/expressions/incdec.c
     a -= 4
     (a)++
     (*incpt)++
-    ERROR EXPR
+    ERROR EXPR    
   END

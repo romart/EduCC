@@ -1,8 +1,10 @@
 FILE test/testData/parser/negative/typedefInit.c
   TYPEDF tl = signed int
 ----
+  TYPEDF l = signed int
+----
   FUN void testf 
     #0: signed int i
   BEGIN
-    TYPEDF l = signed int    
+    
   END

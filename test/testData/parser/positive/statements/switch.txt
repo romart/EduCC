@@ -1,4 +1,13 @@
 FILE test/testData/parser/positive/statements/switch.c
+  ENUM E
+    E1 = -100
+    E2 = -99
+    E3 = -98
+    E4 = -97
+    E5 = -96
+    E6 = -95
+  ENUM_END
+----
   FUN signed int foo 
     #0: signed int a
 ----
@@ -21,15 +30,6 @@ FILE test/testData/parser/positive/statements/switch.c
       DEFAULT: RETURN foo(*v) + bar(*v) + qux(*v)
     END_SWITCH    
   END
-----
-  ENUM E
-    E1 = -100
-    E2 = -99
-    E3 = -98
-    E4 = -97
-    E5 = -96
-    E6 = -95
-  ENUM_END
 ----
   FUN signed int testSwitchEnum 
     #0: ENUM E v

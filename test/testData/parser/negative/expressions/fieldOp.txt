@@ -1,4 +1,8 @@
 FILE test/testData/parser/negative/expressions/fieldOp.c
+  STRUCT S
+    signed int good #0
+  STRUCT_END
+----
   signed int i
 ----
   float f
@@ -9,15 +13,11 @@ FILE test/testData/parser/negative/expressions/fieldOp.c
 ----
   signed int[20] arr
 ----
-  STRUCT S
-    signed int good #0
-  STRUCT_END
-----
   STRUCT S s
 ----
   *STRUCT S ps
 ----
-  FUN void testDot
+  FUN void testDot 
   BEGIN
     ERROR EXPR
     ERROR EXPR
@@ -32,10 +32,10 @@ FILE test/testData/parser/negative/expressions/fieldOp.c
     (*s).good
     ERROR EXPR
     ERROR EXPR
-    ERROR EXPR
+    ERROR EXPR    
   END
 ----
-  FUN void testArrow
+  FUN void testArrow 
   BEGIN
     ERROR EXPR
     ERROR EXPR
@@ -50,5 +50,5 @@ FILE test/testData/parser/negative/expressions/fieldOp.c
     ERROR EXPR
     ERROR EXPR
     (*ps)->good
-    ERROR EXPR
+    ERROR EXPR    
   END

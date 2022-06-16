@@ -1,4 +1,3 @@
 test/testData/parser/negative/incorrectDeclaration1.c:2:1: error: declaration of anonymous struct must be a definition
 test/testData/parser/negative/incorrectDeclaration1.c:2:6: warning: declaration does not declare anything
-test/testData/parser/negative/incorrectDeclaration1.c:2:6: error: unexpected token ELSE 'else' instead of {
-test/testData/parser/negative/incorrectDeclaration1.c:2:11: error: unexpected token { '{' instead of ;
+test/testData/parser/negative/incorrectDeclaration1.c:2:6: error: unexpected token ELSE 'else' instead of ;

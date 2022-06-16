@@ -1,5 +1,5 @@
 FILE test/testData/parser/negative/expressions/numericalConsts.c
-  FUN void testChar
+  FUN void testChar 
   BEGIN
     signed char c1 = \
       24929
@@ -28,10 +28,10 @@ FILE test/testData/parser/negative/expressions/numericalConsts.c
     signed char c14 = \
       12
     signed char c8 = \
-      103
+      103    
   END
 ----
-  FUN void testWchar
+  FUN void testWchar 
   BEGIN
     signed int w1 = \
       (signed int)24929
@@ -48,10 +48,10 @@ FILE test/testData/parser/negative/expressions/numericalConsts.c
     signed int w7 = \
       (signed int)395950175284
     signed int w8 = \
-      (signed int)106
+      (signed int)106    
   END
 ----
-  FUN signed int testInteger
+  FUN signed int testInteger 
   BEGIN
     signed int s = \
       12345465456465
@@ -104,10 +104,10 @@ FILE test/testData/parser/negative/expressions/numericalConsts.c
     unsigned long ull7 = \
       123222464566446222
     unsigned long ull8 = \
-      0
+      0    
   END
 ----
-  FUN signed int testFloatingPoint
+  FUN signed int testFloatingPoint 
   BEGIN
     float f1 = \
       123564564654564545468039168.000000
@@ -118,5 +118,5 @@ FILE test/testData/parser/negative/expressions/numericalConsts.c
     double d2 = \
       431.000000
     double d3 = \
-      431.000000
+      431.000000    
   END

@@ -12,7 +12,7 @@ FILE test/testData/parser/negative/incorrectStorageSpec.c
     signed int c = \
       (signed int)*f
     signed int d = \
-      (signed int)*f
+      (signed int)*f    
   END
 ----
   FUN void testP 

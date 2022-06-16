@@ -1,4 +1,8 @@
 FILE test/testData/parser/positive/statements/return.c
+  STRUCT S
+    signed int b #0
+  STRUCT_END
+----
   FUN signed int testInt 
     #0: signed int a
   BEGIN
@@ -16,10 +20,6 @@ FILE test/testData/parser/positive/statements/return.c
   BEGIN
     RETURN *ptr
   END
-----
-  STRUCT S
-    signed int b #0
-  STRUCT_END
 ----
   FUN STRUCT S testStruct 
     #0: STRUCT S v

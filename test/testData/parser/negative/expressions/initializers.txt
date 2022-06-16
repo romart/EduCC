@@ -11,6 +11,49 @@ FILE test/testData/parser/negative/expressions/initializers.c
     STRUCT S[2] as #32
   STRUCT_END
 ----
+  STRUCT <anon$0>
+    signed int a #0
+    signed int b #4
+    signed short c #8
+    signed char d #10
+  STRUCT_END
+----
+  TYPEDF Ty4 = STRUCT <anon$0>
+----
+  STRUCT <anon$1>
+    signed int a #0
+    float b #4
+    double c #8
+  STRUCT_END
+----
+  TYPEDF Ty5 = STRUCT <anon$1>
+----
+  STRUCT <anon$2>
+    unsigned char[3] a #0
+  STRUCT_END
+----
+  TYPEDF Ty6 = STRUCT <anon$2>
+----
+  STRUCT <anon$3>
+    signed long a #0
+    signed long b #8
+    signed long c #16
+  STRUCT_END
+----
+  TYPEDF Ty7 = STRUCT <anon$3>
+----
+  STRUCT <anon$4>
+    unsigned char[10] a #0
+  STRUCT_END
+----
+  TYPEDF Ty20 = STRUCT <anon$4>
+----
+  STRUCT <anon$5>
+    unsigned char[20] a #0
+  STRUCT_END
+----
+  TYPEDF Ty21 = STRUCT <anon$5>
+----
   STRUCT S s0
 ----
   STRUCT S s1 = \
@@ -338,49 +381,6 @@ FILE test/testData/parser/negative/expressions/initializers.c
   E signed int eei = \
     20
 ----
-  STRUCT <anon$0>
-    signed int a #0
-    signed int b #4
-    signed short c #8
-    signed char d #10
-  STRUCT_END
-----
-  TYPEDF Ty4 = STRUCT <anon$0>
-----
-  STRUCT <anon$1>
-    signed int a #0
-    float b #4
-    double c #8
-  STRUCT_END
-----
-  TYPEDF Ty5 = STRUCT <anon$1>
-----
-  STRUCT <anon$2>
-    unsigned char[3] a #0
-  STRUCT_END
-----
-  TYPEDF Ty6 = STRUCT <anon$2>
-----
-  STRUCT <anon$3>
-    signed long a #0
-    signed long b #8
-    signed long c #16
-  STRUCT_END
-----
-  TYPEDF Ty7 = STRUCT <anon$3>
-----
-  STRUCT <anon$4>
-    unsigned char[10] a #0
-  STRUCT_END
-----
-  TYPEDF Ty20 = STRUCT <anon$4>
-----
-  STRUCT <anon$5>
-    unsigned char[20] a #0
-  STRUCT_END
-----
-  TYPEDF Ty21 = STRUCT <anon$5>
-----
   STRUCT <anon$0> r1 = \
     INIT_BEGIN
       signed int #0 <--- 10
@@ -449,9 +449,9 @@ FILE test/testData/parser/negative/expressions/initializers.c
 ----
   E signed int[-1] eintarr
 ----
-  FUN signed int fox
+  FUN signed int fox 
   BEGIN
-
+    
   END
 ----
   *void fptr = \

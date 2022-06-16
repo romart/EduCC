@@ -1,4 +1,17 @@
 FILE test/testData/parser/negative/statements/switch.c
+  ENUM E
+    E1 = -100
+    E2 = -99
+    E3 = -98
+    E4 = -97
+    E5 = -96
+    E6 = -95
+  ENUM_END
+----
+  STRUCT SX
+    signed int a #0
+  STRUCT_END
+----
   FUN signed int foo 
     #0: signed int a
 ----
@@ -22,18 +35,9 @@ FILE test/testData/parser/negative/statements/switch.c
       CASE 6: RETURN qux(*v) + foo(*v)
       CASE 6: RETURN foo(*v) + qux(*v)
       DEFAULT: RETURN foo(*v) + bar(*v) + qux(*v)
-      DEFAULT: RETURN foo(*v) + bar(*v) + qux(*v)
+      DEFAULT: RETURN foo(*v) + bar(*v) + qux(*v)      
     END_SWITCH    
   END
-----
-  ENUM E
-    E1 = -100
-    E2 = -99
-    E3 = -98
-    E4 = -97
-    E5 = -96
-    E6 = -95
-  ENUM_END
 ----
   FUN signed int testSwitchEnumNegative 
     #0: ENUM E v
@@ -47,7 +51,7 @@ FILE test/testData/parser/negative/statements/switch.c
       CASE -97: RETURN foo(*v) + bar(*v)
       CASE -96: RETURN bar(*v) + qux(*v)
       CASE -95: RETURN qux(*v) + foo(*v)
-      DEFAULT: RETURN foo(*v) + bar(*v) + qux(*v)
+      DEFAULT: RETURN foo(*v) + bar(*v) + qux(*v)      
     END_SWITCH    
   END
 ----
@@ -58,9 +62,9 @@ FILE test/testData/parser/negative/statements/switch.c
     CASE 0: RETURN bar(*b)
     SWITCH (*v)
       CASE 1: RETURN foo(*b * *b)
-      CASE 2: RETURN foo(*b * *b * *b)
+      CASE 2: RETURN foo(*b * *b * *b)      
     END_SWITCH
-    CASE 4: RETURN qux(*b)
+    CASE 4: RETURN qux(*b)    
   END
 ----
   FUN signed int testDefaultOutOfSwitch 
@@ -69,9 +73,9 @@ FILE test/testData/parser/negative/statements/switch.c
   BEGIN
     SWITCH (*v)
       CASE 1: RETURN foo(*b * *b)
-      CASE 2: RETURN foo(*b * *b * *b)
+      CASE 2: RETURN foo(*b * *b * *b)      
     END_SWITCH
-    DEFAULT: RETURN qux(*b)
+    DEFAULT: RETURN qux(*b)    
   END
 ----
   FUN signed int testSwitchArgFloat 
@@ -79,19 +83,15 @@ FILE test/testData/parser/negative/statements/switch.c
     #1: STRUCT SX sa
   BEGIN
     SWITCH (*a)
-      DEFAULT: (signed int)*a
+      DEFAULT: (signed int)*a      
     END_SWITCH    
   END
-----
-  STRUCT SX
-    signed int a #0
-  STRUCT_END
 ----
   FUN signed int testSwitchArgStruct 
     #0: STRUCT SX sa
   BEGIN
     SWITCH (*sa)
-      DEFAULT: (*sa).a
+      DEFAULT: (*sa).a      
     END_SWITCH    
   END
 ----
@@ -99,6 +99,6 @@ FILE test/testData/parser/negative/statements/switch.c
     #0: *signed int pa
   BEGIN
     SWITCH (*pa)
-      DEFAULT: **pa
+      DEFAULT: **pa      
     END_SWITCH    
   END

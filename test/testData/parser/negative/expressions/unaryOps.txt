@@ -1,4 +1,8 @@
 FILE test/testData/parser/negative/expressions/unaryOps.c
+  STRUCT S
+    signed int x #0
+  STRUCT_END
+----
   signed int i
 ----
   float f
@@ -8,10 +12,6 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
   *float pf
 ----
   signed int[20] arr
-----
-  STRUCT S
-    signed int x #0
-  STRUCT_END
 ----
   STRUCT S s
 ----
@@ -30,7 +30,7 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
     arr
     s
     ps
-    vp
+    vp    
   END
 ----
   FUN void testStar 
@@ -42,7 +42,7 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
     *arr
     **s
     **ps
-    **vp
+    **vp    
   END
 ----
   FUN void testPlus 
@@ -54,7 +54,7 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
     +arr
     +*s
     +*ps
-    +*vp
+    +*vp    
   END
 ----
   FUN void testMinus 
@@ -66,7 +66,7 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
     -arr
     -*s
     -*ps
-    -*vp
+    -*vp    
   END
 ----
   FUN void testExl 
@@ -78,7 +78,7 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
     !arr
     !*s
     !*ps
-    !*vp
+    !*vp    
   END
 ----
   FUN void testTilda 
@@ -90,7 +90,7 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
     ~arr
     ~*s
     ~*ps
-    ~*vp
+    ~*vp    
   END
 ----
   FUN void testInc 
@@ -102,7 +102,7 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
     ERROR EXPR
     ERROR EXPR
     *ps += 4
-    *vp += 1
+    *vp += 1    
   END
 ----
   FUN void testDec 
@@ -114,5 +114,5 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
     ERROR EXPR
     ERROR EXPR
     *ps -= 4
-    *vp -= 1
+    *vp -= 1    
   END

@@ -1,4 +1,3 @@
 test/testData/parser/negative/incorrectDeclaration2.c:2:1: warning: type specifier missing, defaults to 'int'
 test/testData/parser/negative/incorrectDeclaration2.c:2:1: warning: declaration does not declare anything
-test/testData/parser/negative/incorrectDeclaration2.c:2:1: error: unexpected token / '/' instead of {
-test/testData/parser/negative/incorrectDeclaration2.c:2:3: error: unexpected token IDENTIFIER 'TODO' instead of ;
+test/testData/parser/negative/incorrectDeclaration2.c:2:1: error: unexpected token / '/' instead of ;

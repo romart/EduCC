@@ -1,4 +1,8 @@
 FILE test/testData/parser/negative/expressions/arrayOp.c
+  STRUCT S
+    signed int good #0
+  STRUCT_END
+----
   signed int i
 ----
   float f
@@ -8,10 +12,6 @@ FILE test/testData/parser/negative/expressions/arrayOp.c
   *float pf
 ----
   signed int[20] arr
-----
-  STRUCT S
-    signed int good #0
-  STRUCT_END
 ----
   STRUCT S s
 ----
@@ -67,5 +67,5 @@ FILE test/testData/parser/negative/expressions/arrayOp.c
     (*ps)[*pf]
     (*ps)[arr]
     (*ps)[*s]
-    (*ps)[*ps]
+    (*ps)[*ps]    
   END

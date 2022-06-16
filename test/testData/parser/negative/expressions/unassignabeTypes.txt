@@ -15,8 +15,8 @@ FILE test/testData/parser/negative/expressions/unassignabeTypes.c
   BEGIN
     signed int i
     float f
-    STRUCT S1 s1
-    STRUCT S2 s2
+    ERROR TYPE s1
+    ERROR TYPE s2
     signed int[20] arr
     *signed int pi
     *float fp
