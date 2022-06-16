@@ -37,6 +37,57 @@ static int wrapIfNeeded(FILE *output, ExpressionType topOp, AstExpression *arg, 
   return result;
 }
 
+static char *esaceString(const char *s) {
+  StringBuffer sb = { 0 };
+
+  unsigned i = 0;
+  while (s[i]) {
+      char c = s[i++];
+      switch (c) {
+      case '\n':
+          putSymbol(&sb, '\\');
+          putSymbol(&sb, 'n');
+          break;
+      case '\t':
+          putSymbol(&sb, '\\');
+          putSymbol(&sb, 't');
+          break;
+      case '\\':
+          putSymbol(&sb, '\\');
+          putSymbol(&sb, '\\');
+          break;
+      case '\a':
+          putSymbol(&sb, '\\');
+          putSymbol(&sb, 'a');
+          break;
+      case '\b':
+          putSymbol(&sb, '\\');
+          putSymbol(&sb, 'b');
+          break;
+      case '\f':
+          putSymbol(&sb, '\\');
+          putSymbol(&sb, 'f');
+          break;
+      case '\r':
+          putSymbol(&sb, '\\');
+          putSymbol(&sb, 'r');
+          break;
+      case '\v':
+          putSymbol(&sb, '\\');
+          putSymbol(&sb, 'v');
+          break;
+      case '?':
+          putSymbol(&sb, '\\');
+          putSymbol(&sb, '?');
+          break;
+      default:
+          putSymbol(&sb, c);
+      }
+  }
+  putSymbol(&sb, '\0');
+  return sb.ptr;
+}
+
 static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) {
   int result = putIndent(output, indent);
 
@@ -50,7 +101,12 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
         switch (cnts->op) {
         case CK_INT_CONST: result += fprintf(output, "%lld", cnts->i); break;
         case CK_FLOAT_CONST: result += fprintf(output, "%Lf", cnts->f); break;
-        case CK_STRING_LITERAL: result += fprintf(output, "\"%s\"", cnts->l); break;
+        case CK_STRING_LITERAL: {
+            char *escaped = esaceString(cnts->l);
+            result += fprintf(output, "\"%s\"", escaped);
+            releaseHeap(escaped);
+            break;
+          }
         }
         break;
     }
