@@ -1,0 +1,30 @@
+FILE test/testData/parser/negative/statements/for.c
+  FUN void foo 
+    #0: *C signed char
+    ## ...
+----
+  FUN signed int test1 
+  BEGIN
+    FOR (S signed int Count = \
+  1; *Count <= 10; (*Count)++)
+
+    END_FOR
+    RETURN 0    
+  END
+----
+  FUN signed int test2 
+  BEGIN
+    FOR (E signed int Count = \
+  1; *Count <= 10; (*Count)++)
+
+    END_FOR
+    RETURN 0    
+  END
+----
+  FUN signed int test3 
+  BEGIN
+    FOR (signed int Count; *Count <= 10; (*Count)++)
+
+    END_FOR
+    RETURN 0    
+  END

@@ -1,0 +1,23 @@
+FILE test/testData/parser/positive/statements/for.c
+  FUN void foo 
+    #0: *C signed char
+    ## ...
+----
+  FUN signed int test1 
+  BEGIN
+    FOR (signed int Count = \
+  1; *Count <= 10; (*Count)++)
+      foo("%d\n", (signed long)*Count)      
+    END_FOR
+    RETURN 0    
+  END
+----
+  FUN signed int test1 
+    #0: signed int a
+  BEGIN
+    FOR (signed int a = \
+  1; *a <= 10; (*a)++)
+      foo("%d\n", (signed long)*a)      
+    END_FOR
+    RETURN 0    
+  END

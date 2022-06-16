@@ -1,0 +1,4 @@
+test/testData/parser/negative/statements/for.c:5:9: error: declaration of non-local variable in 'for' loop
+test/testData/parser/negative/statements/for.c:13:9: error: declaration of non-local variable in 'for' loop
+test/testData/parser/negative/statements/for.c:13:20: error: 'extern' variable cannot have an initializer
+test/testData/parser/negative/statements/for.c:21:9: error: non-variable declaration in 'for' loop
