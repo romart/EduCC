@@ -472,7 +472,7 @@ AstStatement *createLoopStatement(ParserContext *ctx, Coordinates *coords, State
     return result;
 }
 
-AstStatement *createForStatement(ParserContext *ctx, Coordinates *coords, AstExpression* init, AstExpression *cond, AstExpression *modifier, AstStatement *body) {
+AstStatement *createForStatement(ParserContext *ctx, Coordinates *coords, AstStatement* init, AstExpression *cond, AstExpression *modifier, AstStatement *body) {
     AstStatement *result = allocAstStatement(ctx, coords);
 
     result->statementKind = SK_FOR;

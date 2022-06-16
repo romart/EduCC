@@ -3026,7 +3026,7 @@ static int generateLoopStatement(GenerationContext *ctx, GeneratedFunction *f, A
 
 static int generateForStatement(GenerationContext *ctx, GeneratedFunction *f, AstForStatement *stmt, Scope *scope, size_t frameOffset) {
   if (stmt->initial) {
-      generateExpression(ctx, f, scope, stmt->initial);
+      generateStatement(ctx, f, stmt->initial, scope, frameOffset);
   }
 
   struct Label loopHead = { 0 }, loopTail = { 0 }, continueLabel = { 0 };
