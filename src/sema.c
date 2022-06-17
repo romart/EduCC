@@ -1161,21 +1161,6 @@ static AstExpression *parenIfNeeded(ParserContext *ctx, AstExpression *expr) {
   }
 }
 
-enum ParsedLoc {
-  PL_OPEN,
-  PL_INNER,
-  PL_CLOSE,
-  PL_SEPARATOR
-};
-
-typedef struct _ParsedInitializer {
-  Coordinates coords;
-  AstExpression *expression;
-  int32_t level;
-  enum ParsedLoc loc;
-  struct _ParsedInitializer *next;
-} ParsedInitializer;
-
 static AstInitializer *finalizeInitializerInternal(ParserContext *ctx, TypeRef *valueType, ParsedInitializer *initializer, ParsedInitializer **next, int32_t offset, Boolean isTopLevel);
 
 static AstInitializer *fillInitializer(ParserContext *ctx, Coordinates *coords, TypeRef *type, int32_t offset) {
@@ -1359,7 +1344,6 @@ static AstInitializer *finalizeStructInitializer(ParserContext *ctx, TypeRef *ty
 
 static AstInitializerList *createSymbolInitNode(ParserContext *ctx, Coordinates *_coords, TypeRef *type, int64_t c, int32_t offset) {
 
-//  int64_t c = s[i];
   AstExpression *expr = createAstConst(ctx, _coords, CK_INT_CONST, &c);
   expr->type = type;
 
@@ -1593,11 +1577,11 @@ static AstInitializer *finalizeScalarInitializer(ParserContext *ctx, TypeRef *ty
               reported = TRUE;
             }
 
-            initializer = initializer->next;
             if (prev->level == level && prev->loc == PL_CLOSE) {
                 initializer = initializer->next;
                 break;
             }
+            initializer = initializer->next;
           }
           *next = initializer;
       }
@@ -1643,24 +1627,6 @@ static AstInitializer *finalizeScalarInitializer(ParserContext *ctx, TypeRef *ty
   return new;
 }
 
-static int32_t countElementsIn(ParsedInitializer *parsed) {
-  int32_t levelElems = 0;
-  int32_t levelBrakets = 0;
-  int32_t level = parsed->level;
-
-  Boolean skipping = FALSE;
-
-  for (; parsed && parsed->level >= level; parsed = parsed->next) {
-      if (parsed->level == level && parsed->expression) {
-          ++levelElems;
-      } else if (parsed->level == level + 1 && parsed->loc == PL_OPEN) {
-          ++levelElems;
-      }
-  }
-
-  return levelElems;
-}
-
 static AstInitializer *finalizeInitializerInternal(ParserContext *ctx, TypeRef *valueType, ParsedInitializer *initializer, ParsedInitializer **next, int32_t offset, Boolean isTopLevel) {
   Coordinates *coords = &initializer->coords;
   if (isErrorType(valueType)) {
@@ -1689,51 +1655,7 @@ static AstInitializer *finalizeInitializerInternal(ParserContext *ctx, TypeRef *
   return finalizeScalarInitializer(ctx, valueType, initializer, next, offset, isTopLevel);
 }
 
-static ParsedInitializer *allocParsedInitializer(ParserContext *ctx, Coordinates *coords, AstExpression *expr, int32_t level, enum ParsedLoc loc)  {
-  ParsedInitializer *p = areanAllocate(ctx->memory.astArena, sizeof(ParsedInitializer));
-
-  p->coords = *coords;
-  p->expression = expr;
-  p->level = level;
-  p->loc = loc;
-
-  return p;
-}
-
-static ParsedInitializer *flatInitializer(ParserContext *ctx, AstInitializer *init, int32_t level, ParsedInitializer **next) {
-
-  if (init->kind == IK_EXPRESSION) {
-      return *next = allocParsedInitializer(ctx, &init->coordinates, init->expression, level, PL_INNER);
-  } else {
-      ParsedInitializer head = { 0 };
-      ParsedInitializer *current = &head;
-      Coordinates coords = init->coordinates;
-
-      coords.left = coords.right = init->coordinates.left;
-
-      current = current->next = allocParsedInitializer(ctx, &coords, NULL, level + 1, PL_OPEN);
-
-      AstInitializerList *inits = init->initializerList;
-
-      for (;inits; inits = inits->next) {
-          ParsedInitializer *next = NULL;
-          current->next = flatInitializer(ctx, inits->initializer, level + 1, &next);
-          current = next;
-      }
-
-      coords.left = coords.right = init->coordinates.right;
-      current = current->next = allocParsedInitializer(ctx, &coords, NULL, level + 1, PL_CLOSE);
-
-      *next = current->next = allocParsedInitializer(ctx, &coords, NULL, level, PL_SEPARATOR);
-      return head.next;
-  }
-}
-
-AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstInitializer *init, Boolean isTopLevel) {
-  ParsedInitializer *dummy;
-  // TODO: parse tokens into ParsedInitializer initially
-  ParsedInitializer *parsed = flatInitializer(ctx, init, 0, &dummy);
-
+AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, ParsedInitializer *parsed, Boolean isTopLevel) {
   AstExpression *expr = parsed->expression;
 
   if (valueType->kind == TR_ARRAY && expr) {
@@ -1760,7 +1682,7 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, AstI
       }
   }
 
-  return finalizeInitializerInternal(ctx, valueType, parsed, &dummy, 0, isTopLevel);
+  return finalizeInitializerInternal(ctx, valueType, parsed, &parsed, 0, isTopLevel);
 }
 
 AstExpression *transformTernaryExpression(ParserContext *ctx, AstExpression *expr) {
