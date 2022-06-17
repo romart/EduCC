@@ -1928,10 +1928,10 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
                   reportDiagnostic(ctx, DIAG_UNKNOWN_TYPE_NAME, &c2, name);
               } else {
                   specifiers->basicType = s->typeref;
+                  seenTypeSpecifier = TRUE;
               }
 
-              nextToken(ctx);
-              goto almost_done;
+              break;
             } else {
               // IDENTIFICATOR in declarator position should be treaten as an ID
               ctx->token->code = IDENTIFIER;
@@ -1939,7 +1939,7 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
         }
         default: {
             Boolean isError = FALSE;
-            if (!(tss || tsw || tst)) {
+            if (specifiers->basicType == NULL && !(tss || tsw || tst)) {
               if (scope != DS_CAST && scope != DS_VA_ARG && scope != DS_STRUCT && scope != DS_SIZEOF) {
                 reportDiagnostic(ctx, DIAG_MISSING_TYPE_SPECIFIER, &c2);
                 tst = TST_INT;
@@ -1948,7 +1948,9 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
                 isError = TRUE;
               }
             }
-            specifiers->basicType = isError ? makeErrorRef(ctx) : makeBasicType(ctx, computePrimitiveTypeDescriptor(ctx, tsw, tsw_s, tss, tss_s, tst, tst_s), specifiers->flags.storage);
+            if (!specifiers->basicType) {
+              specifiers->basicType = isError ? makeErrorRef(ctx) : makeBasicType(ctx, computePrimitiveTypeDescriptor(ctx, tsw, tsw_s, tss, tss_s, tst, tst_s), specifiers->flags.storage);
+            }
 
         almost_done:
             specifiers->flags.bits.isExternal = scs == SCS_EXTERN;
