@@ -333,6 +333,12 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
               coords.right = ctx->token;
               consume(ctx, ')');
               return va_arg_expression(ctx, &coords, valist, vatype);
+            } else if (strcmp("__FUNCTION__", ctx->token->id) == 0) {
+              nextToken(ctx);
+              const char *funName = ctx->parsingFunction->name;
+              result = createAstConst(ctx, &coords, CK_STRING_LITERAL, &funName);
+              result->type = makeArrayType(ctx, strlen(funName) + 1, makePrimitiveType(ctx, T_S1, 0));
+              return result;
             } else {
               result = resolveNameRef(ctx);
             }
@@ -2562,9 +2568,10 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         consume(ctx, ';');
         stmt = createJumpStatement(ctx, &coords, SK_RETURN);
         if (expr) {
-          if (isAssignableTypes(ctx, &coords, ctx->functionReturnType, expr->type, expr, FALSE)) {
-            if (!typesEquals(ctx->functionReturnType, expr->type)) {
-                expr = createCastExpression(ctx, &coords, ctx->functionReturnType, expr);
+          TypeRef *returnType = ctx->parsingFunction->returnType;
+          if (isAssignableTypes(ctx, &coords, returnType, expr->type, expr, FALSE)) {
+            if (!typesEquals(returnType, expr->type)) {
+                expr = createCastExpression(ctx, &coords, returnType, expr);
             }
           }
         }
@@ -2836,9 +2843,9 @@ static AstTranslationUnit *parseFunctionDeclaration(ParserContext *ctx, Declarat
 
   AstValueDeclaration *va_area_var = NULL;
   ctx->locals = NULL;
-  ctx->functionReturnType = returnType;
   ctx->stateFlags.returnStructBuffer = 0;
   ctx->currentScope = functionScope;
+  ctx->parsingFunction = declaration;
 
   if (declaration->isVariadic) {
       TypeRef *vatype = makeArrayType(ctx, 4 + 6 + 8, makePrimitiveType(ctx, T_U8, 0));
@@ -2850,7 +2857,7 @@ static AstTranslationUnit *parseFunctionDeclaration(ParserContext *ctx, Declarat
 
   AstStatement *body = parseFunctionBody(ctx);
   verifyLabels(ctx);
-  ctx->functionReturnType = NULL;
+  ctx->parsingFunction = NULL;
   ctx->currentScope = functionScope->parent;
 
   AstFunctionDefinition *definition = createFunctionDefinition(ctx, declaration, functionScope, body);
