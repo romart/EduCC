@@ -147,12 +147,12 @@ static Hideset *hidesetIntersection(ParserContext *ctx, Hideset *hs1, Hideset *h
   return head.next;
 }
 
-static Token *addHideset(ParserContext *ctx, const Token *body, Hideset *hs) {
+static Token *addHideset(ParserContext *ctx, Token *body, Hideset *hs, Boolean doCopy) {
   Token head = { 0 };
   Token *cur = &head;
 
   for (; body; body = body->next) {
-      Token *t = copyToken(ctx, body);
+      Token *t = doCopy ? copyToken(ctx, body) : body;
       t->hs = hidesetUnion(ctx, body->hs, hs);
       cur = cur->next = t;
   }
@@ -544,7 +544,7 @@ static Boolean expandMacro(ParserContext *ctx, Token *macro, Token **next, Boole
   Token *body = def->body;
 
   if (!def->isFunctional) {
-      body = addHideset(ctx, body, evalhs);
+      body = addHideset(ctx, body, evalhs, TRUE);
   }
 
   Token evalHead = { 0 };
@@ -725,7 +725,7 @@ static Boolean expandMacro(ParserContext *ctx, Token *macro, Token **next, Boole
   }
 
   if (def->isFunctional) {
-    evalHead.next = addHideset(ctx, evalHead.next, evalhs);
+    evalHead.next = addHideset(ctx, evalHead.next, evalhs, FALSE);
   }
 
   if (evalHead.next) {
