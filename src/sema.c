@@ -764,7 +764,7 @@ TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, Coordinates *coords, Ty
       return computeTypeForDerefOperator(ctx, coords, argumentType);
     case EU_EXL:   // !a
       if (isScalarType(argumentType) || argumentType->kind == TR_BITFIELD) {
-           return argumentType;
+          return makePrimitiveType(ctx, T_S4, 0);
       } else {
           reportDiagnostic(ctx, DIAG_INVALID_UNARY_ARGUMENT, coords, argumentType);
           return makeErrorRef(ctx);
@@ -2140,11 +2140,10 @@ static int existedValueProcessor(ParserContext *ctx, Symbol *s, void *value) {
   TypeRef *newType = newValue->type;
 
   if (typesEquals(oldType, newType)) {
-      if (oldValue->flags.bits.isExternal || newValue->flags.bits.isExternal) {
-          // TODO: link declarations to list
-
-      } else {
+      if (oldValue->flags.bits.isLocal && oldValue->flags.bits.isLocal) {
           reportDiagnostic(ctx, DIAG_MEMBER_REDEFINITION, &newValue->coordinates, s->name, newType, oldType);
+      } else {
+          // TODO: link declarations to list
       }
   } else {
       Coordinates coords = { ctx->token, ctx->token };
