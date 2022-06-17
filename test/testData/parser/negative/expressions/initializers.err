@@ -1,38 +1,29 @@
+test/testData/parser/negative/expressions/initializers.c:7:25: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:8:27: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:9:27: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:11:31: warning: excess elements in scalar initializer
 test/testData/parser/negative/expressions/initializers.c:14:21: error: assigning to 'float' from incompatible type '*void'
-test/testData/parser/negative/expressions/initializers.c:14:35: error: assigning to '*signed int' from incompatible type 'C float'
+test/testData/parser/negative/expressions/initializers.c:14:35: warning: excess elements in scalar initializer
 test/testData/parser/negative/expressions/initializers.c:15:23: error: assigning to 'float' from incompatible type '*void'
-test/testData/parser/negative/expressions/initializers.c:15:33: error: assigning to '*signed int' from incompatible type 'C float'
-test/testData/parser/negative/expressions/initializers.c:15:39: warning: incompatible integer to pointer conversion assigning to '*signed int' from 'C signed int'
+test/testData/parser/negative/expressions/initializers.c:15:33: warning: excess elements in scalar initializer
 test/testData/parser/negative/expressions/initializers.c:15:55: error: assigning to '*signed int' from incompatible type 'C float'
-test/testData/parser/negative/expressions/initializers.c:15:61: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:15:61: warning: incompatible pointer types assigning to '*signed int' from 'signed char[4]'
 test/testData/parser/negative/expressions/initializers.c:19:22: error: initializer element is not a compile-time constant
-test/testData/parser/negative/expressions/initializers.c:24:29: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:24:32: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:24:35: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:24:40: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:24:47: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:24:53: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:25:17: error: array initializer must be an initializer list
-test/testData/parser/negative/expressions/initializers.c:25:20: error: array initializer must be an initializer list
-test/testData/parser/negative/expressions/initializers.c:25:26: error: array initializer must be an initializer list
-test/testData/parser/negative/expressions/initializers.c:25:29: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:24:24: warning: excess elements in scalar initializer
 test/testData/parser/negative/expressions/initializers.c:25:34: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:25:37: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:25:40: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:25:45: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:25:52: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:25:59: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:31:34: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:32:34: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:36:11: error: assigning to 'float' from incompatible type '*signed int'
-test/testData/parser/negative/expressions/initializers.c:36:1: error: redefinition of 'f' with a different type: 'float' vs 'signed int[9]'
+test/testData/parser/negative/expressions/initializers.c:30:24: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:31:24: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:32:24: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:36:12: error: assigning to 'float' from incompatible type '*signed int'
 test/testData/parser/negative/expressions/initializers.c:37:5: error: definition of variable with array type needs an explicit size or an initializer
 test/testData/parser/negative/expressions/initializers.c:38:14: error: array initializer must be an initializer list
 test/testData/parser/negative/expressions/initializers.c:45:1: error: variable has incomplete type 'void'
-test/testData/parser/negative/expressions/initializers.c:46:28: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:46:31: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:46:38: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:46:43: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:46:19: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:46:23: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:47:14: error: scalar initializer cannot be empty
+test/testData/parser/negative/expressions/initializers.c:47:17: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:47:21: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:47:28: warning: excess elements in scalar initializer
 test/testData/parser/negative/expressions/initializers.c:49:15: error: assigning to '*signed int' from incompatible type 'C float'
 test/testData/parser/negative/expressions/initializers.c:49:21: error: assigning to '*signed int' from incompatible type 'C float'
 test/testData/parser/negative/expressions/initializers.c:50:16: error: assigning to 'float' from incompatible type '*signed int'
@@ -42,3 +33,5 @@ test/testData/parser/negative/expressions/initializers.c:55:13: error: assigning
 test/testData/parser/negative/expressions/initializers.c:57:12: error: assigning to 'signed int' from incompatible type 'STRUCT S'
 test/testData/parser/negative/expressions/initializers.c:61:12: error: 'extern' variable cannot have an initializer
 test/testData/parser/negative/expressions/initializers.c:90:11: error: initializer element is not a compile-time constant
+test/testData/parser/negative/expressions/initializers.c:100:15: error: scalar initializer cannot be empty
+test/testData/parser/negative/expressions/initializers.c:104:24: warning: initializer-string for char array is too long
