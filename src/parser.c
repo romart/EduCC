@@ -2877,27 +2877,27 @@ static AstDeclaration *parseDeclaration(ParserContext *ctx, DeclarationSpecifier
   if (!isTypeOk) type = makeErrorRef(ctx);
 
   const char *name = declarator->identificator;
-
   isTopLevel |= specifiers->flags.bits.isStatic;
 
-  AstInitializer *initializer = NULL;
+  AstValueDeclaration *valueDeclaration = createAstValueDeclaration(ctx, &coords, VD_VARIABLE, type, name, 0, specifiers->flags.storage, NULL);
+  valueDeclaration->flags.bits.isLocal = !isTopLevel;
+  valueDeclaration->symbol = declareValueSymbol(ctx, name, valueDeclaration);
+
+
   if (nextTokenIf(ctx, '=')) {
     if (specifiers->flags.bits.isExternal) {
       reportDiagnostic(ctx, DIAG_EXTERN_VAR_INIT, &declarator->coordinates);
     }
     ParsedInitializer *parsedInit = parseInitializer(ctx);
-    initializer = finalizeInitializer(ctx, type, parsedInit, isTopLevel);
+    valueDeclaration->initializer = finalizeInitializer(ctx, type, parsedInit, isTopLevel);
   } else if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE && !(specifiers->flags.bits.isExternal)) {
     reportDiagnostic(ctx, DIAG_ARRAY_EXPLICIT_SIZE_OR_INIT, &declarator->coordinates);
   }
 
-  AstValueDeclaration *valueDeclaration = createAstValueDeclaration(ctx, &coords, VD_VARIABLE, type, name, 0, specifiers->flags.storage, initializer);
-  valueDeclaration->symbol = declareValueSymbol(ctx, name, valueDeclaration);
   AstDeclaration *declaration = createAstDeclaration(ctx, DK_VAR, name);
   declaration->variableDeclaration = valueDeclaration;
 
   if (!isTopLevel) {
-      valueDeclaration->flags.bits.isLocal = 1;
       valueDeclaration->next = ctx->locals;
       ctx->locals = valueDeclaration;
   }
