@@ -364,7 +364,9 @@ static void relocateStaticSymbols(Relocation *reloc, uint8_t *buffer) {
               AstFunctionDeclaration *f = s->function;
               if (f && f->flags.bits.isStatic) {
                   GeneratedFunction *gen = f->gen;
-                  relocateStaticSymbol(buffer, reloc->applySection->offset, reloc->applySectionOffset, gen->section->offset, gen->sectionOffset, reloc->addend);
+                  if (gen) {
+                    relocateStaticSymbol(buffer, reloc->applySection->offset, reloc->applySectionOffset, gen->section->offset, gen->sectionOffset, reloc->addend);
+                  }
                   reloc = reloc->next;
                   continue;
               }
