@@ -1555,6 +1555,30 @@ static const char *timeString() {
   return buffer;
 }
 
+static const char *quoteBody(const char *b) {
+  StringBuffer sb = { 0 };
+
+  unsigned idx = 1;
+  unsigned l = strlen(b);
+
+  putSymbol(&sb, '"');
+
+  for (; idx < l; ++idx) {
+      char c = b[idx++];
+      if (c == '"' || c == '\\') putSymbol(&sb, '\\');
+      putSymbol(&sb, c);
+  }
+
+  if (b[idx] != '"') {
+      // error
+  }
+
+  putSymbol(&sb, '"');
+  putSymbol(&sb, '\0');
+
+  return sb.ptr;
+}
+
 static void defineCLIMacro(ParserContext *ctx, const char *s) {
   unsigned idx = 0;
 
@@ -1571,7 +1595,19 @@ static void defineCLIMacro(ParserContext *ctx, const char *s) {
       }
   }
 
-  Token *body = macroBody ? tokenizeString(ctx, NULL, macroBody, strlen(macroBody), TRUE) : NULL;
+
+  Token *body = NULL;
+  if (macroBody) {
+      if (s[0] == '"') {
+          const char *quoted = quoteBody(macroBody);
+          body = tokenizeString(ctx, NULL, quoted, strlen(quoted) + 1, FALSE);
+      } else {
+          body = tokenizeString(ctx, NULL, macroBody, strlen(macroBody) + 1, TRUE);
+      }
+  } else {
+      body = constToken(ctx, 1, NULL);
+  }
+
   defineBuiltinMacro(ctx, macroName, body);
 }
 
