@@ -31,6 +31,7 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, "initializer element is not a compile-time constant"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, W_EXCESS_ELEMENTS_INIT, "excess elements in scalar initializer"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, E_EXCESS_ELEMENTS_INIT, "excess elements in scalar initializer"), \
+  DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, STRING_INIT_TOO_LONG, "initializer-string for char array is too long"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, SCALAR_INIT_EMPTY, "scalar initializer cannot be empty"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ILLEGAL_INIT_ONLY_VARS, "illegal initializer (only variables can be initialized)"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, TOO_FEW_ARGS, "too few arguments to function call"), \
