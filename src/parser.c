@@ -1998,6 +1998,16 @@ static SpecifierFlags parseTypeQualifierList(ParserContext *ctx) {
     } while (nextToken(ctx));
 }
 
+static ParsedInitializer *allocParsedInitializer(ParserContext *ctx, Coordinates *coords, AstExpression *expr, int32_t level, enum ParsedLoc loc)  {
+  ParsedInitializer *p = areanAllocate(ctx->memory.astArena, sizeof(ParsedInitializer));
+
+  p->coords = *coords;
+  p->expression = expr;
+  p->level = level;
+  p->loc = loc;
+
+  return p;
+}
 
 
 /**
@@ -2007,36 +2017,41 @@ initializer
     | assignment_expression
     ;
  */
-static AstInitializer* parseInitializer(ParserContext *ctx, struct _Scope* scope) {
-    AstExpression *expr = NULL;
-    Coordinates coords = { ctx->token };
 
-    AstInitializer *result;
+static ParsedInitializer *parseInitializerImpl(ParserContext *ctx, ParsedInitializer **next, int32_t level) {
+  ParsedInitializer head = { 0 }, *current = &head;
 
-    if (nextTokenIf(ctx, '{')) {
-        AstInitializerList head = { 0 }, *current = &head;
-        int numOfInits = 0;
-        while (ctx->token->code != '}') {
-            AstInitializerList *next = createAstInitializerList(ctx);
-            AstInitializer* initializer = parseInitializer(ctx, scope);
-            next->initializer = initializer;
-            nextTokenIf(ctx, ',');
-            current = current->next = next;
-            ++numOfInits;
-        }
-        coords.right = ctx->token;
-        consumeOrSkip(ctx, '}');
-        result = createAstInitializer(ctx, &coords, IK_LIST);
-        result->initializerList = head.next;
-        result->numOfInitializers = numOfInits;
-    } else {
-        expr = parseAssignmentExpression(ctx, scope);
-        coords.right = expr->coordinates.right;
-        result = createAstInitializer(ctx, &coords, IK_EXPRESSION);
-        result->expression = expr;
-    }
+  if (nextTokenIf(ctx, '{')) {
+      Coordinates coords = { ctx->token, ctx->token };
+      current = current->next = allocParsedInitializer(ctx, &coords, NULL, level + 1, PL_OPEN);
+      while (ctx->token->code != '}') {
+          ParsedInitializer *n = NULL;
+          current->next = parseInitializerImpl(ctx, &n, level + 1);
+          current = n;
+          if (nextTokenIf(ctx, ',')) {
+              if (ctx->token->code != '}') {
+                  coords.left = coords.right = ctx->token;
+                  current = current->next = allocParsedInitializer(ctx, &coords, NULL, level + 1, PL_SEPARATOR);
+              }
+          }
+      }
 
-    return result;
+      coords.left = coords.right = ctx->token;
+      current = current->next = allocParsedInitializer(ctx, &coords, NULL, level + 1, PL_CLOSE);
+
+      consume(ctx, '}');
+      *next = current;
+      return head.next;
+  } else {
+      AstExpression *expr = parseAssignmentExpression(ctx, NULL);
+      return *next = allocParsedInitializer(ctx, &expr->coordinates, expr, level, PL_INNER);
+  }
+}
+
+static ParsedInitializer *parseInitializer(ParserContext *ctx) {
+  ParsedInitializer *dummy = NULL;
+
+  return parseInitializerImpl(ctx, &dummy, 0);
 }
 
 /**
@@ -2801,10 +2816,9 @@ static AstTranslationUnit *parseFunctionDeclaration(ParserContext *ctx, Declarat
   AstValueDeclaration *params = functionalPart->parameters.parameters;
 
   if (ctx->token->code == '=') {
-      Coordinates eqCoords = { ctx->token };
+      Coordinates eqCoords = { ctx->token, ctx->token };
       nextToken(ctx);
-      AstInitializer *initializer = parseInitializer(ctx, NULL);
-      eqCoords.right = initializer->coordinates.right;
+      ParsedInitializer *initializer = parseInitializer(ctx);
       reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &eqCoords);
   };
 
@@ -2864,8 +2878,8 @@ static AstDeclaration *parseDeclaration(ParserContext *ctx, DeclarationSpecifier
     if (specifiers->flags.bits.isExternal) {
       reportDiagnostic(ctx, DIAG_EXTERN_VAR_INIT, &declarator->coordinates);
     }
-    initializer = parseInitializer(ctx, NULL);
-    initializer = finalizeInitializer(ctx, type, initializer, isTopLevel);
+    ParsedInitializer *parsedInit = parseInitializer(ctx);
+    initializer = finalizeInitializer(ctx, type, parsedInit, isTopLevel);
   } else if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE && !(specifiers->flags.bits.isExternal)) {
     reportDiagnostic(ctx, DIAG_ARRAY_EXPLICIT_SIZE_OR_INIT, &declarator->coordinates);
   }
@@ -2887,9 +2901,8 @@ static AstDeclaration *parseDeclaration(ParserContext *ctx, DeclarationSpecifier
 static TypeDefiniton *processTypedef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator) {
   assert(specifiers->flags.bits.isTypedef);
   if (ctx->token->code == '=') {
-      Coordinates eqCoords = { ctx->token };
-      AstInitializer *initializer = parseInitializer(ctx, NULL);
-      eqCoords.right = initializer->coordinates.right;
+      Coordinates eqCoords = { ctx->token, ctx->token };
+      ParsedInitializer *parsedInit = parseInitializer(ctx);
       reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &eqCoords);
   }
 

@@ -166,6 +166,21 @@ typedef struct _ParserContext {
 } ParserContext;
 
 
+enum ParsedLoc {
+  PL_OPEN,
+  PL_INNER,
+  PL_CLOSE,
+  PL_SEPARATOR
+};
+
+typedef struct _ParsedInitializer {
+  Coordinates coords;
+  AstExpression *expression;
+  int32_t level;
+  enum ParsedLoc loc;
+  struct _ParsedInitializer *next;
+} ParsedInitializer;
+
 Token *nextToken(ParserContext *ctx);
 
 Token *tokenizeFile(ParserContext *ctx, const char *fileName, Token *tail);
