@@ -1555,6 +1555,25 @@ static const char *timeString() {
   return buffer;
 }
 
+static void defineCLIMacro(ParserContext *ctx, const char *s) {
+  unsigned idx = 0;
+
+  const char *macroName = s;
+  const char *macroBody = NULL;
+
+  for (; s[idx]; ++idx) {
+      if (s[idx] == '=') {
+          char *b = allocateString(ctx, idx);
+          macroBody = &s[idx + 1];
+          strncpy(b, s, idx - 1);
+          macroName = b;
+          break;
+      }
+  }
+
+  Token *body = macroBody ? tokenizeString(ctx, NULL, macroBody, strlen(macroBody), TRUE) : NULL;
+  defineBuiltinMacro(ctx, macroName, body);
+}
 
 void initializeProprocessor(ParserContext *ctx) {
 
@@ -1575,6 +1594,11 @@ void initializeProprocessor(ParserContext *ctx) {
 
   defineBuiltinMacro(ctx, "__DATE__", stringToken(ctx, NULL, dateString()));
   defineBuiltinMacro(ctx, "__TIME__", stringToken(ctx, NULL, timeString()));
+
+  StringList *m = ctx->config->macroses;
+  for (; m; m = m->next) {
+      defineCLIMacro(ctx, m->s);
+  }
 }
 
 Token *preprocessFile(ParserContext *ctx, Token *s, Token *tail) {

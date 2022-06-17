@@ -10,6 +10,12 @@ static IncludePath *allocIncludePath(const char *path, IncludePath *next) {
   return ip;
 }
 
+static StringList *newStringNode(const char *s) {
+  StringList *fl = heapAllocate(sizeof(StringList));
+  fl->s = s;
+  return fl;
+}
+
 int main(int argc, char** argv) {
   if (argc < 2) return -1;
   argc--; argv++;
@@ -21,6 +27,12 @@ int main(int argc, char** argv) {
   config.includePath = allocIncludePath("sdk/include", config.includePath);
 
   config.verbose = 1;
+
+  StringList fhead = { 0 }, *fcur = &fhead;
+  StringList mhead = { 0 }, *mcur = &mhead;
+
+  unsigned inputCount = 0;
+
   for (i = 0; i < argc; ++i) {
     const char *arg = argv[i];
     if (strcmp("-astDump", arg) == 0) {
@@ -65,15 +77,45 @@ int main(int argc, char** argv) {
     } else if (strncmp("-O", arg, 2) == 0) {
         // optimization? lol
         continue;
-    } else if (strcmp("-fno-common", arg) == 0) {
+    } else if (strncmp("-f", arg, 2) == 0) {
+        // we do not support any extra feature yet
         // it's default
     } else if (strncmp("-W", arg, 2) == 0) {
         // ignore
         // it's default
+    } else if (strncmp("-D", arg, 2) == 0) {
+        const char *macro = NULL;
+        if (arg[2]) {
+            macro = &arg[2];
+        } else if (i + 1 < argc) {
+            macro = argv[++i];
+        } else {
+            fprintf(stderr, "error: macro name missing after ‘-D’\n");
+            return 2;
+        }
+        // define macro
+        mcur = mcur->next = newStringNode(macro);
     } else {
-      config.fileToCompile = argv[i];
-      compileFile(&config);
+        inputCount++;
+        fcur = fcur->next = newStringNode(argv[i]);
     }
   }
+
+  if (config.outputFile && inputCount > 1) {
+      fprintf(stderr, "error: cannot specify ‘-o’ with multiple files\n");
+      return 1;
+  }
+
+  config.macroses = mhead.next;
+  fcur = fhead.next;
+
+  while (fcur) {
+    void *m = fcur;
+    config.fileToCompile = fcur->s;
+    fcur = fcur->next;
+    releaseHeap(m);
+    compileFile(&config);
+  }
+
   return 0;
 }

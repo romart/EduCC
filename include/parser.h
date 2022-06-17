@@ -12,6 +12,11 @@ typedef struct _IncludePath {
   struct _IncludePath *next;
 } IncludePath;
 
+typedef struct _StringList {
+  const char *s;
+  struct _StringList *next;
+} StringList;
+
 typedef struct _Configuration {
 
   const char *fileToCompile;
@@ -20,6 +25,7 @@ typedef struct _Configuration {
   const char *outputFile;
 
   IncludePath *includePath;
+  StringList *macroses;
 
   unsigned errWarns: 1;
   unsigned logTokens: 1;
