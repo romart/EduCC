@@ -1053,9 +1053,7 @@ expression
 static AstExpression* parseExpression(ParserContext *ctx, struct _Scope* scope) {
     AstExpression* expression = parseAssignmentExpression(ctx, scope);
 
-    if (ctx->token->code != ',') return expression;
-
-    while (ctx->token->code == ',') {
+    while (nextTokenIf(ctx, ',')) {
         AstExpression *right = parseAssignmentExpression(ctx, scope);
         expression = createBinaryExpression(ctx, EB_COMMA, right->type, expression, right);
     }
