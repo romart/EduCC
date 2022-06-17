@@ -2675,7 +2675,7 @@ static unsigned walkCaseLabels(AstStatement *body, struct CaseLabel *caseLabels,
       visited = walkCaseLabels(body->ifStmt.thenBranch, caseLabels, idx);
       idx += visited;
       if (body->ifStmt.elseBranch)
-        visited += walkCaseLabels(body->ifStmt.thenBranch, caseLabels, idx);
+        visited += walkCaseLabels(body->ifStmt.elseBranch, caseLabels, idx);
       return visited;
     case SK_SWITCH:
       return 0; // stop
