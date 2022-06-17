@@ -1,0 +1,1 @@
+struct stack_st_OPENSSL_STRING; int sk_OPENSSL_STRING_num
