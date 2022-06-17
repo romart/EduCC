@@ -59,6 +59,7 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, MEMBER_REF_NOT_A_STRUCTUAL, "member reference base type '%tr' is not a structure or union"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, NO_MEMBER_NAME, "no member named '%s' in '%tr'"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, INCOMPATIBLE_OPERANDS, "incompatible operand types ('%tr' and '%tr')"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, INCOMPATIBLE_PARAMETER, "passing '%tr' to parameter of incompatible type '%tr' "), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, POINTER_TYPE_MISMATCH, "pointer type mismatch ('%tr' and '%tr')"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, POINTER_INT_MISMATCH_IN_COND, "pointer/integer type mismatch in conditional expression ('%tr' and '%tr')"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, INVALID_BINARY_OPS, "invalid operands to binary expression ('%tr' and '%tr')"), \

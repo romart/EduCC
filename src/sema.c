@@ -792,6 +792,82 @@ TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, Coordinates *coords, Ty
   return argumentType;
 }
 
+Boolean isCompatibleType(ParserContext *ctx, Coordinates *coords, TypeRef *t1, TypeRef *t2, Boolean isZeroConst) {
+  if (isStructualType(t1) || isStructualType(t2)) {
+      return typesEquals(t1, t2);
+  }
+
+  if (t1->kind == TR_POINTED) {
+      TypeRef *pLeft = t1->pointedTo.toType;
+      if (isPointerLikeType(t2)) {
+          TypeRef *pointed = t2->kind == TR_POINTED ? t2->pointedTo.toType : t2->arrayTypeDesc.elementType;
+          if (isVoidType(pLeft) || isVoidType(pointed)) {
+              return TRUE;
+          } else if (typesEquals(pLeft, pointed)) {
+              return TRUE;
+          } else {
+//              reportDiagnostic(ctx, DIAG_ASSIGN_INCOMPATIBLE_POINTERS, coords, t1, t2);
+              return TRUE;
+          }
+      } else if (isIntegerType(t2)) {
+          if (!isZeroConst) {
+//              reportDiagnostic(ctx, DIAG_ASSIGN_INT_TO_POINTER, coords, t1, t2);
+          }
+          return TRUE;
+      } else {
+//          reportDiagnostic(ctx, DIAG_ASSIGN_FROM_INCOMPATIBLE_TYPE, coords, t1, t2);
+          return FALSE;
+      }
+  }
+
+
+  if (isPointerLikeType(t2)) {
+      if (isIntegerType(t1)) {
+          if (!isZeroConst) {
+//            reportDiagnostic(ctx, DIAG_ASSIGN_INT_TO_POINTER, coords, t1, t2);
+          }
+          return TRUE;
+      } else {
+//          reportDiagnostic(ctx, DIAG_ASSIGN_FROM_INCOMPATIBLE_TYPE, coords, t1, t2);
+          return FALSE;
+      }
+  }
+
+  return TRUE;
+}
+
+
+Boolean checkArgumentType(ParserContext *ctx, Coordinates *coords, TypeRef *paramType, AstExpression *arg) {
+  // TODO: this code is far from perfect
+  TypeRef *argType = arg->type;
+  if (isErrorType(paramType)) return TRUE;
+  if (isErrorType(argType)) return TRUE;
+
+  if (paramType->kind == TR_ARRAY) {
+      TypeRef *paramElementType = paramType->arrayTypeDesc.elementType;
+      TypeRef *argElementType = NULL;
+      if (argType->kind == TR_POINTED) {
+          argElementType = argType->pointedTo.toType;
+      } else if (argType->kind == TR_ARRAY) {
+          // todo check msize
+          argElementType = argType->arrayTypeDesc.elementType;
+      }
+      if (argElementType) {
+        TypeEqualityKind equality = typeEquality(argElementType, paramElementType);
+        if (equality < TEK_NOT_EXATCLY_EQUAL) return TRUE;
+        if (equality < TEK_NOT_EQUAL) {
+            // warning
+            return TRUE;
+        }
+        return FALSE;
+      }
+  }
+
+  return isCompatibleType(ctx, coords, paramType, argType, isConstZero(arg));
+}
+
+
+
 Boolean isAssignableTypes(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, AstExpression *fromExpr, Boolean init) {
   if (isErrorType(to)) return TRUE;
   if (isErrorType(from)) return TRUE;
@@ -1840,13 +1916,14 @@ void verifyAndTransformCallAruments(ParserContext *ctx, Coordinates *coords, Typ
       AstExpression *arg = argument->expression;
       TypeRef *aType = arg->type;
       TypeRef *pType = param->type;
-      if (isAssignableTypes(ctx, &arg->coordinates, pType, aType, arg, FALSE)) {
+      if (checkArgumentType(ctx, &arg->coordinates, pType, arg)) {
           if (!typesEquals(pType, aType)) {
               argument->expression = createCastExpression(ctx, coords, pType, parenIfNeeded(ctx, arg));
           }
           argument = argument->next;
           param = param->next;
       } else {
+          reportDiagnostic(ctx, DIAG_INCOMPATIBLE_PARAMETER, &arg->coordinates, pType, aType);
           break;
       }
   }
