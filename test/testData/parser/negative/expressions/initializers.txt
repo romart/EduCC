@@ -66,54 +66,54 @@ FILE test/testData/parser/negative/expressions/initializers.c
   STRUCT S s2 = \
     INIT_BEGIN
       float #0 <--- 1.000000
-      *signed int #8 <--- (*signed int)0
-      *signed int #16 <--- (*signed int)0
+      *signed int #8 <--- 0
+      *signed int #16 <--- 0
     INIT_END
 ----
   STRUCT S s3 = \
     INIT_BEGIN
       float #0 <--- 1.000000
-      *signed int #8 <--- (*signed int)0
-      *signed int #16 <--- (*signed int)0
+      *signed int #8 <--- 0
+      *signed int #16 <--- 0
     INIT_END
 ----
   STRUCT S s4 = \
     INIT_BEGIN
       float #0 <--- 1.000000
-      *signed int #8 <--- (*signed int)0
-      *signed int #16 <--- (*signed int)0
+      *signed int #8 <--- 0
+      *signed int #16 <--- 0
     INIT_END
 ----
   STRUCT S[3] s5 = \
     INIT_BEGIN
       INIT_BEGIN
         float #0 <--- 1.000000
-        *signed int #8 <--- (*signed int)0
-        *signed int #16 <--- (*signed int)0
+        *signed int #8 <--- (*signed int)1
+        *signed int #16 <--- (*signed int)2
       INIT_END
       INIT_BEGIN
         float #24 <--- 1.000000
-        *signed int #32 <--- (*signed int)0
-        *signed int #40 <--- (*signed int)0
+        *signed int #32 <--- (*signed int)3
+        *signed int #40 <--- (*signed int)4
       INIT_END
       INIT_BEGIN
         float #48 <--- 1.000000
-        *signed int #56 <--- (*signed int)0
-        *signed int #64 <--- (*signed int)0
+        *signed int #56 <--- (*signed int)5
+        *signed int #64 <--- (*signed int)6
       INIT_END
     INIT_END
 ----
   STRUCT S s6 = \
     INIT_BEGIN
       float #0 <--- 1.000000
-      *signed int #8 <--- (*signed int)0
-      *signed int #16 <--- (*signed int)0
+      *signed int #8 <--- 0
+      *signed int #16 <--- 0
     INIT_END
 ----
   STRUCT S s7 = \
     INIT_BEGIN
       ERROR TYPE #-1 <--- ERROR EXPR
-      ERROR TYPE #-1 <--- ERROR EXPR
+      *signed int #8 <--- 0
       *signed int #16 <--- 0
     INIT_END
 ----
@@ -121,13 +121,13 @@ FILE test/testData/parser/negative/expressions/initializers.c
     INIT_BEGIN
       INIT_BEGIN
         ERROR TYPE #-1 <--- ERROR EXPR
-        ERROR TYPE #-1 <--- ERROR EXPR
-        *signed int #16 <--- (*signed int)5
+        *signed int #8 <--- (*signed int)0
+        *signed int #16 <--- 0
       INIT_END
       INIT_BEGIN
         float #24 <--- (float)0
-        *signed int #32 <--- (*signed int)0
         ERROR TYPE #-1 <--- ERROR EXPR
+        *signed int #40 <--- (*signed int)"ccc"
       INIT_END
       INIT_BEGIN
         float #48 <--- (float)0
@@ -163,22 +163,12 @@ FILE test/testData/parser/negative/expressions/initializers.c
       INIT_END
     INIT_END
 ----
-  STRUCT S[3] as1 = \
+  STRUCT S[1] as1 = \
     INIT_BEGIN
       INIT_BEGIN
         float #0 <--- (float)0
         *signed int #8 <--- (*signed int)0
         *signed int #16 <--- (*signed int)0
-      INIT_END
-      INIT_BEGIN
-        float #24 <--- 0.000000
-        *signed int #32 <--- 0
-        *signed int #40 <--- 0
-      INIT_END
-      INIT_BEGIN
-        float #48 <--- 0.000000
-        *signed int #56 <--- 0
-        *signed int #64 <--- 0
       INIT_END
     INIT_END
 ----
@@ -186,16 +176,16 @@ FILE test/testData/parser/negative/expressions/initializers.c
     INIT_BEGIN
       INIT_BEGIN
         float #0 <--- (float)0
-        *signed int #8 <--- (*signed int)0
-        *signed int #16 <--- (*signed int)0
+        *signed int #8 <--- 0
+        *signed int #16 <--- 0
       INIT_END
       INIT_BEGIN
-        float #24 <--- 0.000000
+        float #24 <--- (float)0
         *signed int #32 <--- 0
         *signed int #40 <--- 0
       INIT_END
       INIT_BEGIN
-        float #48 <--- 0.000000
+        float #48 <--- (float)0
         *signed int #56 <--- 0
         *signed int #64 <--- 0
       INIT_END
@@ -206,14 +196,23 @@ FILE test/testData/parser/negative/expressions/initializers.c
       signed int #0 <--- 0
       signed int #4 <--- 1
       signed int #8 <--- 2
-      signed int #12 <--- 3
+      signed int #12 <--- 9
     INIT_END
 ----
   (signed int[2])[3] b = \
     INIT_BEGIN
-      ERROR TYPE #-1 <--- ERROR EXPR
-      ERROR TYPE #-1 <--- ERROR EXPR
-      ERROR TYPE #-1 <--- ERROR EXPR
+      INIT_BEGIN
+        signed int #0 <--- 0
+        signed int #4 <--- 1
+      INIT_END
+      INIT_BEGIN
+        signed int #8 <--- 2
+        signed int #12 <--- 3
+      INIT_END
+      INIT_BEGIN
+        signed int #16 <--- 9
+        signed int #20 <--- 0
+      INIT_END
     INIT_END
 ----
   signed int[9] c = \
@@ -272,24 +271,24 @@ FILE test/testData/parser/negative/expressions/initializers.c
     INIT_BEGIN
       signed int #0 <--- 0
       signed int #4 <--- 1
-      signed int #8 <--- 2
-      signed int #12 <--- 3
+      signed int #8 <--- 0
+      signed int #12 <--- 0
     INIT_END
 ----
   signed int[4] h = \
     INIT_BEGIN
       signed int #0 <--- 0
       signed int #4 <--- 1
-      signed int #8 <--- 2
-      signed int #12 <--- 3
+      signed int #8 <--- 0
+      signed int #12 <--- 0
     INIT_END
 ----
   signed int[4] i = \
     INIT_BEGIN
       signed int #0 <--- 0
       signed int #4 <--- 1
-      signed int #8 <--- 2
-      signed int #12 <--- 3
+      signed int #8 <--- 0
+      signed int #12 <--- 0
     INIT_END
 ----
   signed int[20] a1
@@ -297,7 +296,7 @@ FILE test/testData/parser/negative/expressions/initializers.c
   *signed int pa = \
     (*signed int)a1
 ----
-  float f = \
+  float ff = \
     ERROR EXPR
 ----
   signed int[-1] a3
@@ -333,7 +332,7 @@ FILE test/testData/parser/negative/expressions/initializers.c
     INIT_END
 ----
   signed int aa = \
-    0
+    ERROR EXPR
 ----
   (*signed int)[2] ap = \
     INIT_BEGIN
@@ -545,4 +544,41 @@ FILE test/testData/parser/negative/expressions/initializers.c
         signed char #46 <--- 99
         signed char #47 <--- 0
       INIT_END
+    INIT_END
+----
+  ((*signed char)[4])[3] chib = \
+    INIT_BEGIN
+      INIT_BEGIN
+        *signed char #0 <--- (*signed char)(*void)0
+        *signed char #8 <--- (*signed char)(*void)0
+        *signed char #16 <--- 0
+        *signed char #24 <--- 0
+      INIT_END
+      INIT_BEGIN
+        *signed char #32 <--- (*signed char)"A"
+        *signed char #40 <--- (*signed char)(*void)0
+        *signed char #48 <--- (*signed char)"C"
+        *signed char #56 <--- (*signed char)(*void)0
+      INIT_END
+      INIT_BEGIN
+        *signed char #64 <--- (*signed char)(*void)0
+        *signed char #72 <--- (*signed char)(*void)0
+        *signed char #80 <--- 0
+        *signed char #88 <--- 0
+      INIT_END
+    INIT_END
+----
+  signed int xempty = \
+    ERROR EXPR
+----
+  signed int[] yempty = \
+    INIT_BEGIN
+
+    INIT_END
+----
+  signed char[3] asmallstring = \
+    INIT_BEGIN
+      signed char #0 <--- 107
+      signed char #1 <--- 106
+      signed char #2 <--- 107
     INIT_END

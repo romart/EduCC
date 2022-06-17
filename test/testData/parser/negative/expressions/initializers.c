@@ -7,8 +7,8 @@ struct S s1 = { 01.f, (int*)0, (int*)0 };
 struct S s2 = { { 01.f, (int*)0, (int*)0 } };
 struct S s3 = { { 01.f, { (int*)0, { (int*)0 } } } };
 struct S s4 = { { 01.f, { (int*)0, { (int*)0, {} } } } };
-struct S s5[] = { { 01.f, (int*)0, (int*)0 }, { 01.f, (int*)0, (int*)0 }, { 01.f, (int*)0, (int*)0 } };
-struct S s6 = { { { 01.f }, { (int*)0 }, { (int*)0 } } };
+struct S s5[] = { { 01.f, (int*)1, (int*)2 }, { 01.f, (int*)3, (int*)4 }, { 01.f, (int*)5, (int*)6 } };
+struct S s6 = { { { 01.f }, { (int*)1 }, { (int*)2 } } };
 
 
 struct S s7 = { { { (void*)0 }, { 01.f }, { } } };
@@ -33,7 +33,7 @@ int i[4] = { 0, { 1, { 2, { 3, { 4, {} } } } } };
 
 int a1[20];
 int *pa = a1;
-float f = pa;
+float ff = pa;
 int a3[];
 int a4[20] = 0;
 int b2[][20] = {} ;
@@ -94,4 +94,12 @@ static char mon[][4] = {
    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 };
 
+
+char *chib[][4] = { { (void*)0, (void*)0 }, { "A", (void*)0, "C", (void*)0 }, { (void*)0, (void*)0 } };
+
+int xempty = {};
+
+int yempty[] = {};
+
+char asmallstring[3] = "kjksjkfd";
 
