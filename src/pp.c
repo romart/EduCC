@@ -706,7 +706,7 @@ static Boolean expandMacro(ParserContext *ctx, Token *macro, Token **next, Boole
           // see pp-counter.c test for more details
           evaluated = copySequence(ctx, arg->evaluated);
         } else if (arg->value) {
-          evaluated = expandSequence(ctx, argValue, evalDefined);
+          evaluated = expandSequence(ctx, copySequence(ctx, argValue), evalDefined);
           evaluated->hasLeadingSpace = b->hasLeadingSpace;
           evaluated->startOfLine = b->startOfLine;
           arg->evaluated = copySequence(ctx, evaluated);
