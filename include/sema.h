@@ -52,6 +52,7 @@ Boolean checkReturnType(ParserContext *ctx, Coordinates *coords, TypeRef *return
 StructualMember *findStructualMember(TypeDefiniton *definition, const char *name);
 int32_t effectiveMemberOffset(StructualMember *member);
 int32_t memberOffset(TypeDefiniton *declaration, const char *memberName);
+void verifyStructualMembers(ParserContext *ctx, StructualMember *members);
 int32_t typeAlignment(TypeRef *type);
 
 void verifyGotoExpression(ParserContext *ctx, AstExpression *expr);
