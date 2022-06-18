@@ -2246,7 +2246,7 @@ Symbol *declareTypeSymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId type
   if (!s) {
       s = declareSymbol(ctx, symbolKind, symbolName);
       int typeSize = UNKNOWN_SIZE;
-      if (definition->members) {
+      if (definition->isDefined) {
         typeSize = computeTypeDefinitionSize(ctx, definition);
       }
       typeDescriptor = s->typeDescriptor = createTypeDescriptor(ctx, typeId, name, typeSize);
@@ -2258,8 +2258,8 @@ Symbol *declareTypeSymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId type
       } else {
           typeDescriptor = s->typeDescriptor;
           TypeDefiniton *existedDeclaration = typeDescriptor->typeDefinition;
-          if (definition->members) {
-            if (existedDeclaration->members) {
+          if (definition->isDefined) {
+            if (existedDeclaration->isDefined) {
               reportDiagnostic(ctx, DIAG_MEMBER_REDEFINITION, &definition->coordinates, name);
               // TODO: also point to already defined one
             } else {
