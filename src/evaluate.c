@@ -530,7 +530,7 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
     case EF_ARROW: {
       AstConst *c = eval(ctx, expression->fieldExpr.recevier);
       if (c) {
-          c->i += expression->fieldExpr.member->offset;
+          c->i += effectiveMemberOffset(expression->fieldExpr.member);
       }
       return c;
     }

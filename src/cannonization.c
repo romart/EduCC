@@ -424,7 +424,8 @@ static AstExpression *cannonizeSubExpression(ParserContext *ctx, AstExpression *
 }
 
 static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression *receiver, StructualMember *member, AstExpression *orig, Boolean deBit) {
-  AstExpression *offset = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &member->offset);
+  int64_t memberOffset = effectiveMemberOffset(member);
+  AstExpression *offset = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &memberOffset);
   offset->type = makePrimitiveType(ctx, T_U8, 0);
 
   // normalize pointer
