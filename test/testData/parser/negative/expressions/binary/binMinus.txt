@@ -25,9 +25,9 @@ FILE test/testData/parser/negative/expressions/binary/binMinus.c
 ----
   signed int[20] arr2
 ----
-  ERROR TYPE s11
+  STRUCT S1 s11
 ----
-  ERROR TYPE s12
+  STRUCT S1 s12
 ----
   *STRUCT S1 ps11
 ----
@@ -247,36 +247,36 @@ FILE test/testData/parser/negative/expressions/binary/binMinus.c
     *s12 - *s22
     *s12 - *ps21
     *s12 - *ps22
-    *ps11 - *i1
-    *ps11 - *i2
+    *ps11 - *i1 * 0
+    *ps11 - *i2 * 0
     *ps11 - *f1
     *ps11 - *f2
     *ps11 - *pi1
-    *ps11 - *pi2
+    *ps11 - *pi2 * 0
     *ps11 - *pf1
     *ps11 - *pf2
     *ps11 - arr1
     *ps11 - arr2
     *ps11 - *s11
     *ps11 - *s12
-    *ps11 - *ps12
+    (*ps11 - *ps12) / 0
     *ps11 - *s21
     *ps11 - *s22
     *ps11 - *ps21
     *ps11 - *ps22
-    *ps12 - *i1
-    *ps12 - *i2
+    *ps12 - *i1 * 0
+    *ps12 - *i2 * 0
     *ps12 - *f1
     *ps12 - *f2
     *ps12 - *pi1
-    *ps12 - *pi2
+    *ps12 - *pi2 * 0
     *ps12 - *pf1
     *ps12 - *pf2
     *ps12 - arr1
     *ps12 - arr2
     *ps12 - *s11
     *ps12 - *s12
-    *ps12 - *ps11
+    (*ps12 - *ps11) / 0
     *ps12 - *s21
     *ps12 - *s22
     *ps12 - *ps21

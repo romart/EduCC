@@ -19,27 +19,27 @@ FILE test/testData/parser/negative/expressions/addressArith.c
     *STRUCT S3 s3
     *STRUCT S3 s3_2
     signed int a = \
-      (signed int)(*s1 - *s2)
+      ERROR EXPR
     signed int b = \
-      (signed int)(*s3 - *s3_2)
+      ERROR EXPR
     signed int c = \
-      (signed int)(*s1 - *s3)
+      ERROR EXPR
     *signed int ip
     *double dp
     **signed int ipp
     signed int d = \
-      (signed int)(*ip - *dp)
+      ERROR EXPR
     signed int e = \
-      (signed int)(*ip - *ipp)
+      ERROR EXPR
     signed int[1] arr
     (*signed int)[1] parr
     signed int f = \
-      (signed int)(*dp - arr)
+      ERROR EXPR
     signed int g = \
-      (signed int)(arr - parr)
+      ERROR EXPR
     *void vp
     signed int h = \
-      (signed int)(*vp - *ip)    
+      ERROR EXPR
   END
 ----
   FUN void ptrPlus 
@@ -51,21 +51,21 @@ FILE test/testData/parser/negative/expressions/addressArith.c
       (float)1.000000
     **signed int pp
     *signed int r = \
-      (*signed int)(*ptr1 + *ptr2)
+      ERROR EXPR
     *signed int a = \
-      (*signed int)(*ptr1 + *f)
+      ERROR EXPR
     *signed int b = \
-      (*signed int)(*f + *ptr1)
+      ERROR EXPR
     *pp + *ptr1
     signed int x
     *STRUCT S3 ptr1_2 = \
-      (*STRUCT S3)(1 + *p2 + 1)
+      ERROR EXPR
     *STRUCT S3 ptr2_2 = \
-      (*STRUCT S3)(2 + 2 + *p2)
+      ERROR EXPR
     *STRUCT S3 ptr3_2 = \
-      (*STRUCT S3)((*p2 + 2) + 3)
+      ERROR EXPR
     *STRUCT S3 ptr4_2 = \
-      (*STRUCT S3)(*x + (3 + (2 + *p2)))    
+      ERROR EXPR
   END
 ----
   FUN void ptrMinus 
@@ -76,22 +76,22 @@ FILE test/testData/parser/negative/expressions/addressArith.c
     float f = \
       (float)1.000000
     *signed int a = \
-      (*signed int)(*ptr1 - *f)
+      ERROR EXPR
     *signed int b = \
-      (*signed int)(*f - *ptr1)
+      ERROR EXPR
     signed int x
     *signed int ptr1 = \
-      (*signed int)(1 - *ptr1)
+      ERROR EXPR
     *signed int ptr2 = \
-      (*signed int)(2 - *ptr1 - 2)
+      ERROR EXPR
     *signed int ptr3 = \
-      (*signed int)(*x + (3 - (2 - *ptr1)))
+      ERROR EXPR
     *STRUCT S3 ptr4 = \
-      (*STRUCT S3)(1 - *p - 1)
+      ERROR EXPR
     *STRUCT S3 ptr5 = \
-      (*STRUCT S3)(2 - 2 - *p)
+      ERROR EXPR
     *STRUCT S3 ptr6 = \
-      (*STRUCT S3)((*p + 2) - 3)
+      ERROR EXPR
     *STRUCT S3 ptr7 = \
-      (*STRUCT S3)(*x + (3 - (2 - *p)))    
+      ERROR EXPR
   END

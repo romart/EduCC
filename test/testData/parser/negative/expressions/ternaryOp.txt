@@ -11,7 +11,7 @@ FILE test/testData/parser/negative/expressions/ternaryOp.c
 ----
   signed int[20] arr
 ----
-  ERROR TYPE s
+  STRUCT S s
 ----
   *STRUCT S ps
 ----
