@@ -12,10 +12,7 @@ FILE test/testData/parser/positive/unions.c
     signed int c #0
     signed int d #0
     signed int x #0
-    signed int aa #0
-    signed int bb #4
-    signed int cc #8
-    signed int dd #12
+    STRUCT <anon$0> $1 #0
   UNION_END
 ----
   STRUCT S

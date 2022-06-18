@@ -25,25 +25,17 @@ FILE test/testData/parser/positive/structs.c
   STRUCT_END
 ----
   STRUCT <anon$2>
-    signed int ff #16
-    signed int gg #20
-    STRUCT SSN ss #24
-    *STRUCT SSN pss #32
-    **STRUCT SSN ppss #40
-    STRUCT NN nn #48
-    STRUCT <anon$4> anon #56
+    signed int ff #0
+    signed int gg #4
+    STRUCT SSN ss #8
+    *STRUCT SSN pss #16
+    **STRUCT SSN ppss #24
   STRUCT_END
 ----
   STRUCT <anon$3>
-    signed int d #8
-    signed int e #12
-    signed int ff #16
-    signed int gg #20
-    STRUCT SSN ss #24
-    *STRUCT SSN pss #32
-    **STRUCT SSN ppss #40
-    STRUCT NN nn #48
-    STRUCT <anon$4> anon #56
+    signed int d #0
+    signed int e #4
+    STRUCT <anon$2> $1 #8
   STRUCT_END
 ----
   STRUCT N
@@ -64,15 +56,27 @@ FILE test/testData/parser/positive/structs.c
   STRUCT SN
     signed int a #0
     signed int b #4
-    signed int d #8
-    signed int e #12
-    signed int ff #16
-    signed int gg #20
-    STRUCT SSN ss #24
-    *STRUCT SSN pss #32
-    **STRUCT SSN ppss #40
+    STRUCT <anon$3> $1 #8
     STRUCT NN nn #48
     STRUCT <anon$4> anon #56
+  STRUCT_END
+----
+  STRUCT <anon$5>
+    signed int x #0
+    signed int y #4
+  STRUCT_END
+----
+  UNION <anon$6>
+    STRUCT <anon$5> $1 #0
+    signed int g #0
+  UNION_END
+----
+  STRUCT SU
+    signed int a #0
+    signed int b #4
+    signed int c #8
+    UNION <anon$6> $1 #12
+    signed int f #20
   STRUCT_END
 ----
   FUN signed int foo2
