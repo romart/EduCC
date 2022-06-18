@@ -2,4 +2,10 @@ test/testData/parser/negative/incorrectStructs.c:4:5: error: type name does not 
 test/testData/parser/negative/incorrectStructs.c:9:9: error: unexpected token IDENTIFIER 'v1' instead of ;
 test/testData/parser/negative/incorrectStructs.c:10:9: error: unexpected token IDENTIFIER 'v2' instead of ;
 test/testData/parser/negative/incorrectStructs.c:11:9: error: unexpected token IDENTIFIER 'v3' instead of ;
+test/testData/parser/negative/incorrectStructs.c:9:5: error: duplicate member 'ss1'
+test/testData/parser/negative/incorrectStructs.c:10:5: error: duplicate member 'ss2'
+test/testData/parser/negative/incorrectStructs.c:11:5: error: duplicate member 'ss3'
+test/testData/parser/negative/incorrectStructs.c:9:9: error: duplicate member 'pv1'
+test/testData/parser/negative/incorrectStructs.c:10:9: error: duplicate member 'pv2'
+test/testData/parser/negative/incorrectStructs.c:11:9: error: duplicate member 'pv3'
 test/testData/parser/negative/incorrectStructs.c:9:5: error: field 'ss1' has incomplete type 'ERROR TYPE'
