@@ -506,11 +506,7 @@ uint8_t *generateElfFile(ElfFile *elfFile, GeneratedFile *genFile, size_t *elfFi
 void emitSectionByte(Section *s, uint8_t b) {
   if (s->start + s->size <= s->pc) {
       size_t newSize = ALIGN_SIZE((s->size << 1) - (s->size >> 1) + 1, sizeof(intptr_t));
-      address newBuffer = heapAllocate(newSize);
-      if (s->start) {
-        memcpy(newBuffer, s->start, s->size);
-        releaseHeap(s->start);
-      }
+      address newBuffer = heapReallocate(s->start, s->size, newSize);
       s->pc = newBuffer + s->size;
       s->start = newBuffer;
       s->size = newSize;

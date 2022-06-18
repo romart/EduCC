@@ -177,12 +177,7 @@ unsigned countLines(FILE* file) {
 void putSymbol(StringBuffer *b, char c) {
   if (b->idx == b->size) {
       size_t newSize = (b->size + 512) << 1;
-      char *newBuffer = heapAllocate(newSize);
-      if (b->ptr) {
-          memcpy(newBuffer, b->ptr, b->size);
-          releaseHeap(b->ptr);
-      }
-      b->ptr = newBuffer;
+      b->ptr = heapReallocate(b->ptr, b->size, newSize);
       b->size = newSize;
   }
 
