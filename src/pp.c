@@ -147,19 +147,6 @@ static Hideset *hidesetIntersection(ParserContext *ctx, Hideset *hs1, Hideset *h
   return head.next;
 }
 
-static Token *addHideset(ParserContext *ctx, Token *body, Hideset *hs, Boolean doCopy) {
-  Token head = { 0 };
-  Token *cur = &head;
-
-  for (; body; body = body->next) {
-      Token *t = doCopy ? copyToken(ctx, body) : body;
-      t->hs = hidesetUnion(ctx, body->hs, hs);
-      cur = cur->next = t;
-  }
-
-  return head.next;
-}
-
 static Token *skipPPTokens(ParserContext *ctx, Token *token) {
   while (token) {
       if (token->startOfLine){
@@ -543,10 +530,6 @@ static Boolean expandMacro(ParserContext *ctx, Token *macro, Token **next, Boole
 
   Token *body = def->body;
 
-  if (!def->isFunctional) {
-      body = addHideset(ctx, body, evalhs, TRUE);
-  }
-
   Token evalHead = { 0 };
   Token *evalCur = &evalHead;
 
@@ -555,10 +538,13 @@ static Boolean expandMacro(ParserContext *ctx, Token *macro, Token **next, Boole
   Token *b = body;
 
   while (b) {
+      assert(b->hs == NULL);
 
       if (evalDefined && b->rawCode == IDENTIFIER && strcmp("defined", b->id) == 0) {
         Token *e = evaluateDefinedOp(ctx, b, TRUE, &b);
         if (e) {
+          e->hs = evalhs;
+          e->expanded = macro;
           evalCur = evalCur->next = e;
           continue;
         }
@@ -572,6 +558,12 @@ static Boolean expandMacro(ParserContext *ctx, Token *macro, Token **next, Boole
             Token *argValue = arg->value;
             Token *evaluated = argValue ? stringifySequence(ctx, argValue) : stringToken(ctx, next, "");
             evalCur = evalCur->next = evaluated;
+
+            for (; evaluated; evaluated = evaluated->next) {
+                evaluated->hs = evalhs;
+                evaluated->expanded = macro;
+                evalCur = evaluated;
+            }
 
             b = next->next;
             continue;
@@ -592,6 +584,8 @@ static Boolean expandMacro(ParserContext *ctx, Token *macro, Token **next, Boole
                       b = next->next;
                   } else {
                       Token *evaluated = copyToken(ctx, b);
+                      evaluated->hs = evalhs;
+                      evaluated->expanded = macro;
                       evalCur = evalCur->next = evaluated;
                       b = next;
                   }
@@ -636,7 +630,11 @@ static Boolean expandMacro(ParserContext *ctx, Token *macro, Token **next, Boole
           }
 
           evalCur->next = evaluated;
-          evalCur = findLastToken(evaluated);
+          for (evalCur = evaluated; evaluated; evaluated = evaluated->next) {
+              evaluated->hs = hidesetUnion(ctx, evaluated->hs, evalhs);
+              evaluated->expanded = macro;
+              evalCur = evaluated;
+          }
 
           b = origRhs->next;
           continue;
@@ -689,7 +687,11 @@ static Boolean expandMacro(ParserContext *ctx, Token *macro, Token **next, Boole
           }
 
           i->next = evaluated;
-          evalCur = findLastToken(evaluated);
+          for (evalCur = evaluated; evaluated; evaluated = evaluated->next) {
+              evaluated->hs = hidesetUnion(ctx, evaluated->hs, evalhs);
+              evaluated->expanded = macro;
+              evalCur = evaluated;
+          }
 
           b = next->next;
 
@@ -699,42 +701,48 @@ static Boolean expandMacro(ParserContext *ctx, Token *macro, Token **next, Boole
       MacroArg *arg = findArgument(b, argHead.next);
 
       Token *evaluated = NULL;
+      Token *next = NULL;
       if (arg) {
         Token *argValue = arg->value;
         if (arg->evaluated) {
           // prevent multiple evaluation of the same argument
           // see pp-counter.c test for more details
           evaluated = copySequence(ctx, arg->evaluated);
+          next = findLastToken(evaluated);
         } else if (arg->value) {
           evaluated = expandSequence(ctx, copySequence(ctx, argValue), evalDefined);
           evaluated->hasLeadingSpace = b->hasLeadingSpace;
           evaluated->startOfLine = b->startOfLine;
-          arg->evaluated = copySequence(ctx, evaluated);
+
+          Token *p = evaluated;
+          Token copyHead = { 0 }, *copyCur = &copyHead;
+          for (; p; p = p->next) {
+              p->hs = hidesetUnion(ctx, p->hs, evalhs);
+              p->expanded = macro;
+              next = p;
+              copyCur = copyCur->next = copyToken(ctx, p);
+          }
+
+          arg->evaluated = copyHead.next;
         } else {
           b = b->next;
           continue;
         }
       } else {
         evaluated = copyToken(ctx, b);
+        evaluated->hs = evalhs;
+        evaluated->expanded = macro;
+        next = evaluated;
       }
 
       evalCur->next = evaluated;
-      evalCur = findLastToken(evaluated);
+      evalCur = next;
 
       b = b->next;
   }
 
-  if (def->isFunctional) {
-    evalHead.next = addHideset(ctx, evalHead.next, evalhs, FALSE);
-  }
-
   if (evalHead.next) {
-    Token *t, *p;
-    for (t = evalHead.next; t; t = t->next) {
-        t->expanded = macro;
-        p = t;
-    }
-    p->next = macroNext;
+    evalCur->next = macroNext;
     evalHead.next->hasLeadingSpace = macro->hasLeadingSpace;
     evalHead.next->startOfLine = macro->startOfLine;
     *next = evalHead.next;
