@@ -18,6 +18,7 @@ typedef struct _Arena {
 } Arena;
 
 void *heapAllocate(size_t size);
+void *heapReallocate(void *ptr, size_t oldSize, size_t newSize);
 void releaseHeap(void *);
 
 Arena *createArena(const char *name, size_t chuckSize);
