@@ -1,7 +1,3 @@
-test/testData/parser/negative/expressions/binary/binAndAnd.c:11:1: error: variable has incomplete type 'STRUCT S1'
-test/testData/parser/negative/expressions/binary/binAndAnd.c:11:1: error: variable has incomplete type 'STRUCT S1'
-test/testData/parser/negative/expressions/binary/binAndAnd.c:12:1: error: variable has incomplete type 'STRUCT S2'
-test/testData/parser/negative/expressions/binary/binAndAnd.c:12:1: error: variable has incomplete type 'STRUCT S2'
 test/testData/parser/negative/expressions/binary/binAndAnd.c:15:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:16:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:17:3: warning: expression result unused
@@ -11,8 +7,12 @@ test/testData/parser/negative/expressions/binary/binAndAnd.c:20:3: warning: expr
 test/testData/parser/negative/expressions/binary/binAndAnd.c:21:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:22:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:23:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:24:6: error: invalid operands to binary expression ('signed int' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:25:6: error: invalid operands to binary expression ('signed int' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:26:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:27:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:28:6: error: invalid operands to binary expression ('signed int' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:29:6: error: invalid operands to binary expression ('signed int' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:30:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:31:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:32:3: warning: expression result unused
@@ -24,8 +24,12 @@ test/testData/parser/negative/expressions/binary/binAndAnd.c:37:3: warning: expr
 test/testData/parser/negative/expressions/binary/binAndAnd.c:38:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:39:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:40:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:41:6: error: invalid operands to binary expression ('signed int' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:42:6: error: invalid operands to binary expression ('signed int' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:43:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:44:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:45:6: error: invalid operands to binary expression ('signed int' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:46:6: error: invalid operands to binary expression ('signed int' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:47:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:48:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:49:3: warning: expression result unused
@@ -37,8 +41,12 @@ test/testData/parser/negative/expressions/binary/binAndAnd.c:54:3: warning: expr
 test/testData/parser/negative/expressions/binary/binAndAnd.c:55:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:56:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:57:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:58:6: error: invalid operands to binary expression ('float' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:59:6: error: invalid operands to binary expression ('float' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:60:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:61:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:62:6: error: invalid operands to binary expression ('float' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:63:6: error: invalid operands to binary expression ('float' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:64:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:65:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:66:3: warning: expression result unused
@@ -50,8 +58,12 @@ test/testData/parser/negative/expressions/binary/binAndAnd.c:71:3: warning: expr
 test/testData/parser/negative/expressions/binary/binAndAnd.c:72:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:73:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:74:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:75:6: error: invalid operands to binary expression ('float' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:76:6: error: invalid operands to binary expression ('float' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:77:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:78:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:79:6: error: invalid operands to binary expression ('float' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:80:6: error: invalid operands to binary expression ('float' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:81:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:82:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:83:3: warning: expression result unused
@@ -63,8 +75,12 @@ test/testData/parser/negative/expressions/binary/binAndAnd.c:88:3: warning: expr
 test/testData/parser/negative/expressions/binary/binAndAnd.c:89:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:90:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:91:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:92:7: error: invalid operands to binary expression ('*signed int' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:93:7: error: invalid operands to binary expression ('*signed int' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:94:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:95:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:96:7: error: invalid operands to binary expression ('*signed int' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:97:7: error: invalid operands to binary expression ('*signed int' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:98:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:99:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:100:3: warning: expression result unused
@@ -76,8 +92,12 @@ test/testData/parser/negative/expressions/binary/binAndAnd.c:105:3: warning: exp
 test/testData/parser/negative/expressions/binary/binAndAnd.c:106:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:107:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:108:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:109:7: error: invalid operands to binary expression ('signed int' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:110:7: error: invalid operands to binary expression ('signed int' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:111:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:112:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:113:7: error: invalid operands to binary expression ('signed int' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:114:7: error: invalid operands to binary expression ('signed int' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:115:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:116:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:117:3: warning: expression result unused
@@ -89,8 +109,12 @@ test/testData/parser/negative/expressions/binary/binAndAnd.c:122:3: warning: exp
 test/testData/parser/negative/expressions/binary/binAndAnd.c:123:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:124:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:125:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:126:7: error: invalid operands to binary expression ('*float' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:127:7: error: invalid operands to binary expression ('*float' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:128:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:129:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:130:7: error: invalid operands to binary expression ('*float' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:131:7: error: invalid operands to binary expression ('*float' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:132:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:133:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:134:3: warning: expression result unused
@@ -102,8 +126,12 @@ test/testData/parser/negative/expressions/binary/binAndAnd.c:139:3: warning: exp
 test/testData/parser/negative/expressions/binary/binAndAnd.c:140:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:141:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:142:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:143:7: error: invalid operands to binary expression ('*float' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:144:7: error: invalid operands to binary expression ('*float' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:145:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:146:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:147:7: error: invalid operands to binary expression ('*float' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:148:7: error: invalid operands to binary expression ('*float' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:149:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:150:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:151:3: warning: expression result unused
@@ -115,8 +143,12 @@ test/testData/parser/negative/expressions/binary/binAndAnd.c:156:3: warning: exp
 test/testData/parser/negative/expressions/binary/binAndAnd.c:157:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:158:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:159:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:160:8: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:161:8: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:162:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:163:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:164:8: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:165:8: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:166:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:167:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:168:3: warning: expression result unused
@@ -128,10 +160,48 @@ test/testData/parser/negative/expressions/binary/binAndAnd.c:173:3: warning: exp
 test/testData/parser/negative/expressions/binary/binAndAnd.c:174:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:175:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:176:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:177:8: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:178:8: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:179:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:180:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:181:8: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:182:8: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:183:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:184:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:185:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:186:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:187:7: error: invalid operands to binary expression ('STRUCT S1' and 'float')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:188:7: error: invalid operands to binary expression ('STRUCT S1' and 'float')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:189:7: error: invalid operands to binary expression ('STRUCT S1' and '*signed int')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:190:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:191:7: error: invalid operands to binary expression ('STRUCT S1' and '*float')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:192:7: error: invalid operands to binary expression ('STRUCT S1' and '*float')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:193:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int[20]')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:194:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int[20]')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:195:7: error: invalid operands to binary expression ('STRUCT S1' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:196:7: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:197:7: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:198:7: error: invalid operands to binary expression ('STRUCT S1' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:199:7: error: invalid operands to binary expression ('STRUCT S1' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:200:7: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:201:7: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:202:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:203:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:204:7: error: invalid operands to binary expression ('STRUCT S1' and 'float')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:205:7: error: invalid operands to binary expression ('STRUCT S1' and 'float')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:206:7: error: invalid operands to binary expression ('STRUCT S1' and '*signed int')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:207:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:208:7: error: invalid operands to binary expression ('STRUCT S1' and '*float')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:209:7: error: invalid operands to binary expression ('STRUCT S1' and '*float')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:210:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int[20]')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:211:7: error: invalid operands to binary expression ('STRUCT S1' and 'signed int[20]')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:212:7: error: invalid operands to binary expression ('STRUCT S1' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:213:7: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:214:7: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:215:7: error: invalid operands to binary expression ('STRUCT S1' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:216:7: error: invalid operands to binary expression ('STRUCT S1' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:217:7: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:218:7: error: invalid operands to binary expression ('STRUCT S1' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:219:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:220:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:221:3: warning: expression result unused
@@ -142,7 +212,11 @@ test/testData/parser/negative/expressions/binary/binAndAnd.c:225:3: warning: exp
 test/testData/parser/negative/expressions/binary/binAndAnd.c:226:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:227:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:228:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:229:8: error: invalid operands to binary expression ('*STRUCT S1' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:230:8: error: invalid operands to binary expression ('*STRUCT S1' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:231:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:232:8: error: invalid operands to binary expression ('*STRUCT S1' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:233:8: error: invalid operands to binary expression ('*STRUCT S1' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:234:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:235:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:236:3: warning: expression result unused
@@ -155,9 +229,47 @@ test/testData/parser/negative/expressions/binary/binAndAnd.c:242:3: warning: exp
 test/testData/parser/negative/expressions/binary/binAndAnd.c:243:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:244:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:245:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:246:8: error: invalid operands to binary expression ('*STRUCT S1' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:247:8: error: invalid operands to binary expression ('*STRUCT S1' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:248:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:249:8: error: invalid operands to binary expression ('*STRUCT S1' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:250:8: error: invalid operands to binary expression ('*STRUCT S1' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:251:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:252:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:253:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:254:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:255:7: error: invalid operands to binary expression ('STRUCT S2' and 'float')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:256:7: error: invalid operands to binary expression ('STRUCT S2' and 'float')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:257:7: error: invalid operands to binary expression ('STRUCT S2' and '*signed int')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:258:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:259:7: error: invalid operands to binary expression ('STRUCT S2' and '*float')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:260:7: error: invalid operands to binary expression ('STRUCT S2' and '*float')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:261:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int[20]')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:262:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int[20]')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:263:7: error: invalid operands to binary expression ('STRUCT S2' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:264:7: error: invalid operands to binary expression ('STRUCT S2' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:265:7: error: invalid operands to binary expression ('STRUCT S2' and '*STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:266:7: error: invalid operands to binary expression ('STRUCT S2' and '*STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:267:7: error: invalid operands to binary expression ('STRUCT S2' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:268:7: error: invalid operands to binary expression ('STRUCT S2' and '*STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:269:7: error: invalid operands to binary expression ('STRUCT S2' and '*STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:270:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:271:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:272:7: error: invalid operands to binary expression ('STRUCT S2' and 'float')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:273:7: error: invalid operands to binary expression ('STRUCT S2' and 'float')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:274:7: error: invalid operands to binary expression ('STRUCT S2' and '*signed int')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:275:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:276:7: error: invalid operands to binary expression ('STRUCT S2' and '*float')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:277:7: error: invalid operands to binary expression ('STRUCT S2' and '*float')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:278:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int[20]')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:279:7: error: invalid operands to binary expression ('STRUCT S2' and 'signed int[20]')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:280:7: error: invalid operands to binary expression ('STRUCT S2' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:281:7: error: invalid operands to binary expression ('STRUCT S2' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:282:7: error: invalid operands to binary expression ('STRUCT S2' and '*STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:283:7: error: invalid operands to binary expression ('STRUCT S2' and '*STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:284:7: error: invalid operands to binary expression ('STRUCT S2' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:285:7: error: invalid operands to binary expression ('STRUCT S2' and '*STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:286:7: error: invalid operands to binary expression ('STRUCT S2' and '*STRUCT S2')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:287:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:288:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:289:3: warning: expression result unused
@@ -168,8 +280,12 @@ test/testData/parser/negative/expressions/binary/binAndAnd.c:293:3: warning: exp
 test/testData/parser/negative/expressions/binary/binAndAnd.c:294:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:295:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:296:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:297:8: error: invalid operands to binary expression ('*STRUCT S2' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:298:8: error: invalid operands to binary expression ('*STRUCT S2' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:299:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:300:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:301:8: error: invalid operands to binary expression ('*STRUCT S2' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:302:8: error: invalid operands to binary expression ('*STRUCT S2' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:303:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:304:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:305:3: warning: expression result unused
@@ -181,6 +297,10 @@ test/testData/parser/negative/expressions/binary/binAndAnd.c:310:3: warning: exp
 test/testData/parser/negative/expressions/binary/binAndAnd.c:311:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:312:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:313:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:314:8: error: invalid operands to binary expression ('*STRUCT S2' and 'STRUCT S1')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:315:8: error: invalid operands to binary expression ('*STRUCT S2' and 'STRUCT S1')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:316:3: warning: expression result unused
 test/testData/parser/negative/expressions/binary/binAndAnd.c:317:3: warning: expression result unused
+test/testData/parser/negative/expressions/binary/binAndAnd.c:318:8: error: invalid operands to binary expression ('*STRUCT S2' and 'STRUCT S2')
+test/testData/parser/negative/expressions/binary/binAndAnd.c:319:8: error: invalid operands to binary expression ('*STRUCT S2' and 'STRUCT S2')
 test/testData/parser/negative/expressions/binary/binAndAnd.c:320:3: warning: expression result unused

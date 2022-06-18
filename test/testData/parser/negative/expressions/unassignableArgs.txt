@@ -17,17 +17,17 @@ FILE test/testData/parser/negative/expressions/unassignableArgs.c
   FUN signed int bar 
     #0: float f
   BEGIN
-    ERROR TYPE s1
-    ERROR TYPE s2
+    STRUCT S1 s1
+    STRUCT S2 s2
     signed int[20] arr
     foo((*signed int)(*g), (*signed int)(*g))
     foo(*f, *f)
     foo(g, *f)
     foo(g, g)
     foo((*signed int)f, (*signed int)f)
-    foo((*signed int)(*s1), (*signed int)(*s2))
-    foo(g, (*signed int)(*s1))
-    foo(g, (*signed int)(*s2))
+    foo(*s1, *s2)
+    foo(g, *s1)
+    foo(g, *s2)
     foo((*signed int)s1, (*signed int)s1)
     foo((*signed int)s2, (*signed int)s2)
     foo((*signed int)arr, (*signed int)arr)
@@ -35,13 +35,13 @@ FILE test/testData/parser/negative/expressions/unassignableArgs.c
     fex(*g, *g)
     fex(g, g)
     fex(f, f)
-    fex((STRUCT S1)(*s1), (STRUCT S2)(*s1))
-    fex((STRUCT S1)(*s2), (STRUCT S2)(*s2))
-    fex((STRUCT S1)(*s2), (STRUCT S2)(*s1))
+    fex(*s1, *s1)
+    fex(*s2, *s2)
+    fex(*s2, *s1)
     fex(s1, s2)
     fex(s1, s1)
     fex(s2, s2)
     fex(foo, foo)
-    fex((STRUCT S1)(*s1), (STRUCT S2)(*s2))
+    fex(*s1, *s2)
     fex(arr, arr)    
   END
