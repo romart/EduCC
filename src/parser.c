@@ -3007,11 +3007,11 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
 static void initializeContext(ParserContext *ctx) {
   ctx->anonSymbolsCounter = 0;
 
-  ctx->memory.tokenArena = createArena("Tokens Arena", DEFAULT_CHUNCK_SIZE);
+  ctx->memory.tokenArena = createArena("Tokens Arena", 8 * DEFAULT_CHUNCK_SIZE);
   ctx->memory.macroArena = createArena("Macros Arena", DEFAULT_CHUNCK_SIZE);
   ctx->memory.astArena = createArena("AST Arena", DEFAULT_CHUNCK_SIZE);
   ctx->memory.typeArena = createArena("Types Arena", DEFAULT_CHUNCK_SIZE);
-  ctx->memory.stringArena = createArena("String Arena", DEFAULT_CHUNCK_SIZE);
+  ctx->memory.stringArena = createArena("String Arena", 4 * DEFAULT_CHUNCK_SIZE);
   ctx->memory.diagnosticsArena = createArena("Diagnostic Arena", DEFAULT_CHUNCK_SIZE);
   ctx->memory.codegenArena = createArena("Codegen Arena", DEFAULT_CHUNCK_SIZE);
 
