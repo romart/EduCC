@@ -54,3 +54,17 @@ struct SN {
     int k;
   } anon;
 };
+
+struct SU {
+  int a;
+  int b;
+  int c;
+  union {
+    struct {
+      int x;
+      int y;
+    };
+    int g;
+  };
+  int f;
+};
