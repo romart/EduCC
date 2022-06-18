@@ -18,7 +18,6 @@ TypeId typeToId(TypeRef *type);
 int computeTypeSize(TypeRef *type);
 int32_t computeTypeDefinitionSize(ParserContext *ctx, TypeDefiniton *definition);
 
-
 TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, Coordinates *coords, TypeRef *arrayType, TypeRef *indexType);
 StructualMember *computeMember(ParserContext *ctx, Coordinates *coords, TypeRef *_receiverType, const char *memberName, ExpressionType op);
 TypeRef *computeFunctionReturnType(ParserContext *ctx, Coordinates *coords, TypeRef *calleeType);
@@ -48,7 +47,7 @@ Boolean isUnionType(TypeRef *type);
 Boolean isCompositeType(TypeRef *type);
 Boolean is_va_list_Type(TypeRef *type);
 
-Boolean isAssignableTypes(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, AstExpression *fromExpr, Boolean init);
+Boolean checkReturnType(ParserContext *ctx, Coordinates *coords, TypeRef *returnType, AstExpression *expr);
 
 StructualMember *findStructualMember(TypeDefiniton *definition, const char *name);
 int32_t memberOffset(TypeDefiniton *declaration, const char *memberName);
