@@ -1338,6 +1338,7 @@ static StructualMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
     unsigned bitOffset = 0;
     StructualMember *bitfieldChain = NULL;
     unsigned bfChainWidth = 0;
+    unsigned anonFieldIdx = 0;
     do {
         DeclarationSpecifiers specifiers = { 0 };
         specifiers.coordinates.left = specifiers.coordinates.right = ctx->token;
@@ -1350,23 +1351,18 @@ static StructualMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
             const char *definitionName = definition->name;
             Boolean isAnon = strstr(definitionName, "<anon") == definitionName;
             if (isAnon && nextTokenIf(ctx, ';')) {
+              char buffer[32] = { 0 };
+              size_t l = snprintf(buffer, sizeof buffer, "$%u", ++anonFieldIdx);
+              char *fieldName = allocateString(ctx, l + 1);
+              memcpy(fieldName, buffer, l);
+
+              TypeRef *type = specifiers.basicType;
+              current = current->next = createStructualMember(ctx, &coords, fieldName, type, offset);
               StructualMember *members = definition->members;
-              size_t size = 0;
               for (; members; members = members->next) {
-                int32_t memberOffset = members->offset;
-                int32_t typeSize = computeTypeSize(members->type);
-                // TODO: flexible struct
-                if (typeSize != UNKNOWN_SIZE) {
-                  members->offset += offset;
-                  if (definition->kind == TDK_STRUCT) {
-                    size = memberOffset + typeSize;
-                  } else {
-                    size = max(size, memberOffset + typeSize);
-                  }
-                }
-                current = current->next = members;
+                  members->parent = current;
               }
-              offset += size * factor;
+              offset += computeTypeSize(type) * factor;
               continue;
             }
           }
@@ -1377,6 +1373,7 @@ static StructualMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
             declarator.coordinates.left = declarator.coordinates.right = ctx->token;
             if (ctx->token->code != ':') {
                 parseDeclarator(ctx, &declarator);
+                coords.right = declarator.coordinates.right;
                 verifyDeclarator(ctx, &declarator, DS_STRUCT);
             }
             int64_t width = -1;
@@ -1387,6 +1384,7 @@ static StructualMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
             }
 
             const char *name = declarator.identificator;
+            TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
 
             if (!name && definition && definition->isDefined) {
               /** Handle that case
@@ -1399,8 +1397,6 @@ static StructualMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
                *   };
                */
             } else {
-              coords.right = declarator.coordinates.right;
-              TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
               if (hasWidth) {
                 if (checkIfBitfieldCorrect(ctx, type, name, name ? &declarator.coordinates : &specifiers.coordinates, width)) {
                   const static unsigned maxWidth = sizeof(uint64_t) * BYTE_BIT_SIZE;
