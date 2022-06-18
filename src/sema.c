@@ -516,6 +516,44 @@ StructualMember *computeMember(ParserContext *ctx, Coordinates *coords, TypeRef 
   return member;
 }
 
+
+static StructualMember *nextMember(StructualMember *m) {
+  if (m->name && m->name[0] == '$') {
+      assert(isCompositeType(m->type));
+      TypeDefiniton *def = m->type->descriptorDesc->typeDefinition;
+      if (def->members) return def->members;
+  }
+  if (m->next) return m->next;
+  if (m->parent) return m->parent->next;
+  return NULL;
+}
+
+static StructualMember *findAnotherMember(StructualMember *this) {
+  StructualMember *another;
+
+  for (another = nextMember(this); another; another = nextMember(another)) {
+      if (another->name == NULL) continue;
+      if (strcmp(this->name, another->name) == 0) {
+          return another;
+      }
+  }
+
+  return NULL;
+}
+
+void verifyStructualMembers(ParserContext *ctx, StructualMember *members) {
+  StructualMember *m = members;
+
+  for (; m; m = nextMember(m)) {
+      if (m->name == NULL) continue;
+      if (m->name[0] == '$') continue;
+      StructualMember *copy = findAnotherMember(m);
+      if (copy) {
+          reportDiagnostic(ctx, DIAG_DUPLICATE_MEMBER, &copy->coordinates, copy->name);
+      }
+  }
+}
+
 TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op) {
   if (isErrorType(cond)) return cond;
   if (isErrorType(ifTrue)) return ifTrue;

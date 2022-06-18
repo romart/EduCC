@@ -46,6 +46,7 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, VALUE_REDEFINITION_TYPES, "redefinition of '%s' with a different type: '%tr' vs '%tr'"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, SYMBOL_REDEFINITION, "redefinition of '%s' as different kind of symbol"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, MEMBER_REDEFINITION, "redefinition of '%s'"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, DUPLICATE_MEMBER, "duplicate member '%s'"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ENUMERATOR_REDEFINITION, "redefinition of enumerator '%s'"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, VAR_INCOMPLETE_TYPE, "variable has incomplete type '%td'"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, FIELD_INCOMPLETE_TYPE, "field '%s' has incomplete type '%tr'"), \

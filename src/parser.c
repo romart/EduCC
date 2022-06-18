@@ -1466,6 +1466,8 @@ static StructualMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
     if (bitfieldChain)
       adjustBitFieldStorage(ctx, bitfieldChain, bfChainWidth, &offset);
 
+    verifyStructualMembers(ctx, head.next);
+
     return head.next;
 }
 
