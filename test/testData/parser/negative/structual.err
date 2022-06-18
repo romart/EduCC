@@ -4,3 +4,9 @@ test/testData/parser/negative/structual.c:9:3: error: field 's1' has incomplete 
 test/testData/parser/negative/structual.c:14:3: error: field 's1' has incomplete type 'STRUCT S1'
 test/testData/parser/negative/structual.c:19:3: error: use of 'S1' with tag type that does not match previous declaration
 test/testData/parser/negative/structual.c:20:3: error: use of 'S1' with tag type that does not match previous declaration
+test/testData/parser/negative/structual.c:41:5: error: duplicate member 'd'
+test/testData/parser/negative/structual.c:32:7: error: duplicate member 'a'
+test/testData/parser/negative/structual.c:33:7: error: duplicate member 'b'
+test/testData/parser/negative/structual.c:40:5: error: duplicate member 'c'
+test/testData/parser/negative/structual.c:41:5: error: duplicate member 'd'
+test/testData/parser/negative/structual.c:44:3: error: duplicate member 'e'

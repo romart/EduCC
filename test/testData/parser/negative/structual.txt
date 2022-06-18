@@ -14,3 +14,40 @@ FILE test/testData/parser/negative/structual.c
     *STRUCT S1 u1 #16
   STRUCT_END
 ----
+  STRUCT <anon$0>
+----
+  STRUCT <anon$1>
+----
+  STRUCT <anon$2>
+    signed int a #0
+    signed int b #4
+    signed int d #8
+    signed int e #12
+  STRUCT_END
+----
+  STRUCT <anon$3>
+----
+  STRUCT <anon$4>
+    STRUCT <anon$3> $1 #0
+  STRUCT_END
+----
+  UNION <anon$5>
+    STRUCT <anon$1> $1 #0
+    STRUCT <anon$2> $2 #0
+    STRUCT <anon$4> $3 #0
+    signed int c #0
+    signed int d #0
+  UNION_END
+----
+  STRUCT <anon$6>
+----
+  STRUCT X
+    signed int a #0
+    signed int b #4
+    STRUCT <anon$0> $1 #8
+    signed int c #8
+    UNION <anon$5> $2 #12
+    STRUCT <anon$6> $3 #28
+    signed int e #28
+  STRUCT_END
+----
