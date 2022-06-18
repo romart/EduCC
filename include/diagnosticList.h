@@ -59,7 +59,6 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, MEMBER_REF_NOT_A_STRUCTUAL, "member reference base type '%tr' is not a structure or union"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, NO_MEMBER_NAME, "no member named '%s' in '%tr'"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, INCOMPATIBLE_OPERANDS, "incompatible operand types ('%tr' and '%tr')"), \
-  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, INCOMPATIBLE_PARAMETER, "passing '%tr' to parameter of incompatible type '%tr' "), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, POINTER_TYPE_MISMATCH, "pointer type mismatch ('%tr' and '%tr')"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, POINTER_INT_MISMATCH_IN_COND, "pointer/integer type mismatch in conditional expression ('%tr' and '%tr')"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, INVALID_BINARY_OPS, "invalid operands to binary expression ('%tr' and '%tr')"), \
@@ -67,10 +66,10 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, CANNOT_INCREMENT, "cannot increment value of type '%tr'"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, INDERECTION_POINTER_OP, "indirection requires pointer operand ('%tr' invalid)"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, INVALID_UNARY_ARGUMENT, "invalid argument type '%tr' to unary expression"), \
-  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ASSIGN_FROM_INCOMPATIBLE_TYPE, "assigning to '%tr' from incompatible type '%tr'"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ASSIGN_IN_CONST, "cannot assign to lvalue with const-qualified type '%tr'"), \
-  DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, ASSIGN_INT_TO_POINTER, "incompatible integer to pointer conversion assigning to '%tr' from '%tr'"), \
-  DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, ASSIGN_INCOMPATIBLE_POINTERS, "incompatible pointer types assigning to '%tr' from '%tr'"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, FROM_INCOMPATIBLE_TYPE, "%s '%tr' %s incompatible type '%tr'"), \
+  DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, INT_TO_POINTER, "incompatible integer to pointer conversion %s '%tr' %s type '%tr'"), \
+  DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, INCOMPATIBLE_POINTERS, "incompatible pointer type %s '%tr' %s type '%tr'"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, EXPECTED_CONST_EXPR, "expected constant expression"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, EXPECTED_INTEGER_CONST_EXPR, "expression is not an integer constant expression"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, UNDECLARED_ID_USE, "use of undeclared identifier '%s'"), \

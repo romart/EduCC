@@ -792,9 +792,18 @@ TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, Coordinates *coords, Ty
   return argumentType;
 }
 
-Boolean isCompatibleType(ParserContext *ctx, Coordinates *coords, TypeRef *t1, TypeRef *t2, Boolean isZeroConst) {
+static Boolean isCompatibleType(ParserContext *ctx, Coordinates *coords, TypeRef *t1, TypeRef *t2, enum DiagnosticId *diag, Boolean isZeroConst) {
+
+  if (isErrorType(t1)) return FALSE;
+  if (isErrorType(t2)) return FALSE;
+
   if (isStructualType(t1) || isStructualType(t2)) {
-      return typesEquals(t1, t2);
+      if (typesEquals(t1, t2)) {
+          return TRUE;
+      } else {
+          *diag = DIAG_FROM_INCOMPATIBLE_TYPE;
+          return FALSE;
+      }
   }
 
   if (t1->kind == TR_POINTED) {
@@ -806,16 +815,16 @@ Boolean isCompatibleType(ParserContext *ctx, Coordinates *coords, TypeRef *t1, T
           } else if (typesEquals(pLeft, pointed)) {
               return TRUE;
           } else {
-//              reportDiagnostic(ctx, DIAG_ASSIGN_INCOMPATIBLE_POINTERS, coords, t1, t2);
+              *diag = DIAG_INCOMPATIBLE_POINTERS;
               return TRUE;
           }
       } else if (isIntegerType(t2)) {
           if (!isZeroConst) {
-//              reportDiagnostic(ctx, DIAG_ASSIGN_INT_TO_POINTER, coords, t1, t2);
+              *diag = DIAG_INT_TO_POINTER;
           }
           return TRUE;
       } else {
-//          reportDiagnostic(ctx, DIAG_ASSIGN_FROM_INCOMPATIBLE_TYPE, coords, t1, t2);
+          *diag = DIAG_FROM_INCOMPATIBLE_TYPE;
           return FALSE;
       }
   }
@@ -824,11 +833,11 @@ Boolean isCompatibleType(ParserContext *ctx, Coordinates *coords, TypeRef *t1, T
   if (isPointerLikeType(t2)) {
       if (isIntegerType(t1)) {
           if (!isZeroConst) {
-//            reportDiagnostic(ctx, DIAG_ASSIGN_INT_TO_POINTER, coords, t1, t2);
+              *diag = DIAG_INT_TO_POINTER;
           }
           return TRUE;
       } else {
-//          reportDiagnostic(ctx, DIAG_ASSIGN_FROM_INCOMPATIBLE_TYPE, coords, t1, t2);
+          *diag = DIAG_FROM_INCOMPATIBLE_TYPE;
           return FALSE;
       }
   }
@@ -836,8 +845,7 @@ Boolean isCompatibleType(ParserContext *ctx, Coordinates *coords, TypeRef *t1, T
   return TRUE;
 }
 
-
-Boolean checkArgumentType(ParserContext *ctx, Coordinates *coords, TypeRef *paramType, AstExpression *arg) {
+static Boolean checkFunctionPassingType(ParserContext *ctx, Coordinates *coords, TypeRef *paramType, AstExpression *arg, const char *s1, const char *s2) {
   // TODO: this code is far from perfect
   TypeRef *argType = arg->type;
   if (isErrorType(paramType)) return TRUE;
@@ -856,23 +864,38 @@ Boolean checkArgumentType(ParserContext *ctx, Coordinates *coords, TypeRef *para
         TypeEqualityKind equality = typeEquality(argElementType, paramElementType);
         if (equality < TEK_NOT_EXATCLY_EQUAL) return TRUE;
         if (equality < TEK_NOT_EQUAL) {
-            // warning
+            reportDiagnostic(ctx, DIAG_INCOMPATIBLE_POINTERS, coords, s1, paramType, s2, argType);
             return TRUE;
         }
+        reportDiagnostic(ctx, DIAG_FROM_INCOMPATIBLE_TYPE, coords, s1, paramType, s2, argType);
         return FALSE;
       }
   }
 
-  return isCompatibleType(ctx, coords, paramType, argType, isConstZero(arg));
+  enum DiagnosticId diag = -1;
+
+  Boolean result = isCompatibleType(ctx, coords, paramType, argType, &diag, isConstZero(arg));
+
+  if (diag != -1) {
+      reportDiagnostic(ctx, diag, coords, s1, paramType, s2, argType);
+  }
+
+  return result;
 }
 
+static Boolean checkArgumentType(ParserContext *ctx, Coordinates *coords, TypeRef *paramType, AstExpression *arg) {
+  return checkFunctionPassingType(ctx, coords, paramType, arg, "passing to", "from");
+}
 
+Boolean checkReturnType(ParserContext *ctx, Coordinates *coords, TypeRef *returnType, AstExpression *expr) {
+  return checkFunctionPassingType(ctx, coords, returnType, expr, "returning", "from a function with result of");
+}
 
-Boolean isAssignableTypes(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, AstExpression *fromExpr, Boolean init) {
+static Boolean isAssignableTypes(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, AstExpression *fromExpr) {
   if (isErrorType(to)) return TRUE;
   if (isErrorType(from)) return TRUE;
 
-  if (!init && to->flags.bits.isConst) {
+  if (to->flags.bits.isConst) {
       reportDiagnostic(ctx, DIAG_ASSIGN_IN_CONST, coords, to);
       return FALSE;
   }
@@ -882,74 +905,16 @@ Boolean isAssignableTypes(ParserContext *ctx, Coordinates *coords, TypeRef *to, 
       return FALSE;
   }
 
-  if (isStructualType(to) || isStructualType(from)) {
-      if (typesEquals(to, from)) {
-          return TRUE;
-      } else {
-          reportDiagnostic(ctx, DIAG_ASSIGN_FROM_INCOMPATIBLE_TYPE, coords, to, from);
-          return FALSE;
-      }
+  enum DiagnosticId diag = -1;
+
+  Boolean result = isCompatibleType(ctx, coords, to, from, &diag, isConstZero(fromExpr));
+
+  if (diag != -1) {
+      reportDiagnostic(ctx, diag, coords, "assigning to", to, "from", from);
   }
 
-  if (to->kind == TR_POINTED) {
-      TypeRef *pLeft = to->pointedTo.toType;
-      if (isPointerLikeType(from)) {
-          TypeRef *pointed = from->kind == TR_POINTED ? from->pointedTo.toType : from->arrayTypeDesc.elementType;
-          if (isVoidType(pLeft) || isVoidType(pointed)) {
-              return TRUE;
-          } else if (typesEquals(pLeft, pointed)) {
-              return TRUE;
-          } else {
-              reportDiagnostic(ctx, DIAG_ASSIGN_INCOMPATIBLE_POINTERS, coords, to, from);
-              return TRUE;
-          }
-      } else if (isIntegerType(from)) {
-          if (!isConstZero(fromExpr)) {
-              reportDiagnostic(ctx, DIAG_ASSIGN_INT_TO_POINTER, coords, to, from);
-          }
-          return TRUE;
-      } else {
-          reportDiagnostic(ctx, DIAG_ASSIGN_FROM_INCOMPATIBLE_TYPE, coords, to, from);
-          return FALSE;
-      }
-  }
-
-
-  if (isPointerLikeType(from)) {
-      if (isIntegerType(to)) {
-          if (!isConstZero(fromExpr)) {
-            reportDiagnostic(ctx, DIAG_ASSIGN_INT_TO_POINTER, coords, to, from);
-          }
-          return TRUE;
-      } else {
-          reportDiagnostic(ctx, DIAG_ASSIGN_FROM_INCOMPATIBLE_TYPE, coords, to, from);
-          return FALSE;
-      }
-  }
-
-  return TRUE;
+  return result;
 }
-
-Boolean checkTypeAssignable(ParserContext *ctx, Coordinates *coords, TypeRef *type, Boolean report) {
-  if (isErrorType(type)) return TRUE;
-
-  if (type->flags.bits.isConst) {
-      if(report) {
-        reportDiagnostic(ctx, DIAG_ASSIGN_IN_CONST, coords, type);
-      }
-      return FALSE;
-  }
-
-  if (type->kind == TR_ARRAY) {
-      if (report) {
-        reportDiagnostic(ctx, DIAG_ARRAY_TYPE_IS_NOT_ASSIGNABLE, coords, type);
-      }
-      return FALSE;
-  }
-
-  return TRUE;
-}
-
 
 Boolean checkRefArgument(ParserContext *ctx, Coordinates *coords, AstExpression *arg, Boolean report) {
 
@@ -1106,7 +1071,7 @@ TypeRef *computeAssignmentTypes(ParserContext *ctx, Coordinates *coords, Express
       rhsType = computeBinaryType(ctx, coords, leftExpr, rightExpr, op2);
   }
 
-  if (isAssignableTypes(ctx, coords, left, rhsType, rightExpr, FALSE)) {
+  if (isAssignableTypes(ctx, coords, left, rhsType, rightExpr)) {
       return left;
   }
 
@@ -1678,7 +1643,13 @@ static AstInitializer *finalizeScalarInitializer(ParserContext *ctx, TypeRef *ty
   AstExpression *expr = initializer->expression;
   TypeRef *exprType = expr->type;
 
-  if (isAssignableTypes(ctx, &expr->coordinates, type, exprType, expr, TRUE)) {
+  enum DiagnosticId diag = -1;
+  Boolean comaptible = isCompatibleType(ctx, &expr->coordinates, type, exprType, &diag, isConstZero(expr));
+  if (diag != -1) {
+      reportDiagnostic(ctx, diag, &expr->coordinates, "initializing", type, "with an expression of", exprType);
+  }
+
+  if (comaptible) {
       if (isTopLevel && !isCompileTimeConstant(expr)) {
           reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, &initializer->coords);
           new->expression = createErrorExpression(ctx, &expr->coordinates);
@@ -1923,7 +1894,6 @@ void verifyAndTransformCallAruments(ParserContext *ctx, Coordinates *coords, Typ
           argument = argument->next;
           param = param->next;
       } else {
-          reportDiagnostic(ctx, DIAG_INCOMPATIBLE_PARAMETER, &arg->coordinates, pType, aType);
           break;
       }
   }

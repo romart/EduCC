@@ -2569,7 +2569,7 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         stmt = createJumpStatement(ctx, &coords, SK_RETURN);
         if (expr) {
           TypeRef *returnType = ctx->parsingFunction->returnType;
-          if (isAssignableTypes(ctx, &coords, returnType, expr->type, expr, FALSE)) {
+          if (checkReturnType(ctx, &coords, returnType, expr)) {
             if (!typesEquals(returnType, expr->type)) {
                 expr = createCastExpression(ctx, &coords, returnType, expr);
             }
