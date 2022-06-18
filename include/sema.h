@@ -50,6 +50,7 @@ Boolean is_va_list_Type(TypeRef *type);
 Boolean checkReturnType(ParserContext *ctx, Coordinates *coords, TypeRef *returnType, AstExpression *expr);
 
 StructualMember *findStructualMember(TypeDefiniton *definition, const char *name);
+int32_t effectiveMemberOffset(StructualMember *member);
 int32_t memberOffset(TypeDefiniton *declaration, const char *memberName);
 int32_t typeAlignment(TypeRef *type);
 

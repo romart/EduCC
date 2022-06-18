@@ -407,6 +407,7 @@ typedef struct _StructualMember {
   TypeRef *type;
   int32_t offset;
 
+  struct _StructualMember *parent;
   struct _StructualMember *next;
 } StructualMember;
 

@@ -401,9 +401,9 @@ int32_t typeAlignment(TypeRef *type) {
 int32_t memberOffset(TypeDefiniton *declaration, const char *memberName) {
   StructualMember *member = findStructualMember(declaration, memberName);
 
-  if (member) return member->offset;
+  if (!member) return -1;
 
-  return -1;
+  return effectiveMemberOffset(member);
 }
 
 TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, Coordinates *coords, TypeRef *l, TypeRef *r) {
@@ -454,12 +454,28 @@ TypeRef *computeFunctionReturnType(ParserContext *ctx, Coordinates *coords, Type
     return returnType;
 }
 
+int32_t effectiveMemberOffset(StructualMember *member) {
+
+  int32_t result = 0;
+
+  for (; member; member = member->parent) {
+      result += member->offset;
+  }
+
+  return result;
+}
+
 StructualMember *findStructualMember(TypeDefiniton *definition, const char *name) {
   StructualMember *member = definition->members;
 
   while (member) {
       if (strcmp(member->name, name) == 0) {
           break;
+      }
+      if (member->name[0] == '$') {
+          assert(isCompositeType(member->type));
+          StructualMember *t = findStructualMember(member->type->descriptorDesc->typeDefinition, name);
+          if (t) return t;
       }
       member = member->next;
   }
