@@ -31,6 +31,25 @@ void *heapAllocate(size_t size) {
   return result;
 }
 
+void *heapReallocate(void *ptr, size_t oldSize, size_t newSize) {
+
+  void *result = ptr ? realloc(ptr, newSize) : malloc(newSize);
+
+  if (result == NULL) {
+      fprintf(stderr, "Cannot allocate %zu bytes, OutOfMemory, halt\n", newSize);
+      exit(ERR_MALLOC);
+  }
+
+  heapBytesAllocated += newSize;
+
+  if (newSize > oldSize) {
+    memset(result + oldSize, 0, newSize - oldSize);
+  }
+
+  return result;
+}
+
+
 void releaseHeap(void *p) {
   free(p);
 }
