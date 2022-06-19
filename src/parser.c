@@ -1197,6 +1197,7 @@ enum_specifier
 static TypeDefiniton* parseEnumDeclaration(ParserContext *ctx) {
     const char *name = NULL;
 
+    Boolean defined = FALSE;
     EnumConstant *enumerators = NULL;
     Coordinates coords = { ctx->token, ctx->token };
     consume(ctx, ENUM);
@@ -1210,6 +1211,7 @@ static TypeDefiniton* parseEnumDeclaration(ParserContext *ctx) {
     }
 
     if (token == '{') {
+      defined = TRUE;
       token = nextToken(ctx)->code;
 
       if (token == '}') {
@@ -1225,7 +1227,7 @@ static TypeDefiniton* parseEnumDeclaration(ParserContext *ctx) {
     TypeDefiniton *definition = createTypeDefiniton(ctx, TDK_ENUM, &coords, name);
     definition->size = definition->align = sizeof (int32_t);
     definition->enumerators = enumerators;
-    definition->isDefined = enumerators != NULL;
+    definition->isDefined = defined;
 
     return definition;
 }
