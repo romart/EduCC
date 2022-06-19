@@ -30,7 +30,7 @@ FILE test/testData/parser/negative/expressions/unassignableArgs.c
     foo(g, *s2)
     foo((*signed int)s1, (*signed int)s1)
     foo((*signed int)s2, (*signed int)s2)
-    foo((*signed int)arr, (*signed int)arr)
+    foo((*signed int)(*arr), (*signed int)(*arr))
     fex(*f, *f)
     fex(*g, *g)
     fex(g, g)
@@ -43,5 +43,5 @@ FILE test/testData/parser/negative/expressions/unassignableArgs.c
     fex(s2, s2)
     fex(foo, foo)
     fex(*s1, *s2)
-    fex(arr, arr)    
+    fex(*arr, *arr)
   END

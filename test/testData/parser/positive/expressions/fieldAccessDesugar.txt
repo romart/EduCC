@@ -30,15 +30,15 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     signed int[10] arr
     signed char[10] carr
     signed int a = \
-      arr[*i]
+      (*arr)[*i]
     signed int b = \
-      arr[2]
+      (*arr)[2]
     signed int c = \
-      arr[4]
+      (*arr)[4]
     signed int d = \
-      (signed int)carr[0]
+      (signed int)(*carr)[0]
     signed int e = \
-      (signed int)carr[9]    
+      (signed int)(*carr)[9]
   END
 ----
   FUN signed int testStructValued1 

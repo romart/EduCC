@@ -39,7 +39,7 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
     **f
     **pi
     **pf
-    *arr
+    **arr
     **s
     **ps
     **vp    
@@ -51,7 +51,7 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
     +*f
     +*pi
     +*pf
-    +arr
+    +*arr
     +*s
     +*ps
     +*vp    
@@ -63,7 +63,7 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
     -*f
     -*pi
     -*pf
-    -arr
+    -*arr
     -*s
     -*ps
     -*vp    
@@ -75,7 +75,7 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
     !*f
     !*pi
     !*pf
-    !arr
+    !*arr
     !*s
     !*ps
     !*vp    
@@ -87,7 +87,7 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
     ~*f
     ~*pi
     ~*pf
-    ~arr
+    ~*arr
     ~*s
     ~*ps
     ~*vp    

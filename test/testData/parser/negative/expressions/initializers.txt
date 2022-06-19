@@ -294,7 +294,7 @@ FILE test/testData/parser/negative/expressions/initializers.c
   signed int[20] a1
 ----
   *signed int pa = \
-    (*signed int)a1
+    (*signed int)*a1
 ----
   float ff = \
     ERROR EXPR
@@ -351,7 +351,7 @@ FILE test/testData/parser/negative/expressions/initializers.c
     signed int[-1] a2 = \
       ERROR EXPR
     *signed int pa = \
-      (*signed int)a1
+      (*signed int)*a1
     float f = \
       ERROR EXPR
     signed int i2 = \
@@ -465,7 +465,7 @@ FILE test/testData/parser/negative/expressions/initializers.c
   signed int[29] axx
 ----
   *signed int paxx = \
-    (*signed int)axx
+    (*signed int)*axx
 ----
   signed int bbb = \
     ERROR EXPR

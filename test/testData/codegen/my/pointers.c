@@ -24,7 +24,7 @@ int main() {
   int x11=3, y11=5;
   if (8 != x11+y11) return 11;
 
-  int x12[2]; int *y12=&x12; *y12=3;
+  int x12[2]; int *y12=(int*)&x12; *y12=3;
   if (3 != *x12) return 12;
 
   int x13[3]; *x13=3; *(x13+1)=4; *(x13+2)=5;
