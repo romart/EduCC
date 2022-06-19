@@ -30,8 +30,8 @@ FILE test/testData/parser/negative/expressions/incdec.c
     ERROR EXPR
     (*s)++
     (*s)--
-    ar++
-    ar--
+    (*ar)++
+    (*ar)--
     ERROR EXPR
     ERROR EXPR
     (*c)++

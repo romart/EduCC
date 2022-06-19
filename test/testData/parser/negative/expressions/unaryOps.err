@@ -1,13 +1,13 @@
 test/testData/parser/negative/expressions/unaryOps.c:17:3: error: address of register variable requested
-test/testData/parser/negative/expressions/unaryOps.c:17:4: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:18:4: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:19:4: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:20:4: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:21:4: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:22:4: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:23:4: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:24:4: warning: expression result unused
-test/testData/parser/negative/expressions/unaryOps.c:25:4: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:17:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:18:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:19:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:20:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:21:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:22:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:23:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:24:3: warning: expression result unused
+test/testData/parser/negative/expressions/unaryOps.c:25:3: warning: expression result unused
 test/testData/parser/negative/expressions/unaryOps.c:30:3: error: indirection requires pointer operand ('signed int' invalid)
 test/testData/parser/negative/expressions/unaryOps.c:31:3: error: indirection requires pointer operand ('float' invalid)
 test/testData/parser/negative/expressions/unaryOps.c:32:3: warning: expression result unused

@@ -19,20 +19,13 @@ test/testData/parser/negative/expressions/assignOp.c:36:6: warning: incompatible
 test/testData/parser/negative/expressions/assignOp.c:38:6: warning: incompatible pointer type assigning to '*float' from type 'signed int[20]'
 test/testData/parser/negative/expressions/assignOp.c:39:6: error: assigning to '*float' from incompatible type 'STRUCT S'
 test/testData/parser/negative/expressions/assignOp.c:40:6: warning: incompatible pointer type assigning to '*float' from type '*STRUCT S'
-test/testData/parser/negative/expressions/assignOp.c:41:7: error: expression is not assignable
-test/testData/parser/negative/expressions/assignOp.c:41:7: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
-test/testData/parser/negative/expressions/assignOp.c:42:7: error: expression is not assignable
-test/testData/parser/negative/expressions/assignOp.c:42:7: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
-test/testData/parser/negative/expressions/assignOp.c:43:7: error: expression is not assignable
-test/testData/parser/negative/expressions/assignOp.c:43:7: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
-test/testData/parser/negative/expressions/assignOp.c:44:7: error: expression is not assignable
-test/testData/parser/negative/expressions/assignOp.c:44:7: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
-test/testData/parser/negative/expressions/assignOp.c:45:7: error: expression is not assignable
-test/testData/parser/negative/expressions/assignOp.c:45:7: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
-test/testData/parser/negative/expressions/assignOp.c:46:7: error: expression is not assignable
-test/testData/parser/negative/expressions/assignOp.c:46:7: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
-test/testData/parser/negative/expressions/assignOp.c:47:7: error: expression is not assignable
-test/testData/parser/negative/expressions/assignOp.c:47:7: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
+test/testData/parser/negative/expressions/assignOp.c:41:7: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/assignOp.c:42:7: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/assignOp.c:43:7: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/assignOp.c:44:7: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/assignOp.c:45:7: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/assignOp.c:46:7: error: array type 'signed int[20]' is not assignable
+test/testData/parser/negative/expressions/assignOp.c:47:7: error: array type 'signed int[20]' is not assignable
 test/testData/parser/negative/expressions/assignOp.c:48:5: error: assigning to 'STRUCT S' from incompatible type 'signed int'
 test/testData/parser/negative/expressions/assignOp.c:49:5: error: assigning to 'STRUCT S' from incompatible type 'float'
 test/testData/parser/negative/expressions/assignOp.c:50:5: error: assigning to 'STRUCT S' from incompatible type '*signed int'
@@ -47,7 +40,7 @@ test/testData/parser/negative/expressions/assignOp.c:59:6: warning: incompatible
 test/testData/parser/negative/expressions/assignOp.c:60:6: error: assigning to '*STRUCT S' from incompatible type 'STRUCT S'
 test/testData/parser/negative/expressions/assignOp.c:68:5: warning: incompatible integer to pointer conversion assigning to 'signed int' from type '*signed int'
 test/testData/parser/negative/expressions/assignOp.c:69:5: warning: incompatible integer to pointer conversion assigning to 'signed int' from type '*float'
-test/testData/parser/negative/expressions/assignOp.c:70:5: warning: incompatible integer to pointer conversion assigning to 'signed int' from type 'C *signed int'
+test/testData/parser/negative/expressions/assignOp.c:70:5: warning: incompatible integer to pointer conversion assigning to 'signed int' from type '*signed int'
 test/testData/parser/negative/expressions/assignOp.c:71:5: error: invalid operands to binary expression ('signed int' and 'STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:72:5: warning: incompatible integer to pointer conversion assigning to 'signed int' from type '*STRUCT S'
 test/testData/parser/negative/expressions/assignOp.c:75:5: error: invalid operands to binary expression ('float' and '*signed int')
@@ -67,19 +60,12 @@ test/testData/parser/negative/expressions/assignOp.c:90:6: error: invalid operan
 test/testData/parser/negative/expressions/assignOp.c:91:6: error: invalid operands to binary expression ('*float' and 'signed int[20]')
 test/testData/parser/negative/expressions/assignOp.c:92:6: error: invalid operands to binary expression ('*float' and 'STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:93:6: error: invalid operands to binary expression ('*float' and '*STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:94:7: error: expression is not assignable
-test/testData/parser/negative/expressions/assignOp.c:94:7: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
-test/testData/parser/negative/expressions/assignOp.c:95:7: error: expression is not assignable
+test/testData/parser/negative/expressions/assignOp.c:94:7: error: array type 'signed int[20]' is not assignable
 test/testData/parser/negative/expressions/assignOp.c:95:7: error: invalid operands to binary expression ('signed int[20]' and 'float')
-test/testData/parser/negative/expressions/assignOp.c:96:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:96:7: error: invalid operands to binary expression ('signed int[20]' and '*signed int')
-test/testData/parser/negative/expressions/assignOp.c:97:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:97:7: error: invalid operands to binary expression ('signed int[20]' and '*float')
-test/testData/parser/negative/expressions/assignOp.c:98:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:98:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int[20]')
-test/testData/parser/negative/expressions/assignOp.c:99:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:99:7: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:100:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:100:7: error: invalid operands to binary expression ('signed int[20]' and '*STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:101:5: error: invalid operands to binary expression ('STRUCT S' and 'signed int')
 test/testData/parser/negative/expressions/assignOp.c:102:5: error: invalid operands to binary expression ('STRUCT S' and 'float')
@@ -116,19 +102,12 @@ test/testData/parser/negative/expressions/assignOp.c:143:6: warning: incompatibl
 test/testData/parser/negative/expressions/assignOp.c:144:6: error: '*float' and 'signed int[20]' are not pointers to compatible types
 test/testData/parser/negative/expressions/assignOp.c:145:6: error: invalid operands to binary expression ('*float' and 'STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:146:6: error: '*float' and '*STRUCT S' are not pointers to compatible types
-test/testData/parser/negative/expressions/assignOp.c:147:7: error: expression is not assignable
-test/testData/parser/negative/expressions/assignOp.c:147:7: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
-test/testData/parser/negative/expressions/assignOp.c:148:7: error: expression is not assignable
+test/testData/parser/negative/expressions/assignOp.c:147:7: error: array type 'signed int[20]' is not assignable
 test/testData/parser/negative/expressions/assignOp.c:148:7: error: invalid operands to binary expression ('signed int[20]' and 'float')
-test/testData/parser/negative/expressions/assignOp.c:149:7: error: expression is not assignable
-test/testData/parser/negative/expressions/assignOp.c:149:7: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
-test/testData/parser/negative/expressions/assignOp.c:150:7: error: expression is not assignable
+test/testData/parser/negative/expressions/assignOp.c:149:7: error: array type 'signed int[20]' is not assignable
 test/testData/parser/negative/expressions/assignOp.c:150:7: error: 'signed int[20]' and '*float' are not pointers to compatible types
-test/testData/parser/negative/expressions/assignOp.c:151:7: error: expression is not assignable
-test/testData/parser/negative/expressions/assignOp.c:151:7: error: cannot assign to lvalue with const-qualified type 'signed int[20]'
-test/testData/parser/negative/expressions/assignOp.c:152:7: error: expression is not assignable
+test/testData/parser/negative/expressions/assignOp.c:151:7: error: array type 'signed int[20]' is not assignable
 test/testData/parser/negative/expressions/assignOp.c:152:7: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:153:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:153:7: error: 'signed int[20]' and '*STRUCT S' are not pointers to compatible types
 test/testData/parser/negative/expressions/assignOp.c:154:5: error: invalid operands to binary expression ('STRUCT S' and 'signed int')
 test/testData/parser/negative/expressions/assignOp.c:155:5: error: invalid operands to binary expression ('STRUCT S' and 'float')
@@ -167,19 +146,12 @@ test/testData/parser/negative/expressions/assignOp.c:196:6: error: invalid opera
 test/testData/parser/negative/expressions/assignOp.c:197:6: error: invalid operands to binary expression ('*float' and 'signed int[20]')
 test/testData/parser/negative/expressions/assignOp.c:198:6: error: invalid operands to binary expression ('*float' and 'STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:199:6: error: invalid operands to binary expression ('*float' and '*STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:200:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:200:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int')
-test/testData/parser/negative/expressions/assignOp.c:201:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:201:7: error: invalid operands to binary expression ('signed int[20]' and 'float')
-test/testData/parser/negative/expressions/assignOp.c:202:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:202:7: error: invalid operands to binary expression ('signed int[20]' and '*signed int')
-test/testData/parser/negative/expressions/assignOp.c:203:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:203:7: error: invalid operands to binary expression ('signed int[20]' and '*float')
-test/testData/parser/negative/expressions/assignOp.c:204:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:204:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int[20]')
-test/testData/parser/negative/expressions/assignOp.c:205:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:205:7: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:206:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:206:7: error: invalid operands to binary expression ('signed int[20]' and '*STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:207:5: error: invalid operands to binary expression ('STRUCT S' and 'signed int')
 test/testData/parser/negative/expressions/assignOp.c:208:5: error: invalid operands to binary expression ('STRUCT S' and 'float')
@@ -219,19 +191,12 @@ test/testData/parser/negative/expressions/assignOp.c:249:6: error: invalid opera
 test/testData/parser/negative/expressions/assignOp.c:250:6: error: invalid operands to binary expression ('*float' and 'signed int[20]')
 test/testData/parser/negative/expressions/assignOp.c:251:6: error: invalid operands to binary expression ('*float' and 'STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:252:6: error: invalid operands to binary expression ('*float' and '*STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:253:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:253:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int')
-test/testData/parser/negative/expressions/assignOp.c:254:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:254:7: error: invalid operands to binary expression ('signed int[20]' and 'float')
-test/testData/parser/negative/expressions/assignOp.c:255:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:255:7: error: invalid operands to binary expression ('signed int[20]' and '*signed int')
-test/testData/parser/negative/expressions/assignOp.c:256:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:256:7: error: invalid operands to binary expression ('signed int[20]' and '*float')
-test/testData/parser/negative/expressions/assignOp.c:257:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:257:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int[20]')
-test/testData/parser/negative/expressions/assignOp.c:258:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:258:7: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:259:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:259:7: error: invalid operands to binary expression ('signed int[20]' and '*STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:260:5: error: invalid operands to binary expression ('STRUCT S' and 'signed int')
 test/testData/parser/negative/expressions/assignOp.c:261:5: error: invalid operands to binary expression ('STRUCT S' and 'float')
@@ -274,19 +239,12 @@ test/testData/parser/negative/expressions/assignOp.c:302:6: error: invalid opera
 test/testData/parser/negative/expressions/assignOp.c:303:6: error: invalid operands to binary expression ('*float' and 'signed int[20]')
 test/testData/parser/negative/expressions/assignOp.c:304:6: error: invalid operands to binary expression ('*float' and 'STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:305:6: error: invalid operands to binary expression ('*float' and '*STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:306:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:306:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int')
-test/testData/parser/negative/expressions/assignOp.c:307:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:307:7: error: invalid operands to binary expression ('signed int[20]' and 'float')
-test/testData/parser/negative/expressions/assignOp.c:308:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:308:7: error: invalid operands to binary expression ('signed int[20]' and '*signed int')
-test/testData/parser/negative/expressions/assignOp.c:309:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:309:7: error: invalid operands to binary expression ('signed int[20]' and '*float')
-test/testData/parser/negative/expressions/assignOp.c:310:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:310:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int[20]')
-test/testData/parser/negative/expressions/assignOp.c:311:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:311:7: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:312:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:312:7: error: invalid operands to binary expression ('signed int[20]' and '*STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:313:5: error: invalid operands to binary expression ('STRUCT S' and 'signed int')
 test/testData/parser/negative/expressions/assignOp.c:314:5: error: invalid operands to binary expression ('STRUCT S' and 'float')
@@ -329,19 +287,12 @@ test/testData/parser/negative/expressions/assignOp.c:355:6: error: invalid opera
 test/testData/parser/negative/expressions/assignOp.c:356:6: error: invalid operands to binary expression ('*float' and 'signed int[20]')
 test/testData/parser/negative/expressions/assignOp.c:357:6: error: invalid operands to binary expression ('*float' and 'STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:358:6: error: invalid operands to binary expression ('*float' and '*STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:359:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:359:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int')
-test/testData/parser/negative/expressions/assignOp.c:360:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:360:7: error: invalid operands to binary expression ('signed int[20]' and 'float')
-test/testData/parser/negative/expressions/assignOp.c:361:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:361:7: error: invalid operands to binary expression ('signed int[20]' and '*signed int')
-test/testData/parser/negative/expressions/assignOp.c:362:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:362:7: error: invalid operands to binary expression ('signed int[20]' and '*float')
-test/testData/parser/negative/expressions/assignOp.c:363:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:363:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int[20]')
-test/testData/parser/negative/expressions/assignOp.c:364:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:364:7: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:365:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:365:7: error: invalid operands to binary expression ('signed int[20]' and '*STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:366:5: error: invalid operands to binary expression ('STRUCT S' and 'signed int')
 test/testData/parser/negative/expressions/assignOp.c:367:5: error: invalid operands to binary expression ('STRUCT S' and 'float')
@@ -384,19 +335,12 @@ test/testData/parser/negative/expressions/assignOp.c:408:6: error: invalid opera
 test/testData/parser/negative/expressions/assignOp.c:409:6: error: invalid operands to binary expression ('*float' and 'signed int[20]')
 test/testData/parser/negative/expressions/assignOp.c:410:6: error: invalid operands to binary expression ('*float' and 'STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:411:6: error: invalid operands to binary expression ('*float' and '*STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:412:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:412:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int')
-test/testData/parser/negative/expressions/assignOp.c:413:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:413:7: error: invalid operands to binary expression ('signed int[20]' and 'float')
-test/testData/parser/negative/expressions/assignOp.c:414:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:414:7: error: invalid operands to binary expression ('signed int[20]' and '*signed int')
-test/testData/parser/negative/expressions/assignOp.c:415:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:415:7: error: invalid operands to binary expression ('signed int[20]' and '*float')
-test/testData/parser/negative/expressions/assignOp.c:416:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:416:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int[20]')
-test/testData/parser/negative/expressions/assignOp.c:417:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:417:7: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:418:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:418:7: error: invalid operands to binary expression ('signed int[20]' and '*STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:419:5: error: invalid operands to binary expression ('STRUCT S' and 'signed int')
 test/testData/parser/negative/expressions/assignOp.c:420:5: error: invalid operands to binary expression ('STRUCT S' and 'float')
@@ -439,19 +383,12 @@ test/testData/parser/negative/expressions/assignOp.c:461:6: error: invalid opera
 test/testData/parser/negative/expressions/assignOp.c:462:6: error: invalid operands to binary expression ('*float' and 'signed int[20]')
 test/testData/parser/negative/expressions/assignOp.c:463:6: error: invalid operands to binary expression ('*float' and 'STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:464:6: error: invalid operands to binary expression ('*float' and '*STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:465:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:465:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int')
-test/testData/parser/negative/expressions/assignOp.c:466:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:466:7: error: invalid operands to binary expression ('signed int[20]' and 'float')
-test/testData/parser/negative/expressions/assignOp.c:467:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:467:7: error: invalid operands to binary expression ('signed int[20]' and '*signed int')
-test/testData/parser/negative/expressions/assignOp.c:468:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:468:7: error: invalid operands to binary expression ('signed int[20]' and '*float')
-test/testData/parser/negative/expressions/assignOp.c:469:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:469:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int[20]')
-test/testData/parser/negative/expressions/assignOp.c:470:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:470:7: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:471:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:471:7: error: invalid operands to binary expression ('signed int[20]' and '*STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:472:5: error: invalid operands to binary expression ('STRUCT S' and 'signed int')
 test/testData/parser/negative/expressions/assignOp.c:473:5: error: invalid operands to binary expression ('STRUCT S' and 'float')
@@ -494,19 +431,12 @@ test/testData/parser/negative/expressions/assignOp.c:514:6: error: invalid opera
 test/testData/parser/negative/expressions/assignOp.c:515:6: error: invalid operands to binary expression ('*float' and 'signed int[20]')
 test/testData/parser/negative/expressions/assignOp.c:516:6: error: invalid operands to binary expression ('*float' and 'STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:517:6: error: invalid operands to binary expression ('*float' and '*STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:518:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:518:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int')
-test/testData/parser/negative/expressions/assignOp.c:519:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:519:7: error: invalid operands to binary expression ('signed int[20]' and 'float')
-test/testData/parser/negative/expressions/assignOp.c:520:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:520:7: error: invalid operands to binary expression ('signed int[20]' and '*signed int')
-test/testData/parser/negative/expressions/assignOp.c:521:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:521:7: error: invalid operands to binary expression ('signed int[20]' and '*float')
-test/testData/parser/negative/expressions/assignOp.c:522:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:522:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int[20]')
-test/testData/parser/negative/expressions/assignOp.c:523:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:523:7: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:524:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:524:7: error: invalid operands to binary expression ('signed int[20]' and '*STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:525:5: error: invalid operands to binary expression ('STRUCT S' and 'signed int')
 test/testData/parser/negative/expressions/assignOp.c:526:5: error: invalid operands to binary expression ('STRUCT S' and 'float')
@@ -549,19 +479,12 @@ test/testData/parser/negative/expressions/assignOp.c:567:6: error: invalid opera
 test/testData/parser/negative/expressions/assignOp.c:568:6: error: invalid operands to binary expression ('*float' and 'signed int[20]')
 test/testData/parser/negative/expressions/assignOp.c:569:6: error: invalid operands to binary expression ('*float' and 'STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:570:6: error: invalid operands to binary expression ('*float' and '*STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:571:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:571:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int')
-test/testData/parser/negative/expressions/assignOp.c:572:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:572:7: error: invalid operands to binary expression ('signed int[20]' and 'float')
-test/testData/parser/negative/expressions/assignOp.c:573:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:573:7: error: invalid operands to binary expression ('signed int[20]' and '*signed int')
-test/testData/parser/negative/expressions/assignOp.c:574:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:574:7: error: invalid operands to binary expression ('signed int[20]' and '*float')
-test/testData/parser/negative/expressions/assignOp.c:575:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:575:7: error: invalid operands to binary expression ('signed int[20]' and 'signed int[20]')
-test/testData/parser/negative/expressions/assignOp.c:576:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:576:7: error: invalid operands to binary expression ('signed int[20]' and 'STRUCT S')
-test/testData/parser/negative/expressions/assignOp.c:577:7: error: expression is not assignable
 test/testData/parser/negative/expressions/assignOp.c:577:7: error: invalid operands to binary expression ('signed int[20]' and '*STRUCT S')
 test/testData/parser/negative/expressions/assignOp.c:578:5: error: invalid operands to binary expression ('STRUCT S' and 'signed int')
 test/testData/parser/negative/expressions/assignOp.c:579:5: error: invalid operands to binary expression ('STRUCT S' and 'float')
