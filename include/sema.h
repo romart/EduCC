@@ -45,6 +45,7 @@ Boolean isUnsignedType(TypeRef *type);
 Boolean isScalarType(TypeRef *type);
 Boolean isUnionType(TypeRef *type);
 Boolean isCompositeType(TypeRef *type);
+Boolean isFlatType(TypeRef *type);
 Boolean is_va_list_Type(TypeRef *type);
 
 Boolean checkReturnType(ParserContext *ctx, Coordinates *coords, TypeRef *returnType, AstExpression *expr);

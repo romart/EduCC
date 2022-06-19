@@ -268,6 +268,10 @@ Boolean isCompositeType(TypeRef *type) {
   return FALSE;
 }
 
+Boolean isFlatType(TypeRef *type) {
+  return type->kind == TR_ARRAY || isCompositeType(type);
+}
+
 Boolean isVoidType(TypeRef *type) {
   if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_VOID)
     return TRUE;
