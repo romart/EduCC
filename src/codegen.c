@@ -1864,11 +1864,9 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
     saved_acc = TRUE;
   }
 
-  if (addrExpr->op == EU_DEREF) {
-    translateAddress(ctx, f, scope, addrExpr->unaryExpr.argument, &addr);
-  } else {
-    translateAddress(ctx, f, scope, addrExpr, &addr);
-  }
+
+  assert(addrExpr->op == EU_DEREF);
+  translateAddress(ctx, f, scope, addrExpr->unaryExpr.argument, &addr);
 
   if (op == EB_ASSIGN) {
       // a = b
@@ -2025,12 +2023,8 @@ static void generateAssignDiv(GenerationContext *ctx, GeneratedFunction *f, Scop
   size_t typeSize = computeTypeSize(type);
   Boolean isU = isUnsignedType(type);
 
-  if (rvalue->op == EU_DEREF) {
-      translateAddress(ctx, f, scope, rvalue->unaryExpr.argument, &addr);
-  } else {
-      // TODO: probably it's illegal
-      translateAddress(ctx, f, scope, rvalue, &addr);
-  }
+  assert(rvalue->op == EU_DEREF);
+  translateAddress(ctx, f, scope, rvalue->unaryExpr.argument, &addr);
 
   enum Opcodes opcode;
   if (lType->kind == TR_BITFIELD) {
@@ -2272,7 +2266,8 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
 
     if (isCompositeType(argType) && argSize > sizeof(intptr_t)) {
       Address addr = { 0 };
-      translateAddress(ctx, f, scope, arg->op == EU_DEREF ? arg->unaryExpr.argument : arg, &addr);
+      assert(arg->op == EU_DEREF);
+      translateAddress(ctx, f, scope, arg->unaryExpr.argument, &addr);
       dst.imm = rspOffset + (f->stackOffset - stackBase);
       copyStructTo(f, argType, &addr, &dst);
     } else {
@@ -2323,11 +2318,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   Address saddr = { R_ESP, R_BAD, 0, 0, NULL, NULL };
 
   if (callee->op != E_NAMEREF) {
-      if (pcalleeType->kind == TR_FUNCTION && callee->op == EU_DEREF) {
-        generateExpression(ctx, f, scope, callee->unaryExpr.argument);
-      } else {
-        generateExpression(ctx, f, scope, callee);
-      }
+      generateExpression(ctx, f, scope, callee);
       emitMoveRR(f, R_ACC, R_R10, sizeof(intptr_t));
   }
 
@@ -2593,7 +2584,7 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
       break;
     case EU_DEREF:
       translateAddress(ctx, f, scope, expression->unaryExpr.argument, &addr);
-      if (isStructualType(expression->type) || isUnionType(expression->type) || expression->type->kind == TR_ARRAY) {
+      if (isFlatType(expression->type) || expression->type->kind == TR_FUNCTION) {
         if (!(addr.base == R_ACC && addr.index == R_BAD && addr.imm == 0)) {
           emitLea(f, &addr, R_ACC);
         }
@@ -3159,7 +3150,8 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
       if (retExpr) {
           if (isStructualType(retExpr->type)) {
             Address src = { 0 };
-            translateAddress(ctx, f, scope, retExpr->op == EU_DEREF ? retExpr->unaryExpr.argument : retExpr, &src);
+            assert(retExpr->op == EU_DEREF);
+            translateAddress(ctx, f, scope, retExpr->unaryExpr.argument, &src);
 
             size_t retSize = computeTypeSize(retExpr->type);
             if (retSize > sizeof(intptr_t)) {

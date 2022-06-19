@@ -668,9 +668,8 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
                     }
                 }
                 checkRefArgument(ctx, &coords, argument, TRUE);
-            } else if (op == EU_DEREF && argument->type->kind == TR_FUNCTION) {
-                return argument;
             }
+
             result = createUnaryExpression(ctx, &coords, op, argument);
             result->type = computeTypeForUnaryOperator(ctx, &coords, argument->type, op);
             return result;

@@ -799,6 +799,10 @@ TypeRef *computeIncDecType(ParserContext *ctx, Coordinates *coords, TypeRef *arg
 }
 
 static TypeRef *computeTypeForDerefOperator(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType) {
+  if (argumentType->kind == TR_FUNCTION) {
+      return argumentType;
+  }
+
   if (argumentType->kind == TR_POINTED) {
       return argumentType->pointedTo.toType;
   }
