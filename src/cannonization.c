@@ -23,20 +23,19 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
   TypeRef *arrayType = base->type;
   assert(isPointerLikeType(arrayType));
   TypeRef *pointerType = arrayType->kind == TR_ARRAY ? makePointedType(ctx, arrayType->flags.storage, arrayType->arrayTypeDesc.elementType) : arrayType;
-  TypeRef *elementType = pointerType->pointedTo.toType;
-
-  pointerType->pointedTo.arrayType = NULL;
+  TypeRef *elementType = pointerType->pointed;
 
   size_t elementSize = computeTypeSize(elementType);
 
   TypeRef *indexType = makePrimitiveType(ctx, isUnsignedType(index->type) ? T_U8 : T_S8, 0);
 
-  Boolean isFlat = base->type->kind == TR_ARRAY || base->op == EB_A_ACC && isArrayish(base->type);
+  Boolean isFlat = base->type->kind == TR_ARRAY;
 
   base = transformExpression(ctx, base);
   index = transformExpression(ctx, index);
 
   if (isFlat) {
+      // TODO: revise
       assert(base->op == EU_DEREF);
       base = base->unaryExpr.argument;
   }
@@ -445,7 +444,7 @@ static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression
   offsetedPtr = cannonizeAddExpression(ctx, offsetedPtr);
 
   AstExpression *derefered = createUnaryExpression(ctx, &orig->coordinates, EU_DEREF, offsetedPtr);
-  derefered->type = ptrType->pointedTo.toType;
+  derefered->type = ptrType->pointed;
 
   if (memberType->kind == TR_BITFIELD && deBit) {
       // de-bit
@@ -606,7 +605,7 @@ static AstExpression *cannonizeShiftExpression(ParserContext *ctx, AstExpression
 static AstExpression *cannonizePostIncDec(ParserContext *ctx, AstExpression *expr) {
   TypeRef *type = expr->type;
 
-  int64_t delta = isPointerLikeType(type) ? computeTypeSize(type->pointedTo.toType) : 1;
+  int64_t delta = isPointerLikeType(type) ? computeTypeSize(type->pointed) : 1;
 
   // x++ -> (x += delta) - delta
   // x-- -> (x -= delta) + delta

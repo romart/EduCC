@@ -261,15 +261,9 @@ static AstExpression *resolveNameRef(ParserContext *ctx) {
     if (s->kind == ValueSymbol) {
         TypeRef *type = s->variableDesc->type;
 
-        if (type->kind == TR_ARRAY) {
-            flags.bits.isConst = 1;
-            result->type = makePointedType(ctx, flags.storage, type->arrayTypeDesc.elementType);
-            result->type->pointedTo.arrayType = type;
-        } else {
-            result->type = makePointedType(ctx, flags.storage, type);
-            result = createUnaryExpression(ctx, &coords, EU_DEREF, result);
-            result->type = type;
-        }
+        result->type = makePointedType(ctx, flags.storage, type);
+        result = createUnaryExpression(ctx, &coords, EU_DEREF, result);
+        result->type = type;
     } else {
         assert(s->kind == FunctionSymbol);
         flags.bits.isConst = 1;
@@ -549,8 +543,8 @@ static AstExpression *createUnaryIncDecExpression(ParserContext *ctx, Coordinate
     offset->type = type;
   } else if (isPointerLikeType(type)) {
     assert(type->kind == TR_POINTED);
-    TypeRef *ptr= type->pointedTo.toType;
-    int64_t typeSize = isVoidType(ptr) ? 1 : computeTypeSize(type->pointedTo.toType);
+    TypeRef *ptr= type->pointed;
+    int64_t typeSize = isVoidType(ptr) ? 1 : computeTypeSize(type->pointed);
     assert(typeSize != UNKNOWN_SIZE);
     offset = createAstConst(ctx, coords, CK_INT_CONST, &typeSize);
     offset->type = makePrimitiveType(ctx, T_S8, 0);
@@ -586,6 +580,60 @@ static void useLabelExpr(ParserContext *ctx, AstExpression *expr, AstStatement *
   used->label = label;
   used->next = ctx->labels.usedLabels;
   ctx->labels.usedLabels = used;
+}
+
+static AstExpression *parseRefExpression(ParserContext *ctx) {
+  assert(ctx->token->code == '&');
+  Coordinates coords = { ctx->token };
+  nextToken(ctx);
+  AstExpression *argument = parseCastExpression(ctx, NULL);
+  coords.right = argument->coordinates.right;
+
+  TypeRef *argType = argument->type;
+
+  if (argument->op == EU_DEREF) {
+    argument = argument->unaryExpr.argument;
+  }
+
+  if (argument->op == E_NAMEREF) {
+      Symbol *s = argument->nameRefExpr.s;
+      assert(s);
+
+      if (s->kind == ValueSymbol) {
+          if (s->variableDesc->flags.bits.isRegister) {
+              // register int x;
+              // int *y = &x;
+              reportDiagnostic(ctx, DIAG_REGISTER_ADDRESS, &coords);
+          }
+
+          TypeRef *symbolType = s->variableDesc->type;
+
+          if (symbolType->kind == TR_ARRAY) {
+              argument->type = makePointedType(ctx, 0, symbolType->arrayTypeDesc.elementType);
+          }
+
+          argument->coordinates.left = coords.left;
+
+          return argument;
+      } else if (s->kind == FunctionSymbol) {
+          if (argument->type->kind == TR_POINTED) {
+              assert(argument->type->pointed->kind == TR_FUNCTION);
+              // we are done here
+              argument->coordinates.left = coords.left;
+              return argument;
+          }
+      }
+  } else if (argument->op == EF_ARROW || argument->op == EF_DOT) {
+      TypeRef *fieldType = argument->fieldExpr.member->type;
+      if (fieldType->kind == TR_BITFIELD) {
+          reportDiagnostic(ctx, DIAG_BIT_FIELD_ADDRESS, &coords);
+      }
+  }
+  checkRefArgument(ctx, &coords, argument, TRUE);
+
+  AstExpression *result = createUnaryExpression(ctx, &coords, EU_REF, argument);
+  result->type = computeTypeForUnaryOperator(ctx, &coords, argument->type, EU_REF);
+  return result;
 }
 
 /**
@@ -627,7 +675,8 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
             if (!isErrorType(type)) checkExpressionIsAssignable(ctx, &coords, argument, TRUE);
             coords.right = argument->coordinates.right;
             return createUnaryIncDecExpression(ctx, &coords, argument, type, op);
-        case '&': op = EU_REF; goto ue2;
+        case '&':
+            return parseRefExpression(ctx);
         case '*': op = EU_DEREF; goto ue2;
         case '+': op = EU_PLUS; goto ue2;
         case '-': op = EU_MINUS; goto ue2;
@@ -637,39 +686,6 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
             nextToken(ctx);
             argument = parseCastExpression(ctx, scope);
             coords.right = argument->coordinates.right;
-            if (op == EU_REF) {
-                if (argument->op == EU_DEREF) {
-                  argument = argument->unaryExpr.argument;
-                }
-                if (argument->op == E_NAMEREF) {
-                    Symbol *s = argument->nameRefExpr.s;
-                    if (s) {
-                        if (s->kind == ValueSymbol) {
-                            if (s->variableDesc->flags.bits.isRegister) {
-                                // register int x;
-                                // int *y = &x;
-                                reportDiagnostic(ctx, DIAG_REGISTER_ADDRESS, &coords);
-                            }
-                            return argument;
-                        } else if (s->kind == FunctionSymbol) {
-                            if (argument->type->kind == TR_POINTED) {
-                                assert(argument->type->pointedTo.toType->kind == TR_FUNCTION);
-                                // we are done here
-                                return argument;
-                            }
-                        }
-                    } else {
-                        unreachable("Very suspissios, symbol is NULL");
-                    }
-                } else if (argument->op == EF_ARROW || argument->op == EF_DOT) {
-                    TypeRef *fieldType = argument->fieldExpr.member->type;
-                    if (fieldType->kind == TR_BITFIELD) {
-                        reportDiagnostic(ctx, DIAG_BIT_FIELD_ADDRESS, &coords);
-                    }
-                }
-                checkRefArgument(ctx, &coords, argument, TRUE);
-            }
-
             result = createUnaryExpression(ctx, &coords, op, argument);
             result->type = computeTypeForUnaryOperator(ctx, &coords, argument->type, op);
             return result;
