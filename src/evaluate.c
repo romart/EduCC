@@ -453,6 +453,12 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
           AstExpression *oldRight = expression->binaryExpr.right;
           expression->binaryExpr.right = createAstConst2(ctx, &oldRight->coordinates, oldRight->type, right);
           return NULL;
+      } else if (left->op == CK_STRING_LITERAL || right->op == CK_STRING_LITERAL) {
+          AstExpression *oldLeft = expression->binaryExpr.left;
+          expression->binaryExpr.left = createAstConst2(ctx, &oldLeft->coordinates, oldLeft->type, left);
+          AstExpression *oldRight = expression->binaryExpr.right;
+          expression->binaryExpr.right = createAstConst2(ctx, &oldRight->coordinates, oldRight->type, right);
+          return NULL;
       }
       return evaluateBinaryConst(ctx, left, right, chk_eval, bin_i_eval, bin_f_eval);
     }
