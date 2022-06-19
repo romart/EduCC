@@ -58,6 +58,13 @@ typedef struct _GenerationContext {
 
   HashMap *labelMap;
 
+  struct {
+    HashMap *literalMap;
+    HashMap *f4ConstMap;
+    HashMap *f8ConstMap;
+    HashMap *f10ConstMap;
+  } constCache;
+
   struct Label *continueLabel;
   struct Label *breakLabel;
 
@@ -406,32 +413,57 @@ static Boolean maybeSpecialConst(GeneratedFunction *f, AstConst *_const, TypeId 
   return FALSE;
 }
 
+HashMap *floatCache(GenerationContext *ctx, TypeId tid) {
+  switch (tid) {
+    case T_F4: return ctx->constCache.f4ConstMap; break;
+    case T_F8: return ctx->constCache.f8ConstMap; break;
+    case T_F10: return ctx->constCache.f10ConstMap; break;
+    default: unreachable("Unexpected float type");
+  }
+}
+
+static ptrdiff_t checkFloatConstCache(GenerationContext *ctx, AstConst *_const, TypeId tid) {
+
+  HashMap *cache = floatCache(ctx, tid);
+
+  return (ptrdiff_t)getFromHashMap(cache, (intptr_t)&_const->f);
+}
+
 static Boolean emitFloatConst(GenerationContext *ctx, GeneratedFunction *f, AstConst *_const, TypeId tid, Address *addr) {
   assert(_const->op == CK_FLOAT_CONST);
-  ptrdiff_t offset = ctx->rodata->pc - ctx->rodata->start;
+  Section *rodata = ctx->rodata;
+  ptrdiff_t offset = rodata->pc - rodata->start;
   size_t size = typeIdSize(tid);
   ptrdiff_t alligned = ALIGN_SIZE(offset, size);
-
 
   if (maybeSpecialConst(f, _const, tid)) {
       return FALSE;
   }
 
-  while (offset < alligned) {
-      emitSectionByte(ctx->rodata, 0x00);
-      ++offset;
+  ptrdiff_t cached = checkFloatConstCache(ctx, _const, tid);
+
+  if (cached) {
+      offset = cached - 1;
+  } else {
+      while (offset < alligned) {
+          emitSectionByte(rodata, 0x00);
+          ++offset;
+      }
+
+      offset = rodata->pc - rodata->start;
+      emitFloatIntoSection(rodata, tid, _const->f);
+
+      HashMap *cache = floatCache(ctx, tid);
+      putToHashMap(cache, (intptr_t)&_const->f, offset + 1);
   }
 
   Relocation *reloc = allocateRelocation(ctx);
   reloc->kind = RK_RIP;
   reloc->applySection = f->section;
-  reloc->sectionData.dataSection = ctx->rodata;
-  reloc->sectionData.dataSectionOffset = ctx->rodata->pc - ctx->rodata->start;
+  reloc->sectionData.dataSection = rodata;
+  reloc->sectionData.dataSectionOffset = offset;
   reloc->next = f->section->reloc;
   f->section->reloc = reloc;
-
-  // TODO: support predefined F10 consts
-  emitFloatIntoSection(ctx->rodata, tid, _const->f);
 
   addr->base = R_RIP;
   addr->index = R_BAD;
@@ -452,14 +484,23 @@ static int parseIfHex(char c) {
 
 }
 
-static void emitStringWithEscaping(Section *section, const char *str) {
+static ptrdiff_t emitStringWithEscaping(GenerationContext *ctx, Section *section, const char *str) {
   unsigned idx = 0;
+
+  ptrdiff_t cached = getFromHashMap(ctx->constCache.literalMap, (intptr_t)str);
+  if (cached) return cached - 1;
+
+  ptrdiff_t sectionOffset = section->pc - section->start;
 
   while (str[idx]) {
       emitSectionByte(section, str[idx++]);
   }
 
   emitSectionByte(section, '\0');
+
+  putToHashMap(ctx->constCache.literalMap, (intptr_t)str, (intptr_t)(sectionOffset + 1));
+
+  return sectionOffset;
 }
 
 static void emitConst(GenerationContext *ctx, GeneratedFunction *f, AstConst *_const, TypeId tid) {
@@ -483,19 +524,16 @@ static void emitConst(GenerationContext *ctx, GeneratedFunction *f, AstConst *_c
       emitMoveCR(f, c, R_ACC, typeIdSize(tid));
       break;
   case CK_STRING_LITERAL: {
-        const char *l = _const->l;
         Section *rodata = ctx->rodata;
-        ptrdiff_t offset = rodata->pc - rodata->start;
+        ptrdiff_t literalSectionOffset = emitStringWithEscaping(ctx, rodata, _const->l);
 
         Relocation *reloc = allocateRelocation(ctx);
         reloc->applySection = f->section;
         reloc->kind = RK_RIP;
         reloc->sectionData.dataSection= rodata;
-        reloc->sectionData.dataSectionOffset = rodata->pc - rodata->start;
+        reloc->sectionData.dataSectionOffset = literalSectionOffset;
         reloc->next = f->section->reloc;
         f->section->reloc = reloc;
-
-        emitStringWithEscaping(rodata, l);
 
         Address addr = { R_RIP, R_BAD, 0, 0, reloc };
 
@@ -827,10 +865,8 @@ static size_t fillInitializer(GenerationContext *ctx, Section *section, AstIniti
       case CK_FLOAT_CONST: emitFloatIntoSection(section, typeToId(constType), cexpr->f); break;
       case CK_STRING_LITERAL: {
         Section *rodata = ctx->rodata;
-        ptrdiff_t literalSectionOffset = rodata->pc - rodata->start;
-        const char *literal = cexpr->l;
 
-        emitStringWithEscaping(rodata, literal);
+        ptrdiff_t literalSectionOffset = emitStringWithEscaping(ctx, rodata, cexpr->l);
 
         Relocation *reloc = allocateRelocation(ctx);
 
@@ -3488,6 +3524,77 @@ static void buildElfFile(GenerationContext *ctx, AstFile *astFile, GeneratedFile
   releaseHeap(elfFileBytes);
 }
 
+int f4HashCode(intptr_t pf) {
+  float v = (float)(*(long double*)pf);
+  return *(int*)&v;
+}
+
+int f4Cmp(intptr_t pf1, intptr_t pf2) {
+  float v1 = (float)(*(long double*)pf1);
+  float v2 = (float)(*(long double*)pf2);
+  return *(int*)&v2 - *(int*)&v1;
+}
+
+int f8HashCode(intptr_t pf) {
+  DoubleBytes db = { 0 };
+  db.d = (double)(*(long double*)pf);
+
+  int i, r = 0;
+
+  for (i = 0; i < 8; ++i) {
+      r *= 31;
+      r ^= db.bytes[i];
+  }
+
+  return r;
+}
+
+int f8Cmp(intptr_t pf1, intptr_t pf2) {
+  double v1 = (double)(*(long double*)pf1);
+  double v2 = (double)(*(long double*)pf2);
+
+  return memcmp((uint8_t*)&v2, (uint8_t*)&v1, 8);
+}
+
+int f10HashCode(intptr_t pf) {
+  LongDoubleBytes ldb = { 0 };
+  ldb.ld = *(long double*)pf;
+
+  int i, r = 0;
+
+  for (i = 0; i < 10; ++i) {
+      r *= 31;
+      r ^= ldb.bytes[i];
+  }
+
+  return r;
+}
+
+
+int f10Cmp(intptr_t pf1, intptr_t pf2) {
+  LongDoubleBytes ldb1 = { 0 };
+  ldb1.ld = *(long double*)pf1;
+
+  LongDoubleBytes ldb2 = { 0 };
+  ldb2.ld = *(long double*)pf2;
+
+  return memcmp(ldb2.bytes, ldb1.bytes, 10);
+}
+
+static void initConstCache(GenerationContext *ctx) {
+  ctx->constCache.literalMap = createHashMap(DEFAULT_MAP_CAPACITY, &stringHashCode, &stringCmp);
+  ctx->constCache.f4ConstMap = createHashMap(DEFAULT_MAP_CAPACITY, &f4HashCode, &f4Cmp);
+  ctx->constCache.f8ConstMap = createHashMap(DEFAULT_MAP_CAPACITY, &f8HashCode, &f8Cmp);
+  ctx->constCache.f10ConstMap = createHashMap(DEFAULT_MAP_CAPACITY, &f10HashCode, &f10Cmp);
+}
+
+static void releaseConstCache(GenerationContext *ctx) {
+  releaseHashMap(ctx->constCache.literalMap);
+  releaseHashMap(ctx->constCache.f4ConstMap);
+  releaseHashMap(ctx->constCache.f8ConstMap);
+  releaseHashMap(ctx->constCache.f10ConstMap);
+}
+
 GeneratedFile *generateCodeForFile(ParserContext *pctx, AstFile *astFile) {
 
   Section nullSection = { "", SHT_NULL, 0x00, 0 };
@@ -3527,6 +3634,8 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, AstFile *astFile) {
   }
 
   ctx.memsetSymbol = memsetSymbol;
+
+  initConstCache(&ctx);
 
   ctx.text = &text;
   ctx.bss = &bss;
@@ -3572,6 +3681,9 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, AstFile *astFile) {
   }
 
   buildElfFile(&ctx, astFile, file, &elfFile);
+
+  releaseConstCache(&ctx);
+
 
   return file;
 }
