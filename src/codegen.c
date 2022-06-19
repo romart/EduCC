@@ -1760,7 +1760,7 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
       addr->index = R_ECX;
       addr->scale = 0;
     } else {
-        if (r->op == E_CONST) {
+        if (r->op == E_CONST && r->constExpr.op != CK_STRING_LITERAL) {
             // [expr + imm]
             generateExpression(ctx, f, scope, l);
             emitMoveRR(f, R_ACC, R_EDI, sizeof(intptr_t));

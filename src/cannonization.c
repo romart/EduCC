@@ -29,7 +29,7 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
 
   TypeRef *indexType = makePrimitiveType(ctx, isUnsignedType(index->type) ? T_U8 : T_S8, 0);
 
-  Boolean isFlat = base->type->kind == TR_ARRAY;
+  Boolean isFlat = base->type->kind == TR_ARRAY && base->op != E_CONST;
 
   base = transformExpression(ctx, base);
   index = transformExpression(ctx, index);
