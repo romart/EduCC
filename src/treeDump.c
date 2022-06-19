@@ -3,6 +3,7 @@
 
 #include "sema.h"
 #include "treeDump.h"
+#include "tokens.h"
 
 static int dumpTypeRefImpl(FILE *output, int indent, TypeRef *type);
 static int dumpTypeDescImpl(FILE *output, int indent, TypeDesc *desc);
@@ -775,6 +776,15 @@ int dumpAstFile(FILE *output, AstFile *file, TypeDefiniton *typeDefinitions) {
       unit = unit->next;
   }
   return r;
+}
+
+void dumpLocation(FILE *output, AstExpression *t) {
+  const char *file = NULL;
+  unsigned line = 0;
+
+  fileAndLine(t->coordinates.left, &line, &file);
+
+  fprintf(output, "Token location: %s:%u\n", file, line);
 }
 
 int dumpAstExpression(FILE *output, AstExpression *expr) {
