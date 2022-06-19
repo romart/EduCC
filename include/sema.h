@@ -40,7 +40,6 @@ Boolean isVoidType(TypeRef *type);
 Boolean isPointerLikeType(TypeRef *type);
 Boolean isRealType(TypeRef *type);
 Boolean isStructualType(TypeRef *type);
-Boolean isArrayish(TypeRef *type);
 Boolean isUnsignedType(TypeRef *type);
 Boolean isScalarType(TypeRef *type);
 Boolean isUnionType(TypeRef *type);

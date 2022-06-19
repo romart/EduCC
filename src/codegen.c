@@ -754,6 +754,7 @@ static void collectRelocAndAdent(AstExpression *expr, Relocation *reloc) {
   case E_CONST: reloc->addend = expr->constExpr.i; return;
   case E_CAST: return collectRelocAndAdent(expr->castExpr.argument, reloc);
   case E_PAREN: return collectRelocAndAdent(expr->parened, reloc);
+  case EU_DEREF:
   case EU_REF: return collectRelocAndAdent(expr->unaryExpr.argument, reloc);
   case E_NAMEREF:
       reloc->symbolData.symbol = expr->nameRefExpr.s;
@@ -923,6 +924,7 @@ static Boolean hasRelocationsExpr(AstExpression *expr) {
   case E_CONST: return expr->constExpr.op == CK_STRING_LITERAL ? TRUE : FALSE;
   case E_CAST: return hasRelocationsExpr(expr->castExpr.argument);
   case E_PAREN: return hasRelocationsExpr(expr->parened);
+  case EU_DEREF:
   case EU_REF: return hasRelocationsExpr(expr->unaryExpr.argument);
   case E_NAMEREF: return TRUE;
   case EU_MINUS: return FALSE;
@@ -1528,7 +1530,7 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
       emitPushReg(f, R_ACC); // save result
     }
 
-    if (right->op == EU_DEREF && !isShiftOp(binOp->op) && lid == rid) {
+    if (right->op == EU_DEREF && !isFlatType(right->type) && !isShiftOp(binOp->op) && lid == rid) {
       Address addr = { 0 };
       translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
 
@@ -2171,7 +2173,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   AstExpressionList *args = expression->callExpr.arguments;
   TypeRef *type = expression->type;
   TypeRef *pcalleeType = callee->type;
-  TypeRef *calleeType = pcalleeType->kind == TR_POINTED ? pcalleeType->pointedTo.toType : pcalleeType;
+  TypeRef *calleeType = pcalleeType->kind == TR_POINTED ? pcalleeType->pointed : pcalleeType;
 //  assert(pcalleeType->kind == TR_POINTED);
   assert(calleeType->kind == TR_FUNCTION);
   TypeRef *returnType = calleeType->functionTypeDesc.returnType;
@@ -2389,7 +2391,7 @@ static void generateVaArg(GenerationContext *ctx, GeneratedFunction *f, Scope *s
   TypeRef *valistType = expression->vaArg.va_list->type;
   Address valist_addr = { R_EDI, R_BAD, 0, 0, NULL, NULL };
   assert(is_va_list_Type(valistType));
-  TypeDefiniton *vastruct = valistType->pointedTo.toType->descriptorDesc->typeDefinition;
+  TypeDefiniton *vastruct = valistType->pointed->descriptorDesc->typeDefinition;
   const static int32_t dataSize = sizeof(intptr_t);
 
   /**
@@ -2895,7 +2897,7 @@ static enum JumpCondition generateUnsignedCondition(GenerationContext *ctx, Gene
   } else {
     emitPushReg(f, R_ACC);
 
-    if (right->op == EU_DEREF && lid == rid && !swap) {
+    if (right->op == EU_DEREF && !isFlatType(right->type) && lid == rid && !swap) {
         Address addr = { 0 };
         translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
         emitPopReg(f, R_TMP);
@@ -2936,6 +2938,8 @@ static enum JumpCondition generateSignedCondition(GenerationContext *ctx, Genera
     emitArithConst(f, OP_CMP, R_ACC, cnst, opSize);
   } else {
     emitPushReg(f, R_ACC);
+
+    assert(!isFlatType(right->type));
 
     if (right->op == EU_DEREF && lid == rid) {
         Address addr = { 0 };

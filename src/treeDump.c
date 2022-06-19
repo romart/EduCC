@@ -509,10 +509,6 @@ static int dumpTypeDescImpl(FILE *output, int indent, TypeDesc *desc) {
 int renderTypeRef(TypeRef *type, char *b, int bufferSize) {
   Boolean hasBits = FALSE;
 
-  if (type->kind == TR_POINTED && type->pointedTo.arrayType) {
-      return renderTypeRef(type->pointedTo.arrayType, b, bufferSize);
-  }
-
   char *s = b;
   int l = 0;
   if (type->flags.bits.isConst) {
@@ -549,7 +545,7 @@ int renderTypeRef(TypeRef *type, char *b, int bufferSize) {
   case TR_POINTED:
       l = snprintf(b, bufferSize, "*"); b += l; bufferSize -= l;
       if (bufferSize <= 0) goto done;
-      b += renderTypeRef(type->pointedTo.toType, b, bufferSize);
+      b += renderTypeRef(type->pointed, b, bufferSize);
       break;
   case TR_ARRAY: {
         ArrayTypeDescriptor *desc = &type->arrayTypeDesc;
