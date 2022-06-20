@@ -2350,8 +2350,12 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
       }
   }
 
-  if (fpRegArgs && calleeType->functionTypeDesc.isVariadic) {
-    emitMoveCR(f, fpRegArgs, R_ACC, sizeof(int32_t));
+  if (calleeType->functionTypeDesc.isVariadic) {
+    if (fpRegArgs) {
+      emitMoveCR(f, fpRegArgs, R_ACC, sizeof(int64_t));
+    } else {
+      emitArithRR(f, OP_XOR, R_ACC, R_ACC, sizeof(int64_t));
+    }
   }
 
   if (callee->op == E_NAMEREF) {
