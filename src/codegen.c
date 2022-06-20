@@ -1714,6 +1714,16 @@ static void localVarAddress(GenerationContext *ctx, const Symbol *s, Address *ad
   addr->imm = s->variableDesc->gen->baseOffset;
 }
 
+static void leaRelocatable(GeneratedFunction *f, Address *addr, enum Registers r) {
+  if (addr->reloc) {
+      emitLea(f, addr, r);
+      addr->base = r;
+      addr->index = R_BAD;
+      addr->scale = addr->imm = 0;
+      addr->reloc = NULL;
+  }
+}
+
 static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression, Address *addr) {
 
   if (expression->op == E_NAMEREF) {
@@ -1898,6 +1908,8 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
             src.base = R_TMP2;
             src.index = R_BAD;
 
+            leaRelocatable(f, &addr, R_ACC);
+
             copyStructTo(f, lType, &src, &addr);
           } else {
             if (isFP) {
@@ -1974,10 +1986,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
             emitArithRR(f, opcode, R_FACC, R_FTMP, typeSize);
             emitStore(f, R_FACC, &addr, rTypeId);
         } else {
-            if (addr.reloc) {
-                emitLea(f, &addr, R_EDI);
-                addr.base = R_EDI; addr.reloc = NULL;
-            }
+            leaRelocatable(f, &addr, R_EDI);
             emitLoad(f, &addr, R_TMP, lTypeId); // TODO: use R_ACC instead of R_TMP
 
             enum Registers reg = R_TMP2;
@@ -2028,12 +2037,12 @@ static void generateAssignDiv(GenerationContext *ctx, GeneratedFunction *f, Scop
 
   assert(rvalue->op == EU_DEREF);
   translateAddress(ctx, f, scope, rvalue->unaryExpr.argument, &addr);
+  leaRelocatable(f, &addr, R_EDI);
 
   enum Opcodes opcode;
   if (lType->kind == TR_BITFIELD) {
       TypeRef *storageType = lType->bitFieldDesc.storageType;
 
-      // TODO: lea relocated addr
       loadBitField(f, lType, &addr, R_ACC);
       emitPopReg(f, R_TMP);
 
@@ -2076,7 +2085,6 @@ static void generateAssignDiv(GenerationContext *ctx, GeneratedFunction *f, Scop
           result = R_EDX;
       }
 
-      // TODO: lea relocated addr
       emitStore(f, result, &addr, rTypeId);
   }
 }
@@ -2271,6 +2279,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
       Address addr = { 0 };
       assert(arg->op == EU_DEREF);
       translateAddress(ctx, f, scope, arg->unaryExpr.argument, &addr);
+      leaRelocatable(f, &addr, R_ACC);
       dst.imm = rspOffset + (f->stackOffset - stackBase);
       copyStructTo(f, argType, &addr, &dst);
     } else {
