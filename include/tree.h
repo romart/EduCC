@@ -103,7 +103,10 @@ typedef struct ConstOp {
     // TODO: is that OK to distinguish signed and unsinged consts
       int64_const_t i;
       float80_const_t f;
-      literal_const_t l;
+      struct {
+        literal_const_t s;
+        size_t length;
+      } l;
       struct _TypeDesc* t;
   };
 } AstConst;
@@ -559,7 +562,7 @@ AstFile *createAstFile(struct _ParserContext *ctx);
 
 // expressions
 
-AstExpression* createAstConst(struct _ParserContext *ctx, Coordinates *coords, ConstKind type, void* value);
+AstExpression* createAstConst(struct _ParserContext *ctx, Coordinates *coords, ConstKind type, void* value, size_t l);
 AstExpression* createAstConst2(struct _ParserContext *ctx, Coordinates *coords, TypeRef *type, AstConst *cnst);
 AstExpression *createVaArgExpression(struct _ParserContext *ctx, Coordinates *coords, AstExpression *valist, TypeRef *argType);
 AstExpression *createCastExpression(struct _ParserContext *ctx, Coordinates *coords, TypeRef *typeRef, AstExpression *argument);

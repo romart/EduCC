@@ -43,7 +43,7 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
   // TODO: probably void* isn't the best choose, think about introducing an address type for that purpose
   base->type = voidPtrType(ctx); // we do some address arith here, first normalize pointer
 
-  AstExpression *elemSizeConst = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &elementSize);
+  AstExpression *elemSizeConst = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &elementSize, 0);
   elemSizeConst->type = indexType;
   AstExpression *indexValue = createBinaryExpression(ctx, EB_MUL, indexType, index, elemSizeConst);
   AstConst *evaluated = eval(ctx, indexValue);
@@ -424,7 +424,7 @@ static AstExpression *cannonizeSubExpression(ParserContext *ctx, AstExpression *
 
 static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression *receiver, StructualMember *member, AstExpression *orig, Boolean deBit) {
   int64_t memberOffset = effectiveMemberOffset(member);
-  AstExpression *offset = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &memberOffset);
+  AstExpression *offset = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &memberOffset, 0);
   offset->type = makePrimitiveType(ctx, T_U8, 0);
 
   // normalize pointer
@@ -462,14 +462,14 @@ static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression
 
       uint64_t l = W - (w + s);
 
-      AstExpression *lshiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &l);
+      AstExpression *lshiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &l, 0);
       lshiftConst->type = storageType;
 
       AstExpression *lShifted = createBinaryExpression(ctx, EB_LHS, storageType, derefered, lshiftConst);
 
       uint64_t r = W - w;
 
-      AstExpression *rshiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &r);
+      AstExpression *rshiftConst = createAstConst(ctx, &orig->coordinates, CK_INT_CONST, &r, 0);
       rshiftConst->type = storageType;
 
       AstExpression *result = createBinaryExpression(ctx, EB_RHS, storageType, lShifted, rshiftConst);
@@ -628,10 +628,10 @@ static AstExpression *cannonizePostIncDec(ParserContext *ctx, AstExpression *exp
   TypeId tid = typeToId(type);
 
   if (tid < T_F4) {
-    deltaConst = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &delta);
+    deltaConst = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &delta, 0);
   } else {
     long double d = delta;
-    deltaConst = createAstConst(ctx, &expr->coordinates, CK_FLOAT_CONST, &d);
+    deltaConst = createAstConst(ctx, &expr->coordinates, CK_FLOAT_CONST, &d, 0);
   }
 
   deltaConst->type = isPointerLikeType(type) ? makePrimitiveType(ctx, tid, 0) : type;
