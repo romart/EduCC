@@ -267,7 +267,7 @@ static AstExpression *resolveNameRef(ParserContext *ctx) {
     } else {
         assert(s->kind == FunctionSymbol);
         flags.bits.isConst = 1;
-        result->type = makePointedType(ctx, flags.storage, computeFunctionType(ctx, &coords, s->function));
+        result->type = makePointedType(ctx, flags.storage, s->function->functionalType);
     }
 
     return result;
@@ -2829,6 +2829,15 @@ static DeclaratorPart *findFunctionalPart(Declarator *declarator) {
   return result;
 }
 
+static void trasnformParameters(ParserContext *ctx, AstValueDeclaration *params) {
+  for (; params; params = params->next) {
+      TypeRef *type = params->type;
+      if (type->kind == TR_ARRAY) {
+          params->type = makePointedType(ctx, 0, type->arrayTypeDesc.elementType);
+      }
+  }
+}
+
 static AstTranslationUnit *parseFunctionDeclaration(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator, TypeRef *functionalType) {
   DeclaratorPart *functionalPart = findFunctionalPart(declarator);
   assert(functionalPart != NULL);
@@ -2844,8 +2853,9 @@ static AstTranslationUnit *parseFunctionDeclaration(ParserContext *ctx, Declarat
       reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &eqCoords);
   };
 
+  trasnformParameters(ctx, params);
 
-  AstFunctionDeclaration *declaration = createFunctionDeclaration(ctx, &coords, returnType, funName, specifiers->flags.storage, params, functionalPart->parameters.isVariadic);
+  AstFunctionDeclaration *declaration = createFunctionDeclaration(ctx, &coords, functionalType, returnType, funName, specifiers->flags.storage, params, functionalPart->parameters.isVariadic);
   declaration->symbol = declareFunctionSymbol(ctx, funName, declaration);
 
   if (ctx->token->code != '{') {

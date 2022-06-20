@@ -215,7 +215,7 @@ AstFile *createAstFile(ParserContext *ctx) {
     return astFile;
 }
 
-AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, Coordinates *coords, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, Boolean isVariadic) {
+AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, Coordinates *coords, TypeRef *funcType, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, Boolean isVariadic) {
   AstFunctionDeclaration *result = (AstFunctionDeclaration *)areanAllocate(ctx->memory.astArena, sizeof(AstFunctionDeclaration));
 
   result->coordinates.left = coords->left;
@@ -224,6 +224,7 @@ AstFunctionDeclaration *createFunctionDeclaration(ParserContext *ctx, Coordinate
   result->flags.storage = flags;
   result->name = name;
 
+  result->functionalType = funcType;
   result->returnType = returnType;
   result->parameters = parameters;
   result->isVariadic = isVariadic != FALSE;
