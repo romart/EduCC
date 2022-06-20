@@ -1,10 +1,9 @@
 FILE test/testData/parser/positive/compoundStringLiteral.c
   FUN signed int test
   BEGIN
-    signed char[2] s0 = \
+    signed char[1] s0 = \
       INIT_BEGIN
         signed char #0 <--- 0
-        signed char #1 <--- 0
       INIT_END
     *C signed char s1 = \
       "1"
@@ -29,21 +28,35 @@ FILE test/testData/parser/positive/compoundStringLiteral.c
         signed char #9 <--- 51
         signed char #10 <--- 0
       INIT_END
-    signed char[10] s4 = \
+    signed char[7] s4 = \
       INIT_BEGIN
         signed char #0 <--- 49
         signed char #1 <--- 50
         signed char #2 <--- 51
         signed char #3 <--- 52
         signed char #4 <--- 53
-        signed char #5 <--- 0
+        signed char #5 <--- 57
         signed char #6 <--- 0
+      INIT_END
+    *C signed char tx = \
+      "a\0b\0c\0d"
+    signed char[12] s6 = \
+      INIT_BEGIN
+        signed char #0 <--- 97
+        signed char #1 <--- 0
+        signed char #2 <--- 98
+        signed char #3 <--- 0
+        signed char #4 <--- 99
+        signed char #5 <--- 0
+        signed char #6 <--- 100
         signed char #7 <--- 0
-        signed char #8 <--- 57
+        signed char #8 <--- 101
         signed char #9 <--- 0
+        signed char #10 <--- 102
+        signed char #11 <--- 0
       INIT_END
     signed int l0 = \
-      2
+      1
     signed int l1 = \
       8
     signed int l2 = \
@@ -51,5 +64,5 @@ FILE test/testData/parser/positive/compoundStringLiteral.c
     signed int l3 = \
       11
     signed int l4 = \
-      10
+      7
   END
