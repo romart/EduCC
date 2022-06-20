@@ -368,13 +368,12 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
             Token *first = ctx->token;
             int code = -1;
             unsigned length = 0;
-            Token *last = NULL;
+            Token *last = NULL, *current = ctx->token;
 
-            while (ctx->token->code == STRING_LITERAL) {
-                last = ctx->token;
-                int l = strlen(ctx->token->value.text);
-                length += l ? l : 1;
-                nextToken(ctx);
+            while (current->code == STRING_LITERAL) {
+                last = current;
+                length += current->value.text.l - 1;
+                current = nextToken(ctx);
             }
 
             coords.right = last;
@@ -383,13 +382,9 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
             const char *literal = buffer;
 
             while (first != last->next) {
-                unsigned l = strlen(first->value.text);
-                if (l) {
-                  strncpy(buffer, first->value.text, l);
-                  buffer += l;
-                } else {
-                  ++buffer;
-                }
+                size_t l = first->value.text.l;
+                memcpy(buffer, first->value.text.v, l - 1);
+                buffer += (l - 1);
                 first = first->next;
             }
 

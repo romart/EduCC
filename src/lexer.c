@@ -959,7 +959,8 @@ static unsigned lexStringLiteral(ParserContext *ctx, Token *new, LocationInfo *l
   result[sb.idx] = '\0';
 
   new->code = new->rawCode = STRING_LITERAL;
-  new->value.text = result;
+  new->value.text.v = result;
+  new->value.text.l = sb.idx + 1;
 
   return l;
 }

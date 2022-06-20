@@ -54,7 +54,10 @@ typedef struct _Token {
     union {
       uint64_t iv; // holds integer const
       long double ldv; // holds long double const (yes it's different from double)
-      const char *text; // holds _cleared_ string literal
+      struct {
+        const char *v; // holds _cleared_ string literal
+        size_t l;
+      } text;
     } value;
 
     unsigned hasLeadingSpace: 1;
