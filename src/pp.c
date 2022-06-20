@@ -800,7 +800,7 @@ static Token *parseInclude(ParserContext *ctx, Token *token) {
   Boolean dquoted = FALSE;
   Coordinates coords = { token, token };
   if (token->rawCode == STRING_LITERAL) {
-    fileName = token->value.text;
+    fileName = token->value.text.v;
     tail = skipPPTokens(ctx, token->next);
     dquoted = TRUE;
   } else if (token->rawCode == '<') {
@@ -1337,7 +1337,7 @@ static Token *lineDirective(ParserContext *ctx, Token *start) {
           free(copy);
           return next;
       }
-      newFileName = fileName->value.text;
+      newFileName = fileName->value.text.v;
       if (fileName->next) {
           Coordinates coords = { fileName->next, fileName->next };
           char *copy = strndup(fileName->next->pos, fileName->next->length);
