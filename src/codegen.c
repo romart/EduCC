@@ -484,21 +484,22 @@ static int parseIfHex(char c) {
 
 }
 
-static ptrdiff_t emitStringWithEscaping(GenerationContext *ctx, Section *section, const char *str) {
+static ptrdiff_t emitStringWithEscaping(GenerationContext *ctx, Section *section, AstConst *_const) {
   unsigned idx = 0;
 
-  ptrdiff_t cached = getFromHashMap(ctx->constCache.literalMap, (intptr_t)str);
+  ptrdiff_t cached = getFromHashMap(ctx->constCache.literalMap, (intptr_t)_const);
   if (cached) return cached - 1;
 
   ptrdiff_t sectionOffset = section->pc - section->start;
 
-  while (str[idx]) {
-      emitSectionByte(section, str[idx++]);
+  size_t length = _const->l.length;
+  const char *str = _const->l.s;
+
+  for (idx = 0; idx < length;  ++idx) {
+      emitSectionByte(section, str[idx]);
   }
 
-  emitSectionByte(section, '\0');
-
-  putToHashMap(ctx->constCache.literalMap, (intptr_t)str, (intptr_t)(sectionOffset + 1));
+  putToHashMap(ctx->constCache.literalMap, (intptr_t)_const, (intptr_t)(sectionOffset + 1));
 
   return sectionOffset;
 }
@@ -525,7 +526,7 @@ static void emitConst(GenerationContext *ctx, GeneratedFunction *f, AstConst *_c
       break;
   case CK_STRING_LITERAL: {
         Section *rodata = ctx->rodata;
-        ptrdiff_t literalSectionOffset = emitStringWithEscaping(ctx, rodata, _const->l);
+        ptrdiff_t literalSectionOffset = emitStringWithEscaping(ctx, rodata, _const);
 
         Relocation *reloc = allocateRelocation(ctx);
         reloc->applySection = f->section;
@@ -867,7 +868,7 @@ static size_t fillInitializer(GenerationContext *ctx, Section *section, AstIniti
       case CK_STRING_LITERAL: {
         Section *rodata = ctx->rodata;
 
-        ptrdiff_t literalSectionOffset = emitStringWithEscaping(ctx, rodata, cexpr->l);
+        ptrdiff_t literalSectionOffset = emitStringWithEscaping(ctx, rodata, cexpr);
 
         Relocation *reloc = allocateRelocation(ctx);
 
@@ -3577,8 +3578,33 @@ int f10Cmp(intptr_t pf1, intptr_t pf2) {
   return memcmp(ldb2.bytes, ldb1.bytes, 10);
 }
 
+int strConstHashcode(intptr_t k) {
+  AstConst *_const = (AstConst*)k;
+
+  size_t l = _const->l.length;
+  const char *s = _const->l.s;
+
+  int result = 0;
+  unsigned i;
+  for (i = 0; i < l; ++i) {
+      result *= 31;
+      result ^= s[i];
+  }
+
+  return result;
+}
+
+int strConstCmp(intptr_t k1, intptr_t k2) {
+  AstConst *v1 = (AstConst*)k1;
+  AstConst *v2 = (AstConst*)k2;
+
+  if (v1->l.length != v2->l.length) return v2->l.length - v1->l.length;
+
+  return memcmp(v2->l.s, v1->l.s, v1->l.length);
+}
+
 static void initConstCache(GenerationContext *ctx) {
-  ctx->constCache.literalMap = createHashMap(DEFAULT_MAP_CAPACITY, &stringHashCode, &stringCmp);
+  ctx->constCache.literalMap = createHashMap(DEFAULT_MAP_CAPACITY, &strConstHashcode, &strConstCmp);
   ctx->constCache.f4ConstMap = createHashMap(DEFAULT_MAP_CAPACITY, &f4HashCode, &f4Cmp);
   ctx->constCache.f8ConstMap = createHashMap(DEFAULT_MAP_CAPACITY, &f8HashCode, &f8Cmp);
   ctx->constCache.f10ConstMap = createHashMap(DEFAULT_MAP_CAPACITY, &f10HashCode, &f10Cmp);

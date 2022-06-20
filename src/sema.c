@@ -1279,12 +1279,12 @@ static AstInitializer *fillInitializer(ParserContext *ctx, Coordinates *coords, 
       new->slotType = type;
       uint64_t c = 0;
       if (type->kind == TR_POINTED) {
-        new->expression = createAstConst(ctx, coords, CK_INT_CONST, &c);
+        new->expression = createAstConst(ctx, coords, CK_INT_CONST, &c, 0);
       } else if (isRealType(type)) {
         long double cc = 0.0;
-        new->expression = createAstConst(ctx, coords, CK_FLOAT_CONST, &cc);
+        new->expression = createAstConst(ctx, coords, CK_FLOAT_CONST, &cc, 0);
       } else {
-        new->expression = createAstConst(ctx, coords, CK_INT_CONST, &c);
+        new->expression = createAstConst(ctx, coords, CK_INT_CONST, &c, 0);
       }
       new->expression->type = type;
       return new;
@@ -1452,7 +1452,7 @@ static AstInitializer *finalizeStructInitializer(ParserContext *ctx, TypeRef *ty
 
 static AstInitializerList *createSymbolInitNode(ParserContext *ctx, Coordinates *_coords, TypeRef *type, int64_t c, int32_t offset) {
 
-  AstExpression *expr = createAstConst(ctx, _coords, CK_INT_CONST, &c);
+  AstExpression *expr = createAstConst(ctx, _coords, CK_INT_CONST, &c, 0);
   expr->type = type;
 
   AstInitializer *init = createAstInitializer(ctx, _coords, IK_EXPRESSION);
@@ -1466,16 +1466,17 @@ static AstInitializerList *createSymbolInitNode(ParserContext *ctx, Coordinates 
   return node;
 }
 
-static AstInitializer *stringLiteralToInitializer(ParserContext *ctx, TypeRef *arrayType, Coordinates *coords, const char *s, int32_t offset) {
+static AstInitializer *stringLiteralToInitializer(ParserContext *ctx, TypeRef *arrayType, Coordinates *coords, const char *s, size_t length, int32_t offset) {
   AstInitializerList head = { 0 }, *current = &head;
 
   unsigned i = 0;
+
   int32_t arraySize = arrayType->arrayTypeDesc.size;
 
   TypeRef *charType = makePrimitiveType(ctx, T_S1, 0);
 
   // TODO: probably worth to rethink coords?
-  for (; s[i]; ++i) {
+  for (; i < length; ++i) {
     if (arraySize != UNKNOWN_SIZE && i == arraySize) {
         reportDiagnostic(ctx, DIAG_STRING_INIT_TOO_LONG, coords);
         break;
@@ -1488,8 +1489,7 @@ static AstInitializer *stringLiteralToInitializer(ParserContext *ctx, TypeRef *a
         current = current->next = createSymbolInitNode(ctx, coords, charType, 0, offset + i);
       }
   } else {
-      current = current->next = createSymbolInitNode(ctx, coords, charType, 0, offset + i);
-      arrayType->arrayTypeDesc.size = i + 1;
+      arrayType->arrayTypeDesc.size = length;
   }
 
   AstInitializer *listInit = createAstInitializer(ctx, coords, IK_LIST);
@@ -1508,7 +1508,7 @@ static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *typ
   if (expr) {
       if (isCharType(elementType)) {
           if (expr->op == E_CONST && expr->constExpr.op == CK_STRING_LITERAL) {
-              AstInitializer *init = stringLiteralToInitializer(ctx, type, &expr->coordinates, expr->constExpr.l, offset);
+              AstInitializer *init = stringLiteralToInitializer(ctx, type, &expr->coordinates, expr->constExpr.l.s, expr->constExpr.l.length, offset);
               init->slotType = type;
               init->offset = offset;
               *next = initializer->next;
@@ -1841,7 +1841,7 @@ AstExpression *transformBinaryExpression(ParserContext *ctx, AstExpression *expr
           int64_t elemSize = isVoidType(elemType) ? 1 : computeTypeSize(elemType);
 
           if (elemSize != 1) {
-            AstExpression *sizeConst = createAstConst(ctx, &offset->coordinates, CK_INT_CONST, &elemSize);
+            AstExpression *sizeConst = createAstConst(ctx, &offset->coordinates, CK_INT_CONST, &elemSize, 0);
             sizeConst->type = makePrimitiveType(ctx, T_S8, 0);
             offset = createBinaryExpression(ctx, EB_MUL, sizeConst->type, offset, sizeConst);
           }
@@ -1859,7 +1859,7 @@ AstExpression *transformBinaryExpression(ParserContext *ctx, AstExpression *expr
             TypeRef *elemType = elementType(left->type);
             int64_t elemSize = isVoidType(elemType) ? 1 : computeTypeSize(elemType);
             if (elemSize != 1) {
-              AstExpression *astConst = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &elemSize);
+              AstExpression *astConst = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &elemSize, 0);
               astConst->type = expr->type;
               return createBinaryExpression(ctx, EB_DIV, expr->type, expr, astConst);
             }

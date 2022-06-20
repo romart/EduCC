@@ -330,7 +330,7 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
             } else if (strcmp("__FUNCTION__", ctx->token->id) == 0) {
               nextToken(ctx);
               const char *funName = ctx->parsingFunction->name;
-              result = createAstConst(ctx, &coords, CK_STRING_LITERAL, &funName);
+              result = createAstConst(ctx, &coords, CK_STRING_LITERAL, &funName, strlen(funName) + 1);
               result->type = makeArrayType(ctx, strlen(funName) + 1, makePrimitiveType(ctx, T_S1, 0));
               return result;
             } else {
@@ -351,7 +351,7 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
         case UL_CONSTANT: typeId = T_U8; goto iconst;
         iconst: {
             int64_t l = ctx->token->value.iv;
-            result = createAstConst(ctx, &coords, CK_INT_CONST, &l);
+            result = createAstConst(ctx, &coords, CK_INT_CONST, &l, 0);
             result->type = makePrimitiveType(ctx, typeId, flags.storage);
             break;
         }
@@ -359,7 +359,7 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
         case D_CONSTANT: typeId = T_F8; goto fconst;
         fconst: {
             float80_const_t f = ctx->token->value.ldv;
-            result = createAstConst(ctx, &coords, CK_FLOAT_CONST, &f);
+            result = createAstConst(ctx, &coords, CK_FLOAT_CONST, &f, 0);
             result->type = makePrimitiveType(ctx, typeId, flags.storage);
             break;
         }
@@ -372,7 +372,8 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
 
             while (ctx->token->code == STRING_LITERAL) {
                 last = ctx->token;
-                length += strlen(ctx->token->value.text);
+                int l = strlen(ctx->token->value.text);
+                length += l ? l : 1;
                 nextToken(ctx);
             }
 
@@ -383,12 +384,16 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
 
             while (first != last->next) {
                 unsigned l = strlen(first->value.text);
-                strncpy(buffer, first->value.text, l);
-                buffer += l;
+                if (l) {
+                  strncpy(buffer, first->value.text, l);
+                  buffer += l;
+                } else {
+                  ++buffer;
+                }
                 first = first->next;
             }
 
-            result = createAstConst(ctx, &coords, CK_STRING_LITERAL, &literal);
+            result = createAstConst(ctx, &coords, CK_STRING_LITERAL, &literal, length + 1);
             result->type = makeArrayType(ctx, length + 1, makePrimitiveType(ctx, T_S1, 0));
             return result;
         }
@@ -539,18 +544,18 @@ static AstExpression *createUnaryIncDecExpression(ParserContext *ctx, Coordinate
 
   if (isRealType(type)) {
     long double d = 1.0;
-    offset = createAstConst(ctx, coords, CK_FLOAT_CONST, &d);
+    offset = createAstConst(ctx, coords, CK_FLOAT_CONST, &d, 0);
     offset->type = type;
   } else if (isPointerLikeType(type)) {
     assert(type->kind == TR_POINTED);
     TypeRef *ptr= type->pointed;
     int64_t typeSize = isVoidType(ptr) ? 1 : computeTypeSize(type->pointed);
     assert(typeSize != UNKNOWN_SIZE);
-    offset = createAstConst(ctx, coords, CK_INT_CONST, &typeSize);
+    offset = createAstConst(ctx, coords, CK_INT_CONST, &typeSize, 0);
     offset->type = makePrimitiveType(ctx, T_S8, 0);
   } else {
     int64_t i = 1LL;
-    offset = createAstConst(ctx, coords, CK_INT_CONST, &i);
+    offset = createAstConst(ctx, coords, CK_INT_CONST, &i, 0);
     offset->type = type;
   }
 
@@ -719,7 +724,7 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
                 long long c = code == SIZEOF ? computeTypeSize(sizeType) : typeAlignment(sizeType);
                 AstExpression *constVal = NULL;
                 if (c >= 0) {
-                    constVal = createAstConst(ctx, &coords, CK_INT_CONST, &c);
+                    constVal = createAstConst(ctx, &coords, CK_INT_CONST, &c, 0);
                     constVal->type = makePrimitiveType(ctx, T_U8, 0);
                 } else {
                     reportDiagnostic(ctx, DIAG_SIZEOF_INCOMPLETE_TYPE, &coords, sizeType);

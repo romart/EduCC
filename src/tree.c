@@ -260,14 +260,17 @@ static AstStatement *allocAstStatement(ParserContext *ctx, Coordinates *coords) 
   return result;
 }
 
-AstExpression* createAstConst(ParserContext *ctx, Coordinates *coords, ConstKind type, void* value) {
+AstExpression* createAstConst(ParserContext *ctx, Coordinates *coords, ConstKind type, void* value, size_t l) {
     AstExpression* result = allocAstExpression(ctx, coords);
     result->op = E_CONST;
     result->constExpr.op = type;
     switch (type) {
         case CK_INT_CONST: result->constExpr.i = *(int64_const_t*)value; break;
         case CK_FLOAT_CONST: result->constExpr.f = *(float80_const_t*)value; break;
-        case CK_STRING_LITERAL: result->constExpr.l = *(literal_const_t*)value; break;
+        case CK_STRING_LITERAL:
+          result->constExpr.l.s = *(literal_const_t*)value;
+          result->constExpr.l.length = l;
+          break;
       default: unreachable("sizeof is not for here");
     }
 
