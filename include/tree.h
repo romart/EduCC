@@ -476,6 +476,7 @@ typedef struct _AstFunctionDeclaration {
   Coordinates coordinates;
   SpecifierFlags flags;
   const char *name;
+  TypeRef *functionalType;
   TypeRef *returnType;
   unsigned parameterCount;
   AstValueDeclaration *parameters; // linkedList
@@ -550,7 +551,7 @@ AstIdentifierList *createIdentifierList(struct _ParserContext *ctx, Coordinates 
 
 AstInitializerList *createAstInitializerList(struct _ParserContext *ctx);
 AstInitializer *createAstInitializer(struct _ParserContext *ctx, Coordinates *coords, InitializerKind kind);
-AstFunctionDeclaration *createFunctionDeclaration(struct _ParserContext *ctx, Coordinates *coords, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, Boolean isVariadic);
+AstFunctionDeclaration *createFunctionDeclaration(struct _ParserContext *ctx, Coordinates *coords, TypeRef *funcType, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, Boolean isVariadic);
 AstValueDeclaration *createAstValueDeclaration(struct _ParserContext *ctx, Coordinates *coords, ValueKind kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer);
 
 AstDeclaration *createAstDeclaration(struct _ParserContext *ctx, DeclarationKind kind, const char *name);

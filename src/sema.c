@@ -1141,32 +1141,6 @@ TypeRef *computeAssignmentTypes(ParserContext *ctx, Coordinates *coords, Express
 
 }
 
-TypeRef *computeFunctionType(ParserContext *ctx, Coordinates *coords, AstFunctionDeclaration *declaration) {
-  TypeRef *result = (TypeRef *)areanAllocate(ctx->memory.typeArena, sizeof(TypeRef));
-
-  result->kind = TR_FUNCTION;
-  result->functionTypeDesc.returnType = declaration->returnType;
-  result->functionTypeDesc.isVariadic = declaration->isVariadic;
-
-  AstValueDeclaration *param = declaration->parameters;
-  TypeList *head = NULL, *tail = NULL;
-  while (param) {
-      TypeList *next = (TypeList *)areanAllocate(ctx->memory.typeArena, sizeof(TypeList));
-      next->type = param->type;
-      if (tail) {
-          tail->next = next;
-      } else {
-          head = next;
-      }
-      tail = next;
-      param = param->next;
-  }
-
-  result->functionTypeDesc.parameters = head;
-
-  return result;
-}
-
 static Boolean isStaticSymbol(Symbol *s) {
   if (s->kind == FunctionSymbol || s->kind == ValueSymbol && !s->variableDesc->flags.bits.isLocal) {
     // TODO: probably it's not the best solution
