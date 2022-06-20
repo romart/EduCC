@@ -73,7 +73,7 @@ static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpressio
   Boolean isComute = isCommute(expr->op);
 
   // 1 op x -> x op 1
-  if (isComute && left->op == E_CONST) {
+  if (isComute && left->op == E_CONST && left->constExpr.op != CK_STRING_LITERAL) {
       AstExpression *t = left;
       left = right;
       right = t;
@@ -124,7 +124,7 @@ static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpressio
           AstExpression *x = left->binaryExpr.left;
           AstExpression *c1 = left->binaryExpr.right;
           AstExpression *c2 = right;
-          if (c1->op == E_CONST) {
+          if (c1->op == E_CONST && c1->constExpr.op != CK_STRING_LITERAL) {
               expr->binaryExpr.left = x;
               left->binaryExpr.left = c1;
               left->binaryExpr.right = c2;
@@ -146,7 +146,7 @@ static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpressio
           AstExpression *x = left->binaryExpr.left;
           AstExpression *c1 = left->binaryExpr.right;
           AstExpression *c2 = right;
-          if (c1->op == E_CONST) {
+          if (c1->op == E_CONST && c1->constExpr.op != CK_STRING_LITERAL) {
               expr->binaryExpr.left = x;
               left->binaryExpr.left = c1;
               left->binaryExpr.right = c2;
@@ -171,7 +171,7 @@ static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpressio
     if (isAdditiveOp(left->op) && left->op == expr->op) {
         AstExpression *l_left = left->binaryExpr.left;
         AstExpression *l_right = left->binaryExpr.right;
-        if (l_right->op == E_CONST) {
+        if (l_right->op == E_CONST && l_right->constExpr.op != CK_STRING_LITERAL) {
             left->binaryExpr.left = l_left;
             left->binaryExpr.right = right;
             left->coordinates.right = right->coordinates.right;
@@ -185,7 +185,7 @@ static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpressio
     if (expr->op == EB_SUB && left->op == EB_ADD) {
         AstExpression *l_left = left->binaryExpr.left;
         AstExpression *l_right = left->binaryExpr.right;
-        if (l_right->op == E_CONST) {
+        if (l_right->op == E_CONST && l_right->constExpr.op != CK_STRING_LITERAL) {
           left->binaryExpr.right = right;
           left->op = EB_SUB;
           expr->op = EB_ADD;
@@ -199,7 +199,7 @@ static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpressio
     if (expr->op == EB_ADD && left->op == EB_SUB) {
         AstExpression *l_left = left->binaryExpr.left;
         AstExpression *l_right = left->binaryExpr.right;
-        if (l_right->op == E_CONST) {
+        if (l_right->op == E_CONST && l_right->constExpr.op != CK_STRING_LITERAL) {
           left->binaryExpr.right = right;
           left->op = EB_ADD;
           expr->op = EB_SUB;
