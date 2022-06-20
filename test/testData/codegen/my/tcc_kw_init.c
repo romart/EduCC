@@ -4,7 +4,8 @@ static const char tcc_keywords[] =
  "int" "\0"
  "void" "\0"
  "char" "\0"
- "if" "\0" "\0";
+ "if" "\0"
+ "do\0while\0for" "\0";
 
 
 
