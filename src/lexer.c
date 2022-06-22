@@ -688,6 +688,7 @@ static unsigned lexEscapedLiteralSymbol(ParserContext *ctx, LocationInfo *locInf
             result <<= 3;
             result += buffer[i++] - '0';
           }
+          *v = result;
           break;
         case 'a':
           *v = '\a';
