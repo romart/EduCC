@@ -1145,35 +1145,32 @@ static void generateF10toInt(GeneratedFunction *f, enum Registers to, TypeId tid
 static void generateF10toU8(GenerationContext *ctx, GeneratedFunction *f, enum Registers to) {
 
   /**
-   *         fld     TBYTE PTR .LC12[rip]
-   *         fld     TBYTE PTR [rbp+16]
-   *         fcomip  st, st(1)
-   *         fstp    st(0)
-   *         jnb     .L1
-   *         fld     TBYTE PTR [rbp+16]
-   *         fnstcw  WORD PTR [rbp-2]
-   *         movzx   eax, WORD PTR [rbp-2]
-   *         or      ah, 12
-   *         mov     WORD PTR [rbp-4], ax
-   *         fldcw   WORD PTR [rbp-4]
-   *         fistp   QWORD PTR [rbp-16]
-   *         fldcw   WORD PTR [rbp-2]
-   *         mov     rdx, QWORD PTR [rbp-16]
-   *         jmp     .L2
+   *        fld     TBYTE PTR .LC9[rip]
+   *        fxch    st(1)
+   *        fcomi   st, st(1)
+   *        jnb     .L175
+   *        fnstcw  WORD PTR [rbp-2]
+   *        movzx   eax, WORD PTR [rbp-2]
+   *        or      ah, 12
+   *        mov     WORD PTR [rbp-4], ax
+   *        fldcw   WORD PTR [rbp-4]
+   *        fistp   QWORD PTR [rbp-16]
+   *        fldcw   WORD PTR [rbp-2]
+   *        mov     rdx, QWORD PTR [rbp-16]
+   *        jmp     .L176
    * .L1:
-   *         fld     TBYTE PTR [rbp+16]
-   *         fld     TBYTE PTR .LC12[rip]
-   *         fsubp   st(1), st
-   *         fnstcw  WORD PTR [rbp-2]
-   *         movzx   eax, WORD PTR [rbp-2]
-   *         or      ah, 12
-   *         mov     WORD PTR [rbp-4], ax
-   *         fldcw   WORD PTR [rbp-4]
-   *         fistp   QWORD PTR [rbp-16]
-   *         fldcw   WORD PTR [rbp-2]
-   *         mov     rdx, QWORD PTR [rbp-16]
-   *         movabs  rax, -9223372036854775808
-   *         xor     rdx, rax
+   *        fxch    st(1)
+   *        fsubp   st(1), st
+   *        fnstcw  WORD PTR [rbp-2]
+   *        movzx   eax, WORD PTR [rbp-2]
+   *        or      ah, 12
+   *        mov     WORD PTR [rbp-4], ax
+   *        fldcw   WORD PTR [rbp-4]
+   *        fistp   QWORD PTR [rbp-16]
+   *        fldcw   WORD PTR [rbp-2]
+   *        mov     rdx, QWORD PTR [rbp-16]
+   *        movabs  rax, -9223372036854775808
+   *        xor     rdx, rax
    * .L2:
    */
 
@@ -1190,6 +1187,7 @@ static void generateF10toU8(GenerationContext *ctx, GeneratedFunction *f, enum R
   Address magic = { 0 };
   emitFloatConst(ctx, f, &cv, T_F10, &magic);
 
+  emitFPLoad(f, &magic, T_F10);
   emitFPnoArg(f, 0xC9); // xchg
 
   emitFPArith(f, OP_FOCMP, 1, FALSE);
