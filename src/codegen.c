@@ -141,7 +141,7 @@ void emitPushRegF(GeneratedFunction *f, enum Registers r, Boolean isD) {
   f->stackOffset += size;
 
   emitMovfpRA(f, r, &addr, size);
-  emitArithConst(f, OP_SUB, R_ESP, size, sizeof (intptr_t));
+  emitArithConst(f, OP_SUB, R_ESP, size, sizeof (intptr_t), FALSE, T_S8);
 }
 
 void emitPopRegF(GeneratedFunction *f, enum Registers r, Boolean isD) {
@@ -154,7 +154,7 @@ void emitPopRegF(GeneratedFunction *f, enum Registers r, Boolean isD) {
   f->stackOffset -= size;
 
   emitMovfpAR(f, &addr, r, size);
-  emitArithConst(f, OP_ADD, R_ESP, size, sizeof (intptr_t));
+  emitArithConst(f, OP_ADD, R_ESP, size, sizeof (intptr_t), FALSE, T_S8);
 }
 
 void emitByte(GeneratedFunction *f, uint8_t b) {
@@ -522,7 +522,7 @@ static void emitConst(GenerationContext *ctx, GeneratedFunction *f, AstConst *_c
       }
   case CK_INT_CONST:
       c = _const->i;
-      emitMoveCR(f, c, R_ACC, typeIdSize(tid));
+      emitMoveCR(f, c, R_ACC, typeIdSize(tid), tid >= T_U1, tid);
       break;
   case CK_STRING_LITERAL: {
         Section *rodata = ctx->rodata;
@@ -714,7 +714,7 @@ static void emitLocalInitializer(GenerationContext *ctx, GeneratedFunction *f, S
   if (typeSize >= 16) {
       emitLea(f, &addr, R_ARG_0);
       emitArithRR(f, OP_XOR, R_ARG_1, R_ARG_1, sizeof (intptr_t));
-      emitMoveCR(f, typeSize, R_ARG_2, sizeof (intptr_t));
+      emitMoveCR(f, typeSize, R_ARG_2, sizeof (intptr_t), TRUE, T_U8);
       emitSymbolCall(ctx, f, ctx->memsetSymbol);
       emitInitializerImpl(ctx, f, scope, typeSize, &addr, initializer, TRUE);
   } else {
@@ -1036,8 +1036,8 @@ static void generateU8toF8(GeneratedFunction *f, enum Registers from, enum Regis
 
   bindLabel(f, &l1);
   emitMoveRR(f, from, R_TMP, 8);
-  emitArithConst(f, OP_SHR, R_TMP, 1, 8);
-  emitArithConst(f, OP_AND, from, 1, 4);
+  emitArithConst(f, OP_SHR, R_TMP, 1, 8, TRUE, T_U8);
+  emitArithConst(f, OP_AND, from, 1, 4, TRUE, T_U4);
   emitArithRR(f, OP_OR, R_TMP, from, 8);
   emitArithRR(f, OP_PXOR, to, to, 8);
   emitConvertFP(f, 0xF2, 0x2A, R_TMP, to, TRUE);
@@ -1097,7 +1097,7 @@ static void generateF8toU8(GeneratedFunction *f, enum Registers from, enum Regis
 
   struct Label l1 = { 0 }, l2 = { 0 };
 
-  emitMoveCR(f, 0x43e0000000000000L, R_TMP, 8);
+  emitMoveCR(f, 0x43e0000000000000L, R_TMP, 8, FALSE, T_S8);
   emitMovdq(f, 0x66, 0x0F, 0x6E, R_TMP, R_FTMP, TRUE);
   emitArithRR(f, OP_FOCMP, from, R_FTMP, 8);
   emitCondJump(f, &l1, JC_A_E, TRUE);
@@ -1108,7 +1108,7 @@ static void generateF8toU8(GeneratedFunction *f, enum Registers from, enum Regis
   bindLabel(f, &l1);
   emitArithRR(f, OP_FSUB, from, R_FTMP, 8);
   emitConvertFP(f, 0xF2, 0x2C, from, to, TRUE);
-  emitMoveCR(f, -9223372036854775808UL, R_TMP, 8);
+  emitMoveCR(f, -9223372036854775808UL, R_TMP, 8, TRUE, T_U8);
   emitArithRR(f, OP_XOR, to, R_TMP, 8);
 
   bindLabel(f, &l2);
@@ -1133,7 +1133,7 @@ static void generateF10toInt(GeneratedFunction *f, enum Registers to, TypeId tid
 
   emitFPnoArgMem(f, &oldCtrl, 7); // fnstcw
   emitMovxxAR(f, 0xB7, &oldCtrl, R_ACC); // movzwx
-  emitArithConst(f, OP_OR, R_ACC, 0x0C00, 2); // or 0x0c00
+  emitArithConst(f, OP_OR, R_ACC, 0x0C00, 2, TRUE, T_U2); // or 0x0c00
   emitStore(f, R_ACC, &newCtrl, T_U2);
   emitFPnoArgMem(f, &newCtrl, 5); // fldcw
   emitFPIntStore(f, &result, size); // fistp
@@ -1195,7 +1195,7 @@ static void generateF10toU8(GenerationContext *ctx, GeneratedFunction *f, enum R
 
   emitFPnoArgMem(f, &oldCtrl, 7); // fnstcw
   emitMovxxAR(f, 0xB7, &oldCtrl, R_ACC); // movzwx
-  emitArithConst(f, OP_OR, R_ACC, 0x0C00, 2); // or 0x0c00
+  emitArithConst(f, OP_OR, R_ACC, 0x0C00, 2, TRUE, T_U2); // or 0x0c00
   emitStore(f, R_ACC, &newCtrl, T_U2);
   emitFPnoArgMem(f, &newCtrl, 5); // fldcw
   emitFPIntStore(f, &result, 8); // fistp
@@ -1208,13 +1208,13 @@ static void generateF10toU8(GenerationContext *ctx, GeneratedFunction *f, enum R
   emitFPArith(f, OP_FSUB, 1, TRUE);
   emitFPnoArgMem(f, &oldCtrl, 7); // fnstcw
   emitMovxxAR(f, 0xB7, &oldCtrl, R_ACC); // movzwx
-  emitArithConst(f, OP_OR, R_ACC, 0x0C00, 2); // or 0x0c00
+  emitArithConst(f, OP_OR, R_ACC, 0x0C00, 2, TRUE, T_U2); // or 0x0c00
   emitStore(f, R_ACC, &newCtrl, T_U2);
   emitFPnoArgMem(f, &newCtrl, 5); // fldcw
   emitFPIntStore(f, &result, 8); // fistp
   emitFPnoArgMem(f, &oldCtrl, 5); // fldcw
   emitLoad(f, &result, R_TMP, T_U8);
-  emitMoveCR(f, -9223372036854775808UL, R_ACC, 8);
+  emitMoveCR(f, -9223372036854775808UL, R_ACC, 8, FALSE, T_S8);
   emitArithRR(f, OP_XOR, R_ACC, R_TMP, 8);
 
   bindLabel(f, &l2);
@@ -1520,7 +1520,7 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
         emitArithAR(f, opcode, R_FACC, &addr, opSize);
       } else {
         uint64_t cnst = right->constExpr.i;
-        emitArithConst(f, opcode, R_ACC, cnst, opSize);
+        emitArithConst(f, opcode, R_ACC, cnst, opSize, lid >= T_U1, lid);
       }
   } else {
     if (isFP) {
@@ -1638,7 +1638,7 @@ static void generateLogicalBinary(GenerationContext *ctx, GeneratedFunction *f, 
 
   emitJumpTo(f, &endB, TRUE);
   bindLabel(f, &elseB);
-  emitMoveCR(f, binOp->op == EB_ANDAND ? 0 : 1, R_ACC, sizeof(int32_t));
+  emitMoveCR(f, binOp->op == EB_ANDAND ? 0 : 1, R_ACC, sizeof(int32_t), FALSE, T_S4);
   bindLabel(f, &endB);
 }
 
@@ -1649,6 +1649,7 @@ static void loadBitField(GeneratedFunction *f, TypeRef *t, Address *addr, enum R
   int w = t->bitFieldDesc.width;
 
   TypeRef *storageType = t->bitFieldDesc.storageType;
+  TypeId tid = typeToId(storageType);
   size_t size = computeTypeSize(storageType);
   size_t W = size * 8;
 
@@ -1659,8 +1660,8 @@ static void loadBitField(GeneratedFunction *f, TypeRef *t, Address *addr, enum R
 
   Boolean isU = isUnsignedType(storageType);
 
-  emitArithConst(f, OP_SHL, to, l, size);
-  emitArithConst(f, isU ? OP_SHR : OP_SAR, to, r, size);
+  emitArithConst(f, OP_SHL, to, l, size, isU, tid);
+  emitArithConst(f, isU ? OP_SHR : OP_SAR, to, r, size, isU, tid);
 
   if (size < 4) {
       uint8_t opcode = 0;
@@ -1689,20 +1690,20 @@ static void storeBitField(GeneratedFunction *f, TypeRef *t, enum Registers from,
   emitLoad(f, addr, R_TMP, storageTypeId);
 
 
-  emitArithConst(f, OP_AND, from, ~(~0LLu << w), size);
+  emitArithConst(f, OP_AND, from, ~(~0LLu << w), size, storageTypeId >= T_U1, storageTypeId);
   if (s != 0) {
-      emitArithConst(f, OP_SHL, from, s, size);
+      emitArithConst(f, OP_SHL, from, s, size, storageTypeId >= T_U1, storageTypeId);
   }
 
   uint64_t mask = ~(~(~0LLu << w) << s);
-  emitArithConst(f, OP_AND, R_TMP, mask, size);
+  emitArithConst(f, OP_AND, R_TMP, mask, size, storageTypeId >= T_U1, storageTypeId);
 
   emitArithRR(f, OP_OR, R_TMP, from, size);
 
   emitStore(f, R_TMP, addr, storageTypeId);
 
   if (s) {
-      emitArithConst(f, OP_SHR, from, s, size);
+      emitArithConst(f, OP_SHR, from, s, size, storageTypeId >= T_U1, storageTypeId);
   }
 }
 
@@ -2125,8 +2126,8 @@ static Boolean generateAlloca(GenerationContext *ctx, GeneratedFunction *f, Scop
   int32_t alignment = 2 * dataSize;
 
   // size is in R_ACC
-  emitArithConst(f, OP_ADD, R_ACC, alignment - 1, dataSize);
-  emitArithConst(f, OP_AND, R_ACC, ~(alignment - 1), dataSize);
+  emitArithConst(f, OP_ADD, R_ACC, alignment - 1, dataSize, FALSE, T_S8);
+  emitArithConst(f, OP_AND, R_ACC, ~(alignment - 1), dataSize, FALSE, T_S8);
 
   // aligned size is in R_ACC
 
@@ -2159,8 +2160,8 @@ static Boolean generateAlloca(GenerationContext *ctx, GeneratedFunction *f, Scop
   emitMoveAR(f, &fromAddr, tmp, dataSize);
   emitMoveRA(f, tmp, &toAddr, dataSize);
 
-  emitArithConst(f, OP_ADD, to, dataSize, dataSize);
-  emitArithConst(f, OP_ADD, from, dataSize, dataSize);
+  emitArithConst(f, OP_ADD, to, dataSize, dataSize, FALSE, T_S8);
+  emitArithConst(f, OP_ADD, from, dataSize, dataSize, FALSE, T_S8);
 
   emitJumpTo(f, &head, TRUE);
 
@@ -2261,7 +2262,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   unsigned totalRegArg = intRegArgs + fpRegArgs;
 
   if (alignedStackSize) {
-    emitArithConst(f, OP_SUB, R_ESP, alignedStackSize, sizeof(intptr_t));
+    emitArithConst(f, OP_SUB, R_ESP, alignedStackSize, sizeof(intptr_t), FALSE, T_S8);
     f->stackOffset += alignedStackSize;
   }
 
@@ -2364,7 +2365,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
 
   if (calleeType->functionTypeDesc.isVariadic) {
     if (fpRegArgs) {
-      emitMoveCR(f, fpRegArgs, R_ACC, sizeof(int64_t));
+      emitMoveCR(f, fpRegArgs, R_ACC, sizeof(int64_t), FALSE, T_S8);
     } else {
       emitArithRR(f, OP_XOR, R_ACC, R_ACC, sizeof(int64_t));
     }
@@ -2393,7 +2394,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
 
   if (alignedStackSize) {
     f->stackOffset -= alignedStackSize;
-    emitArithConst(f, OP_ADD, R_ESP, alignedStackSize, sizeof(intptr_t));
+    emitArithConst(f, OP_ADD, R_ESP, alignedStackSize, sizeof(intptr_t), FALSE, T_S8);
   }
 }
 
@@ -2427,13 +2428,13 @@ static void generateVaArg(GenerationContext *ctx, GeneratedFunction *f, Scope *s
       emitLoad(f, &valist_addr, R_TMP, T_U4);
 
       // va_list->fp_offset >= R_PARAM_COUNT + R_FP_PARAM_COUNT
-      emitArithConst(f, OP_CMP, R_TMP, dataSize * (R_PARAM_COUNT + R_FP_PARAM_COUNT), sizeof(uint32_t));
+      emitArithConst(f, OP_CMP, R_TMP, dataSize * (R_PARAM_COUNT + R_FP_PARAM_COUNT), sizeof(uint32_t), TRUE, T_U4);
       // if ( >= ) mem-load
       emitCondJump(f, &memLabl, JC_GE, TRUE);
       valist_addr.imm = memberOffset(vastruct, "reg_save_area");
       emitLoad(f, &valist_addr, R_ACC, T_U8);
       emitArithRR(f, OP_ADD, R_ACC, R_TMP, dataSize);
-      emitArithConst(f, OP_ADD, R_TMP, dataSize, sizeof(uint32_t));
+      emitArithConst(f, OP_ADD, R_TMP, dataSize, sizeof(uint32_t), TRUE, T_U4);
       valist_addr.imm = fp_offset_off;
       emitStore(f, R_TMP, &valist_addr, T_U4);
       emitJumpTo(f, &doneLabl, TRUE);
@@ -2444,7 +2445,7 @@ static void generateVaArg(GenerationContext *ctx, GeneratedFunction *f, Scope *s
       emitLoad(f, &valist_addr, R_TMP, T_U4);
 
       // va_list->gp_offset >= R_PARAM_COUNT
-      emitArithConst(f, OP_CMP, R_TMP, dataSize * R_PARAM_COUNT, sizeof(uint32_t));
+      emitArithConst(f, OP_CMP, R_TMP, dataSize * R_PARAM_COUNT, sizeof(uint32_t), TRUE, T_U4);
       // if ( >= ) mem-load
       emitCondJump(f, &memLabl, JC_GE, TRUE);
 
@@ -2452,7 +2453,7 @@ static void generateVaArg(GenerationContext *ctx, GeneratedFunction *f, Scope *s
       emitLoad(f, &valist_addr, R_ACC, T_U8);
 
       emitArithRR(f, OP_ADD, R_ACC, R_TMP, dataSize);
-      emitArithConst(f, OP_ADD, R_TMP, dataSize, sizeof(uint32_t));
+      emitArithConst(f, OP_ADD, R_TMP, dataSize, sizeof(uint32_t), TRUE, T_U4);
       valist_addr.imm = gp_offset_off;
       emitStore(f, R_TMP, &valist_addr, T_U4);
       emitJumpTo(f, &doneLabl, TRUE);
@@ -2468,13 +2469,13 @@ static void generateVaArg(GenerationContext *ctx, GeneratedFunction *f, Scope *s
   if (align > 8) {
     // (((len)+(align - 1)) & ~((align)-1))
     int32_t mask = ~(align - 1);
-    emitArithConst(f, OP_ADD, R_ACC, align - 1, dataSize);
-    emitArithConst(f, OP_AND, R_ACC, mask, dataSize);
+    emitArithConst(f, OP_ADD, R_ACC, align - 1, dataSize, FALSE, T_S8);
+    emitArithConst(f, OP_AND, R_ACC, mask, dataSize, FALSE, T_S8);
   }
 
   int32_t argSize = max(8, computeTypeSize(vatype));
 
-  emitMoveCR(f, ALIGN_SIZE(argSize, dataSize), R_TMP, dataSize);
+  emitMoveCR(f, ALIGN_SIZE(argSize, dataSize), R_TMP, dataSize, FALSE, T_S8);
   emitArithRR(f, OP_ADD, R_TMP, R_ACC, dataSize);
   emitStore(f, R_TMP, &valist_addr, T_U8);
 
@@ -2485,12 +2486,12 @@ static void emitFPNeg(GenerationContext *ctx, GeneratedFunction *f, TypeId id) {
   switch (id) {
    case T_F4:
       emitMovdq(f, 0x66, 0x0F, 0x7E, R_ACC, R_FACC, FALSE);
-      emitArithConst(f, OP_XOR, R_ACC, 1U << 31, 4);
+      emitArithConst(f, OP_XOR, R_ACC, 1U << 31, 4, TRUE, T_U4);
       emitMovdq(f, 0x66, 0x0F, 0x6E, R_ACC, R_FACC, FALSE);
       break;
    case T_F8:
       emitMovdq(f, 0x66, 0x0F, 0x7E, R_ACC, R_FACC, TRUE);
-      emitMoveCR(f, 1ULL << 63, R_TMP, 8);
+      emitMoveCR(f, 1ULL << 63, R_TMP, 8, TRUE, T_U8);
       emitArithRR(f, OP_XOR, R_ACC, R_TMP, 8);
       emitMovdq(f, 0x66, 0x0F, 0x6E, R_ACC, R_FACC, TRUE);
       break;
@@ -2779,7 +2780,7 @@ static int generateSwitchStatement(GenerationContext *ctx, GeneratedFunction *f,
   for (i = 0; i < visited; ++i) {
       int64_t caseConst = caseLabels[i].caseConst;
       struct Label *caseLabel = &caseLabels[i].label;
-      emitArithConst(f, OP_CMP, R_ACC, caseConst, condTypeSize);
+      emitArithConst(f, OP_CMP, R_ACC, caseConst, condTypeSize, FALSE, typeToId(condition->type));
       emitCondJump(f, caseLabel, JC_EQ, FALSE);
   }
 
@@ -2852,7 +2853,7 @@ static enum JumpCondition generateFloatCondition(GenerationContext *ctx, Generat
       if (op == EB_EQ) {
           emitArithRR(f, OP_XOR, R_ACC, R_ACC, sizeof(int32_t));
       } else {
-          emitMoveCR(f, 1, R_ACC, sizeof(int32_t));
+          emitMoveCR(f, 1, R_ACC, sizeof(int32_t), FALSE, T_S4);
       }
       bindLabel(f, &l);
 
@@ -2910,7 +2911,7 @@ static enum JumpCondition generateUnsignedCondition(GenerationContext *ctx, Gene
 
   if (right->op == E_CONST && !swap) {
     uint64_t cnst = right->constExpr.i;
-    emitArithConst(f, OP_CMP, R_ACC, cnst, opSize);
+    emitArithConst(f, OP_CMP, R_ACC, cnst, opSize, rid >= T_U1, rid);
   } else {
     emitPushReg(f, R_ACC);
 
@@ -2952,7 +2953,7 @@ static enum JumpCondition generateSignedCondition(GenerationContext *ctx, Genera
 
   if (right->op == E_CONST) {
     uint64_t cnst = right->constExpr.i;
-    emitArithConst(f, OP_CMP, R_ACC, cnst, opSize);
+    emitArithConst(f, OP_CMP, R_ACC, cnst, opSize, rid >= T_U1, rid);
   } else {
     emitPushReg(f, R_ACC);
 
@@ -3395,11 +3396,11 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
       addr.imm = -reg_save_area_ptr_off;
       emitMoveRA(g, R_ACC, &addr, dataSize);
 
-      emitMoveCR(g, intRegParams * dataSize, R_ACC, sizeof(uint32_t));
+      emitMoveCR(g, intRegParams * dataSize, R_ACC, sizeof(uint32_t), TRUE, T_U4);
       addr.imm = -gp_offset_off;
       emitMoveRA(g, R_ACC, &addr, sizeof(uint32_t));
 
-      emitMoveCR(g, gp_va_area - fp_va_area + fpRegParams * dataSize, R_ACC, sizeof(uint32_t));
+      emitMoveCR(g, gp_va_area - fp_va_area + fpRegParams * dataSize, R_ACC, sizeof(uint32_t), TRUE, T_U4);
       addr.imm = -fp_offset_off;
       emitMoveRA(g, R_ACC, &addr, sizeof(uint32_t));
 
@@ -3435,7 +3436,7 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
   size_t delta = frameSize;
 
   if (frameSize)
-    emitArithConst(gen, OP_SUB, R_ESP, delta, sizeof(intptr_t));
+    emitArithConst(gen, OP_SUB, R_ESP, delta, sizeof(intptr_t), FALSE, T_S8);
 
   Address addr = { R_EBP, R_BAD, 0, gen->allocaOffset, NULL, NULL };
   emitMoveRA(gen, R_ESP, &addr, sizeof(intptr_t));

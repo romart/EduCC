@@ -223,10 +223,10 @@ void emitLea(struct _GeneratedFunction *f, Address *from, enum Registers to);
 void emitMoveRR(struct _GeneratedFunction *f, enum Registers from, enum Registers to, size_t size);
 void emitMoveAR(struct _GeneratedFunction *f, Address* addr, enum Registers to, size_t size);
 void emitMoveRA(struct _GeneratedFunction *f, enum Registers from, Address* addr, size_t size);
-void emitMoveCR(struct _GeneratedFunction *f, intptr_t c, enum Registers to, size_t size);
+void emitMoveCR(struct _GeneratedFunction *f, intptr_t c, enum Registers to, size_t size, Boolean isU, int tid);
 
 void emitArithRR(struct _GeneratedFunction *f, enum Opcodes opcode, enum Registers l, enum Registers r, size_t size);
-void emitArithConst(struct _GeneratedFunction *f, enum Opcodes opcode, enum Registers r, int64_t c, size_t size);
+void emitArithConst(struct _GeneratedFunction *f, enum Opcodes opcode, enum Registers r, int64_t c, size_t size, Boolean isU, int _tid);
 void emitArithAR(struct _GeneratedFunction *f, enum Opcodes opcode, enum Registers r, Address *addr, size_t size);
 void emitNot(struct _GeneratedFunction *f, enum Registers reg, size_t size);
 void emitNegR(struct _GeneratedFunction *f, enum Registers reg, size_t size);
