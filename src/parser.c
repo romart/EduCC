@@ -1643,6 +1643,7 @@ typedef enum _TQT {
   TQT_NONE,
   TQT_CONST,
   TQT_VOLATILE,
+  TQT_INLINE,
   TQT_ERROR
 } TQT;
 
@@ -1812,12 +1813,14 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
         // type qualifiers
         case CONST:    tmp = TQT_CONST; goto tq_label;
         case VOLATILE: tmp = TQT_VOLATILE; goto tq_label;
+        case INLINE: tmp = TQT_INLINE; goto tq_label;
         tq_label:
             if (specifiers->flags.bits.isConst && tmp == TQT_CONST || specifiers->flags.bits.isVolatile && tmp == TQT_VOLATILE) {
                 reportDiagnostic(ctx, DIAG_W_DUPLICATE_DECL_SPEC, &c2, tokenName(ctx->token->code));
             }
             specifiers->flags.bits.isConst |= tmp == TQT_CONST;
             specifiers->flags.bits.isVolatile |= tmp == TQT_VOLATILE;
+            specifiers->flags.bits.isInline |= tmp == TQT_INLINE;
             break;
 
        case SIGNED: tmp = TSS_SIGNED; tmp_s = "signed"; goto tss_label;
