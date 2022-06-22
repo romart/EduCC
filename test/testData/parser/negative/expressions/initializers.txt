@@ -460,7 +460,7 @@ FILE test/testData/parser/negative/expressions/initializers.c
     139
 ----
   *signed int pfvari = \
-    fvari
+    &*fvari
 ----
   signed int[29] axx
 ----

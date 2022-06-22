@@ -19,7 +19,7 @@ FILE test/testData/parser/negative/expressions/casts.c
     UNION U u
     signed int a
     *signed int pa = \
-      a
+      &*a
     float f
     signed int[10] arr
     signed long l

@@ -59,8 +59,8 @@ FILE test/testData/parser/negative/expressions/incdec.c
     (*a + *b)++
     (*a * *b) -= 1
     &(*a)++
-    a -= 4
-    (a)++
+    &*a -= 4
+    (&*a)++
     (*incpt)++
     ERROR EXPR    
   END

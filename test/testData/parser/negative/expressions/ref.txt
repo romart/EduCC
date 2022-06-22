@@ -12,12 +12,12 @@ FILE test/testData/parser/negative/expressions/ref.c
     R signed int r
     STRUCT S s
     *STRUCT S ps = \
-      s
-    a
-    pa
+      &*s
+    &*a
     &*pa
+    &**pa
     &(*a + *a)
-    r
+    &*r
     &(*pa)[1]
     &(*a = *a)
     &(*s).a
