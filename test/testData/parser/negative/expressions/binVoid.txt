@@ -1,0 +1,14 @@
+FILE test/testData/parser/negative/expressions/binVoid.c
+  FUN void test2 
+  BEGIN
+    
+  END
+----
+  FUN signed int main 
+  BEGIN
+    IF (test2() != 1)
+    THEN
+      RETURN 10
+    END_IF
+    RETURN 0    
+  END
