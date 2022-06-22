@@ -27,6 +27,7 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
 
   size_t elementSize = computeTypeSize(elementType);
 
+  int32_t indexOrigSize = computeTypeSize(index->type);
   TypeRef *indexType = makePrimitiveType(ctx, isUnsignedType(index->type) ? T_U8 : T_S8, 0);
 
   Boolean isFlat = base->type->kind == TR_ARRAY && base->op != E_CONST;
@@ -45,6 +46,11 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
 
   AstExpression *elemSizeConst = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &elementSize, 0);
   elemSizeConst->type = indexType;
+
+  if (indexOrigSize < 8) {
+      index = createCastExpression(ctx, &index->coordinates, indexType, index);
+  }
+
   AstExpression *indexValue = createBinaryExpression(ctx, EB_MUL, indexType, index, elemSizeConst);
   AstConst *evaluated = eval(ctx, indexValue);
   if (evaluated) {
