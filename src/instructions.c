@@ -299,7 +299,7 @@ void emitMoveCR_Reloc(GeneratedFunction *f, Relocation *reloc, enum Registers re
 
 }
 
-void emitMoveCR(GeneratedFunction *f, intptr_t c, enum Registers to, size_t _size, Boolean isU, int _tid) {
+void emitMoveCR(GeneratedFunction *f, intptr_t c, enum Registers to, int _tid) {
 
   size_t size = typeIdSize(_tid);
 
@@ -629,10 +629,12 @@ void emitArithRR(GeneratedFunction *f, enum Opcodes opcode, enum Registers l, en
 }
 
 
-void emitArithConst(GeneratedFunction *f, enum Opcodes opcode, enum Registers r, int64_t c, size_t size, Boolean isU, int _tid) {
+void emitArithConst(GeneratedFunction *f, enum Opcodes opcode, enum Registers r, int64_t c, int _tid) {
+
+  size_t size = typeIdSize(_tid);
 
   if (_tid == T_U8 && (int64_t)(int32_t)c != c) {
-    emitMoveCR(f, c, R_R8, size, isU, _tid);
+    emitMoveCR(f, c, R_R8, _tid);
     emitArithRR(f, opcode, r, R_R8, size);
   } else {
       switch (opcode) {
@@ -649,7 +651,7 @@ void emitArithConst(GeneratedFunction *f, enum Opcodes opcode, enum Registers r,
       case OP_UMUL:
       case OP_SDIV:
       case OP_UDIV:
-          emitMoveCR(f, c, R_R8, size, FALSE, _tid);
+          emitMoveCR(f, c, R_R8, _tid);
           emitArithRR(f, opcode, r, R_R8, size);
           break;
       default: unreachable("unreachable");
