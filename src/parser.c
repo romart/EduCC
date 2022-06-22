@@ -591,17 +591,23 @@ static AstExpression *parseRefExpression(ParserContext *ctx) {
 
   TypeRef *argType = argument->type;
 
+  if (argument->op == EU_DEREF) {
+      AstExpression *darg = argument->unaryExpr.argument;
+      if (darg->op == E_NAMEREF) {
+          Symbol *s = darg->nameRefExpr.s;
+          if (s->kind == ValueSymbol && s->variableDesc->flags.bits.isRegister) {
+              // register int x;
+              // int *y = &x;
+              reportDiagnostic(ctx, DIAG_REGISTER_ADDRESS, &coords);
+          }
+      }
+  }
+
   if (argument->op == E_NAMEREF) {
       Symbol *s = argument->nameRefExpr.s;
       assert(s);
 
       if (s->kind == ValueSymbol) {
-          if (s->variableDesc->flags.bits.isRegister) {
-              // register int x;
-              // int *y = &x;
-              reportDiagnostic(ctx, DIAG_REGISTER_ADDRESS, &coords);
-          }
-
           TypeRef *symbolType = s->variableDesc->type;
 
           if (symbolType->kind == TR_ARRAY) {
