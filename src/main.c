@@ -83,6 +83,9 @@ int main(int argc, char** argv) {
     } else if (strncmp("-W", arg, 2) == 0) {
         // ignore
         // it's default
+    } else if (strncmp("-M", arg, 2) == 0) {
+        // ignore
+        // it's default
     } else if (strncmp("-D", arg, 2) == 0) {
         const char *macro = NULL;
         if (arg[2]) {
