@@ -1633,7 +1633,26 @@ void initializeProprocessor(ParserContext *ctx) {
   defineBuiltinMacro(ctx, "__STRICT_ANSI__", constToken(ctx, 1, NULL));
 
   defineBuiltinMacro(ctx, "_LP64", constToken(ctx, 1, NULL));
+  defineBuiltinMacro(ctx, "__LP64__", constToken(ctx, 1, NULL));
+  defineBuiltinMacro(ctx, "__x86_64", constToken(ctx, 1, NULL));
   defineBuiltinMacro(ctx, "__x86_64__", constToken(ctx, 1, NULL));
+  defineBuiltinMacro(ctx, "__amd64", constToken(ctx, 1, NULL));
+  defineBuiltinMacro(ctx, "__amd64__", constToken(ctx, 1, NULL));
+  defineBuiltinMacro(ctx, "__linux", constToken(ctx, 1, NULL));
+  defineBuiltinMacro(ctx, "__linux__", constToken(ctx, 1, NULL));
+  defineBuiltinMacro(ctx, "__unix", constToken(ctx, 1, NULL));
+  defineBuiltinMacro(ctx, "__unix__", constToken(ctx, 1, NULL));
+
+  defineBuiltinMacro(ctx, "__SIZEOF_DOUBLE__", constToken(ctx, 8, NULL));
+  defineBuiltinMacro(ctx, "__SIZEOF_FLOAT__", constToken(ctx, 4, NULL));
+  defineBuiltinMacro(ctx, "__SIZEOF_INT__", constToken(ctx, 4, NULL));
+  defineBuiltinMacro(ctx, "__SIZEOF_LONG_DOUBLE__", constToken(ctx, 16, NULL));
+  defineBuiltinMacro(ctx, "__SIZEOF_LONG_LONG__", constToken(ctx, 8, NULL));
+  defineBuiltinMacro(ctx, "__SIZEOF_LONG__", constToken(ctx, 8, NULL));
+  defineBuiltinMacro(ctx, "__SIZEOF_POINTER__", constToken(ctx, 8, NULL));
+  defineBuiltinMacro(ctx, "__SIZEOF_PTRDIFF_T__", constToken(ctx, 8, NULL));
+  defineBuiltinMacro(ctx, "__SIZEOF_SHORT__", constToken(ctx, 2, NULL));
+  defineBuiltinMacro(ctx, "__SIZEOF_SIZE_T__", constToken(ctx, 8, NULL));
 
   defineBuiltinMacro(ctx, "__DATE__", stringToken(ctx, NULL, dateString()));
   defineBuiltinMacro(ctx, "__TIME__", stringToken(ctx, NULL, timeString()));
