@@ -126,6 +126,7 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, FIRST_VA_ARG_NOT_VA_LIST, "first argument to 'va_arg' is of type '%tr' and not 'va_list'"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, NON_VAR_IN_FOR, "non-variable declaration in 'for' loop"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, NON_LOCAL_IN_FOR, "declaration of non-local variable in 'for' loop"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, VOID_NOT_IGNORED, "void value not ignored as it ought to be"), \
   DIAGNOSTIC_DEF(ERROR, PP, INVALID_PP_DIRECTIVE, "invalid preprocessor directive %tk"), \
   DIAGNOSTIC_DEF(ERROR, PP, EXPECTED_FILENAME, "expected \"FILENAME\" or <FILENAME>"), \
   DIAGNOSTIC_DEF(ERROR, PP, INCLUDE_FILE_NOT_FOUND, "'%s' file not found"), \
