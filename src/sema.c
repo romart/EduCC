@@ -631,6 +631,12 @@ TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, AstExpressio
   if (isErrorType(left)) return left;
   if (isErrorType(right)) return right;
 
+  if (isVoidType(left) || isVoidType(right)) {
+    Coordinates *coords = isVoidType(left) ? &leftExpr->coordinates : &rightExpr->coordinates;
+    reportDiagnostic(ctx, DIAG_VOID_NOT_IGNORED, coords);
+    return makeErrorRef(ctx);
+  }
+
   if (isStructualType(left) || isStructualType(right)) {
       reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
       return makeErrorRef(ctx);
