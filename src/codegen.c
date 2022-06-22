@@ -1983,9 +1983,17 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
             emitStore(f, R_FACC, &addr, rTypeId);
         } else {
             leaRelocatable(f, &addr, R_EDI);
-            emitLoad(f, &addr, R_TMP, lTypeId); // TODO: use R_ACC instead of R_TMP
 
-            enum Registers reg = R_TMP2;
+            if (addr.base == R_ACC || addr.index == R_ACC) {
+                emitLea(f, &addr, R_EDI);
+                addr.base = R_EDI;
+                addr.index = R_BAD;
+                addr.imm = addr.scale = 0;
+            }
+
+            emitLoad(f, &addr, R_ACC, lTypeId);
+
+            enum Registers reg = R_TMP;
 
             if (isShiftLikeOp(op)) {
                 emitMoveRR(f, R_ECX, R_TMP2, sizeof(intptr_t));
@@ -1993,9 +2001,8 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
             }
 
             emitPopReg(f, reg);
-            emitArithRR(f, opcode, R_TMP, reg, typeSize);
-            emitStore(f, R_TMP, &addr, rTypeId);
-            emitMoveRR(f, R_TMP, R_ACC, typeSize);
+            emitArithRR(f, opcode, R_ACC, reg, typeSize);
+            emitStore(f, R_ACC, &addr, rTypeId);
             if (reg != R_TMP2) {
                emitMoveRR(f, R_TMP2, R_ECX, sizeof(intptr_t));
             }
