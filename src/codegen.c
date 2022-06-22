@@ -1554,7 +1554,7 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
       generateExpression(ctx, f, scope, right);
 
       if (isFP) {
-        emitMovfpRR(f, R_FACC, R_FTMP, isD);
+        emitMovfpRR(f, R_FACC, R_FTMP, opSize);
         emitPopRegF(f, R_FACC, isD);
         emitArithRR(f, opcode, R_FACC, R_FTMP, opSize);
       } else {
