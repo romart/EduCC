@@ -1393,6 +1393,7 @@ static const char enumWord[] = "enum";
 static const char externWord[] = "extern";
 static const char floatWord[] = "float";
 static const char gotoWord[] = "goto";
+static const char inlineWord[] = "inline";
 static const char longWord[] = "long";
 static const char returnWord[] = "return";
 static const char registerWord[] = "register";
@@ -1520,6 +1521,12 @@ static void maybeSetupKeyword(Token *token) {
           token->code = IF;
       } else if (length == 3 && pos[1] == 'n' && pos[2] == 't') {
           token->code = INT;
+      } else if (length == 6 && pos[1] == 'n') {
+          tokenCode = *(uint32_t*)(&pos[2]);
+          code = *(uint32_t*)(&inlineWord[2]);
+          if (code == tokenCode) {
+              token->code = INLINE;
+          }
       }
       return;
   case 'l': // long

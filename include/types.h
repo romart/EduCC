@@ -39,6 +39,7 @@ typedef union {
         unsigned isConst : 1;
         unsigned isVolatile : 1;
 
+        unsigned isInline : 1;
         unsigned isStatic : 1;
         unsigned isExternal : 1;
         unsigned isRegister : 1;
