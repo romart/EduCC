@@ -1878,6 +1878,18 @@ AstExpression *transformAssignExpression(ParserContext *ctx, AstExpression *expr
       expr->binaryExpr.right = createCastExpression(ctx, &rvalue->coordinates, castTo, parenIfNeeded(ctx, rvalue));
   }
 
+  if (expr->op == EB_ASG_ADD || expr->op == EB_ASG_SUB) {
+      if (lvalue->type->kind == TR_POINTED && isIntegerType(rvalue->type)) {
+          // ptr += x | ptr -= x
+          TypeRef *ptrType = lvalue->type;
+          int64_t typeSize = isVoidType(ptrType) ? 1 : computeTypeSize(ptrType->pointed);
+          assert(typeSize != UNKNOWN_SIZE);
+          AstExpression *size = createAstConst(ctx, &rvalue->coordinates, CK_INT_CONST, &typeSize, 0);
+          size->type = makePrimitiveType(ctx, T_S8, 0);
+          expr->binaryExpr.right = createBinaryExpression(ctx, EB_MUL, size->type, rvalue, size);
+      }
+  }
+
   return expr;
 }
 
