@@ -1883,6 +1883,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
       // a = b
 
       if (lTypeId == T_F10) {
+          leaRelocatable(f, &addr, R_ACC);
           emitStore(f, R_BAD, &addr, lTypeId);
           emitLoad(f, &addr, R_BAD, T_F10);
       } else if (lType->kind == TR_BITFIELD) {
@@ -1952,10 +1953,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
   } else {
     enum Opcodes opcode = selectAssignOpcode(op, lType);
     if (lTypeId == T_F10) {
-        if (addr.reloc) {
-            emitLea(f, &addr, R_EDI);
-            addr.base = R_EDI; addr.reloc = NULL;
-        }
+        leaRelocatable(f, &addr, R_EDI);
         emitLoad(f, &addr, R_BAD, T_F10);
         emitFPnoArg(f, 0xC9); // xchg
         emitFPArith(f, opcode, 1, TRUE);
