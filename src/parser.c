@@ -591,10 +591,6 @@ static AstExpression *parseRefExpression(ParserContext *ctx) {
 
   TypeRef *argType = argument->type;
 
-  if (argument->op == EU_DEREF) {
-    argument = argument->unaryExpr.argument;
-  }
-
   if (argument->op == E_NAMEREF) {
       Symbol *s = argument->nameRefExpr.s;
       assert(s);
