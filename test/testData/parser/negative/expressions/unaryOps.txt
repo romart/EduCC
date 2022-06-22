@@ -22,15 +22,15 @@ FILE test/testData/parser/negative/expressions/unaryOps.c
   FUN void testAmp 
   BEGIN
     R signed int ri
-    ri
-    i
-    f
-    pi
-    pf
-    arr
-    s
-    ps
-    vp    
+    &*ri
+    &*i
+    &*f
+    &*pi
+    &*pf
+    &*arr
+    &*s
+    &*ps
+    &*vp
   END
 ----
   FUN void testStar 

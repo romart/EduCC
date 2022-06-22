@@ -30,7 +30,7 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     signed int[10] arr
     signed char[10] carr
     signed int a = \
-      *(arr + *i * 4)
+      *(arr + (signed long)*i * 4)
     signed int b = \
       *(arr + 8)
     signed int c = \
@@ -88,11 +88,11 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     signed int c = \
       *(*(s3 + 8) + 16)
     signed int d = \
-      *(s3 + *i * 8 + 36)
+      *(s3 + (signed long)*i * 8 + 36)
     signed int e = \
-      *(*(*(s3 + (*i + 1) * 8 + 112) + 8) + 4)
+      *(*(*(s3 + (signed long)(*i + 1) * 8 + 112) + 8) + 4)
     signed int f = \
-      *(*(*(s3 + (*i + 1) * 8 + 112) + 8) + 16)    
+      *(*(*(s3 + (signed long)(*i + 1) * 8 + 112) + 8) + 16)
   END
 ----
   FUN signed int testStructPointed3 
@@ -104,11 +104,11 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     signed int c = \
       *(*(*p_s3 + 8) + 16)
     signed int d = \
-      *(*p_s3 + *i * 8 + 36)
+      *(*p_s3 + (signed long)*i * 8 + 36)
     signed int e = \
-      *(*(*(*p_s3 + (*i + 1) * 8 + 112) + 8) + 4)
+      *(*(*(*p_s3 + (signed long)(*i + 1) * 8 + 112) + 8) + 4)
     signed int f = \
-      *(*(*(*p_s3 + (*i + 1) * 8 + 112) + 8) + 16)
+      *(*(*(*p_s3 + (signed long)(*i + 1) * 8 + 112) + 8) + 16)
   END
 ----
   FUN signed int testStructPointed4 
@@ -124,11 +124,11 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     signed int c = \
       *(*(*p_s4 + 16) + 16)
     signed int d = \
-      *(*p_s4 + *i * 8 + 44)
+      *(*p_s4 + (signed long)*i * 8 + 44)
     signed int e = \
-      *(*(*(*p_s4 + (*i + 15) * 8 + 120) + 8) + 4)
+      *(*(*(*p_s4 + (signed long)(*i + 15) * 8 + 120) + 8) + 4)
     signed int f = \
-      *(*(*(*p_s4 + (*i + 15) * 8 + 120) + 8) + 16)
+      *(*(*(*p_s4 + (signed long)(*i + 15) * 8 + 120) + 8) + 16)
   END
 ----
   FUN signed int testStructValued 
@@ -152,7 +152,7 @@ FILE test/testData/parser/positive/expressions/fieldAccessDesugar.c
     signed int h = \
       *(s4 + 36)
     signed int j = \
-      *(s4 + *i * 8 + 44)
+      *(s4 + (signed long)*i * 8 + 44)
     signed int k = \
-      *(*(*(*(s4 + *i * 8 + 120) + 8) + 8) + 16)
+      *(*(*(*(s4 + (signed long)*i * 8 + 120) + 8) + 8) + 16)
   END
