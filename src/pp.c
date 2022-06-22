@@ -1597,12 +1597,11 @@ static void defineCLIMacro(ParserContext *ctx, const char *s) {
       if (s[idx] == '=') {
           char *b = allocateString(ctx, idx);
           macroBody = &s[idx + 1];
-          strncpy(b, s, idx - 1);
+          strncpy(b, s, idx);
           macroName = b;
           break;
       }
   }
-
 
   Token *body = NULL;
   if (macroBody) {
