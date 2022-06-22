@@ -299,13 +299,15 @@ void emitMoveCR_Reloc(GeneratedFunction *f, Relocation *reloc, enum Registers re
 
 }
 
-void emitMoveCR(GeneratedFunction *f, intptr_t c, enum Registers to, size_t size) {
+void emitMoveCR(GeneratedFunction *f, intptr_t c, enum Registers to, size_t _size, Boolean isU, int _tid) {
+
+  size_t size = typeIdSize(_tid);
 
   if (size == 2)  emitByte(f, 0x66);
 
   emitRex(f, R_BAD, to, R_BAD, size > 4);
 
-  if (size == 8 && (uint64_t)(uint32_t)c == (uint64_t)c) {
+  if (_tid == T_S8 && c == (int64_t)(c & 0xFFFFFFFFUL)) {
       emitByte(f, 0xC7);
       ModRM modrm = { 0 };
       modrm.bits.mod = 0b11;
@@ -627,9 +629,10 @@ void emitArithRR(GeneratedFunction *f, enum Opcodes opcode, enum Registers l, en
 }
 
 
-void emitArithConst(GeneratedFunction *f, enum Opcodes opcode, enum Registers r, int64_t c, size_t size) {
-  if ((uint64_t)(uint32_t)c != c) {
-    emitMoveCR(f, c, R_R8, size);
+void emitArithConst(GeneratedFunction *f, enum Opcodes opcode, enum Registers r, int64_t c, size_t size, Boolean isU, int _tid) {
+
+  if (_tid == T_U8 && (int64_t)(int32_t)c != c) {
+    emitMoveCR(f, c, R_R8, size, isU, _tid);
     emitArithRR(f, opcode, r, R_R8, size);
   } else {
       switch (opcode) {
@@ -646,7 +649,7 @@ void emitArithConst(GeneratedFunction *f, enum Opcodes opcode, enum Registers r,
       case OP_UMUL:
       case OP_SDIV:
       case OP_UDIV:
-          emitMoveCR(f, c, R_R8, size);
+          emitMoveCR(f, c, R_R8, size, FALSE, _tid);
           emitArithRR(f, opcode, r, R_R8, size);
           break;
       default: unreachable("unreachable");
