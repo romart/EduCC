@@ -103,3 +103,13 @@ int yempty[] = {};
 
 char asmallstring[3] = "kjksjkfd";
 
+char embraced[] = { "ABCD" };
+
+struct SNX {
+
+  union {
+    int x, y;
+  } sections;
+};
+
+struct SNX snx = { 1, 2, 3 };

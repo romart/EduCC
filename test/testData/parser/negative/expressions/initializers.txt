@@ -54,6 +54,15 @@ FILE test/testData/parser/negative/expressions/initializers.c
 ----
   TYPEDF Ty21 = STRUCT <anon$5>
 ----
+  UNION <anon$6>
+    signed int x #0
+    signed int y #0
+  UNION_END
+----
+  STRUCT SNX
+    UNION <anon$6> sections #0
+  STRUCT_END
+----
   STRUCT S s0
 ----
   STRUCT S s1 = \
@@ -112,7 +121,7 @@ FILE test/testData/parser/negative/expressions/initializers.c
 ----
   STRUCT S s7 = \
     INIT_BEGIN
-      ERROR TYPE #-1 <--- ERROR EXPR
+      float #0 <--- ERROR EXPR
       *signed int #8 <--- 0
       *signed int #16 <--- 0
     INIT_END
@@ -120,13 +129,13 @@ FILE test/testData/parser/negative/expressions/initializers.c
   STRUCT S[3] s8 = \
     INIT_BEGIN
       INIT_BEGIN
-        ERROR TYPE #-1 <--- ERROR EXPR
+        float #0 <--- ERROR EXPR
         *signed int #8 <--- (*signed int)0
         *signed int #16 <--- 0
       INIT_END
       INIT_BEGIN
         float #24 <--- (float)0
-        ERROR TYPE #-1 <--- ERROR EXPR
+        *signed int #32 <--- ERROR EXPR
         *signed int #40 <--- (*signed int)"ccc"
       INIT_END
       INIT_BEGIN
@@ -148,7 +157,7 @@ FILE test/testData/parser/negative/expressions/initializers.c
   STRUCT SX sx1 = \
     INIT_BEGIN
       signed int #0 <--- 0
-      ERROR TYPE #-1 <--- ERROR EXPR
+      STRUCT S #8 <--- ERROR EXPR
       INIT_BEGIN
         INIT_BEGIN
           float #32 <--- (float)0
@@ -336,14 +345,14 @@ FILE test/testData/parser/negative/expressions/initializers.c
 ----
   (*signed int)[2] ap = \
     INIT_BEGIN
-      ERROR TYPE #-1 <--- ERROR EXPR
-      ERROR TYPE #-1 <--- ERROR EXPR
+      *signed int #0 <--- ERROR EXPR
+      *signed int #8 <--- ERROR EXPR
     INIT_END
 ----
   float[2] af = \
     INIT_BEGIN
-      ERROR TYPE #-1 <--- ERROR EXPR
-      ERROR TYPE #-1 <--- ERROR EXPR
+      float #0 <--- ERROR EXPR
+      float #4 <--- ERROR EXPR
     INIT_END
 ----
   FUN signed int func 
@@ -581,4 +590,21 @@ FILE test/testData/parser/negative/expressions/initializers.c
       signed char #0 <--- 107
       signed char #1 <--- 106
       signed char #2 <--- 107
+    INIT_END
+----
+  signed char[5] embraced = \
+    INIT_BEGIN
+      signed char #0 <--- 65
+      signed char #1 <--- 66
+      signed char #2 <--- 67
+      signed char #3 <--- 68
+      signed char #4 <--- 0
+    INIT_END
+----
+  STRUCT SNX snx = \
+    INIT_BEGIN
+      INIT_BEGIN
+        signed int #0 <--- 1
+        signed int #0 <--- 0
+      INIT_END
     INIT_END
