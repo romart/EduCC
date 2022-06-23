@@ -29,7 +29,7 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, INVALID_INITIALIZER, "invalid initializer"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ARRAY_TYPE_IS_NOT_ASSIGNABLE, "array type '%tr' is not assignable"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, "initializer element is not a compile-time constant"), \
-  DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, W_EXCESS_ELEMENTS_INIT, "excess elements in scalar initializer"), \
+  DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, W_EXCESS_ELEMENTS_INIT, "excess elements in %s initializer"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, E_EXCESS_ELEMENTS_INIT, "excess elements in scalar initializer"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, STRING_INIT_TOO_LONG, "initializer-string for char array is too long"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, SCALAR_INIT_EMPTY, "scalar initializer cannot be empty"), \
@@ -73,6 +73,14 @@
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, INCOMPATIBLE_POINTERS, "incompatible pointer type %s '%tr' %s type '%tr'"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, EXPECTED_CONST_EXPR, "expected constant expression"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, EXPECTED_INTEGER_CONST_EXPR, "expression is not an integer constant expression"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, MUST_BE_INT_CONST, "integer constant expression must have integer type, not '%tr'"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ARRAY_DESIGNATOR_NEGATIVE, "array designator value '%ld' is negative"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, EXPECTED_FIELD_DESIGNATOR, "expected a field designator, such as '.field = 4'"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, NO_DESIGNATED_MEMBER, "field designator '%s' does not refer to any field in type '%tr'"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ARRAY_DESIGNATOR_IN_STRUCT, "array designator cannot initialize non-array type '%tr'"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, STRUCT_DESIGNATOR_IN_ARRAY, "field designator cannot initialize a non-struct, non-union type '%tr'"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ARRAY_DESIGNATOR_INDEX_EXCEED, "array designator index (%ld) exceeds array bounds (%ld)"), \
+  DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, INITIALIZER_OVERRIDE, "initializer overrides prior initialization of this subobject"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, UNDECLARED_ID_USE, "use of undeclared identifier '%s'"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, REGISTER_ADDRESS, "address of register variable requested"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, SIZEOF_INCOMPLETE_TYPE, "invalid application of 'sizeof' to an incomplete type '%tr'"), \
