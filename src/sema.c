@@ -1249,188 +1249,114 @@ static AstExpression *parenIfNeeded(ParserContext *ctx, AstExpression *expr) {
   }
 }
 
-static AstInitializer *finalizeInitializerInternal(ParserContext *ctx, TypeRef *valueType, ParsedInitializer *initializer, ParsedInitializer **next, int32_t offset, Boolean isTopLevel);
+static AstInitializer *typeInitializer(ParserContext *ctx, TypeRef *valueType, int32_t offset);
+static ParsedInitializer *finalizeInitializerInternal(ParserContext *ctx, ParsedInitializer *initializer, AstInitializer *semaInit, Boolean isTopLevel);
 
-static AstInitializer *fillInitializer(ParserContext *ctx, Coordinates *coords, TypeRef *type, int32_t offset) {
+static void fillInitializer(ParserContext *ctx, AstInitializer *semaInit) {
+
+  TypeRef *type = semaInit->slotType;
+  Coordinates coords = semaInit->coordinates;
 
   if (isScalarType(type) || type->kind == TR_BITFIELD) {
-      AstInitializer *new = createAstInitializer(ctx, coords, IK_EXPRESSION);
-      new->offset = offset;
-      new->slotType = type;
+      assert(semaInit->kind == IK_EXPRESSION);
       uint64_t c = 0;
       if (type->kind == TR_POINTED) {
-        new->expression = createAstConst(ctx, coords, CK_INT_CONST, &c, 0);
+        semaInit->expression = createAstConst(ctx, &coords, CK_INT_CONST, &c, 0);
       } else if (isRealType(type)) {
         long double cc = 0.0;
-        new->expression = createAstConst(ctx, coords, CK_FLOAT_CONST, &cc, 0);
+        semaInit->expression = createAstConst(ctx, &coords, CK_FLOAT_CONST, &cc, 0);
       } else {
-        new->expression = createAstConst(ctx, coords, CK_INT_CONST, &c, 0);
+        semaInit->expression = createAstConst(ctx, &coords, CK_INT_CONST, &c, 0);
       }
-      new->expression->type = type;
-      return new;
+      semaInit->expression->type = type;
+      return ;
   }
 
-  AstInitializer *new = createAstInitializer(ctx, coords, IK_LIST);
-  new->offset = offset;
-  new->slotType = type;
 
-  AstInitializerList head = { 0 };
-  AstInitializerList *current = &head;
-  int32_t elementCount = 0;
+  Boolean isUnion = isUnionType(type);
+  AstInitializerList *initList = semaInit->initializerList;
+  assert(initList);
 
-  if (type->kind == TR_ARRAY) {
-      int32_t arraySize = type->arrayTypeDesc.size;
-      TypeRef *elementType = type->arrayTypeDesc.elementType;
-      int32_t elementSize = computeTypeSize(elementType);
-      int32_t innerOffset = offset;
-
-      int i;
-      for (i = 0; i < arraySize; ++i) {
-          AstInitializerList *newNode = createAstInitializerList(ctx);
-          newNode->initializer = fillInitializer(ctx, coords, elementType, offset);
-
-          current = current->next = newNode;
-          innerOffset += elementSize;
-          ++elementCount;
-      }
-  } else if (isStructualType(type)) {
-      TypeDefiniton *definition = type->descriptorDesc->typeDefinition;
-      assert(definition);
-
-      StructualMember *member = definition->members;
-
-      for (; member; member = member->next) {
-          AstInitializerList *newNode = createAstInitializerList(ctx);
-
-          newNode->initializer = fillInitializer(ctx, coords, member->type, offset + member->offset);
-
-          current = current->next = newNode;
-          ++elementCount;
-      }
-  } else if (isUnionType(type)) {
-      TypeDefiniton *definition = type->descriptorDesc->typeDefinition;
-      assert(definition);
-
-      StructualMember *member = definition->members;
-      AstInitializerList *newNode = createAstInitializerList(ctx);
-      newNode->initializer = fillInitializer(ctx, coords, member->type, offset + 0);
-      current = current->next = newNode;
+  for (; initList; initList = initList->next) {
+      AstInitializer *init = initList->initializer;
+      init->coordinates = coords;
+      fillInitializer(ctx, init);
   }
-
-  new->initializerList = head.next;
-  new->numOfInitializers = elementCount;
-
-  return new;
 }
 
-static AstInitializer *finalizeStructInitializer(ParserContext *ctx, TypeRef *type, ParsedInitializer *initializer, ParsedInitializer **next, int32_t offset, Boolean isTopLevel) {
+static ParsedInitializer *finalizeStructInitializer(ParserContext *ctx, ParsedInitializer *initializer, AstInitializer *semaInit, Boolean isTopLevel) {
+  TypeRef *type = semaInit->slotType;
   assert(isStructualType(type));
-  TypeDefiniton *definition = type->descriptorDesc->typeDefinition;
-  assert(definition->kind == TDK_STRUCT);
 
   AstExpression *expr = initializer->expression;
 
   if (expr) {
+      semaInit->coordinates = initializer->coords;
+
       if (isTopLevel && !isCompileTimeConstant(expr)) {
         reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, &initializer->coords);
-        AstInitializer *new = createAstInitializer(ctx, &initializer->coords, IK_EXPRESSION);
-        new->expression = createErrorExpression(ctx, &expr->coordinates);
-        new->slotType = makeErrorRef(ctx);
-        new->offset = -1;
-
-        *next = initializer->next;
-        return new;
+        semaInit->kind = IK_EXPRESSION;
+        semaInit->expression = createErrorExpression(ctx, &expr->coordinates);
+        return initializer->next;
       }
 
       if (typesEquals(type, expr->type)) {
-          AstInitializer *new = createAstInitializer(ctx, &initializer->coords, IK_EXPRESSION);
-          new->expression = expr;
-          new->offset = offset;
-          new->slotType = type;
-
-          *next = initializer->next;
-          return new;
+          semaInit->kind = IK_EXPRESSION;
+          semaInit->expression = expr;
+          return initializer->next;
       }
   }
 
   Coordinates coords = initializer->coords;
 
-  StructualMember *member = definition->members;
-  AstInitializerList head = { 0 };
-  AstInitializerList *newInit = &head;
-
   int32_t level = initializer->level;
 
-  unsigned memberCount = 0;
+  Boolean embraced = initializer->loc == PL_OPEN;
+  if (embraced) initializer = initializer->next;
 
-  if (initializer->loc == PL_OPEN) {
-      initializer = initializer->next;
-  }
+  AstInitializerList *initList = semaInit->initializerList;
 
-
-  while (member && initializer) {
-      if (initializer->level < level) {
-          break;
-      }
-
-      if (initializer->loc == PL_SEPARATOR) {
+  while (initList && initializer) {
+      // TODO: designators
+      if (initializer->loc == PL_SEPARATOR)  {
           initializer = initializer->next;
           continue;
       }
+      if (initializer->level == level && initializer->loc == PL_CLOSE) break;
 
-      if (initializer->level == level && initializer->loc == PL_CLOSE) {
-          break;
+      AstInitializer *init = initList->initializer;
+      coords = init->coordinates = initializer->coords;
+      initializer = finalizeInitializerInternal(ctx, initializer, init, isTopLevel);
+
+      initList = initList->next;
+  }
+
+
+  for (; initList; initList = initList->next) {
+      AstInitializer *init = initList->initializer;
+      init->coordinates = coords;
+      fillInitializer(ctx, init);
+  }
+
+  while (initializer)  {
+      if (initializer->level == level && initializer->loc == PL_CLOSE) break;
+      if (initializer->expression) {
+        reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &initializer->expression->coordinates);
       }
-
-      ++memberCount;
-
-      TypeRef *memberType = member->type;
-      int32_t memberOffset = offset + member->offset;
-
-      AstInitializerList *newNode = createAstInitializerList(ctx);
-
-      newNode->initializer = finalizeInitializerInternal(ctx, memberType, initializer, &initializer, memberOffset, isTopLevel);
-      memberOffset += computeTypeSize(memberType);
-      newInit = newInit->next = newNode;
-      member = member->next;
+      initializer = initializer->next;
   }
 
-  if (initializer && initializer->level >= level) {
-      Boolean reported = FALSE;
-      while (initializer && initializer->level >= level)  {
-          if (initializer->expression && !reported) {
-            reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &initializer->expression->coordinates);
-            reported = TRUE;
-          }
-          coords.right = initializer->coords.right;
-          initializer = initializer->next;
-      }
+  semaInit->coordinates.right = initializer->coords.right;
+
+  if (embraced) {
+    initializer = initializer->next;
   }
 
-
-  for (; member; member = member->next) {
-      AstInitializerList *newNode = createAstInitializerList(ctx);
-
-      newNode->initializer = fillInitializer(ctx, &coords, member->type, offset + member->offset);
-
-      newInit = newInit->next = newNode;
-      ++memberCount;
-  }
-
-  AstInitializer *new = createAstInitializer(ctx, &coords, IK_LIST);
-
-  new->initializerList = head.next;
-  new->numOfInitializers = memberCount;
-  new->offset = offset;
-  new->slotType = type;
-
-  *next = initializer;
-
-  return new;
+  return initializer;
 }
 
 
-static AstInitializerList *createSymbolInitNode(ParserContext *ctx, Coordinates *_coords, TypeRef *type, int64_t c, int32_t offset) {
+static AstInitializer *createSymbolInitNode(ParserContext *ctx, Coordinates *_coords, TypeRef *type, int64_t c, int32_t offset) {
 
   AstExpression *expr = createAstConst(ctx, _coords, CK_INT_CONST, &c, 0);
   expr->type = type;
@@ -1440,229 +1366,276 @@ static AstInitializerList *createSymbolInitNode(ParserContext *ctx, Coordinates 
   init->slotType = type;
   init->offset = offset;
 
-  AstInitializerList *node = createAstInitializerList(ctx);
-  node->initializer = init;
-
-  return node;
+   return init;
 }
 
-static AstInitializer *stringLiteralToInitializer(ParserContext *ctx, TypeRef *arrayType, Coordinates *coords, const char *s, size_t length, int32_t offset) {
-  AstInitializerList head = { 0 }, *current = &head;
-
-  unsigned i = 0;
-
-  int32_t arraySize = arrayType->arrayTypeDesc.size;
+static void stringLiteralToInitializer(ParserContext *ctx, AstInitializer *semaInit, Coordinates *coords, const char *s, size_t length) {
 
   TypeRef *charType = makePrimitiveType(ctx, T_S1, 0);
+  TypeRef *arrayType = semaInit->slotType;
+  int32_t arraySize = arrayType->arrayTypeDesc.size;
+  int32_t offset = semaInit->offset;
 
-  // TODO: probably worth to rethink coords?
-  for (; i < length; ++i) {
-    if (arraySize != UNKNOWN_SIZE && i == arraySize) {
-        reportDiagnostic(ctx, DIAG_STRING_INIT_TOO_LONG, coords);
-        break;
+  assert(semaInit->kind == IK_LIST);
+
+  semaInit->coordinates = *coords;
+
+  unsigned i = 0;
+  if (arraySize < 0) {
+    AstInitializerList head = { 0 }, *current = &head;
+
+    for (; i < length; ++i) {
+      current = current->next = createAstInitializerList(ctx);
+      current->initializer = createSymbolInitNode(ctx, coords, charType, s[i], offset + i);
     }
-    current = current->next = createSymbolInitNode(ctx, coords, charType, s[i], offset + i);
-  }
 
-  if (arraySize != UNKNOWN_SIZE) {
-      for (; i < arraySize; ++i) {
-        current = current->next = createSymbolInitNode(ctx, coords, charType, 0, offset + i);
-      }
+    arrayType->arrayTypeDesc.size = length;
+    semaInit->initializerList = head.next;
   } else {
-      arrayType->arrayTypeDesc.size = length;
+    AstInitializerList *current = semaInit->initializerList;
+
+    for (i = 0; i < arraySize && current; ++i, current = current->next) {
+      current->initializer = createSymbolInitNode(ctx, coords, charType, s[i], offset + i);
+    }
+
+    if (arraySize < length) {
+      reportDiagnostic(ctx, DIAG_STRING_INIT_TOO_LONG, coords);
+    }
+
+    for (; current; current = current->next) {
+      current->initializer = createSymbolInitNode(ctx, coords, charType, 0, offset + i);
+    }
   }
-
-  AstInitializer *listInit = createAstInitializer(ctx, coords, IK_LIST);
-  listInit->initializerList = head.next;
-  listInit->numOfInitializers = arrayType->arrayTypeDesc.size;
-
-  return listInit;
 }
 
-static AstInitializer *finalizeArrayInitializer(ParserContext *ctx, TypeRef *type, ParsedInitializer *initializer, ParsedInitializer **next, int32_t offset, Boolean isTopLevel) {
+static ParsedInitializer *initializeIncompleteArray(ParserContext *ctx, ParsedInitializer *initializer, AstInitializer *semaInit, int32_t stopLevel, Boolean isTopLevel) {
+  assert(semaInit->initializerList == NULL);
 
-  TypeRef *elementType = type->arrayTypeDesc.elementType;
-  AstExpression *expr = initializer->expression;
-  Coordinates coords = initializer->coords;
-
-  if (expr) {
-      if (isCharType(elementType)) {
-          if (expr->op == E_CONST && expr->constExpr.op == CK_STRING_LITERAL) {
-              AstInitializer *init = stringLiteralToInitializer(ctx, type, &expr->coordinates, expr->constExpr.l.s, expr->constExpr.l.length, offset);
-              init->slotType = type;
-              init->offset = offset;
-              *next = initializer->next;
-              return init;
-          }
-      }
-  }
+  TypeRef *arrayType = semaInit->slotType;
+  TypeRef *elementType = arrayType->arrayTypeDesc.elementType;
 
   AstInitializerList head = { 0 };
-  AstInitializerList *newInit = &head;
+  AstInitializerList *current = &head;
 
-  int32_t arraySize = type->arrayTypeDesc.size;
-  int32_t currentOffset = offset;
   int32_t elementSize = computeTypeSize(elementType);
-  int32_t level = initializer->level;
-  int32_t elementsCount = 0;
-
-  Boolean hasOpen = initializer->loc == PL_OPEN;
-
-  if (hasOpen) initializer = initializer->next;
+  int32_t align = typeAlignment(elementType);
+  int32_t offset = semaInit->offset;
+  int32_t index = 0;
 
   while (initializer) {
-      if (initializer->level < level) {
-          break;
-      }
-
-      if (initializer->loc == PL_SEPARATOR) {
+      // TODO: designators
+      if (initializer->loc == PL_SEPARATOR)  {
           initializer = initializer->next;
           continue;
       }
+      if (initializer->level == stopLevel && initializer->loc == PL_CLOSE) break;
 
-      if (initializer->level == level && initializer->loc == PL_CLOSE) {
-          break;
-      }
+      offset = ALIGN_SIZE(offset, align);
 
-      if (arraySize != UNKNOWN_SIZE && elementsCount >= arraySize) break;
+      AstInitializer *init = typeInitializer(ctx, elementType, offset);
+      init->designation = DK_INDEX;
+      init->designator.index = index;
+      init->coordinates = initializer->coords;
 
-      AstInitializer *newInitializer = finalizeInitializerInternal(ctx, elementType, initializer, &initializer, currentOffset, isTopLevel);
-      AstInitializerList *newNode = createAstInitializerList(ctx);
+      initializer = finalizeInitializerInternal(ctx, initializer, init, isTopLevel);
 
-      ++elementsCount;
+      current = current->next = createAstInitializerList(ctx);
+      current->initializer = init;
 
-      currentOffset += elementSize;
-      newNode->initializer = newInitializer;
-      newInit = newInit->next = newNode;
+      ++index;
+      offset += elementSize;
   }
 
-  if (initializer) {
-    if (initializer->level == level && initializer->loc == PL_CLOSE) {
-      initializer = initializer->next;
-    } else if (initializer->level >= level || initializer->loc != PL_CLOSE) {
-      Boolean reported = FALSE;
-      while (initializer) {
-        ParsedInitializer *prev = initializer;
+  semaInit->initializerList = head.next;
+  arrayType->arrayTypeDesc.size = index;
 
-        if (initializer->expression && !reported) {
-          reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &initializer->expression->coordinates);
-          reported = TRUE;
-        }
-
-        initializer = initializer->next;
-        if (prev->level == level && prev->loc == PL_CLOSE) break;
-      }
-    }
-  }
-
-  if (arraySize != UNKNOWN_SIZE) {
-    for (; elementsCount < arraySize; ++elementsCount) {
-        AstInitializerList *newNode = createAstInitializerList(ctx);
-        newNode->initializer = fillInitializer(ctx, &coords, elementType, currentOffset);
-        newInit = newInit->next = newNode;
-        currentOffset += elementSize;
-    }
-  } else {
-    type->arrayTypeDesc.size = elementsCount;
-  }
-
-  AstInitializer *result = createAstInitializer(ctx, &coords, IK_LIST);
-  result->numOfInitializers = elementsCount;
-  result->initializerList = head.next;
-  result->offset = offset;
-  result->slotType = type;
-
-  *next = initializer;
-
-  return result;
+  return initializer;
 }
 
-static AstInitializer *finalizeUnionInitializer(ParserContext *ctx, TypeRef *type, ParsedInitializer *initializer, ParsedInitializer **next, int32_t offset, Boolean isTopLevel) {
+static ParsedInitializer *initializeCompleteArray(ParserContext *ctx, ParsedInitializer *initializer, AstInitializer *semaInit, int32_t stopLevel, Boolean isTopLevel) {
+  AstInitializerList *initList = semaInit->initializerList;
+
+  semaInit->coordinates.left = initializer->coords.left;
+
+  assert(initList);
+
+  while (initializer && initList) {
+      // TODO: designators
+      if (initializer->loc == PL_SEPARATOR)  {
+          initializer = initializer->next;
+          continue;
+      }
+      if (initializer->level == stopLevel && initializer->loc == PL_CLOSE) break;
+
+      initializer = finalizeInitializerInternal(ctx, initializer, initList->initializer, isTopLevel);
+      initList = initList->next;
+  }
+
+
+  for (; initList; initList = initList->next) {
+      AstInitializer *init = initList->initializer;
+      init->coordinates = initializer->coords;
+      fillInitializer(ctx, init);
+  }
+
+    while (initializer) {
+        if (initializer->level == stopLevel && initializer->loc == PL_CLOSE) break;
+        if (initializer->expression) {
+            reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &initializer->expression->coordinates);
+        }
+        initializer = initializer->next;
+    }
+
+  return initializer;
+}
+
+static ParsedInitializer *finalizeArrayInitializer(ParserContext *ctx, ParsedInitializer *initializer, AstInitializer *semaInit, Boolean isTopLevel) {
+
+  TypeRef *type = semaInit->slotType;
+
+  TypeRef *elementType = type->arrayTypeDesc.elementType;
+
+  Coordinates coords = initializer->coords;
+
+  if (isCharType(elementType)) {
+      Boolean enbraced = FALSE;
+      ParsedInitializer *saved = initializer;
+
+      if (initializer->loc == PL_OPEN) {
+          enbraced = TRUE;
+          initializer = initializer->next;
+      }
+
+      AstExpression *expr = initializer->expression;
+      if (expr) {
+          if (expr->op == E_CONST && expr->constExpr.op == CK_STRING_LITERAL) {
+              stringLiteralToInitializer(ctx, semaInit, &expr->coordinates, expr->constExpr.l.s, expr->constExpr.l.length);
+
+              if (enbraced) {
+                  for (initializer = initializer->next; initializer; initializer = initializer->next) {
+                      if (initializer->expression) {
+                          reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &initializer->expression->coordinates);
+                      }
+                      if (initializer->loc == PL_CLOSE) {
+                          break;
+                      }
+                  }
+              }
+
+              return initializer->next;
+          }
+      }
+
+      initializer = saved;
+  }
+
+  int32_t level = initializer->level;
+  Boolean enbraced = initializer->loc == PL_OPEN;
+
+  if (enbraced) initializer = initializer->next;
+
+  if (semaInit->initializerList) {
+      initializer = initializeCompleteArray(ctx, initializer, semaInit, level, isTopLevel);
+  } else {
+      initializer = initializeIncompleteArray(ctx, initializer, semaInit, level, isTopLevel);
+  }
+
+  semaInit->coordinates.right = initializer->coords.right;
+
+  if (enbraced) {
+      assert(initializer->level == level);
+      assert(initializer->loc == PL_CLOSE);
+      initializer = initializer->next;
+  }
+
+  return initializer;
+
+}
+
+static ParsedInitializer *finalizeUnionInitializer(ParserContext *ctx, ParsedInitializer *initializer, AstInitializer *semaInit, Boolean isTopLevel) {
+  TypeRef *type = semaInit->slotType;
+
   assert(isUnionType(type));
 
-  TypeDefiniton *definition = type->descriptorDesc->typeDefinition;
   AstExpression *expr = initializer->expression;
 
   if (expr) {
       if (isTopLevel && !isCompileTimeConstant(expr)) {
         reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, &initializer->coords);
-        AstInitializer *new = createAstInitializer(ctx, &initializer->coords, IK_EXPRESSION);
-        new->expression = createErrorExpression(ctx, &expr->coordinates);
-        new->slotType = makeErrorRef(ctx);
-        new->offset = -1;
+        semaInit->coordinates = initializer->coords;
+        semaInit->expression = createErrorExpression(ctx, &expr->coordinates);
 
-        *next = initializer->next;
-        return new;
+        return initializer->next;
       }
 
       if (typesEquals(type, expr->type)) {
-          AstInitializer *new = createAstInitializer(ctx, &initializer->coords, IK_EXPRESSION);
-          new->expression = expr;
-          new->offset = offset;
-          new->slotType = type;
+          semaInit->coordinates = initializer->coords;
+          semaInit->kind = IK_EXPRESSION;
+          semaInit->expression = expr;
 
-          *next = initializer->next;
-          return new;
+          return initializer->next;
       }
   }
 
-  StructualMember *member = definition->members;
-  Coordinates *coords = &initializer->coords;
-  TypeRef *memberType = member->type;
-  int32_t memberOffset = offset + member->offset;
-
-  AstInitializerList *newNode = createAstInitializerList(ctx);
+  AstInitializerList *list = semaInit->initializerList;
 
   int32_t level = initializer->level;
-  if (initializer->loc == PL_OPEN) initializer = initializer->next;
+  Boolean embraced = initializer->loc == PL_OPEN;
 
-  newNode->initializer = finalizeInitializerInternal(ctx, memberType, initializer, &initializer, memberOffset, isTopLevel);
+  if (embraced) {
+    initializer = initializer->next;
+  }
+
+  if (list) {
+      // TODO: designators
+      initializer = finalizeInitializerInternal(ctx, initializer, list->initializer, isTopLevel);
+
+      for (list = list->next; list; list = list->next) {
+          AstInitializer *init = list->initializer;
+          init->coordinates = initializer->coords;
+          fillInitializer(ctx, init);
+      }
+
+  }
 
   if (initializer) {
       if (initializer->level >= level && initializer->loc != PL_CLOSE) {
-        Boolean reported = FALSE;
         while (initializer) {
           ParsedInitializer *prev = initializer;
 
-          if (initializer->expression && !reported) {
+          if (initializer->expression) {
             reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &initializer->expression->coordinates);
-            reported = TRUE;
           }
 
+          if (initializer->level == level && initializer->loc == PL_CLOSE) break;
           initializer = initializer->next;
-          if (prev->level == level && prev->loc == PL_CLOSE) break;
         }
       }
   }
 
+  if (embraced) {
+      initializer = initializer->next;
+  }
 
-  AstInitializer *new = createAstInitializer(ctx, coords, IK_LIST);
-
-  new->initializerList = newNode;
-  new->numOfInitializers = 1;
-  new->offset = offset;
-  new->slotType = type;
-
-  *next = initializer;
-
-  return new;
+  return initializer;
 }
 
-static AstInitializer *finalizeScalarInitializer(ParserContext *ctx, TypeRef *type, ParsedInitializer *initializer, ParsedInitializer **next, int32_t offset, Boolean isTopLevel) {
+static ParsedInitializer *finalizeScalarInitializer(ParserContext *ctx, ParsedInitializer *initializer, AstInitializer *semaInit, Boolean isTopLevel) {
+
+  TypeRef *type = semaInit->slotType;
+  Coordinates *coords = &initializer->coords;
 
   assert(isScalarType(type) || type->kind == TR_BITFIELD);
 
   int32_t level = initializer->level;
   if (initializer->loc == PL_OPEN) {
-      AstInitializer *new = finalizeScalarInitializer(ctx, type, initializer->next, &initializer, offset, isTopLevel);
+      initializer = finalizeScalarInitializer(ctx, initializer->next, semaInit, isTopLevel);
       if (initializer->level >= level || initializer->loc != PL_CLOSE)  {
-          Boolean reported = FALSE;
           while (initializer) {
             ParsedInitializer *prev = initializer;
 
-            if (initializer->expression && !reported) {
+            if (initializer->expression) {
               reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &initializer->expression->coordinates);
-              reported = TRUE;
             }
 
             if (prev->level == level && prev->loc == PL_CLOSE) {
@@ -1671,20 +1644,15 @@ static AstInitializer *finalizeScalarInitializer(ParserContext *ctx, TypeRef *ty
             }
             initializer = initializer->next;
           }
-          *next = initializer;
       }
-      return new;
+      return initializer;
   }
 
-  AstInitializer *new = createAstInitializer(ctx, &initializer->coords, IK_EXPRESSION);
   if (initializer->loc == PL_CLOSE) {
-    // empty scalar initializer
-
-    reportDiagnostic(ctx, DIAG_SCALAR_INIT_EMPTY, &initializer->coords);
-    new->expression = createErrorExpression(ctx, &initializer->coords);
-    new->slotType = type;
-    new->offset = offset;
-    return new;
+    reportDiagnostic(ctx, DIAG_SCALAR_INIT_EMPTY, coords);
+    semaInit->coordinates = *coords;
+    semaInit->expression = createErrorExpression(ctx, coords);
+    return initializer;
   }
 
   AstExpression *expr = initializer->expression;
@@ -1698,55 +1666,120 @@ static AstInitializer *finalizeScalarInitializer(ParserContext *ctx, TypeRef *ty
 
   if (comaptible) {
       if (isTopLevel && !isCompileTimeConstant(expr)) {
-          reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, &initializer->coords);
-          new->expression = createErrorExpression(ctx, &expr->coordinates);
-          new->slotType = makeErrorRef(ctx);
-          new->offset = -1;
+          reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, coords);
+          semaInit->expression = createErrorExpression(ctx, &expr->coordinates);
       } else {
         if (!typesEquals(type, exprType)) {
             expr = createCastExpression(ctx, &expr->coordinates, type, expr);
         }
-
-        new->expression = expr;
-        new->slotType = type;
-        new->offset = offset;
+        semaInit->expression = expr;
       }
   } else {
-      new->expression = createErrorExpression(ctx, &expr->coordinates);
-      new->slotType = makeErrorRef(ctx);
-      new->offset = -1;
+      semaInit->expression = createErrorExpression(ctx, &expr->coordinates);
   }
 
-  *next = initializer->next;
-  return new;
+  semaInit->coordinates = *coords;
+
+  return initializer->next;
 }
 
-static AstInitializer *finalizeInitializerInternal(ParserContext *ctx, TypeRef *valueType, ParsedInitializer *initializer, ParsedInitializer **next, int32_t offset, Boolean isTopLevel) {
+static ParsedInitializer *finalizeInitializerInternal(ParserContext *ctx, ParsedInitializer *initializer, AstInitializer *semaInit, Boolean isTopLevel) {
   Coordinates *coords = &initializer->coords;
+  TypeRef *valueType = semaInit->slotType;
+
   if (isErrorType(valueType)) {
-      AstInitializer *new = createAstInitializer(ctx, coords, IK_EXPRESSION);
-      new->expression = createErrorExpression(ctx, coords);
-      new->numOfInitializers = -1;
-      new->slotType = valueType;
-      new->offset = -1;
-      *next = initializer->next;
-      return new;
+      semaInit->coordinates = initializer->coords;
+      semaInit->expression = createErrorExpression(ctx, coords);
+      return initializer->next;
   }
 
   if (isStructualType(valueType)) {
-      return finalizeStructInitializer(ctx, valueType, initializer, next, offset, isTopLevel);
+      return finalizeStructInitializer(ctx, initializer, semaInit, isTopLevel);
   }
 
   if (valueType->kind == TR_ARRAY) {
-      return finalizeArrayInitializer(ctx, valueType, initializer, next, offset, isTopLevel);
+      return finalizeArrayInitializer(ctx, initializer, semaInit, isTopLevel);
   }
 
   if (isUnionType(valueType)) {
-      return finalizeUnionInitializer(ctx, valueType, initializer, next, offset, isTopLevel);
+      return finalizeUnionInitializer(ctx, initializer, semaInit, isTopLevel);
   }
 
 
-  return finalizeScalarInitializer(ctx, valueType, initializer, next, offset, isTopLevel);
+  return finalizeScalarInitializer(ctx, initializer, semaInit, isTopLevel);
+}
+
+AstInitializer *typeInitializer(ParserContext *ctx, TypeRef *valueType, int32_t offset) {
+  if (isScalarType(valueType) || valueType->kind == TR_BITFIELD) {
+      AstInitializer *init = createEmptyInitializer(ctx);
+      init->designation = DK_NONE;
+      init->kind = IK_EXPRESSION;
+      init->slotType = valueType;
+      init->offset = offset;
+      return init;
+  }
+
+
+  if (valueType->kind == TR_ARRAY) {
+      TypeRef *elementType = valueType->arrayTypeDesc.elementType;
+      int32_t size = valueType->arrayTypeDesc.size;
+      int32_t currentOffset = offset;
+      int32_t elementSize = computeTypeSize(elementType);
+      int32_t elementAlign = typeAlignment(elementType);
+
+      AstInitializerList head = { 0 }, *current = &head;
+      int32_t i = 0;
+
+      for (; i < size; ++i) {
+          currentOffset = ALIGN_SIZE(currentOffset, elementAlign);
+          AstInitializer *elementInit = typeInitializer(ctx, elementType, currentOffset);
+          elementInit->designation = DK_INDEX;
+          elementInit->designator.index = i;
+          current = current->next = createAstInitializerList(ctx);
+          current->initializer = elementInit;
+          currentOffset += elementSize;
+      }
+
+      AstInitializer *init = createEmptyInitializer(ctx);
+      init->kind = IK_LIST;
+      init->designation = DK_NONE;
+      init->slotType = valueType;
+      init->offset = offset;
+      init->initializerList = head.next;
+      return init;
+  }
+
+  if (isCompositeType(valueType)) {
+      TypeDefiniton *definition = valueType->descriptorDesc->typeDefinition;
+      assert(definition->kind == TDK_STRUCT || definition->kind == TDK_UNION);
+
+      StructualMember *member = definition->members;
+      AstInitializerList head = { 0 }, *current = &head;
+
+      for (; member; member = member->next) {
+          int32_t memberOffset = offset + member->offset;
+          AstInitializer *memberInit = typeInitializer(ctx, member->type, memberOffset);
+          memberInit->designation = DK_MEMBER;
+          memberInit->designator.member = member->name;
+          current = current->next = createAstInitializerList(ctx);
+          current->initializer = memberInit;
+      }
+
+      AstInitializer *init = createEmptyInitializer(ctx);
+      init->kind = IK_LIST;
+      init->designation = DK_NONE;
+      init->slotType = valueType;
+      init->offset = offset;
+      init->initializerList = head.next;
+
+      return init;
+  }
+
+  if (valueType->kind == TR_FUNCTION) {
+      unreachable("I am not sure if and how functional type could be initialized");
+  }
+
+  unreachable("Unknown type to be initialized");
 }
 
 AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, ParsedInitializer *parsed, Boolean isTopLevel) {
@@ -1776,7 +1809,10 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, Pars
       }
   }
 
-  return finalizeInitializerInternal(ctx, valueType, parsed, &parsed, 0, isTopLevel);
+  AstInitializer *semanthicInit = typeInitializer(ctx, valueType, 0);
+
+  finalizeInitializerInternal(ctx, parsed, semanthicInit, isTopLevel);
+  return semanthicInit;
 }
 
 AstExpression *transformTernaryExpression(ParserContext *ctx, AstExpression *expr) {

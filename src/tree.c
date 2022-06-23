@@ -196,6 +196,10 @@ AstInitializerList *createAstInitializerList(ParserContext *ctx) {
     return (AstInitializerList*)areanAllocate(ctx->memory.astArena, sizeof(AstInitializerList));
 }
 
+AstInitializer *createEmptyInitializer(ParserContext *ctx) {
+  return areanAllocate(ctx->memory.astArena, sizeof (AstInitializer));
+}
+
 AstInitializer *createAstInitializer(ParserContext *ctx, Coordinates *coords, InitializerKind kind) {
     AstInitializer* result = (AstInitializer*)areanAllocate(ctx->memory.astArena, sizeof(AstInitializer));
 
