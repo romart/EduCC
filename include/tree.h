@@ -322,6 +322,12 @@ typedef enum _InitializerKind {
   IK_LIST
 } InitializerKind;
 
+typedef enum _DesignationKind {
+  DK_NONE,
+  DK_MEMBER,
+  DK_INDEX
+} DesignationKind;
+
 typedef struct _AstInitializerList {
   struct _AstInitializer *initializer;
   struct _AstInitializerList *next;
@@ -329,15 +335,21 @@ typedef struct _AstInitializerList {
 
 typedef struct _AstInitializer {
     Coordinates coordinates;
+
     InitializerKind kind; // expression | list of initializers
+    DesignationKind designation;
+
     TypeRef *slotType;
     int32_t offset;
+
+    union {
+      const char *member;
+      int32_t index;
+    } designator;
+
     union {
       AstExpression *expression;
-      struct {
-        AstInitializerList *initializerList;
-        int numOfInitializers;
-      };
+      AstInitializerList *initializerList;
     };
 } AstInitializer;
 
@@ -550,6 +562,7 @@ AstAttributeList *createAttributeList(struct _ParserContext *ctx, Coordinates *c
 AstIdentifierList *createIdentifierList(struct _ParserContext *ctx, Coordinates *coords, const char *name);
 
 AstInitializerList *createAstInitializerList(struct _ParserContext *ctx);
+AstInitializer *createEmptyInitializer(struct _ParserContext *ctx);
 AstInitializer *createAstInitializer(struct _ParserContext *ctx, Coordinates *coords, InitializerKind kind);
 AstFunctionDeclaration *createFunctionDeclaration(struct _ParserContext *ctx, Coordinates *coords, TypeRef *funcType, TypeRef *returnType, const char *name, unsigned flags, AstValueDeclaration *parameters, Boolean isVariadic);
 AstValueDeclaration *createAstValueDeclaration(struct _ParserContext *ctx, Coordinates *coords, ValueKind kind, TypeRef *type, const char *name, unsigned index, unsigned flags, AstInitializer *initializer);
