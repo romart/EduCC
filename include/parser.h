@@ -178,6 +178,8 @@ typedef struct _ParserContext {
 enum ParsedLoc {
   PL_OPEN,
   PL_INNER,
+  PL_DESIGNATOR,
+  PL_ASSIGN,
   PL_CLOSE,
   PL_SEPARATOR
 };
@@ -187,6 +189,11 @@ typedef struct _ParsedInitializer {
   AstExpression *expression;
   int32_t level;
   enum ParsedLoc loc;
+  DesignationKind kind;
+  union {
+    const char *identifier; // .foo
+    int32_t index;  // [42]
+  } designator;
   struct _ParsedInitializer *next;
 } ParsedInitializer;
 

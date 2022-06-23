@@ -2035,6 +2035,32 @@ static ParsedInitializer *allocParsedInitializer(ParserContext *ctx, Coordinates
   return p;
 }
 
+static int32_t checkAndGetArrayDesignator(ParserContext *ctx, AstExpression *index) {
+  if (!isIntegerType(index->type)) {
+      // char a[] = { [-1.0] = 10, ["ss"] = 20 };
+      reportDiagnostic(ctx, DIAG_MUST_BE_INT_CONST, &index->coordinates, index->type);
+      return -1;
+  }
+
+  AstConst *evaluated = eval(ctx, index);
+
+  if (evaluated == NULL) {
+      // int x = 10;
+      // char b[] = { [x] = 15 };
+      reportDiagnostic(ctx, DIAG_EXPECTED_INTEGER_CONST_EXPR, &index->coordinates);
+      return -2;
+  }
+
+  int32_t idx = evaluated->i;
+
+  if (idx < 0) {
+      // char c[] = { [-1] = 25 };
+      reportDiagnostic(ctx, DIAG_ARRAY_DESIGNATOR_NEGATIVE, &index->coordinates, (int64_t)idx);
+      return -3;
+  }
+
+  return idx;
+}
 
 /**
 initializer
@@ -2042,13 +2068,30 @@ initializer
     | '{' initializer_list ',' '}'
     | assignment_expression
     ;
+
+initializer_list
+    : (designation? initializer)+
+    ;
+
+designation
+    : designator_list '='
+    ;
+
+designator_list
+    : designator+
+    ;
+
+designator:
+    : '[' constant_expression ']'
+    | '.' identifier
+    ;
  */
 
 static ParsedInitializer *parseInitializerImpl(ParserContext *ctx, ParsedInitializer **next, int32_t level) {
-  ParsedInitializer head = { 0 }, *current = &head;
 
+  Coordinates coords = { ctx->token, ctx->token };
+  ParsedInitializer head = { 0 }, *current = &head;
   if (nextTokenIf(ctx, '{')) {
-      Coordinates coords = { ctx->token, ctx->token };
       current = current->next = allocParsedInitializer(ctx, &coords, NULL, level + 1, PL_OPEN);
       while (ctx->token->code != '}') {
           ParsedInitializer *n = NULL;
@@ -2065,9 +2108,41 @@ static ParsedInitializer *parseInitializerImpl(ParserContext *ctx, ParsedInitial
       coords.left = coords.right = ctx->token;
       current = current->next = allocParsedInitializer(ctx, &coords, NULL, level + 1, PL_CLOSE);
 
-      consume(ctx, '}');
+      consumeOrSkip(ctx, '}');
       *next = current;
       return head.next;
+  } else if (nextTokenIf(ctx, '[')) { // array designator
+      AstExpression *idx = parseConditionalExpression(ctx, NULL);
+      coords.right = ctx->token;
+      consumeOrSkip(ctx, ']');
+
+      ParsedInitializer *parsed = allocParsedInitializer(ctx, &coords, NULL, level, PL_DESIGNATOR);
+      parsed->kind = DK_ARRAY;
+      parsed->designator.index = checkAndGetArrayDesignator(ctx, idx);
+
+      nextTokenIf(ctx, '=');
+
+      return *next = parsed;
+  } else if (nextTokenIf(ctx, '.')) { // struct designator
+      Token *t = ctx->token;
+
+      const char *identifier = t->id;
+      if (t->code != IDENTIFIER) {
+          //  struct SX { int a, b, c; };
+          //  struct SX sx = { .++ = 10; };
+          Coordinates coords2 = { t, t };
+          reportDiagnostic(ctx, DIAG_EXPECTED_FIELD_DESIGNATOR, &coords);
+          for (; t->code != ',' && t->code != '}' && t->code != '='; t = nextToken(ctx));
+          identifier = NULL;
+      } else nextToken(ctx);
+      coords.right = t;
+      ParsedInitializer *parsed = allocParsedInitializer(ctx, &coords, NULL, level, PL_DESIGNATOR);
+      parsed->kind = DK_STRUCT;
+      parsed->designator.identifier = identifier;
+
+      nextTokenIf(ctx, '=');
+
+      return *next = parsed;
   } else {
       AstExpression *expr = parseAssignmentExpression(ctx, NULL);
       return *next = allocParsedInitializer(ctx, &expr->coordinates, expr, level, PL_INNER);
