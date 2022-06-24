@@ -1500,7 +1500,7 @@ static void stringLiteralToInitializer(ParserContext *ctx, AstInitializer *semaI
   }
 }
 
-static AstInitializerList *findIncompleteArrayDesignatorWithFilling(ParserContext *ctx, AstInitializer *semaInit, AstInitializerList *start, ParsedInitializer *parsed, AstInitializerList **prev, int32_t offset) {
+static AstInitializerList *findIncompleteArrayDesignatorWithFilling(ParserContext *ctx, AstInitializer *semaInit, AstInitializerList *start, ParsedInitializer *parsed, int32_t offset) {
   if (parsed->kind != DK_ARRAY) {
       // int a[] = { .x = 10 };
       reportDiagnostic(ctx, DIAG_STRUCT_DESIGNATOR_IN_ARRAY, &parsed->coords, semaInit->slotType);
@@ -1532,7 +1532,6 @@ static AstInitializerList *findIncompleteArrayDesignatorWithFilling(ParserContex
 
   for (; n; n = n->next, ++idx) {
       if (n->initializer->designator.index == index) return n;
-      *prev = n;
       offset = ALIGN_SIZE(offset, align);
       current = current->next = n;
       offset += elementSize;
@@ -1547,7 +1546,6 @@ static AstInitializerList *findIncompleteArrayDesignatorWithFilling(ParserContex
       fillInitializer(ctx, init);
       current = current->next = createAstInitializerList(ctx);
       current->initializer = init;
-      *prev = current;
       offset += elementSize;
   }
 
@@ -1605,7 +1603,7 @@ static ParsedInitializer *initializeIncompleteArray(ParserContext *ctx, ParsedIn
       AstInitializer *init = NULL;
       if (initializer->loc == PL_DESIGNATOR) {
           if (embraced) {
-              AstInitializerList *designated = findIncompleteArrayDesignatorWithFilling(ctx, semaInit, semaInit->initializerList, initializer, &prev, offset);
+              AstInitializerList *designated = findIncompleteArrayDesignatorWithFilling(ctx, semaInit, semaInit->initializerList, initializer, offset);
               if (designated) {
                   current = designated;
                   init = designated->initializer;
@@ -1786,9 +1784,8 @@ static ParsedInitializer *finalizeArrayInitializer(ParserContext *ctx, ParsedIni
   AstInitializerList *start = semaInit->initializerList;
 
   if (initializer->loc == PL_DESIGNATOR) {
-      AstInitializerList *dummy;
       AstInitializerList *designated = semaInit->isIncomplete
-          ? findIncompleteArrayDesignatorWithFilling(ctx, semaInit, semaInit->initializerList, initializer, &dummy, 0)
+          ? findIncompleteArrayDesignatorWithFilling(ctx, semaInit, semaInit->initializerList, initializer, 0)
           : findCompleteArrayDesignatorWithFilling(ctx, semaInit, semaInit->initializerList, initializer);
       if (designated) {
           initializer = finalizeInitializerInternal(ctx, initializer->next, designated->initializer, isTopLevel);
