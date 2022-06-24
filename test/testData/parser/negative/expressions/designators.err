@@ -29,3 +29,9 @@ test/testData/parser/negative/expressions/designators.c:31:31: warning: initiali
 test/testData/parser/negative/expressions/designators.c:31:36: warning: initializer overrides prior initialization of this subobject
 test/testData/parser/negative/expressions/designators.c:41:69: warning: initializer overrides prior initialization of this subobject
 test/testData/parser/negative/expressions/designators.c:41:71: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:48:1: error: redefinition of 'x' with a different type: 'signed int[-1]' vs 'signed int[3]'
+test/testData/parser/negative/expressions/designators.c:48:32: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:48:35: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:48:44: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:48:47: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:48:50: warning: initializer overrides prior initialization of this subobject
