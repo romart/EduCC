@@ -1,0 +1,337 @@
+FILE test/testData/parser/negative/expressions/designators.c
+  UNION <anon$0>
+    signed int x #0
+    signed int y #0
+  UNION_END
+----
+  STRUCT S
+    UNION <anon$0> sections #0
+  STRUCT_END
+----
+  STRUCT SX
+    signed int a #0
+    signed int b #4
+    signed int c #8
+  STRUCT_END
+----
+  STRUCT ST
+    signed int a #0
+    (STRUCT SX[2])[2] s #4
+  STRUCT_END
+----
+  UNION <anon$1>
+    signed int a #0
+    signed char[4] b #0
+  UNION_END
+----
+  STRUCT <anon$2>
+    signed int a #0
+    signed int b #4
+  STRUCT_END
+----
+  STRUCT <anon$3>
+    signed int a #0
+    signed int b #4
+  STRUCT_END
+----
+  STRUCT <anon$4>
+    STRUCT <anon$3> c #0
+  STRUCT_END
+----
+  STRUCT <anon$5>
+    signed int[2] a #0
+  STRUCT_END
+----
+  STRUCT <anon$6>
+    signed int[2] a #0
+  STRUCT_END
+----
+  STRUCT <anon$7>
+    signed int a #0
+    signed int b #4
+  STRUCT_END
+----
+  UNION <anon$8>
+    unsigned short a #0
+    signed char[2] b #0
+  UNION_END
+----
+  STRUCT <anon$9>
+    signed int b #0
+  STRUCT_END
+----
+  STRUCT <anon$10>
+    signed int a #0
+    STRUCT <anon$9> $1 #4
+  STRUCT_END
+----
+  STRUCT <anon$11>
+    STRUCT <anon$10> $1 #0
+    signed int c #8
+  STRUCT_END
+----
+  STRUCT STR
+    signed int a #0
+    signed char[10] s #4
+  STRUCT_END
+----
+  signed char[5] embraced = \
+    INIT_BEGIN
+      signed char #0 <--- 65
+      signed char #1 <--- 66
+      signed char #2 <--- 67
+      signed char #3 <--- 68
+      signed char #4 <--- 0
+    INIT_END
+----
+  STRUCT S s = \
+    INIT_BEGIN
+      INIT_BEGIN
+        signed int #0 <--- 1
+        signed int #0 <--- 0
+      INIT_END
+    INIT_END
+----
+  STRUCT SX ds = \
+    INIT_BEGIN
+      signed int #0 <--- 0
+      signed int #4 <--- 0
+      signed int #8 <--- 0
+    INIT_END
+----
+  signed int[3] aa = \
+    INIT_BEGIN
+      signed int #0 <--- 0
+      signed int #4 <--- 10
+      signed int #16 <--- 20
+    INIT_END
+----
+  signed int cc = \
+    ERROR EXPR
+----
+  signed int[] bb = \
+    INIT_BEGIN
+
+    INIT_END
+----
+  signed int dd = \
+    ERROR EXPR
+----
+  STRUCT ST st = \
+    INIT_BEGIN
+      signed int #0 <--- 10
+      INIT_BEGIN
+        INIT_BEGIN
+          INIT_BEGIN
+            signed int #4 <--- 0
+            signed int #8 <--- 0
+            signed int #12 <--- 0
+          INIT_END
+          INIT_BEGIN
+            signed int #16 <--- 0
+            signed int #20 <--- 0
+            signed int #24 <--- 0
+          INIT_END
+        INIT_END
+        INIT_BEGIN
+          INIT_BEGIN
+            signed int #28 <--- 0
+            signed int #32 <--- 0
+            signed int #36 <--- 0
+          INIT_END
+          INIT_BEGIN
+            signed int #40 <--- 80
+            signed int #44 <--- 1
+            signed int #48 <--- 30
+          INIT_END
+        INIT_END
+      INIT_END
+    INIT_END
+----
+  UNION <anon$1> g50 = \
+    INIT_BEGIN
+      signed int #0 <--- 0
+      INIT_BEGIN
+        signed char #0 <--- 0
+        signed char #1 <--- 0
+        signed char #2 <--- (signed char)18
+        signed char #3 <--- 0
+      INIT_END
+    INIT_END
+----
+  signed int[3] x = \
+    INIT_BEGIN
+      signed int #0 <--- 4
+      signed int #4 <--- 5
+      signed int #8 <--- 3
+    INIT_END
+----
+  (signed int[3])[2] y = \
+    INIT_BEGIN
+      INIT_BEGIN
+        signed int #0 <--- 10
+        signed int #4 <--- 11
+        signed int #8 <--- 8
+      INIT_END
+      INIT_BEGIN
+        signed int #12 <--- 12
+        signed int #16 <--- 5
+        signed int #20 <--- 6
+      INIT_END
+    INIT_END
+----
+  (signed int[3])[2] z = \
+    INIT_BEGIN
+      INIT_BEGIN
+        signed int #0 <--- 7
+        signed int #4 <--- 8
+        signed int #8 <--- 3
+      INIT_END
+      INIT_BEGIN
+        signed int #12 <--- 9
+        signed int #16 <--- 10
+        signed int #20 <--- 6
+      INIT_END
+    INIT_END
+----
+  signed char[10] a = \
+    INIT_BEGIN
+      signed char #0 <--- 0
+      signed char #1 <--- 0
+      signed char #2 <--- 0
+      signed char #3 <--- 0
+      signed char #4 <--- 0
+      signed char #5 <--- 0
+      signed char #6 <--- 0
+      signed char #7 <--- (signed char)1
+      signed char #8 <--- (signed char)2
+      signed char #9 <--- (signed char)3
+    INIT_END
+----
+  (signed char[2])[10] b = \
+    INIT_BEGIN
+      INIT_BEGIN
+        signed char #0 <--- 0
+        signed char #1 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #2 <--- 0
+        signed char #3 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #4 <--- 0
+        signed char #5 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #6 <--- 0
+        signed char #7 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #8 <--- 0
+        signed char #9 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #10 <--- 0
+        signed char #11 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #12 <--- 0
+        signed char #13 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #14 <--- 0
+        signed char #15 <--- 0
+      INIT_END
+      INIT_BEGIN
+        signed char #16 <--- 0
+        signed char #17 <--- (signed char)1
+      INIT_END
+      INIT_BEGIN
+        signed char #18 <--- (signed char)2
+        signed char #19 <--- 0
+      INIT_END
+    INIT_END
+----
+  STRUCT <anon$2> c = \
+    INIT_BEGIN
+      signed int #0 <--- 4
+      signed int #4 <--- 3
+    INIT_END
+----
+  STRUCT <anon$4> d = \
+    INIT_BEGIN
+      INIT_BEGIN
+        signed int #0 <--- 1
+        signed int #4 <--- 2
+      INIT_END
+    INIT_END
+----
+  STRUCT <anon$5> e = \
+    INIT_BEGIN
+      INIT_BEGIN
+        signed int #0 <--- 1
+        signed int #4 <--- 2
+      INIT_END
+    INIT_END
+----
+  STRUCT <anon$6> f = \
+    INIT_BEGIN
+      INIT_BEGIN
+        signed int #0 <--- 0
+        signed int #4 <--- 1
+      INIT_END
+    INIT_END
+----
+  signed int[1] af = \
+    INIT_BEGIN
+      signed int #0 <--- 31
+    INIT_END
+----
+  STRUCT <anon$7>[3] g = \
+    INIT_BEGIN
+      INIT_BEGIN
+        signed int #0 <--- 3
+        signed int #4 <--- 4
+      INIT_END
+      INIT_BEGIN
+        signed int #8 <--- 0
+        signed int #12 <--- 1
+      INIT_END
+      INIT_BEGIN
+        signed int #16 <--- 2
+        signed int #20 <--- 0
+      INIT_END
+    INIT_END
+----
+  UNION <anon$8> h = \
+    INIT_BEGIN
+      unsigned short #0 <--- 0
+      INIT_BEGIN
+        signed char #0 <--- (signed char)255
+        signed char #1 <--- 0
+      INIT_END
+    INIT_END
+----
+  STRUCT <anon$11> l = \
+    INIT_BEGIN
+      signed int #0 <--- 1
+      signed int #4 <--- 4
+      signed int #8 <--- 5
+    INIT_END
+----
+  STRUCT STR da = \
+    INIT_BEGIN
+      signed int #0 <--- 10
+      INIT_BEGIN
+        signed char #4 <--- 97
+        signed char #5 <--- 98
+        signed char #6 <--- 99
+        signed char #7 <--- 100
+        signed char #8 <--- 0
+        signed char #9 <--- 0
+        signed char #10 <--- 0
+        signed char #11 <--- 0
+        signed char #12 <--- 0
+        signed char #13 <--- 0
+      INIT_END
+    INIT_END
