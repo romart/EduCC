@@ -1532,6 +1532,7 @@ static AstInitializerList *findIncompleteArrayDesignatorWithFilling(ParserContex
 
   for (; n; n = n->next, ++idx) {
       if (n->initializer->designator.index == index) return n;
+      *prev = n;
       offset = ALIGN_SIZE(offset, align);
       current = current->next = n;
       offset += elementSize;
@@ -1623,6 +1624,8 @@ static ParsedInitializer *initializeIncompleteArray(ParserContext *ctx, ParsedIn
           init->designation = DK_ARRAY;
           init->designator.index = index;
           current->initializer = init;
+      } else {
+          init = current->initializer;
       }
 
 
@@ -1634,9 +1637,9 @@ static ParsedInitializer *initializeIncompleteArray(ParserContext *ctx, ParsedIn
       offset = init->offset + elementSize;
       prev = current;
       current = current->next;
+      if (semaInit->initializerList == NULL) semaInit->initializerList = head.next;
   }
 
-  if (semaInit->initializerList == NULL) semaInit->initializerList = head.next;
   semaInit->state = IS_INIT;
   arrayType->arrayTypeDesc.size = arraySize;
 
