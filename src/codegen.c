@@ -690,10 +690,18 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
     break;
     case IK_LIST: {
         AstInitializerList *inits = initializer->initializerList;
-        while (inits) {
+        if (isUnionType(initializer->slotType) && initializer->state == IS_INIT) {
+          for (; inits; inits = inits->next) {
+            if (inits->initializer->state == IS_INIT) {
+              emitted = emitInitializerImpl(ctx, f, scope, typeSize, dst, inits->initializer, skipNull);
+              break;
+            }
+          }
+        } else {
+          while (inits) {
             emitted = emitInitializerImpl(ctx, f, scope, typeSize, dst, inits->initializer, skipNull);
-
             inits = inits->next;
+          }
         }
     }
     return emitted;
@@ -900,6 +908,14 @@ static size_t fillInitializer(GenerationContext *ctx, Section *section, AstIniti
     size_t result = 0;
 
     AstInitializerList *inits = init->initializerList;
+
+    if (isUnionType(init->slotType) && init->state == IS_INIT) {
+      for (; inits; inits = inits->next) {
+        if (inits->initializer->state == IS_INIT) {
+          return fillInitializer(ctx, section, inits->initializer, startOffset, size);
+        }
+      }
+    }
 
     while (inits) {
 
