@@ -20,11 +20,11 @@ test/testData/parser/negative/expressions/initializers.c:24:32: warning: excess 
 test/testData/parser/negative/expressions/initializers.c:24:35: warning: excess elements in scalar initializer
 test/testData/parser/negative/expressions/initializers.c:24:40: warning: excess elements in scalar initializer
 test/testData/parser/negative/expressions/initializers.c:24:47: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:25:34: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:25:37: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:25:40: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:25:45: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:25:52: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:25:34: warning: excess elements in array initializer
+test/testData/parser/negative/expressions/initializers.c:25:37: warning: excess elements in array initializer
+test/testData/parser/negative/expressions/initializers.c:25:40: warning: excess elements in array initializer
+test/testData/parser/negative/expressions/initializers.c:25:45: warning: excess elements in array initializer
+test/testData/parser/negative/expressions/initializers.c:25:52: warning: excess elements in array initializer
 test/testData/parser/negative/expressions/initializers.c:30:24: warning: excess elements in scalar initializer
 test/testData/parser/negative/expressions/initializers.c:30:29: warning: excess elements in scalar initializer
 test/testData/parser/negative/expressions/initializers.c:31:24: warning: excess elements in scalar initializer
@@ -58,5 +58,5 @@ test/testData/parser/negative/expressions/initializers.c:61:12: error: 'extern' 
 test/testData/parser/negative/expressions/initializers.c:90:11: error: initializer element is not a compile-time constant
 test/testData/parser/negative/expressions/initializers.c:100:15: error: scalar initializer cannot be empty
 test/testData/parser/negative/expressions/initializers.c:104:24: warning: initializer-string for char array is too long
-test/testData/parser/negative/expressions/initializers.c:115:23: warning: excess elements in scalar initializer
-test/testData/parser/negative/expressions/initializers.c:115:26: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/initializers.c:115:23: warning: excess elements in union initializer
+test/testData/parser/negative/expressions/initializers.c:115:26: warning: excess elements in union initializer
