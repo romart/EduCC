@@ -324,9 +324,16 @@ typedef enum _InitializerKind {
 
 typedef enum _DesignationKind {
   DK_NONE,
-  DK_MEMBER,
-  DK_INDEX
+  DK_STRUCT,
+  DK_ARRAY,
+  DK_ERROR,
 } DesignationKind;
+
+typedef enum _InitializationState {
+  IS_CLEAR,
+  IS_INIT,
+  IS_FILLED
+} InitializationState;
 
 typedef struct _AstInitializerList {
   struct _AstInitializer *initializer;
@@ -338,6 +345,7 @@ typedef struct _AstInitializer {
 
     InitializerKind kind; // expression | list of initializers
     DesignationKind designation;
+    InitializationState state;
 
     TypeRef *slotType;
     int32_t offset;
