@@ -335,3 +335,11 @@ FILE test/testData/parser/negative/expressions/designators.c
         signed char #13 <--- 0
       INIT_END
     INIT_END
+----
+  signed int[4] x = \
+    INIT_BEGIN
+      signed int #0 <--- 5
+      signed int #4 <--- 6
+      signed int #8 <--- 8
+      signed int #12 <--- 10
+    INIT_END

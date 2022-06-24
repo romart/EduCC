@@ -45,3 +45,4 @@ struct STR { int a; char s[10]; };
 
 struct STR da= { 10, .s = "abcd" };
 
+int x[] = { 1, 2, 9, 10, [0] = 3, 4, [0] = 5, 6, 8 };
