@@ -1,0 +1,31 @@
+test/testData/parser/negative/expressions/designators.c:10:19: warning: excess elements in union initializer
+test/testData/parser/negative/expressions/designators.c:10:22: warning: excess elements in union initializer
+test/testData/parser/negative/expressions/designators.c:12:18: error: expected a field designator, such as '.field = 4'
+test/testData/parser/negative/expressions/designators.c:14:35: error: array designator value '-1' is negative
+test/testData/parser/negative/expressions/designators.c:15:33: error: array designator value '-1' is negative
+test/testData/parser/negative/expressions/designators.c:15:12: error: expected scalar initializer
+test/testData/parser/negative/expressions/designators.c:15:28: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/designators.c:15:39: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/designators.c:19:23: error: expected a field designator, such as '.field = 4'
+test/testData/parser/negative/expressions/designators.c:19:14: error: field designator cannot initialize a non-struct, non-union type 'signed int[-1]'
+test/testData/parser/negative/expressions/designators.c:19:23: error: field designator cannot initialize a non-struct, non-union type 'signed int[-1]'
+test/testData/parser/negative/expressions/designators.c:20:21: error: expected a field designator, such as '.field = 4'
+test/testData/parser/negative/expressions/designators.c:20:12: error: expected scalar initializer
+test/testData/parser/negative/expressions/designators.c:20:27: warning: excess elements in scalar initializer
+test/testData/parser/negative/expressions/designators.c:22:70: warning: excess elements in struct initializer
+test/testData/parser/negative/expressions/designators.c:26:24: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:26:27: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:27:33: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:27:35: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:27:41: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:27:47: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:27:50: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:27:60: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:28:31: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:28:33: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:28:36: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:28:38: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:31:31: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:31:36: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:41:69: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:41:71: warning: initializer overrides prior initialization of this subobject
