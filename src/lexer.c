@@ -1381,6 +1381,7 @@ Token *tokenizeBuffer(ParserContext *ctx, LocationInfo *locInfo, unsigned *lineP
   return head.next;
 }
 
+static const char autoWord[] = "auto";
 static const char breakWord[] = "break";
 static const char caseWord[] = "case";
 static const char charWord[] = "char";
@@ -1397,6 +1398,7 @@ static const char inlineWord[] = "inline";
 static const char longWord[] = "long";
 static const char returnWord[] = "return";
 static const char registerWord[] = "register";
+static const char restrictWord[] = "restrict";
 static const char volatileWord[] = "volatile";
 static const char voidWord[] = "void";
 static const char shortWord[] = "short";
@@ -1419,6 +1421,15 @@ static void maybeSetupKeyword(Token *token) {
   uint32_t code, tokenCode;
   uint64_t code8, tokenCode8;
   switch (c) {
+  case 'a':
+      if (length == 4) {
+        code = *(uint32_t*)(autoWord);
+        tokenCode = *(uint32_t*)(pos);
+        if (tokenCode == code) {
+            token->code = AUTO;
+        }
+      }
+      return;
   case 'b': // break
       if (length == 5) {
           code = *(uint32_t*)(&breakWord[1]);
@@ -1550,6 +1561,12 @@ static void maybeSetupKeyword(Token *token) {
           code8 = *(uint64_t*)registerWord;
           if (tokenCode8 == code8) {
               token->code = REGISTER;
+              return;
+          }
+          code8 = *(uint64_t*)restrictWord;
+          if (tokenCode8 == code8) {
+              token->code = RESTRICT;
+              return;
           }
       }
       return;
