@@ -38,12 +38,15 @@ typedef union {
     struct {
         unsigned isConst : 1;
         unsigned isVolatile : 1;
+        unsigned isRestrict : 1;
 
-        unsigned isInline : 1;
         unsigned isStatic : 1;
         unsigned isExternal : 1;
         unsigned isRegister : 1;
         unsigned isTypedef : 1;
+        unsigned isAuto : 1;
+
+        unsigned isInline : 1;
 
         unsigned isLocal : 1;
     } bits;

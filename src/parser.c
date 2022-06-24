@@ -1611,6 +1611,7 @@ typedef enum _SCS {
   SCS_STATIC,
   SCS_EXTERN,
   SCS_TYPEDEF,
+  SCS_AUTO,
   SCS_ERROR
 } SCS;
 
@@ -1643,7 +1644,7 @@ typedef enum _TQT {
   TQT_NONE,
   TQT_CONST,
   TQT_VOLATILE,
-  TQT_INLINE,
+  TQT_RESTRICT,
   TQT_ERROR
 } TQT;
 
@@ -1793,11 +1794,18 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
         coords.right = ctx->token;
         Coordinates c2 = { ctx->token, ctx->token };
         switch (ctx->token->code) {
+        case INLINE:
+            if (specifiers->flags.bits.isInline) {
+                reportDiagnostic(ctx, DIAG_W_DUPLICATE_DECL_SPEC, &c2, "inline");
+            }
+            specifiers->flags.bits.isInline = 1;
+            break;
         // storage class specifier
         case REGISTER: tmp = SCS_REGISTER; tmp_s = "register"; goto scs_label;
         case STATIC: tmp = SCS_STATIC; tmp_s = "static"; goto scs_label;
         case EXTERN: tmp = SCS_EXTERN; tmp_s = "extern"; goto scs_label;
         case TYPEDEF: tmp = SCS_TYPEDEF; tmp_s = "typedef"; goto scs_label;
+        case AUTO: tmp = SCS_AUTO; tmp_s = "auto"; goto scs_label;
         scs_label:
             if (scs != SCS_ERROR) {
               if (scs == SCS_NONE) {
@@ -1811,16 +1819,16 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
             }
             break;
         // type qualifiers
-        case CONST:    tmp = TQT_CONST; goto tq_label;
-        case VOLATILE: tmp = TQT_VOLATILE; goto tq_label;
-        case INLINE: tmp = TQT_INLINE; goto tq_label;
+        case RESTRICT: tmp = TQT_RESTRICT; tmp_s = "restrict"; goto tq_label;
+        case CONST:    tmp = TQT_CONST; tmp_s = "const"; goto tq_label;
+        case VOLATILE: tmp = TQT_VOLATILE; tmp_s = "volatile"; goto tq_label;
         tq_label:
-            if (specifiers->flags.bits.isConst && tmp == TQT_CONST || specifiers->flags.bits.isVolatile && tmp == TQT_VOLATILE) {
-                reportDiagnostic(ctx, DIAG_W_DUPLICATE_DECL_SPEC, &c2, tokenName(ctx->token->code));
+            if (specifiers->flags.bits.isConst && tmp == TQT_CONST || specifiers->flags.bits.isVolatile && tmp == TQT_VOLATILE || specifiers->flags.bits.isRestrict && tmp == TQT_RESTRICT) {
+                reportDiagnostic(ctx, DIAG_W_DUPLICATE_DECL_SPEC, &c2, tmp_s);
             }
             specifiers->flags.bits.isConst |= tmp == TQT_CONST;
             specifiers->flags.bits.isVolatile |= tmp == TQT_VOLATILE;
-            specifiers->flags.bits.isInline |= tmp == TQT_INLINE;
+            specifiers->flags.bits.isRestrict |= tmp == TQT_RESTRICT;
             break;
 
        case SIGNED: tmp = TSS_SIGNED; tmp_s = "signed"; goto tss_label;
@@ -1977,6 +1985,7 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
             specifiers->flags.bits.isStatic = scs == SCS_STATIC;
             specifiers->flags.bits.isRegister = scs == SCS_REGISTER;
             specifiers->flags.bits.isTypedef = scs == SCS_TYPEDEF;
+            specifiers->flags.bits.isAuto = scs == SCS_AUTO;
             specifiers->coordinates.right = ctx->token;
 
             verifyDeclarationSpecifiers(ctx, specifiers, scope);
@@ -2008,13 +2017,15 @@ static SpecifierFlags parseTypeQualifierList(ParserContext *ctx) {
         switch (ctx->token->code) {
           case CONST:    tmp = TQT_CONST; goto tq_label;
           case VOLATILE: tmp = TQT_VOLATILE; goto tq_label;
+          case RESTRICT: tmp = TQT_RESTRICT; goto tq_label;
           tq_label:
-              if (result.bits.isConst || result.bits.isVolatile) {
+              if (result.bits.isConst || result.bits.isVolatile || result.bits.isRestrict) {
                   Coordinates coords = { ctx->token, ctx->token };
                   reportDiagnostic(ctx, DIAG_W_DUPLICATE_DECL_SPEC, &coords, tokenName(ctx->token->code));
               }
               result.bits.isConst |= tmp == TQT_CONST;
               result.bits.isVolatile |= tmp == TQT_VOLATILE;
+              result.bits.isRestrict |= tmp == TQT_RESTRICT;
               break;
 
           default: {
@@ -2788,7 +2799,7 @@ static Boolean verifyDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecif
   flags.bits.isVolatile = 0;
   switch (scope) {
     case DS_FILE:
-      if (flags.bits.isRegister) {
+      if (flags.bits.isRegister || flags.bits.isAuto) {
           reportDiagnostic(ctx, DIAG_ILLEGAL_STORAGE_ON_FILE_SCOPE, &specifiers->coordinates);
           return TRUE;
       }
@@ -2820,6 +2831,11 @@ static Boolean verifyDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecif
       }
     default:
       break;
+  }
+
+  if (flags.bits.isRestrict) {
+      reportDiagnostic(ctx, DIAG_RESTRICT_NON_POINTER, &specifiers->coordinates, specifiers->basicType);
+      return TRUE;
   }
 
   return FALSE;
@@ -2988,6 +3004,9 @@ static AstDeclaration *parseDeclaration(ParserContext *ctx, DeclarationSpecifier
   valueDeclaration->flags.bits.isLocal = !isTopLevel;
   valueDeclaration->symbol = declareValueSymbol(ctx, name, valueDeclaration);
 
+  if (specifiers->flags.bits.isInline) {
+      reportDiagnostic(ctx, DIAG_INLINE_NON_FUNC, &specifiers->coordinates);
+  }
 
   if (nextTokenIf(ctx, '=')) {
     if (specifiers->flags.bits.isExternal) {
@@ -3016,6 +3035,10 @@ static TypeDefiniton *processTypedef(ParserContext *ctx, DeclarationSpecifiers *
       Coordinates eqCoords = { ctx->token, ctx->token };
       ParsedInitializer *parsedInit = parseInitializer(ctx);
       reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &eqCoords);
+  }
+
+  if (specifiers->flags.bits.isInline) {
+      reportDiagnostic(ctx, DIAG_INLINE_NON_FUNC, &specifiers->coordinates);
   }
 
   TypeRef *type = makeTypeRef(ctx, specifiers, declarator);
