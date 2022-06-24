@@ -1254,12 +1254,12 @@ static ParsedInitializer *finalizeInitializerInternal(ParserContext *ctx, Parsed
 
 static void fillInitializer(ParserContext *ctx, AstInitializer *semaInit) {
 
+  if (semaInit->state != IS_CLEAR) return;
+
   TypeRef *type = semaInit->slotType;
   Coordinates coords = semaInit->coordinates;
 
   if (isScalarType(type) || type->kind == TR_BITFIELD) {
-
-      if (semaInit->state != IS_CLEAR) return;
       assert(semaInit->kind == IK_EXPRESSION);
       uint64_t c = 0;
       if (type->kind == TR_POINTED) {
@@ -1281,11 +1281,58 @@ static void fillInitializer(ParserContext *ctx, AstInitializer *semaInit) {
 
   for (; initList; initList = initList->next) {
       AstInitializer *init = initList->initializer;
-      if (init->state == IS_CLEAR) {
-        init->coordinates = coords;
-        fillInitializer(ctx, init);
+      init->coordinates = coords;
+      fillInitializer(ctx, init);
+  }
+
+  semaInit->state = IS_FILLED;
+}
+
+static AstInitializerList *findStructDesignatorWithFilling(ParserContext *ctx, AstInitializer *semaInit, AstInitializerList *current, ParsedInitializer *parsed) {
+  AstInitializerList *inits = semaInit->initializerList;
+
+  // struct SX { int a, b, c; };
+
+  if (parsed->kind != DK_STRUCT) {
+      // struct SX sx = { [0] = 1 };
+      reportDiagnostic(ctx, DIAG_ARRAY_DESIGNATOR_IN_STRUCT, &parsed->coords, semaInit->slotType);
+      return NULL;
+  }
+
+  const char *name = parsed->designator.identifier;
+
+  if (name == NULL) return NULL;
+
+  for (; inits; inits = inits->next) {
+      AstInitializer *current = inits->initializer;
+      assert(current->designation == DK_STRUCT);
+      if (strcmp(name, current->designator.member) == 0) {
+          break;
       }
   }
+
+  if (inits == NULL) {
+      // struct SX sx = { .d = 10 };
+      reportDiagnostic(ctx, DIAG_NO_DESIGNATED_MEMBER, &parsed->coords, name, semaInit->slotType);
+  } else {
+      AstInitializerList *start = current ? current : semaInit->initializerList;
+      AstInitializer *designated = inits->initializer;
+      if (designated->offset > start->initializer->offset) {
+          for (current = start; current != inits; current = current->next) {
+              fillInitializer(ctx, current->initializer);
+          }
+      }
+  }
+
+  return inits;
+}
+
+static ParsedInitializer *skipIncorrectDesignation(ParsedInitializer *parsed) {
+  while (parsed->loc != PL_SEPARATOR && parsed->loc != PL_CLOSE) {
+      parsed = parsed->next;
+  }
+
+  return parsed;
 }
 
 static ParsedInitializer *finalizeStructInitializer(ParserContext *ctx, ParsedInitializer *initializer, AstInitializer *semaInit, Boolean isTopLevel) {
@@ -1306,6 +1353,9 @@ static ParsedInitializer *finalizeStructInitializer(ParserContext *ctx, ParsedIn
       }
 
       if (typesEquals(type, expr->type)) {
+          if (semaInit->state == IS_INIT) {
+              reportDiagnostic(ctx, DIAG_INITIALIZER_OVERRIDE, &expr->coordinates);
+          }
           semaInit->kind = IK_EXPRESSION;
           semaInit->expression = expr;
           semaInit->state = IS_INIT;
@@ -1315,20 +1365,52 @@ static ParsedInitializer *finalizeStructInitializer(ParserContext *ctx, ParsedIn
 
   Coordinates coords = initializer->coords;
 
+  AstInitializerList *initList = semaInit->initializerList;
+
+  if (initializer->loc == PL_DESIGNATOR) {
+      AstInitializerList *designated = findStructDesignatorWithFilling(ctx, semaInit, semaInit->initializerList, initializer);
+      if (designated) {
+          for (;initList != designated; initList = initList->next) {
+              fillInitializer(ctx, initList->initializer);
+          }
+          initializer = finalizeInitializerInternal(ctx, initializer->next, designated->initializer, isTopLevel);
+          initList = designated->next;
+      } else {
+          initializer = skipIncorrectDesignation(initializer);
+      }
+  }
+
   int32_t level = initializer->level;
 
   Boolean embraced = initializer->loc == PL_OPEN;
   if (embraced) initializer = initializer->next;
 
-  AstInitializerList *initList = semaInit->initializerList;
 
   while (initializer) {
-      // TODO: designators
       if (initializer->loc == PL_SEPARATOR)  {
           initializer = initializer->next;
           continue;
       }
-      if (initializer->level == level && initializer->loc == PL_CLOSE) break;
+      if (initializer->level == level && initializer->loc == PL_CLOSE) {
+          coords = initializer->coords;
+          break;
+      }
+
+      if (initializer->loc == PL_DESIGNATOR) {
+          if (embraced) {
+              AstInitializerList *designated = findStructDesignatorWithFilling(ctx, semaInit, initList, initializer);
+              if (designated) {
+                  initList = designated;
+                  initializer = initializer->next;
+              } else  {
+                  initializer = skipIncorrectDesignation(initializer);
+                  continue;
+              }
+          } else {
+              coords = initializer->coords;
+              break;
+          }
+      }
 
       if (initList) {
         AstInitializer *init = initList->initializer;
@@ -1336,8 +1418,12 @@ static ParsedInitializer *finalizeStructInitializer(ParserContext *ctx, ParsedIn
         initializer = finalizeInitializerInternal(ctx, initializer, init, isTopLevel);
         initList = initList->next;
       } else {
+        if (!embraced) {
+            coords = initializer->coords;
+            break;
+        }
         if (initializer->expression) {
-          reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &initializer->expression->coordinates);
+          reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &initializer->expression->coordinates, "struct");
         }
         initializer = initializer->next;
       }
@@ -1350,9 +1436,9 @@ static ParsedInitializer *finalizeStructInitializer(ParserContext *ctx, ParsedIn
       fillInitializer(ctx, init);
   }
 
-  semaInit->coordinates.right = initializer->coords.right;
+  semaInit->coordinates.right = coords.right;
 
-  if (embraced) {
+  if (embraced && initializer->level == level && initializer->loc == PL_CLOSE) {
     initializer = initializer->next;
   }
 
@@ -1414,61 +1500,193 @@ static void stringLiteralToInitializer(ParserContext *ctx, AstInitializer *semaI
   }
 }
 
-static ParsedInitializer *initializeIncompleteArray(ParserContext *ctx, ParsedInitializer *initializer, AstInitializer *semaInit, int32_t stopLevel, Boolean isTopLevel) {
+static AstInitializerList *findIncompleteArrayDesignatorWithFilling(ParserContext *ctx, AstInitializer *semaInit, AstInitializerList *start, ParsedInitializer *parsed, AstInitializerList **prev, int32_t offset) {
+  if (parsed->kind != DK_ARRAY) {
+      // int a[] = { .x = 10 };
+      reportDiagnostic(ctx, DIAG_STRUCT_DESIGNATOR_IN_ARRAY, &parsed->coords, semaInit->slotType);
+      return NULL;
+  }
+
+  int32_t index = parsed->designator.index;
+
+  if (index < 0) {
+      // some error happened in parser and already reported, just skip it
+      return NULL;
+  }
+
+  TypeRef *arrayType = semaInit->slotType;
+  int32_t arraySize = arrayType->arrayTypeDesc.size;
+
+//  int a[] = { [1] = 10, [2] = 20, [1] = 30 };
+  int32_t newArraySize = max(arraySize, index + 1);
+  arrayType->arrayTypeDesc.size = newArraySize;
+  TypeRef *elementType = arrayType->arrayTypeDesc.elementType;
+
+  int32_t align = typeAlignment(elementType);
+  int32_t elementSize = computeTypeSize(elementType);
+
+  int32_t idx = 0;
+
+  AstInitializerList *n = start;
+  AstInitializerList head = { 0 }, *current = &head;
+
+  for (; n; n = n->next, ++idx) {
+      if (n->initializer->designator.index == index) return n;
+      offset = ALIGN_SIZE(offset, align);
+      current = current->next = n;
+      offset += elementSize;
+  }
+
+  for (; idx < index; ++idx) {
+      offset = ALIGN_SIZE(offset, align);
+      AstInitializer *init = typeInitializer(ctx, elementType, offset);
+      init->designation = DK_ARRAY;
+      init->designator.index = idx;
+      init->coordinates = parsed->coords;
+      fillInitializer(ctx, init);
+      current = current->next = createAstInitializerList(ctx);
+      current->initializer = init;
+      *prev = current;
+      offset += elementSize;
+  }
+
+  current = current->next = createAstInitializerList(ctx);
+  AstInitializer *init = typeInitializer(ctx, elementType, offset);
+  init->designation = DK_ARRAY;
+  init->designator.index = index;
+  current->initializer = init;
+
+  semaInit->initializerList = head.next;
+
+  return current;
+}
+
+
+static ParsedInitializer *initializeIncompleteArray(ParserContext *ctx, ParsedInitializer *initializer, AstInitializer *semaInit, AstInitializerList *start, int32_t stopLevel, Boolean embraced, Boolean isTopLevel) {
   assert(semaInit->initializerList == NULL);
 
   TypeRef *arrayType = semaInit->slotType;
   TypeRef *elementType = arrayType->arrayTypeDesc.elementType;
+  int32_t arraySize = arrayType->arrayTypeDesc.size;
 
   AstInitializerList head = { 0 };
-  AstInitializerList *current = &head;
+  AstInitializerList *current = NULL;
+  AstInitializerList *prev = &head;
 
   int32_t elementSize = computeTypeSize(elementType);
   int32_t align = typeAlignment(elementType);
   int32_t offset = semaInit->offset;
   int32_t index = 0;
 
+  if (start) {
+      assert(semaInit->initializerList);
+      current = start;
+      head.next = semaInit->initializerList;
+      for (prev = semaInit->initializerList; prev->next != current; prev = prev->next);
+  }
+
+  Coordinates coords = initializer->coords;
+
   while (initializer) {
-      // TODO: designators
+      arraySize = max(arraySize, index);
       if (initializer->loc == PL_SEPARATOR)  {
           initializer = initializer->next;
           continue;
       }
-      if (initializer->level == stopLevel && initializer->loc == PL_CLOSE) break;
+
+      if (initializer->level == stopLevel && initializer->loc == PL_CLOSE) {
+          coords = initializer->coords;
+          break;
+      }
 
       offset = ALIGN_SIZE(offset, align);
 
-      AstInitializer *init = typeInitializer(ctx, elementType, offset);
-      init->designation = DK_ARRAY;
-      init->designator.index = index;
-      init->coordinates = initializer->coords;
+      AstInitializer *init = NULL;
+      if (initializer->loc == PL_DESIGNATOR) {
+          if (embraced) {
+              AstInitializerList *designated = findIncompleteArrayDesignatorWithFilling(ctx, semaInit, semaInit->initializerList, initializer, &prev, offset);
+              if (designated) {
+                  current = designated;
+                  init = designated->initializer;
+                  initializer = initializer->next;
+              } else {
+                  initializer = skipIncorrectDesignation(initializer);
+                  continue;
+              }
+          } else {
+              coords = initializer->coords;
+              break;
+          }
+      } else if (prev->next == NULL) {
+          current = prev->next = createAstInitializerList(ctx);
+          init = typeInitializer(ctx, elementType, offset);
+          init->designation = DK_ARRAY;
+          init->designator.index = index;
+          current->initializer = init;
+      }
+
+
+      init->coordinates = coords;
 
       initializer = finalizeInitializerInternal(ctx, initializer, init, isTopLevel);
 
-      current = current->next = createAstInitializerList(ctx);
-      current->initializer = init;
-
-      ++index;
-      offset += elementSize;
+      index = init->designator.index + 1;
+      offset = init->offset + elementSize;
+      prev = current;
+      current = current->next;
   }
 
-  semaInit->initializerList = head.next;
+  if (semaInit->initializerList == NULL) semaInit->initializerList = head.next;
   semaInit->state = IS_INIT;
-  arrayType->arrayTypeDesc.size = index;
+  arrayType->arrayTypeDesc.size = arraySize;
 
   return initializer;
 }
 
-static ParsedInitializer *initializeCompleteArray(ParserContext *ctx, ParsedInitializer *initializer, AstInitializer *semaInit, int32_t stopLevel, Boolean isTopLevel) {
-  AstInitializerList *initList = semaInit->initializerList;
+static AstInitializerList *findCompleteArrayDesignatorWithFilling(ParserContext *ctx, AstInitializer *semaInit, AstInitializerList *current, ParsedInitializer *parsed) {
+  if (parsed->kind != DK_ARRAY) {
+      // int a[] = { .x = 10 };
+      reportDiagnostic(ctx, DIAG_STRUCT_DESIGNATOR_IN_ARRAY, &parsed->coords, semaInit->slotType);
+      return NULL;
+  }
+
+  int32_t index = parsed->designator.index;
+
+  if (index < 0) {
+      // some error happened in parser and already reported, just skip it
+      return NULL;
+  }
+
+  TypeRef *arrayType = semaInit->slotType;
+  int32_t arraySize = arrayType->arrayTypeDesc.size;
+
+  if (index < arraySize) {
+
+      if (current == NULL) current = semaInit->initializerList;
+
+      for (; current->initializer->designator.index < index; current = current->next) {
+        fillInitializer(ctx, current->initializer);
+      }
+      if (current->initializer->designator.index == index) return current;
+      AstInitializerList *i = semaInit->initializerList;
+
+      for (; i->initializer->designator.index != index; i = i->next);
+
+      return i;
+  } else {
+    // int c[10] = { [20] = 42 };
+    reportDiagnostic(ctx, DIAG_ARRAY_DESIGNATOR_INDEX_EXCEED, &parsed->coords, index, arraySize);
+    return NULL;
+  }
+}
+
+static ParsedInitializer *initializeCompleteArray(ParserContext *ctx, ParsedInitializer *initializer, AstInitializer *semaInit, AstInitializerList *start, int32_t stopLevel, Boolean embraced, Boolean isTopLevel) {
+  AstInitializerList *initList = start;
 
   semaInit->coordinates.left = initializer->coords.left;
   Coordinates coords = initializer->coords;
 
-  assert(initList);
-
   while (initializer) {
-      // TODO: designators
       if (initializer->loc == PL_SEPARATOR)  {
           initializer = initializer->next;
           continue;
@@ -1478,10 +1696,30 @@ static ParsedInitializer *initializeCompleteArray(ParserContext *ctx, ParsedInit
           break;
       }
 
+      if (initializer->loc == PL_DESIGNATOR) {
+          if (embraced) {
+              AstInitializerList *designated = findCompleteArrayDesignatorWithFilling(ctx, semaInit, initList, initializer);
+              if (designated) {
+                  initList = designated;
+                  initializer = initializer->next;
+              } else {
+                  initializer = skipIncorrectDesignation(initializer);
+                  continue;
+              }
+          } else {
+              coords = initializer->coords;
+              break;
+          }
+      }
+
       if (initList) {
         initializer = finalizeInitializerInternal(ctx, initializer, initList->initializer, isTopLevel);
         initList = initList->next;
       } else {
+        if (!embraced) {
+            coords = initializer->coords;
+            break;
+        }
         if (initializer->expression) {
             reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &initializer->expression->coordinates, "array");
         }
@@ -1519,16 +1757,18 @@ static ParsedInitializer *finalizeArrayInitializer(ParserContext *ctx, ParsedIni
       AstExpression *expr = initializer->expression;
       if (expr) {
           if (expr->op == E_CONST && expr->constExpr.op == CK_STRING_LITERAL) {
+
+              if (semaInit->state == IS_INIT) {
+                  reportDiagnostic(ctx, DIAG_INITIALIZER_OVERRIDE, &expr->coordinates);
+              }
+
               stringLiteralToInitializer(ctx, semaInit, &expr->coordinates, expr->constExpr.l.s, expr->constExpr.l.length);
               semaInit->state = IS_INIT;
 
               if (enbraced) {
-                  for (initializer = initializer->next; initializer; initializer = initializer->next) {
+                  for (initializer = initializer->next; initializer->loc != PL_CLOSE; initializer = initializer->next) {
                       if (initializer->expression) {
                           reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &initializer->expression->coordinates, "char array");
-                      }
-                      if (initializer->loc == PL_CLOSE) {
-                          break;
                       }
                   }
               }
@@ -1540,22 +1780,35 @@ static ParsedInitializer *finalizeArrayInitializer(ParserContext *ctx, ParsedIni
       initializer = saved;
   }
 
+  AstInitializerList *start = semaInit->initializerList;
+
+  if (initializer->loc == PL_DESIGNATOR) {
+      AstInitializerList *dummy;
+      AstInitializerList *designated = semaInit->isIncomplete
+          ? findIncompleteArrayDesignatorWithFilling(ctx, semaInit, semaInit->initializerList, initializer, &dummy, 0)
+          : findCompleteArrayDesignatorWithFilling(ctx, semaInit, semaInit->initializerList, initializer);
+      if (designated) {
+          initializer = finalizeInitializerInternal(ctx, initializer->next, designated->initializer, isTopLevel);
+          start = designated->next;
+      } else {
+          initializer = skipIncorrectDesignation(initializer);
+      }
+  }
+
   int32_t level = initializer->level;
   Boolean enbraced = initializer->loc == PL_OPEN;
 
   if (enbraced) initializer = initializer->next;
 
-  if (semaInit->initializerList) {
-      initializer = initializeCompleteArray(ctx, initializer, semaInit, level, isTopLevel);
+  if (semaInit->isIncomplete) {
+      initializer = initializeIncompleteArray(ctx, initializer, semaInit, start, level, enbraced, isTopLevel);
   } else {
-      initializer = initializeIncompleteArray(ctx, initializer, semaInit, level, isTopLevel);
+      initializer = initializeCompleteArray(ctx, initializer, semaInit, start, level, enbraced, isTopLevel);
   }
 
   semaInit->coordinates.right = initializer->coords.right;
 
-  if (enbraced) {
-      assert(initializer->level == level);
-      assert(initializer->loc == PL_CLOSE);
+  if (enbraced && initializer->level == level && initializer->loc == PL_CLOSE) {
       initializer = initializer->next;
   }
 
@@ -1609,7 +1862,18 @@ static ParsedInitializer *finalizeUnionInitializer(ParserContext *ctx, ParsedIni
       }
 
       list = semaInit->initializerList;
-      initializer = finalizeInitializerInternal(ctx, initializer, list->initializer, isTopLevel);
+
+      if (initializer->loc == PL_DESIGNATOR) {
+          AstInitializerList *designated = findStructDesignatorWithFilling(ctx, semaInit, list, initializer);
+          if (designated) {
+              initializer = finalizeInitializerInternal(ctx, initializer->next, designated->initializer, isTopLevel);
+              list = designated;
+          } else {
+              initializer = skipIncorrectDesignation(initializer);
+          }
+      } else {
+        initializer = finalizeInitializerInternal(ctx, initializer, list->initializer, isTopLevel);
+      }
   }
 
   if (initializer) {
@@ -1671,6 +1935,14 @@ static ParsedInitializer *finalizeScalarInitializer(ParserContext *ctx, ParsedIn
     return initializer;
   }
 
+  if (initializer->expression == NULL) {
+      reportDiagnostic(ctx, DIAG_NOT_SCALAR_INITIALZIER, &initializer->coords);
+      semaInit->expression = createErrorExpression(ctx, &initializer->coords);
+      semaInit->coordinates = initializer->coords;
+      semaInit->state = IS_INIT;
+      return skipIncorrectDesignation(initializer);
+  }
+
   AstExpression *expr = initializer->expression;
   TypeRef *exprType = expr->type;
 
@@ -1687,6 +1959,9 @@ static ParsedInitializer *finalizeScalarInitializer(ParserContext *ctx, ParsedIn
       } else {
         if (!typesEquals(type, exprType)) {
             expr = createCastExpression(ctx, &expr->coordinates, type, expr);
+        }
+        if (semaInit->state == IS_INIT) {
+            reportDiagnostic(ctx, DIAG_INITIALIZER_OVERRIDE, &expr->coordinates);
         }
         semaInit->expression = expr;
       }
@@ -1711,10 +1986,6 @@ static ParsedInitializer *finalizeInitializerInternal(ParserContext *ctx, Parsed
       return initializer->next;
   }
 
-  if (semaInit->state == IS_INIT) {
-      reportDiagnostic(ctx, DIAG_INITIALIZER_OVERRIDE, &initializer->coords);
-  }
-
   if (isStructualType(valueType)) {
       return finalizeStructInitializer(ctx, initializer, semaInit, isTopLevel);
   }
@@ -1726,7 +1997,6 @@ static ParsedInitializer *finalizeInitializerInternal(ParserContext *ctx, Parsed
   if (isUnionType(valueType)) {
       return finalizeUnionInitializer(ctx, initializer, semaInit, isTopLevel);
   }
-
 
   return finalizeScalarInitializer(ctx, initializer, semaInit, isTopLevel);
 }
@@ -1767,6 +2037,7 @@ AstInitializer *typeInitializer(ParserContext *ctx, TypeRef *valueType, int32_t 
       init->designation = DK_NONE;
       init->slotType = valueType;
       init->offset = offset;
+      init->isIncomplete = size < 0;
       init->initializerList = head.next;
       return init;
   }

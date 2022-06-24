@@ -350,6 +350,8 @@ typedef struct _AstInitializer {
     TypeRef *slotType;
     int32_t offset;
 
+    Boolean isIncomplete;
+
     union {
       const char *member;
       int32_t index;
