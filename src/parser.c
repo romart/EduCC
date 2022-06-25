@@ -75,6 +75,7 @@ static void consumeOrSkip(ParserContext *ctx, int expected) {
     skipUntil(ctx, expected);
 }
 
+static ParsedInitializer *parseInitializer(ParserContext *ctx);
 static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, DeclaratorScope scope);
 static void parseDeclarator(ParserContext *ctx, Declarator *declarator);
 static TypeDefiniton *processTypedef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator);
@@ -458,15 +459,33 @@ static TypeRef* parseTypeName(ParserContext *ctx, struct _Scope *scope, Declarat
 /**
 postfix_expression
     : primary_expression
-      ('[' expression ']' | '(' argument_expression_list? ')' | '.' IDENTIFIER | PTR_OP IDENTIFIER | INC_OP | DEC_OP)*
+      ('[' expression ']' | '(' argument_expression_list? ')' | '.' IDENTIFIER | PTR_OP IDENTIFIER | INC_OP | DEC_OP)* | '(' type_name ')' '{' initializer_list ','? '}'
     ;
  */
 static AstExpression* parsePostfixExpression(ParserContext *ctx, struct _Scope *scope) {
-    AstExpression *left = parsePrimaryExpression(ctx, scope);
+
+    AstExpression *left = NULL;
+    Token *saved = ctx->token;
+    Coordinates coords = { saved };
+    if (nextTokenIf(ctx, '(')) {
+      if (isDeclarationSpecifierToken(ctx->token->code)) {
+          // compound literal
+          TypeRef *literalType = parseTypeName(ctx, scope, DS_LITERAL);
+          consume(ctx, ')');
+          ParsedInitializer *parsed = parseInitializer(ctx);
+          AstInitializer *initializer = finalizeInitializer(ctx, literalType, parsed, ctx->stateFlags.inStaticScope);
+          coords.right = initializer->coordinates.right;
+          ctx->stateFlags.returnStructBuffer = max(ctx->stateFlags.returnStructBuffer, computeTypeSize(literalType));
+          left = createCompundExpression(ctx, &coords, initializer);
+      } else {
+          ctx->token = saved;
+          left = parsePrimaryExpression(ctx, scope);
+      }
+    } else {
+      left = parsePrimaryExpression(ctx, scope);
+    }
+
     AstExpression *right = NULL, *tmp = NULL;
-
-    Coordinates coords = { 0 };
-
     ExpressionType op;
 
     for (;;) {
@@ -759,6 +778,11 @@ static AstExpression* parseCastExpression(ParserContext *ctx, struct _Scope* sco
             TypeRef* typeRef = parseTypeName(ctx, scope, DS_CAST);
             coords.right = ctx->token;
             consume(ctx, ')');
+            if (ctx->token->code == '{') {
+                // compound literal, rollback
+                ctx->token = saved;
+                return parseUnaryExpression(ctx, scope);
+            }
             AstExpression* argument = parseCastExpression(ctx, scope);
             checkTypeIsCastable(ctx, &coords, typeRef, argument->type, TRUE);
             return createCastExpression(ctx, &coords, typeRef, argument);
@@ -2976,8 +3000,10 @@ static AstTranslationUnit *parseFunctionDeclaration(ParserContext *ctx, Declarat
       va_area_var->symbol = declareValueSymbol(ctx, va_area_var->name, va_area_var);
   }
 
+  ctx->stateFlags.inStaticScope = 0;
   AstStatement *body = parseFunctionBody(ctx);
   verifyLabels(ctx);
+  ctx->stateFlags.inStaticScope = 1;
   ctx->parsingFunction = NULL;
   ctx->currentScope = functionScope->parent;
 
@@ -3008,6 +3034,9 @@ static AstDeclaration *parseDeclaration(ParserContext *ctx, DeclarationSpecifier
       reportDiagnostic(ctx, DIAG_INLINE_NON_FUNC, &specifiers->coordinates);
   }
 
+  unsigned old = ctx->stateFlags.inStaticScope;
+  ctx->stateFlags.inStaticScope = isTopLevel;
+
   if (nextTokenIf(ctx, '=')) {
     if (specifiers->flags.bits.isExternal) {
       reportDiagnostic(ctx, DIAG_EXTERN_VAR_INIT, &declarator->coordinates);
@@ -3017,6 +3046,8 @@ static AstDeclaration *parseDeclaration(ParserContext *ctx, DeclarationSpecifier
   } else if (type->kind == TR_ARRAY && type->arrayTypeDesc.size == UNKNOWN_SIZE && !(specifiers->flags.bits.isExternal)) {
     reportDiagnostic(ctx, DIAG_ARRAY_EXPLICIT_SIZE_OR_INIT, &declarator->coordinates);
   }
+
+  ctx->stateFlags.inStaticScope = old;
 
   AstDeclaration *declaration = createAstDeclaration(ctx, DK_VAR, name);
   declaration->variableDeclaration = valueDeclaration;

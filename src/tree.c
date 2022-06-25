@@ -301,6 +301,16 @@ AstExpression *createParenExpression(ParserContext *ctx, Coordinates *coords, As
   return result;
 }
 
+AstExpression *createCompundExpression(ParserContext *ctx, Coordinates *coords, AstInitializer *init) {
+  AstExpression* result = allocAstExpression(ctx, coords);
+
+  result->op = E_COMPOUND;
+  result->type = init->slotType;
+  result->compound = init;
+
+  return result;
+}
+
 AstExpression *createErrorExpression(ParserContext *ctx, Coordinates *coords) {
   AstExpression* result = allocAstExpression(ctx, coords);
 

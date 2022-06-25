@@ -156,6 +156,7 @@ typedef struct _ParserContext {
       unsigned hasDefault: 1;
       unsigned hasSmallStructs: 1;
       unsigned inPP : 1;
+      unsigned inStaticScope : 1;
       unsigned caseCount;
       unsigned returnStructBuffer;
     } stateFlags;
