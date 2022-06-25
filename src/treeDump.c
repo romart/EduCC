@@ -128,6 +128,12 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
     case E_NAMEREF:
       result += fprintf(output, "%s", expr->nameRefExpr.s->name);
       break;
+    case E_COMPOUND:
+      result += fprintf(output, "(");
+      result += dumpTypeRefImpl(output, 0, expr->type);
+      result += fprintf(output, ")\n");
+      result += dumpAstInitializerImpl(output, indent + 2, expr->compound, TRUE);
+      break;
     case E_LABEL_REF:
       result += fprintf(output, "&&%s", expr->label);
       break;

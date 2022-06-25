@@ -23,6 +23,7 @@ typedef struct _Coordinates {
   DEF_EXPRESSION_OP(E_NAMEREF, 17), \
   DEF_EXPRESSION_OP(E_VA_ARG, 17), \
   DEF_EXPRESSION_OP(E_CALL, 16), \
+  DEF_EXPRESSION_OP(E_COMPOUND, 16), \
   DEF_EXPRESSION_OP(E_PAREN, 17), \
   DEF_EXPRESSION_OP(E_LABEL_REF, 15), \
   DEF_EXPRESSION_OP(E_ERROR, 17), \
@@ -177,6 +178,7 @@ typedef struct _AstExpression {
     AstFieldExpression fieldExpr;
     AstVaArgument vaArg;
     struct _AstExpression *parened;
+    struct _AstInitializer *compound;
     const char* label;
   };
 } AstExpression;
@@ -395,7 +397,8 @@ typedef enum _DeclaratorScope {
   DS_CAST,
   DS_SIZEOF,
   DS_VA_ARG,
-  DS_FOR
+  DS_FOR,
+  DS_LITERAL = DS_CAST
 } DeclaratorScope;
 
 typedef struct _Declarator {
@@ -599,6 +602,7 @@ AstExpression *createCallExpression(struct _ParserContext *ctx, Coordinates *coo
 AstExpression *createFieldExpression(struct _ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *receiver, StructualMember *member);
 AstExpression *createParenExpression(struct _ParserContext *ctx, Coordinates *coords, AstExpression *parened);
 AstExpression *createLabelRefExpression(struct _ParserContext *ctx, Coordinates *coords, const char *label);
+AstExpression *createCompundExpression(struct _ParserContext *ctx, Coordinates *coords, AstInitializer *init);
 AstExpression *createErrorExpression(struct _ParserContext *ctx, Coordinates *coords);
 
 // statemetns

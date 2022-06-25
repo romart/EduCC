@@ -1147,6 +1147,20 @@ TypeRef *computeAssignmentTypes(ParserContext *ctx, Coordinates *coords, Express
 
 }
 
+static Boolean isCompileTimeConstant(AstExpression *expr);
+
+
+static Boolean isCompilteTimeInitializer(AstInitializer *init) {
+  if (init->kind == IK_EXPRESSION) return isCompileTimeConstant(init->expression);
+
+  AstInitializerList *n= init->initializerList;
+  for (; n; n = n->next) {
+      if (!isCompilteTimeInitializer(n->initializer)) return FALSE;
+  }
+
+  return TRUE;
+}
+
 static Boolean isStaticSymbol(Symbol *s) {
   if (s->kind == FunctionSymbol || s->kind == ValueSymbol && !s->variableDesc->flags.bits.isLocal) {
     // TODO: probably it's not the best solution
@@ -1157,6 +1171,7 @@ static Boolean isStaticSymbol(Symbol *s) {
 
 static Boolean isCompileTimeConstant2(AstExpression *expr, Boolean allowRefs) {
   switch (expr->op) {
+    case E_COMPOUND: return isCompilteTimeInitializer(expr->compound);
     case EU_PRE_INC:
     case EU_POST_INC:
     case EU_PRE_DEC:

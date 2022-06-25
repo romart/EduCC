@@ -6,6 +6,7 @@
 #include "sema.h"
 
 static AstExpression *transformExpression(ParserContext *ctx, AstExpression *expr);
+static AstInitializer *transformInitializer(ParserContext *ctx, AstInitializer *init);
 
 static TypeRef *voidPtrType(ParserContext *ctx) {
   return makePointedType(ctx, 0U, makePrimitiveType(ctx, T_VOID, 0));
@@ -678,6 +679,9 @@ static AstExpression *transformExpression(ParserContext *ctx, AstExpression *exp
       break;
     case E_PAREN:
       return transformExpression(ctx, expr->parened);
+    case E_COMPOUND:
+      expr->compound = transformInitializer(ctx, expr->compound);
+      break;
     case E_CALL:
       // TODO:
       expr->callExpr.callee = transformExpression(ctx, expr->callExpr.callee);

@@ -664,6 +664,13 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
           return offset + slotSize;
       }
 
+      AstExpression *expression = initializer->expression;
+
+      if (expression->op == E_COMPOUND) {
+          emitInitializerImpl(ctx, f, scope, slotSize, &addr, expression->compound, skipNull);
+          return offset + slotSize;
+      }
+
       generateExpression(ctx, f, scope, initializer->expression);
 
       if ((offset + slotSize) <= typeSize) {
@@ -862,6 +869,11 @@ static size_t fillInitializer(GenerationContext *ctx, Section *section, AstIniti
       }
 
       AstExpression *expr = init->expression;
+
+      if (expr->op == E_COMPOUND) {
+          return fillInitializer(ctx, section, expr->compound, startOffset, size);
+      }
+
       AstConst *cexpr = eval(ctx->parserContext, expr);
       if (cexpr == NULL) {
           // probably it's a refernce to symbol
@@ -936,6 +948,8 @@ static size_t fillInitializer(GenerationContext *ctx, Section *section, AstIniti
   }
 }
 
+static Boolean hasRelocationsInit(AstInitializer *init);
+
 static Boolean hasRelocationsExpr(AstExpression *expr) {
   switch (expr->op) {
   case E_CONST: return expr->constExpr.op == CK_STRING_LITERAL ? TRUE : FALSE;
@@ -946,6 +960,7 @@ static Boolean hasRelocationsExpr(AstExpression *expr) {
   case E_NAMEREF: return TRUE;
   case EU_MINUS: return FALSE;
   case EB_ADD: return hasRelocationsExpr(expr->binaryExpr.left) || hasRelocationsExpr(expr->binaryExpr.right);
+  case E_COMPOUND: return hasRelocationsInit(expr->compound);
   default: unreachable("unexpected expression in const initializer");
 
   }
@@ -2520,6 +2535,22 @@ static void emitFPNeg(GenerationContext *ctx, GeneratedFunction *f, TypeId id) {
     }
 }
 
+static void generateCompoundExpression(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
+  Address addr = { R_EBP, R_BAD, 0, f->structBufferOffset, NULL, NULL };
+
+  TypeRef *type = expression->type;
+
+  emitInitializerImpl(ctx, f, scope, computeTypeSize(type), &addr, expression->compound, FALSE);
+
+  if (isScalarType(type)) {
+      TypeId tid = typeToId(type);
+      enum Registers dst = tid == T_F10 ? R_BAD : tid >= T_F4 ? R_FACC : R_ACC;
+      emitLoad(f, &addr, dst, tid);
+  } else {
+      emitLea(f, &addr, R_ACC);
+  }
+}
+
 // result is in accamulator
 static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
   Address addr = { 0 };
@@ -2537,6 +2568,9 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
     case E_NAMEREF:
       translateAddress(ctx, f, scope, expression, &addr);
       emitLea(f, &addr, R_ACC);
+      break;
+    case E_COMPOUND:
+      generateCompoundExpression(ctx, f, scope, expression);
       break;
     case E_CALL:
       generateCall(ctx, f, scope, expression);
