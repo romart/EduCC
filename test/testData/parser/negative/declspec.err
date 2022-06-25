@@ -4,7 +4,7 @@ test/testData/parser/negative/declspec.c:5:9: error: cannot combine with previou
 test/testData/parser/negative/declspec.c:10:12: error: duplicate 'register' declaration specifier
 test/testData/parser/negative/declspec.c:11:10: error: cannot combine with previous 'static' declaration specifier
 test/testData/parser/negative/declspec.c:12:12: error: cannot combine with previous 'register' declaration specifier
-test/testData/parser/negative/declspec.c:15:14: warning: duplicate 'CONST' declaration specifier
+test/testData/parser/negative/declspec.c:15:14: warning: duplicate 'const' declaration specifier
 test/testData/parser/negative/declspec.c:17:10: error: cannot combine with previous 'unsigned' declaration specifier
 test/testData/parser/negative/declspec.c:18:8: error: cannot combine with previous 'signed' declaration specifier
 test/testData/parser/negative/declspec.c:20:7: error: cannot combine with previous 'short' declaration specifier
@@ -17,7 +17,7 @@ test/testData/parser/negative/declspec.c:24:7: error: cannot combine with previo
 test/testData/parser/negative/declspec.c:24:21: error: 'short int' is invalid
 test/testData/parser/negative/declspec.c:26:6: error: cannot combine with previous 'long' declaration specifier
 test/testData/parser/negative/declspec.c:26:21: error: 'long int' is invalid
-test/testData/parser/negative/declspec.c:28:14: warning: duplicate 'VOLATILE' declaration specifier
+test/testData/parser/negative/declspec.c:28:14: warning: duplicate 'volatile' declaration specifier
 test/testData/parser/negative/declspec.c:30:6: error: cannot combine with previous 'void' declaration specifier
 test/testData/parser/negative/declspec.c:31:8: error: cannot combine with previous 'double' declaration specifier
 test/testData/parser/negative/declspec.c:32:5: error: cannot combine with previous 'int' declaration specifier

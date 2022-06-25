@@ -1,4 +1,4 @@
-test/testData/parser/negative/restruct_kw.c:3:1: error: restrict requires a pointer or reference ('signed int' is invalid)
-test/testData/parser/negative/restruct_kw.c:8:1: error: restrict requires a pointer or reference ('signed int' is invalid)
-test/testData/parser/negative/restruct_kw.c:10:1: error: restrict requires a pointer or reference ('signed int' is invalid)
-test/testData/parser/negative/restruct_kw.c:12:16: warning: duplicate 'RESTRICT' declaration specifier
+test/testData/parser/negative/restrict_kw.c:3:1: error: restrict requires a pointer or reference ('signed int' is invalid)
+test/testData/parser/negative/restrict_kw.c:8:1: error: restrict requires a pointer or reference ('signed int' is invalid)
+test/testData/parser/negative/restrict_kw.c:10:1: error: restrict requires a pointer or reference ('signed int' is invalid)
+test/testData/parser/negative/restrict_kw.c:12:16: warning: duplicate 'RESTRICT' declaration specifier
