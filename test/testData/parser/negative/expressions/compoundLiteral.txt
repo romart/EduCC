@@ -1,0 +1,67 @@
+FILE test/testData/parser/negative/expressions/compoundLiteral.c
+  STRUCT S
+    signed int a #0
+    signed int b #4
+    signed int c #8
+  STRUCT_END
+----
+  STRUCT S2
+    signed int a #0
+    signed int d #4
+    *signed int ptr #8
+  STRUCT_END
+----
+  S signed int z = \
+    38
+----
+  STRUCT S s = \
+    (STRUCT S)
+  INIT_BEGIN
+    signed int #0 <--- 10
+    signed int #4 <--- 20
+    signed int #8 <--- 30
+  INIT_END
+----
+  STRUCT S2[2] s2 = \
+    INIT_BEGIN
+      INIT_BEGIN
+        signed int #0 <--- 1
+        signed int #4 <--- 2
+        *signed int #8 <--- &*z
+      INIT_END
+      STRUCT S2 #16 <--- (STRUCT S2)
+  INIT_BEGIN
+    signed int #0 <--- 0
+    signed int #4 <--- 0
+    *signed int #8 <--- &*z
+  INIT_END
+    INIT_END
+----
+  FUN signed int foo 
+  BEGIN
+    RETURN (STRUCT S)
+  INIT_BEGIN
+    signed int #0 <--- 42
+    signed int #4 <--- 0
+    signed int #8 <--- 10
+  INIT_END.b    
+  END
+----
+  FUN signed int bar 
+  BEGIN
+    signed int y = \
+      0
+    S STRUCT S2[1] ss = \
+      INIT_BEGIN
+        STRUCT S2 #0 <--- ERROR EXPR
+      INIT_END
+    STRUCT S2[1] ls = \
+      INIT_BEGIN
+        STRUCT S2 #0 <--- (STRUCT S2)
+  INIT_BEGIN
+    signed int #0 <--- 0
+    signed int #4 <--- 0
+    *signed int #8 <--- &*y
+  INIT_END
+      INIT_END    
+  END

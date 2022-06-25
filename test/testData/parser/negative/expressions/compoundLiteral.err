@@ -1,0 +1,2 @@
+test/testData/parser/negative/expressions/compoundLiteral.c:28:50: error: initializer element is not a compile-time constant
+test/testData/parser/negative/expressions/compoundLiteral.c:28:29: error: initializer element is not a compile-time constant
