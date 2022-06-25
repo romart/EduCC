@@ -2762,8 +2762,10 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
 
     Scope *blockScope = ctx->currentScope;
     AstStatementList head = { 0 }, *current = &head;
+    TypeRef *type = NULL;
 
     while (ctx->token->code && ctx->token->code != '}') {
+        type = NULL;
         if (isDeclarationSpecifierToken(ctx->token->code)) {
             DeclarationSpecifiers specifiers = { 0 };
             specifiers.coordinates.left = specifiers.coordinates.right = ctx->token;
@@ -2795,13 +2797,14 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
         } else {
             AstStatement *statement = parseStatement(ctx, NULL);
             current = current->next = allocateStmtList(ctx, statement);
+            type = statement->statementKind == SK_EXPR_STMT ? statement->exprStmt.expression->type : NULL;
         }
     }
 
     coords.right = ctx->token;
     consumeOrSkip(ctx, '}');
 
-    return createBlockStatement(ctx, &coords, ctx->currentScope, head.next);
+    return createBlockStatement(ctx, &coords, ctx->currentScope, head.next, type);
 }
 
 static AstStatement *parseCompoundStatement(ParserContext *ctx) {

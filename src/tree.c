@@ -414,12 +414,13 @@ AstExpression *createLabelRefExpression(ParserContext *ctx, Coordinates *coords,
 
 // statements
 
-AstStatement *createBlockStatement(ParserContext *ctx, Coordinates *coords, struct _Scope *scope, AstStatementList *stmts) {
+AstStatement *createBlockStatement(ParserContext *ctx, Coordinates *coords, struct _Scope *scope, AstStatementList *stmts, TypeRef *type) {
     AstStatement *result = allocAstStatement(ctx, coords);
 
     result->statementKind = SK_BLOCK;
     result->block.scope = scope;
     result->block.stmts = stmts;
+    result->block.type = type;
 
     return result;
 }

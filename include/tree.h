@@ -215,6 +215,7 @@ typedef struct _AstStatementList {
 typedef struct _AstBlock {
   struct _Scope *scope;
   AstStatementList *stmts; // LinkedList<AstStatement*>
+  TypeRef *type; // type of last statement, NULL of it's not an expression
 } AstBlock;
 
 typedef struct _AstExpressionStatement {
@@ -607,7 +608,7 @@ AstExpression *createErrorExpression(struct _ParserContext *ctx, Coordinates *co
 
 // statemetns
 
-AstStatement *createBlockStatement(struct _ParserContext *ctx, Coordinates *coords, struct _Scope *scope, AstStatementList *stmts);
+AstStatement *createBlockStatement(struct _ParserContext *ctx, Coordinates *coords, struct _Scope *scope, AstStatementList *stmts, TypeRef *type);
 AstStatement *createExprStatement(struct _ParserContext *ctx, AstExpression* expression);
 AstStatement *createLabelStatement(struct _ParserContext *ctx, Coordinates *coords, LabelKind labelKind, AstStatement *body, const char *label, int c);
 AstStatement *createDeclStatement(struct _ParserContext *ctx, Coordinates *coords, AstDeclaration *decl);
