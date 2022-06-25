@@ -1,0 +1,13 @@
+FILE test/testData/parser/negative/restruct_kw.c
+  signed int x
+----
+  *signed int y
+----
+  FUN signed int foo 
+  BEGIN
+    RETURN 42    
+  END
+----
+  *signed int z
+----
+  *signed int zz

@@ -1,0 +1,8 @@
+test/testData/parser/negative/inline_kw.c:11:1: error: 'inline' can only appear on functions
+test/testData/parser/negative/inline_kw.c:14:10: error: unexpected token INT 'int' instead of ;
+test/testData/parser/negative/inline_kw.c:17:9: error: invalid storage class specifier in function declarator
+test/testData/parser/negative/inline_kw.c:23:12: warning: duplicate 'inline' declaration specifier
+test/testData/parser/negative/inline_kw.c:28:18: error: unexpected token FLOAT 'float' instead of )
+test/testData/parser/negative/inline_kw.c:28:18: error: unexpected token FLOAT 'float' instead of ;
+test/testData/parser/negative/inline_kw.c:28:23: warning: declaration does not declare anything
+test/testData/parser/negative/inline_kw.c:28:23: error: unexpected token ) ')' instead of ;

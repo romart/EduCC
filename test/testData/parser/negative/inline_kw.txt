@@ -1,0 +1,37 @@
+FILE test/testData/parser/negative/inline_kw.c
+  FUN signed int foo 
+  BEGIN
+    RETURN 42    
+  END
+----
+  S FUN float bar 
+  BEGIN
+    RETURN 4.200000    
+  END
+----
+  signed int x
+----
+  FUN signed int qux 
+  BEGIN
+    ERROR EXPR    
+  END
+----
+  FUN signed int der 
+    #0: signed int z
+  BEGIN
+    RETURN 9    
+  END
+----
+  FUN signed int zed 
+----
+  FUN signed int dif 
+  BEGIN
+    RETURN 51    
+  END
+----
+  FUN float gyr 
+    #0: signed int a
+  BEGIN
+    RETURN (float)(ERROR EXPR)
+    float    
+  END

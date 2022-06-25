@@ -1,0 +1,22 @@
+FILE test/testData/parser/negative/auto_kw.c
+  signed int x
+----
+  signed int y
+----
+  FUN signed int foo 
+  BEGIN
+    RETURN 42    
+  END
+----
+  FUN signed int bar 
+  BEGIN
+    ERROR EXPR
+    signed int a    
+  END
+----
+  FUN signed int tex 
+    #0: float f
+  BEGIN
+    RETURN (signed int)(ERROR EXPR)
+    signed int    
+  END
