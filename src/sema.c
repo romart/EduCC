@@ -1522,7 +1522,9 @@ static void stringLiteralToInitializer(ParserContext *ctx, AstInitializer *semaI
     }
 
     if (arraySize < length) {
-      reportDiagnostic(ctx, DIAG_STRING_INIT_TOO_LONG, coords);
+      if (arraySize + 1 != length || s[arraySize]) {
+        reportDiagnostic(ctx, DIAG_STRING_INIT_TOO_LONG, coords);
+      }
     }
 
     for (; current; current = current->next) {
