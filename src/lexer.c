@@ -1,5 +1,6 @@
 
 #include <assert.h>
+#include <stdbool.h>
 
 #include "parser.h"
 #include "sema.h"
@@ -1381,6 +1382,7 @@ Token *tokenizeBuffer(ParserContext *ctx, LocationInfo *locInfo, unsigned *lineP
   return head.next;
 }
 
+static const char boolWord[] = "_Bool";
 static const char autoWord[] = "auto";
 static const char breakWord[] = "break";
 static const char caseWord[] = "case";
@@ -1625,8 +1627,14 @@ static void maybeSetupKeyword(Token *token) {
           }
       }
       return;
-  case '_': // _Alignof
-      if (length == 8) {
+  case '_': // _Bool | _Alignof
+      if (length == 5) {
+        code = *(uint32_t*)(&boolWord[1]);
+        tokenCode = *(uint32_t*)(&pos[1]);
+        if (tokenCode == code) {
+            token->code = _BOOL;
+        }
+      } else if (length == 8) {
           tokenCode8 = *(uint64_t*)(&pos[0]);
           code8 = *(uint64_t*)alignofWord;
           if (tokenCode8 == code8) {
