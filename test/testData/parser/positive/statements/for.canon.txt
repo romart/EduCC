@@ -12,7 +12,7 @@ FILE test/testData/parser/positive/statements/for.c
     RETURN 0    
   END
 ----
-  FUN signed int test1 
+  FUN signed int test2
     #0: signed int a
   BEGIN
     FOR (signed int a = \
@@ -20,4 +20,15 @@ FILE test/testData/parser/positive/statements/for.c
       foo("%d\n", (signed long)*a)      
     END_FOR
     RETURN 0    
+  END
+----
+  FUN signed int test3
+    #0: signed int a
+  BEGIN
+    FOR (signed int a = \
+  1, signed int b = \
+  10; *a <= *b; (*a += 1) - 1)
+      foo("%d\n", (signed long)*a)
+    END_FOR
+    RETURN 0
   END

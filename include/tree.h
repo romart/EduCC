@@ -262,7 +262,7 @@ typedef struct _AstLoopStatement {
 } AstLoopStatement;
 
 typedef struct _AstForStatement {
-    struct _AstStatement *initial;
+    struct _AstStatementList *initial;
     AstExpression *condition;
     AstExpression *modifier;
     struct _AstStatement *body;
@@ -618,7 +618,7 @@ AstStatement *createDeclStatement(struct _ParserContext *ctx, Coordinates *coord
 AstStatement *createIfStatement(struct _ParserContext *ctx, Coordinates *coords, AstExpression *cond, AstStatement *thenB, AstStatement *elseB);
 AstStatement *createSwitchStatement(struct _ParserContext *ctx, Coordinates *coords, AstExpression *cond, AstStatement *body, unsigned caseCount, unsigned hasDefault);
 AstStatement *createLoopStatement(struct _ParserContext *ctx, Coordinates *coords, StatementKind kind, AstExpression *cond, AstStatement *body);
-AstStatement *createForStatement(struct _ParserContext *ctx, Coordinates *coords, AstStatement* init, AstExpression *cond, AstExpression *modifier, AstStatement *body);
+AstStatement *createForStatement(struct _ParserContext *ctx, Coordinates *coords, AstStatementList* init, AstExpression *cond, AstExpression *modifier, AstStatement *body);
 AstStatement *createJumpStatement(struct _ParserContext *ctx, Coordinates *coords, StatementKind jumpKind);
 AstStatement *createEmptyStatement(struct _ParserContext *ctx, Coordinates *coords);
 AstStatement *createErrorStatement(struct _ParserContext *ctx, Coordinates *coords);
