@@ -372,8 +372,14 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
        result += putIndent(output, indent);
        result += fprintf(output, "FOR (");
        if (forLoop->initial) {
+         AstStatementList *stmts = forLoop->initial;
          // TODO: improve rendering
-         result += dumpAstStatementImpl(output, 0, forLoop->initial);
+         for (; stmts; stmts = stmts->next) {
+          result += dumpAstStatementImpl(output, 0, stmts->stmt);
+          if (stmts->next) {
+              result += fprintf(output, ", ");
+          }
+         }
        }
        result += fprintf(output, "; ");
 

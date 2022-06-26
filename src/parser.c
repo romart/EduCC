@@ -75,6 +75,13 @@ static void consumeOrSkip(ParserContext *ctx, int expected) {
     skipUntil(ctx, expected);
 }
 
+
+static AstStatementList *allocateStmtList(ParserContext *ctx, AstStatement *stmt) {
+  AstStatementList* result = (AstStatementList*)areanAllocate(ctx->memory.astArena, sizeof(AstStatementList));
+  result->stmt = stmt;
+  return result;
+}
+
 static AstStatement *parseCompoundStatement(ParserContext *ctx, Boolean asExpr);
 static ParsedInitializer *parseInitializer(ParserContext *ctx);
 static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, DeclaratorScope scope);
@@ -2528,22 +2535,38 @@ static void defineLabel(ParserContext *ctx, const char *label, AstStatement *lbl
   }
 }
 
-static AstDeclaration *parseForInitial(ParserContext *ctx) {
-  DeclarationSpecifiers specifiers = { 0 };
-  specifiers.coordinates.left = specifiers.coordinates.right = ctx->token;
-  parseDeclarationSpecifiers(ctx, &specifiers, DS_FOR);
+static AstStatementList *parseForInitial(ParserContext *ctx) {
 
-  Declarator declarator = { 0 };
-  declarator.coordinates.left = declarator.coordinates.right = ctx->token;
-  parseDeclarator(ctx, &declarator);
-  verifyDeclarator(ctx, &declarator, DS_FOR);
+  if (isDeclarationSpecifierToken(ctx->token->code)) {
+    DeclarationSpecifiers specifiers = { 0 };
+    specifiers.coordinates.left = specifiers.coordinates.right = ctx->token;
+    parseDeclarationSpecifiers(ctx, &specifiers, DS_FOR);
 
-  AstDeclaration *result = NULL;
-  if (declarator.identificator) {
-      TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
-      result = parseDeclaration(ctx, &specifiers, &declarator, type, FALSE);
+    AstStatementList head = { 0 }, *current = &head;
+
+    while (ctx->token->code != ';') {
+      Declarator declarator = { 0 };
+      declarator.coordinates.left = declarator.coordinates.right = ctx->token;
+      parseDeclarator(ctx, &declarator);
+      verifyDeclarator(ctx, &declarator, DS_FOR);
+
+      if (declarator.identificator) {
+          AstDeclaration *result = NULL;
+          TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
+          result = parseDeclaration(ctx, &specifiers, &declarator, type, FALSE);
+          current = current->next = allocateStmtList(ctx, createDeclStatement(ctx, &declarator.coordinates, result));
+      }
+
+      if (ctx->token->code == ';') break;
+
+      consumeOrSkip(ctx, ',');
+    }
+    return head.next;
+  } else {
+    AstExpression *expr = parseExpression(ctx, NULL);
+    AstStatement *stmt = createExprStatement(ctx, expr);
+    return allocateStmtList(ctx, stmt);
   }
-
 }
 
 static AstStatement *parseStatementImpl(ParserContext *ctx, struct _Scope* scope, Boolean asExpr) {
@@ -2634,16 +2657,10 @@ static AstStatement *parseStatementImpl(ParserContext *ctx, struct _Scope* scope
 
         ctx->currentScope = newScope(ctx, ctx->currentScope);
 
-        AstStatement *initial = NULL;
+        AstStatementList *initial = NULL;
         if (ctx->token->code != ';') {
             // check if language version >= C99
-            if (isDeclarationSpecifierToken(ctx->token->code)) {
-                AstDeclaration *decl = parseForInitial(ctx);
-                initial = createDeclStatement(ctx, &decl->variableDeclaration->coordinates, decl);
-            } else {
-                AstExpression *expr = parseExpression(ctx, scope);
-                initial = createExprStatement(ctx, expr);
-            }
+            initial = parseForInitial(ctx);
         }
         consume(ctx, ';'); // for( ...;
 
@@ -2748,12 +2765,6 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
 
 static unsigned processDeclarationPart(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator) {
   return 0;
-}
-
-static AstStatementList *allocateStmtList(ParserContext *ctx, AstStatement *stmt) {
-  AstStatementList* result = (AstStatementList*)areanAllocate(ctx->memory.astArena, sizeof(AstStatementList));
-  result->stmt = stmt;
-  return result;
 }
 
 /**

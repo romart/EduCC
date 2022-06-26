@@ -847,8 +847,12 @@ static AstStatement *transformStatement(ParserContext *ctx, AstStatement *stmt) 
       stmt->loopStmt.condition = transformExpression(ctx, stmt->loopStmt.condition);
       break;
     case SK_FOR:
-      if (stmt->forStmt.initial)
-        stmt->forStmt.initial = transformStatement(ctx, stmt->forStmt.initial);
+      if (stmt->forStmt.initial) {
+        AstStatementList *stmts = stmt->forStmt.initial;
+        for (; stmts; stmts = stmts->next) {
+          stmts->stmt = transformStatement(ctx, stmts->stmt);
+        }
+      }
       if (stmt->forStmt.condition)
         stmt->forStmt.condition = transformExpression(ctx, stmt->forStmt.condition);
       if (stmt->forStmt.modifier)
