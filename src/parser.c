@@ -190,7 +190,7 @@ type_specifier
     ;
  */
 static int isTypeSpecifierToken(int token) {
-    return token == VOID || token == CHAR || token == SHORT || token == INT || token == LONG ||
+    return token == VOID || token == _BOOL || token == CHAR || token == SHORT || token == INT || token == LONG ||
            token == FLOAT || token == DOUBLE || token == SIGNED || token == UNSIGNED ||
            token == STRUCT || token == UNION || token == ENUM || token == TYPE_NAME;
 }
@@ -1672,6 +1672,7 @@ typedef enum _TSS {
 typedef enum _TST {
   TST_NONE,
   TST_VOID,
+  TST_BOOL,
   TST_CHAR,
   TST_INT,
   TST_FLOAT,
@@ -1760,6 +1761,7 @@ static TypeDesc *computePrimitiveTypeDescriptor(ParserContext *ctx, TSW tsw, con
 
 
   if (tst == TST_VOID) return &builtInTypeDescriptors[T_VOID];
+  if (tst == TST_BOOL) return &builtInTypeDescriptors[T_S1];
   if (tst == TST_CHAR) return &builtInTypeDescriptors[T_S1];
   if (tst == TST_INT) return &builtInTypeDescriptors[T_S4];
   if (tst == TST_FLOAT) return &builtInTypeDescriptors[T_F4];
@@ -1907,6 +1909,7 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
             }
             break;
         case VOID: tmp = TST_VOID; tmp_s = "void"; goto tst_label;
+        case _BOOL: tmp = TST_BOOL; tmp_s = "_Bool"; goto tst_label;
         case CHAR: tmp = TST_CHAR; tmp_s = "char"; goto tst_label;
         case INT: tmp = TST_INT; tmp_s = "int"; goto tst_label;
         case FLOAT: tmp = TST_FLOAT; tmp_s = "float"; goto tst_label;
