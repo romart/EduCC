@@ -25,6 +25,7 @@ typedef struct _Coordinates {
   DEF_EXPRESSION_OP(E_CALL, 16), \
   DEF_EXPRESSION_OP(E_COMPOUND, 16), \
   DEF_EXPRESSION_OP(E_PAREN, 17), \
+  DEF_EXPRESSION_OP(E_BLOCK, 17), \
   DEF_EXPRESSION_OP(E_LABEL_REF, 15), \
   DEF_EXPRESSION_OP(E_ERROR, 17), \
   DEF_EXPRESSION_OP(EU_PRE_INC, 15), \
@@ -179,6 +180,7 @@ typedef struct _AstExpression {
     AstVaArgument vaArg;
     struct _AstExpression *parened;
     struct _AstInitializer *compound;
+    struct _AstStatement *block;
     const char* label;
   };
 } AstExpression;
@@ -604,6 +606,7 @@ AstExpression *createFieldExpression(struct _ParserContext *ctx, Coordinates *co
 AstExpression *createParenExpression(struct _ParserContext *ctx, Coordinates *coords, AstExpression *parened);
 AstExpression *createLabelRefExpression(struct _ParserContext *ctx, Coordinates *coords, const char *label);
 AstExpression *createCompundExpression(struct _ParserContext *ctx, Coordinates *coords, AstInitializer *init);
+AstExpression *createBlockExpression(struct _ParserContext *ctx, Coordinates *coords, AstStatement *block);
 AstExpression *createErrorExpression(struct _ParserContext *ctx, Coordinates *coords);
 
 // statemetns
