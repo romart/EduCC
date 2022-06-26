@@ -1653,6 +1653,8 @@ void initializeProprocessor(ParserContext *ctx) {
   defineBuiltinMacro(ctx, "__SIZEOF_PTRDIFF_T__", constToken(ctx, 8, NULL));
   defineBuiltinMacro(ctx, "__SIZEOF_SHORT__", constToken(ctx, 2, NULL));
   defineBuiltinMacro(ctx, "__SIZEOF_SIZE_T__", constToken(ctx, 8, NULL));
+  static const char ul[] = "unsigned long";
+  defineBuiltinMacro(ctx, "__SIZE_TYPE__", tokenizeString(ctx, NULL, ul, sizeof (ul), TRUE));
 
   defineBuiltinMacro(ctx, "__DATE__", stringToken(ctx, NULL, dateString()));
   defineBuiltinMacro(ctx, "__TIME__", stringToken(ctx, NULL, timeString()));
