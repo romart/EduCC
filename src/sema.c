@@ -1161,6 +1161,20 @@ static Boolean isCompilteTimeInitializer(AstInitializer *init) {
   return TRUE;
 }
 
+static Boolean isCompileTimeStatement(AstStatement *stmt) {
+  switch (stmt->statementKind) {
+    case SK_EXPR_STMT: return isCompileTimeConstant(stmt->exprStmt.expression);
+    case SK_BLOCK: {
+        AstStatementList *n = stmt->block.stmts;
+        for (; n; n = n->next) {
+            if (!isCompileTimeStatement(n->stmt)) return FALSE;
+        }
+        return TRUE;
+    }
+    default: return FALSE;
+    }
+}
+
 static Boolean isStaticSymbol(Symbol *s) {
   if (s->kind == FunctionSymbol || s->kind == ValueSymbol && !s->variableDesc->flags.bits.isLocal) {
     // TODO: probably it's not the best solution
@@ -1211,6 +1225,8 @@ static Boolean isCompileTimeConstant2(AstExpression *expr, Boolean allowRefs) {
       return isCompileTimeConstant2(expr->binaryExpr.left, FALSE) && isCompileTimeConstant2(expr->binaryExpr.right, FALSE);
     case E_PAREN:
       return isCompileTimeConstant2(expr->parened, allowRefs);
+    case E_BLOCK:
+      return isCompileTimeStatement(expr->block);
     case EU_REF:
       return isCompileTimeConstant2(expr->unaryExpr.argument, TRUE);
     case EB_A_ACC:

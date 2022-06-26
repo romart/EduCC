@@ -10,6 +10,7 @@ static int dumpTypeDescImpl(FILE *output, int indent, TypeDesc *desc);
 static int dumpAstInitializerImpl(FILE *output, int indent, AstInitializer *init, Boolean compund);
 static int dumpAstDeclarationImpl(FILE *output, int indent, AstDeclaration *decl);
 static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr);
+static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt);
 
 static int putIndent(FILE *output, int indent) {
   int result = indent;
@@ -140,6 +141,11 @@ static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr) 
     case E_PAREN:
       result += fprintf(output, "(");
       result += dumpAstExpressionImpl(output, 0, expr->parened);
+      result += fprintf(output, ")");
+      break;
+    case E_BLOCK:
+      result += fprintf(output, "(");
+      result += dumpAstStatementImpl(output, 0, expr->block);
       result += fprintf(output, ")");
       break;
     case E_CALL: {

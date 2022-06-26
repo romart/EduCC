@@ -407,6 +407,22 @@ static AstConst* evalCast(ParserContext *ctx, TypeRef *toType, AstConst *arg) {
   return arg;
 }
 
+static AstConst *evalStmt(ParserContext *ctx, AstStatement *stmt) {
+  switch (stmt->statementKind) {
+    case SK_EXPR_STMT: return eval(ctx, stmt->exprStmt.expression);
+    case SK_BLOCK: {
+        AstStatementList *n = stmt->block.stmts;
+        AstConst *e = NULL;
+        for (; n; n = n->next) {
+            e = evalStmt(ctx, n->stmt);
+            if (e == NULL) return NULL;
+        }
+        return e;
+    }
+    default: return NULL;
+    }
+}
+
 AstConst* eval(ParserContext *ctx, AstExpression* expression) {
 
   if (isErrorType(expression->type)) return NULL; // cannot evaluate error expression
@@ -493,6 +509,8 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
     }
     case E_PAREN:
       return eval(ctx, expression->parened);
+    case E_BLOCK:
+      return evalStmt(ctx, expression->block);
     case E_CAST: {
       AstConst *arg = eval(ctx, expression->castExpr.argument);
       if (arg == NULL) return NULL;

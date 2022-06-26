@@ -311,6 +311,18 @@ AstExpression *createCompundExpression(ParserContext *ctx, Coordinates *coords, 
   return result;
 }
 
+AstExpression *createBlockExpression(ParserContext *ctx, Coordinates *coords, AstStatement *block) {
+  AstExpression* result = allocAstExpression(ctx, coords);
+
+  assert(block->statementKind == SK_BLOCK);
+
+  result->op = E_BLOCK;
+  result->type = block->block.type;
+  result->block = block;
+
+  return result;
+}
+
 AstExpression *createErrorExpression(ParserContext *ctx, Coordinates *coords) {
   AstExpression* result = allocAstExpression(ctx, coords);
 

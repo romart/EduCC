@@ -598,6 +598,7 @@ static void emitStore(GeneratedFunction *f, enum Registers from, Address *to, Ty
 }
 
 static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression);
+static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstStatement *stmt, Scope *scope, size_t frameOffset);
 static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *cond, Boolean invertion);
 static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression, Address *addr);
 static void storeBitField(GeneratedFunction *f, TypeRef *t, enum Registers from, Address *addr);
@@ -777,6 +778,14 @@ static void collectRelocAndAdent(AstExpression *expr, Relocation *reloc) {
       reloc->symbolData.symbolName = expr->nameRefExpr.s->name;
       return;
 //  case EU_MINUS: return FALSE;
+  case E_BLOCK: {
+        AstStatementList *n = expr->block->block.stmts;
+        for (; n->next; n = n->next);
+        assert(n->stmt->statementKind == SK_EXPR_STMT);
+        collectRelocAndAdent(n->stmt->exprStmt.expression, reloc);
+        return;
+  }
+
   case EB_ADD:
       collectRelocAndAdent(expr->binaryExpr.left, reloc);
       collectRelocAndAdent(expr->binaryExpr.right, reloc);
@@ -961,6 +970,13 @@ static Boolean hasRelocationsExpr(AstExpression *expr) {
   case EU_MINUS: return FALSE;
   case EB_ADD: return hasRelocationsExpr(expr->binaryExpr.left) || hasRelocationsExpr(expr->binaryExpr.right);
   case E_COMPOUND: return hasRelocationsInit(expr->compound);
+  case E_BLOCK: {
+        assert(expr->block->statementKind == SK_BLOCK);
+        AstStatementList *n = expr->block->block.stmts;
+        for (; n->next; n = n->next);
+        assert(n->stmt->statementKind == SK_EXPR_STMT);
+        return hasRelocationsExpr(n->stmt->exprStmt.expression);
+    }
   default: unreachable("unexpected expression in const initializer");
 
   }
@@ -2558,6 +2574,9 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
   switch (expression->op) {
     case E_PAREN:
       generateExpression(ctx, f, scope, expression->parened);
+      break;
+    case E_BLOCK:
+      generateStatement(ctx, f, expression->block, scope, 0);
       break;
     case E_CONST:
       emitConst(ctx, f, &expression->constExpr, typeId);

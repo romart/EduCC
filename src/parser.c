@@ -75,6 +75,7 @@ static void consumeOrSkip(ParserContext *ctx, int expected) {
     skipUntil(ctx, expected);
 }
 
+static AstStatement *parseCompoundStatement(ParserContext *ctx, Boolean asExpr);
 static ParsedInitializer *parseInitializer(ParserContext *ctx);
 static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, DeclaratorScope scope);
 static void parseDeclarator(ParserContext *ctx, Declarator *declarator);
@@ -309,6 +310,7 @@ primary_expression
 --    | '__builtin_va_start' '(' IDENTIFIER ',' IDENTIFIER ')'
     | '__builtin_va_arg' '(' IDENTIFIER ',' type_name ')'
     | '(' expression ')'
+    | '(' '{' statement+ '}' ')'
     ;
  */
 static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *scope) {
@@ -395,11 +397,17 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx, struct _Scope *
         }
         case '(':
           consume(ctx, '(');
-          AstExpression* expr = parseExpression(ctx, scope);
-          coords.right = ctx->token;
-          consume(ctx, ')');
-
-          return createParenExpression(ctx, &coords, expr);
+          if (ctx->token->code == '{') {
+            AstStatement *block = parseCompoundStatement(ctx, TRUE);
+            coords.right = ctx->token;
+            consumeOrSkip(ctx , ')');
+            return createBlockExpression(ctx, &coords, block);
+          } else {
+            AstExpression* expr = parseExpression(ctx, scope);
+            coords.right = ctx->token;
+            consume(ctx, ')');
+            return createParenExpression(ctx, &coords, expr);
+          }
         default:
           nextToken(ctx);
           return createErrorExpression(ctx, &coords);
@@ -2128,7 +2136,7 @@ static ParsedInitializer *parseInitializerImpl(ParserContext *ctx, ParsedInitial
   ParsedInitializer head = { 0 }, *current = &head;
   if (nextTokenIf(ctx, '{')) {
       current = current->next = allocParsedInitializer(ctx, &coords, NULL, level + 1, PL_OPEN);
-      while (ctx->token->code != '}') {
+      while (ctx->token->code && ctx->token->code != '}') {
           ParsedInitializer *n = NULL;
           current->next = parseInitializerImpl(ctx, &n, level + 1);
           current = n;
@@ -2460,7 +2468,6 @@ static void parseDeclarator(ParserContext *ctx, Declarator *declarator) {
   }
 }
 
-static AstStatement *parseCompoundStatement(ParserContext *ctx);
 static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope);
 
 static AstStatement *parseIfStatement(ParserContext *ctx, struct _Scope* scope) {
@@ -2539,7 +2546,7 @@ static AstDeclaration *parseForInitial(ParserContext *ctx) {
 
 }
 
-static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
+static AstStatement *parseStatementImpl(ParserContext *ctx, struct _Scope* scope, Boolean asExpr) {
     AstExpression *expr, *expr2, *expr3;
     AstStatement *stmt;
     int64_t c = 0;
@@ -2572,7 +2579,7 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
         stmt = parseStatement(ctx, scope);
         coords.right = stmt->coordinates.right;
         return createLabelStatement(ctx, &coords, LK_DEFAULT, stmt, NULL, c);
-    case '{': return parseCompoundStatement(ctx);
+    case '{': return parseCompoundStatement(ctx, FALSE);
     case IF: return parseIfStatement(ctx, scope);
     case SWITCH:
         consume(ctx, SWITCH);
@@ -2725,11 +2732,18 @@ static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
     }
     default:
         expr = parseExpression(ctx, scope);
-        verifyStatementLevelExpression(ctx, expr);
         consumeOrSkip(ctx, ';');
+
+        if (!asExpr || ctx->token->code != '}') {
+          verifyStatementLevelExpression(ctx, expr);
+        }
 
         return createExprStatement(ctx, expr);
     }
+}
+
+static AstStatement *parseStatement(ParserContext *ctx, struct _Scope* scope) {
+  return parseStatementImpl(ctx, scope, FALSE);
 }
 
 static unsigned processDeclarationPart(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator) {
@@ -2755,7 +2769,7 @@ block_item
     : declaration | statement
     ;
  */
-static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
+static AstStatement *parseCompoundStatementImpl(ParserContext *ctx, Boolean asExpr) {
 
     Coordinates coords = { ctx->token };
     consume(ctx, '{');
@@ -2795,7 +2809,7 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
 
             consumeOrSkip(ctx, ';');
         } else {
-            AstStatement *statement = parseStatement(ctx, NULL);
+            AstStatement *statement = parseStatementImpl(ctx, NULL, asExpr);
             current = current->next = allocateStmtList(ctx, statement);
             type = statement->statementKind == SK_EXPR_STMT ? statement->exprStmt.expression->type : NULL;
         }
@@ -2804,19 +2818,23 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx) {
     coords.right = ctx->token;
     consumeOrSkip(ctx, '}');
 
+    if (type == NULL) {
+        type = makePrimitiveType(ctx, T_VOID, 0);
+    }
+
     return createBlockStatement(ctx, &coords, ctx->currentScope, head.next, type);
 }
 
-static AstStatement *parseCompoundStatement(ParserContext *ctx) {
+static AstStatement *parseCompoundStatement(ParserContext *ctx, Boolean asExpr) {
   ctx->currentScope = newScope(ctx, ctx->currentScope);
-  AstStatement *result = parseCompoundStatementImpl(ctx);
+  AstStatement *result = parseCompoundStatementImpl(ctx, asExpr);
   assert(result->statementKind == SK_BLOCK);
   ctx->currentScope = ctx->currentScope->parent;
   return result;
 }
 
 static AstStatement *parseFunctionBody(ParserContext *ctx) {
-  return parseCompoundStatementImpl(ctx);
+  return parseCompoundStatementImpl(ctx, FALSE);
 }
 
 // return FALSE if no errors found
