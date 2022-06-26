@@ -1,0 +1,16 @@
+FILE test/testData/parser/negative/expressions/block.c
+  FUN signed int main 
+  BEGIN
+    IF (3 != (signed int i = \
+  6
+*i / 2
+*i /= 2))
+    THEN
+      RETURN 3
+    END_IF
+    IF (4 != (RETURN 2))
+    THEN
+      RETURN 10
+    END_IF
+    RETURN 0    
+  END
