@@ -1,0 +1,2 @@
+test/testData/parser/negative/expressions/block.c:4:24: warning: expression result unused
+test/testData/parser/negative/expressions/block.c:6:12: error: void value not ignored as it ought to be
