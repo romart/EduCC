@@ -2071,8 +2071,8 @@ static void generateAssignDiv(GenerationContext *ctx, GeneratedFunction *f, Scop
   size_t typeSize = computeTypeSize(type);
   Boolean isU = isUnsignedType(type);
 
-  assert(rvalue->op == EU_DEREF);
-  translateAddress(ctx, f, scope, rvalue->unaryExpr.argument, &addr);
+  assert(lvalue->op == EU_DEREF);
+  translateAddress(ctx, f, scope, lvalue->unaryExpr.argument, &addr);
   leaRelocatable(f, &addr, R_EDI);
 
   enum Opcodes opcode;
