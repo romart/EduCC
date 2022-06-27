@@ -63,6 +63,7 @@ Boolean checkExpressionIsAssignable(ParserContext *ctx, Coordinates *coords, Ast
 Boolean checkTypeIsCastable(ParserContext *ctx, Coordinates *coords, TypeRef *to, TypeRef *from, Boolean report);
 Boolean checkRefArgument(ParserContext *ctx, Coordinates *coords, AstExpression *arg, Boolean report);
 
+AstExpression *transformCondition(ParserContext *ctx, AstExpression *expr);
 AstExpression *transformBinaryExpression(ParserContext *ctx, AstExpression *expr);
 AstExpression *transformTernaryExpression(ParserContext *ctx, AstExpression *expr);
 AstExpression *transformAssignExpression(ParserContext *ctx, AstExpression *expr);

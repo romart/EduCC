@@ -2521,6 +2521,7 @@ static AstStatement *parseIfStatement(ParserContext *ctx, struct _Scope* scope) 
   consume(ctx, IF);
   consume(ctx, '(');
   AstExpression *cond = parseExpression(ctx, scope);
+  cond = transformCondition(ctx, cond);
   consume(ctx, ')');
   AstStatement *thenB = parseStatement(ctx, scope);
   coords.right = thenB->coordinates.right;
@@ -2671,6 +2672,7 @@ static AstStatement *parseStatementImpl(ParserContext *ctx, struct _Scope* scope
         consume(ctx, '(');
         oldFlag = ctx->stateFlags.inLoop;
         expr = parseExpression(ctx, scope);
+        expr = transformCondition(ctx, expr);
         consume(ctx, ')');
         ctx->stateFlags.inLoop = 1;
         stmt = parseStatement(ctx, scope);
@@ -2687,6 +2689,7 @@ static AstStatement *parseStatementImpl(ParserContext *ctx, struct _Scope* scope
         consume(ctx, WHILE);
         consume(ctx, '(');
         expr = parseExpression(ctx, scope);
+        expr = transformCondition(ctx, expr);
         consume(ctx, ')');
         consume(ctx, ';');
         return createLoopStatement(ctx, &coords, SK_DO_WHILE, expr, stmt);
@@ -2704,6 +2707,7 @@ static AstStatement *parseStatementImpl(ParserContext *ctx, struct _Scope* scope
         consume(ctx, ';'); // for( ...;
 
         expr2 = ctx->token->code != ';' ? parseExpression(ctx, scope) : NULL;
+        expr2 = transformCondition(ctx, expr2);
         consume(ctx, ';'); // for( ...; ...;
 
         expr3 = ctx->token->code != ')' ? parseExpression(ctx, scope) : NULL;
