@@ -1,0 +1,1 @@
+test/testData/parser/negative/flexible.c:12:35: error: initialization of flexible array member is not allowed

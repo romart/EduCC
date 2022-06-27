@@ -1,0 +1,48 @@
+FILE test/testData/parser/negative/flexible.c
+  STRUCT SX
+    signed int a #0
+    signed int b #4
+    signed int c #8
+    signed int d #12
+    signed int e #16
+    signed char[] flex #20
+  STRUCT_END
+----
+  STRUCT SX g = \
+    INIT_BEGIN
+      signed int #0 <--- 1
+      signed int #4 <--- 2
+      signed int #8 <--- 3
+      signed int #12 <--- 4
+      signed int #16 <--- 5
+      INIT_BEGIN
+        signed char #20 <--- 65
+        signed char #21 <--- 66
+        signed char #22 <--- 67
+        signed char #23 <--- 0
+      INIT_END
+    INIT_END
+----
+  FUN signed int test 
+  BEGIN
+    STRUCT SX l1 = \
+      INIT_BEGIN
+        signed int #0 <--- 1
+        signed int #4 <--- 2
+        signed int #8 <--- 3
+        signed int #12 <--- 4
+        signed int #16 <--- 5
+        INIT_BEGIN
+
+        INIT_END
+      INIT_END
+    STRUCT SX l2 = \
+      INIT_BEGIN
+        signed int #0 <--- 5
+        signed int #4 <--- 6
+        signed int #8 <--- 7
+        signed int #12 <--- 8
+        signed int #16 <--- 9
+        ERROR TYPE #20 <--- ERROR EXPR
+      INIT_END    
+  END
