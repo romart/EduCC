@@ -2363,7 +2363,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
             ++idx;
             if (isCompositeType(argType)) {
                 Address addr = { R_ACC, R_BAD, 0, 0, NULL, NULL };
-                emitLoad(f, &addr, R_ACC, argSize);
+                emitMoveAR(f, &addr, R_ACC, argSize);
             }
             emitPushReg(f, R_ACC);
         } else {
@@ -3262,7 +3262,7 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
               copyStructTo(f, retExpr->type, &src, &dst);
               emitMoveRR(f, R_EDI, R_ACC, sizeof(intptr_t));
             } else {
-              emitLoad(f, &src, R_ACC, retSize);
+              emitMoveAR(f, &src, R_ACC, retSize);
             }
           } else {
             generateExpression(ctx, f, scope, retExpr);
