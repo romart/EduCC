@@ -355,7 +355,8 @@ typedef struct _AstInitializer {
     TypeRef *slotType;
     int32_t offset;
 
-    Boolean isIncomplete;
+    unsigned isIncomplete : 1;
+    unsigned isFlexible : 1;
 
     union {
       const char *member;
@@ -437,6 +438,7 @@ typedef struct _StructualMember {
   const char *name;
   TypeRef *type;
   int32_t offset;
+  unsigned isFlexible;
 
   struct _StructualMember *parent;
   struct _StructualMember *next;
@@ -447,6 +449,7 @@ typedef struct _TypeDefinition {
   Coordinates coordinates;
   enum TypeDefinitionKind kind;
   uint32_t isDefined : 1;
+  uint32_t isFlexible : 1;
 
   const char *name;
   int32_t size;

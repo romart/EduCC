@@ -868,8 +868,6 @@ static size_t emitStaticBitField(ParserContext *ctx, Section *section, AstInitia
 
 static size_t fillInitializer(GenerationContext *ctx, Section *section, AstInitializer *init, int32_t startOffset, size_t size) {
 
-  if (size <= 0) return 0;
-
   int32_t sectionOffset = section->pc - section->start;
   if (init->kind == IK_EXPRESSION) {
       int32_t initOffset = sectionOffset - startOffset;
@@ -941,7 +939,6 @@ static size_t fillInitializer(GenerationContext *ctx, Section *section, AstIniti
     }
 
     while (inits) {
-
         TypeRef *slotType = inits->initializer->slotType;
         size_t thisResult = 0;
 
@@ -1017,16 +1014,17 @@ static GeneratedVariable *generateVaribale(GenerationContext *ctx, AstValueDecla
   alignSection(section, align);
 
   size_t objectSize = computeTypeSize(d->type);
-  size_t filled = 0;
+
   ptrdiff_t offset = section->pc - section->start;
 
   if (d->initializer) {
-      filled = fillInitializer(ctx, section, d->initializer, offset, objectSize);
-  }
-
-  while (filled < objectSize) {
-      emitSectionByte(section, 0x00);
-      ++filled;
+    fillInitializer(ctx, section, d->initializer, offset, objectSize);
+  } else {
+    size_t filled = 0;
+    while (filled < objectSize) {
+        emitSectionByte(section, 0x00);
+        ++filled;
+    }
   }
 
   GeneratedVariable *v = allocateGenVarialbe(ctx, d);
