@@ -354,6 +354,10 @@ static AstConst* evalCast(ParserContext *ctx, TypeRef *toType, AstConst *arg) {
   if (toType->kind == TR_VALUE) {
      TypeDesc *desc = toType->descriptorDesc;
      switch (desc->typeId) {
+       case T_BOOL:
+         arg->i = arg->op == CK_FLOAT_CONST ? (int8_t)arg->f != 0.0: (int8_t)arg->i != 0;
+         arg->op = CK_INT_CONST;
+         break;
        case T_S1:
          arg->i = arg->op == CK_FLOAT_CONST ? (int8_t)arg->f : (int8_t)arg->i;
          arg->op = CK_INT_CONST;

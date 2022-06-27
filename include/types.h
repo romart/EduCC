@@ -7,6 +7,8 @@
 typedef enum _TypeId {
   T_VOID,
 
+  T_BOOL,
+
   T_S1,
   T_S2,
   T_S4,

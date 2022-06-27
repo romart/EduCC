@@ -225,7 +225,7 @@ TypeRef *commonPrimitiveType(ParserContext *ctx, TypeRef *a, TypeRef *b) {
   int sOff = sId - T_S1;
   int uOff = uId - T_U1;
 
-  return sOff> uOff  ? sT : uT;
+  return sOff > uOff  ? sT : uT;
 }
 
 TypeCastabilityKind typeCastability(TypeRef *to, TypeRef *from) {
@@ -368,6 +368,7 @@ int32_t typeAlignment(TypeRef *type) {
     case TR_VALUE: effectiveType = type;
       value_type:
       switch (effectiveType->descriptorDesc->typeId) {
+      case T_BOOL:
       case T_S1:
       case T_U1:
           return sizeof(uint8_t);
@@ -2729,6 +2730,8 @@ TypeDesc *errorTypeDescriptor = &errorTypeImpl;
 
 TypeDesc builtInTypeDescriptors[] = {
     { T_VOID, 0, "void", NULL },
+
+    { T_BOOL, 1, "_Bool", NULL },
 
     { T_S1, 1, "signed char", NULL },
     { T_S2, 2, "signed short", NULL },
