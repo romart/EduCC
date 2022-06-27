@@ -82,6 +82,7 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ARRAY_DESIGNATOR_INDEX_EXCEED, "array designator index (%ld) exceeds array bounds (%ld)"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, INITIALIZER_OVERRIDE, "initializer overrides prior initialization of this subobject"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, NOT_SCALAR_INITIALZIER, "expected scalar initializer"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, FLEXIBLE_MEMBER_INIT, "initialization of flexible array member is not allowed"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, UNDECLARED_ID_USE, "use of undeclared identifier '%s'"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, REGISTER_ADDRESS, "address of register variable requested"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, SIZEOF_INCOMPLETE_TYPE, "invalid application of 'sizeof' to an incomplete type '%tr'"), \

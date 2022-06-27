@@ -1282,7 +1282,7 @@ static AstExpression *parenIfNeeded(ParserContext *ctx, AstExpression *expr) {
   }
 }
 
-static AstInitializer *typeInitializer(ParserContext *ctx, TypeRef *valueType, int32_t offset);
+static AstInitializer *typeInitializer(ParserContext *ctx, TypeRef *valueType, int32_t offset, unsigned flexible);
 static ParsedInitializer *finalizeInitializerInternal(ParserContext *ctx, ParsedInitializer *initializer, AstInitializer *semaInit, Boolean isTopLevel);
 
 static void fillInitializer(ParserContext *ctx, AstInitializer *semaInit) {
@@ -1306,6 +1306,12 @@ static void fillInitializer(ParserContext *ctx, AstInitializer *semaInit) {
       semaInit->expression->type = type;
       semaInit->state = IS_FILLED;
       return ;
+  }
+
+  if (type->kind == TR_ARRAY && semaInit->isFlexible) {
+      type->arrayTypeDesc.size = 0;
+      semaInit->state = IS_FILLED;
+      return;
   }
 
 
@@ -1574,7 +1580,7 @@ static AstInitializerList *findIncompleteArrayDesignatorWithFilling(ParserContex
 
   for (; idx < index; ++idx) {
       offset = ALIGN_SIZE(offset, align);
-      AstInitializer *init = typeInitializer(ctx, elementType, offset);
+      AstInitializer *init = typeInitializer(ctx, elementType, offset, FALSE);
       init->designation = DK_ARRAY;
       init->designator.index = idx;
       init->coordinates = parsed->coords;
@@ -1585,7 +1591,7 @@ static AstInitializerList *findIncompleteArrayDesignatorWithFilling(ParserContex
   }
 
   current = current->next = createAstInitializerList(ctx);
-  AstInitializer *init = typeInitializer(ctx, elementType, offset);
+  AstInitializer *init = typeInitializer(ctx, elementType, offset, FALSE);
   init->designation = DK_ARRAY;
   init->designator.index = index;
   current->initializer = init;
@@ -1653,7 +1659,7 @@ static ParsedInitializer *initializeIncompleteArray(ParserContext *ctx, ParsedIn
           }
       } else if (prev->next == NULL) {
           current = prev->next = createAstInitializerList(ctx);
-          init = typeInitializer(ctx, elementType, offset);
+          init = typeInitializer(ctx, elementType, offset, FALSE);
           init->designation = DK_ARRAY;
           init->designator.index = index;
           current->initializer = init;
@@ -1780,6 +1786,14 @@ static ParsedInitializer *finalizeArrayInitializer(ParserContext *ctx, ParsedIni
   TypeRef *elementType = type->arrayTypeDesc.elementType;
 
   Coordinates coords = initializer->coords;
+
+  if (semaInit->isFlexible && !isTopLevel) {
+    reportDiagnostic(ctx, DIAG_FLEXIBLE_MEMBER_INIT, &coords);
+    semaInit->kind = IK_EXPRESSION;
+    semaInit->expression = createErrorExpression(ctx, &coords);
+    semaInit->slotType = makeErrorRef(ctx);
+    return skipIncorrectDesignation(initializer);
+  }
 
   if (isCharType(elementType)) {
       Boolean enbraced = FALSE;
@@ -2036,7 +2050,7 @@ static ParsedInitializer *finalizeInitializerInternal(ParserContext *ctx, Parsed
   return finalizeScalarInitializer(ctx, initializer, semaInit, isTopLevel);
 }
 
-AstInitializer *typeInitializer(ParserContext *ctx, TypeRef *valueType, int32_t offset) {
+AstInitializer *typeInitializer(ParserContext *ctx, TypeRef *valueType, int32_t offset, unsigned flexible) {
   if (isScalarType(valueType) || valueType->kind == TR_BITFIELD) {
       AstInitializer *init = createEmptyInitializer(ctx);
       init->designation = DK_NONE;
@@ -2046,20 +2060,24 @@ AstInitializer *typeInitializer(ParserContext *ctx, TypeRef *valueType, int32_t 
       return init;
   }
 
-
   if (valueType->kind == TR_ARRAY) {
       TypeRef *elementType = valueType->arrayTypeDesc.elementType;
-      int32_t size = valueType->arrayTypeDesc.size;
       int32_t currentOffset = offset;
-      int32_t elementSize = computeTypeSize(elementType);
       int32_t elementAlign = typeAlignment(elementType);
+      int32_t size = valueType->arrayTypeDesc.size;
+      int32_t elementSize = computeTypeSize(elementType);
+
+      if (flexible) {
+          valueType = makeArrayType(ctx, UNKNOWN_SIZE, elementType);
+          size = UNKNOWN_SIZE;
+      }
 
       AstInitializerList head = { 0 }, *current = &head;
       int32_t i = 0;
 
       for (; i < size; ++i) {
           currentOffset = ALIGN_SIZE(currentOffset, elementAlign);
-          AstInitializer *elementInit = typeInitializer(ctx, elementType, currentOffset);
+          AstInitializer *elementInit = typeInitializer(ctx, elementType, currentOffset, FALSE);
           elementInit->designation = DK_ARRAY;
           elementInit->designator.index = i;
           current = current->next = createAstInitializerList(ctx);
@@ -2073,6 +2091,7 @@ AstInitializer *typeInitializer(ParserContext *ctx, TypeRef *valueType, int32_t 
       init->slotType = valueType;
       init->offset = offset;
       init->isIncomplete = size < 0;
+      init->isFlexible = flexible;
       init->initializerList = head.next;
       return init;
   }
@@ -2086,7 +2105,7 @@ AstInitializer *typeInitializer(ParserContext *ctx, TypeRef *valueType, int32_t 
 
       for (; member; member = member->next) {
           int32_t memberOffset = offset + member->offset;
-          AstInitializer *memberInit = typeInitializer(ctx, member->type, memberOffset);
+          AstInitializer *memberInit = typeInitializer(ctx, member->type, memberOffset, flexible && member->isFlexible && member->next == NULL);
           memberInit->designation = DK_STRUCT;
           if (member->name[0] == '$') {
             assert(memberInit->kind == IK_LIST);
@@ -2107,6 +2126,7 @@ AstInitializer *typeInitializer(ParserContext *ctx, TypeRef *valueType, int32_t 
       init->designation = DK_NONE;
       init->slotType = valueType;
       init->offset = offset;
+      init->isFlexible = flexible;
       init->initializerList = head.next;
 
       return init;
@@ -2117,6 +2137,15 @@ AstInitializer *typeInitializer(ParserContext *ctx, TypeRef *valueType, int32_t 
   }
 
   unreachable("Unknown type to be initialized");
+}
+
+static Boolean isFlexible(TypeRef *type) {
+  if (type->kind != TR_VALUE) return FALSE;
+
+  TypeDefiniton *def = type->descriptorDesc->typeDefinition;
+  if (def == NULL) return FALSE;
+
+  return def->isFlexible;
 }
 
 AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, ParsedInitializer *parsed, Boolean isTopLevel) {
@@ -2154,7 +2183,7 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, Pars
       }
   }
 
-  AstInitializer *semanthicInit = typeInitializer(ctx, valueType, 0);
+  AstInitializer *semanthicInit = typeInitializer(ctx, valueType, 0, isFlexible(valueType));
 
   ParsedInitializer *final = finalizeInitializerInternal(ctx, parsed, semanthicInit, isTopLevel);
   assert(final == NULL);

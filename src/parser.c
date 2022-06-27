@@ -1398,6 +1398,23 @@ static Boolean checkIfBitfieldCorrect(ParserContext *ctx, TypeRef *type, const c
   return TRUE;
 }
 
+static Boolean checkFlexibleMember(StructualMember *member) {
+  assert(member->next == NULL);
+  TypeRef *type = member->type;
+
+  if (type->kind == TR_ARRAY) {
+      if (type->arrayTypeDesc.size == UNKNOWN_SIZE) {
+          type->arrayTypeDesc.size = 0;
+          return TRUE;
+      }
+  }
+
+  if (isCompositeType(type)) {
+      return type->descriptorDesc->typeDefinition->isFlexible;
+  }
+
+  return FALSE;
+}
 
 /**
 struct_declaration_list
@@ -1425,7 +1442,7 @@ struct_declarator
     | declarator ':' constant_expression
     ;
 */
-static StructualMember *parseStructDeclarationList(ParserContext *ctx, unsigned factor) {
+static StructualMember *parseStructDeclarationList(ParserContext *ctx, unsigned factor, unsigned *flexible) {
     StructualMember head = { 0 }, *current = &head;
     int token = ctx->token->code;
     unsigned offset = 0;
@@ -1562,6 +1579,8 @@ static StructualMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
 
     verifyStructualMembers(ctx, head.next);
 
+    *flexible = current->isFlexible = checkFlexibleMember(current);
+
     return head.next;
 }
 
@@ -1600,6 +1619,7 @@ static TypeDefiniton *parseStructOrUnionDeclaration(ParserContext *ctx, enum Typ
     Boolean isDefinition = FALSE;
 
     Coordinates coords = { ctx->token };
+    unsigned flexible = 0;
     unsigned factor = ctx->token->code == STRUCT ? 1 : 0;
 
     AstAttribute *attributes = parseAttributes(ctx);
@@ -1623,7 +1643,7 @@ static TypeDefiniton *parseStructOrUnionDeclaration(ParserContext *ctx, enum Typ
         goto done;
     }
 
-    members = parseStructDeclarationList(ctx, factor);
+    members = parseStructDeclarationList(ctx, factor, &flexible);
 
     coords.right = ctx->token;
     consumeOrSkip(ctx, '}');
@@ -1634,6 +1654,7 @@ done:;
     definition->align = computeStructAlignment(members);
     definition->isDefined = isDefinition;
     definition->members = members;
+    definition->isFlexible = flexible;
 
     return definition;
 }
