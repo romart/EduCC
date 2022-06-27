@@ -994,6 +994,7 @@ Boolean checkRefArgument(ParserContext *ctx, Coordinates *coords, AstExpression 
   case EF_DOT:
   case EB_A_ACC:
   case EU_DEREF:
+  case E_COMPOUND:
       return TRUE;
   default:
       if (report) {
