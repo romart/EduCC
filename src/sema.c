@@ -2161,10 +2161,35 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, Pars
   return semanthicInit;
 }
 
+AstExpression *transformCondition(ParserContext *ctx, AstExpression *expr) {
+  if (expr == NULL) return expr;
+  if (!isRealType(expr->type)) return expr;
+
+  switch (expr->op) {
+    case EB_EQ:
+    case EB_NE:
+    case EB_LE:
+    case EB_LT:
+    case EB_GE:
+    case EB_GT:
+      return expr;
+    default: break;
+  }
+
+  long double v = 0.0L;
+  AstExpression *nullConst = createAstConst(ctx, &expr->coordinates, CK_FLOAT_CONST, &v, sizeof v);
+  nullConst->type = expr->type;
+
+  TypeRef *intType = makePrimitiveType(ctx, T_S4, 0);
+  return createBinaryExpression(ctx, EB_NE, intType, expr, nullConst);
+}
+
 AstExpression *transformTernaryExpression(ParserContext *ctx, AstExpression *expr) {
   assert(expr->op == E_TERNARY);
 
   if (isErrorType(expr->type)) return expr;
+
+  expr->ternaryExpr.condition = transformCondition(ctx, expr->ternaryExpr.condition);
 
   AstExpression *ifTrue = expr->ternaryExpr.ifTrue;
   AstExpression *ifFalse = expr->ternaryExpr.ifFalse;
