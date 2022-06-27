@@ -1,0 +1,33 @@
+FILE test/testData/parser/positive/compouldLiteralLValue.c
+  STRUCT SX
+    signed int a #0
+    signed int b #4
+    signed int c #8
+    signed int d #12
+    signed int e #16
+  STRUCT_END
+----
+  FUN signed int main 
+  BEGIN
+    *STRUCT SX pls = \
+      &(STRUCT SX)
+  INIT_BEGIN
+    signed int #0 <--- 1
+    signed int #4 <--- 2
+    signed int #8 <--- 3
+    signed int #12 <--- 4
+    signed int #16 <--- 5
+  INIT_END    
+  END
+----
+  S STRUCT SX <anon> = \
+    INIT_BEGIN
+      signed int #0 <--- 1
+      signed int #4 <--- 2
+      signed int #8 <--- 3
+      signed int #12 <--- 4
+      signed int #16 <--- 5
+    INIT_END
+----
+  *STRUCT SX sxp = \
+    <anon>
