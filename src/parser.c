@@ -1797,7 +1797,7 @@ static TypeDesc *computePrimitiveTypeDescriptor(ParserContext *ctx, TSW tsw, con
 
 
   if (tst == TST_VOID) return &builtInTypeDescriptors[T_VOID];
-  if (tst == TST_BOOL) return &builtInTypeDescriptors[T_S1];
+  if (tst == TST_BOOL) return &builtInTypeDescriptors[T_BOOL];
   if (tst == TST_CHAR) return &builtInTypeDescriptors[T_S1];
   if (tst == TST_INT) return &builtInTypeDescriptors[T_S4];
   if (tst == TST_FLOAT) return &builtInTypeDescriptors[T_F4];

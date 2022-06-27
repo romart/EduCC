@@ -565,6 +565,7 @@ static void bindLabel(GeneratedFunction *f, struct Label *l) {
 
 static void emitLoad(GeneratedFunction *f, Address *from, enum Registers to, TypeId typeId) {
   switch (typeId) {
+  case T_BOOL: emitMovxxAR(f, 0xB6, from, to); break;
   case T_S1: emitMovxxAR(f, 0xBE, from, to); break;
   case T_S2: emitMovxxAR(f, 0xBF, from, to); break;
   case T_S4: emitMoveAR(f, from, to, sizeof(int32_t)); break;
@@ -582,6 +583,7 @@ static void emitLoad(GeneratedFunction *f, Address *from, enum Registers to, Typ
 
 static void emitStore(GeneratedFunction *f, enum Registers from, Address *to, TypeId typeId) {
   switch (typeId) {
+  case T_BOOL:
   case T_S1:
   case T_U1: emitMoveRA(f, from, to, sizeof(uint8_t)); break;
   case T_S2:
@@ -1168,6 +1170,7 @@ static void generateF10toInt(GeneratedFunction *f, enum Registers to, TypeId tid
 
   int32_t size = 0;
   switch (tid) {
+    case T_BOOL:
     case T_S1: tid = T_U1;
     case T_U1:
     case T_U2: size = 2; break;
@@ -1277,11 +1280,14 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
 
     generateExpression(ctx, f, scope, cast->argument);
 
+    int32_t boolCastSize = -1;
+
     Address tos = { R_ESP, R_BAD };
 
     switch (fromTypeId) {
     case T_S1:
       switch (toTypeId) {
+        case T_BOOL: boolCastSize = 1;
         case T_S1: break;
         case T_S2: emitConvertWDQ(f, 0x98, 4); break; // cwde
         case T_S4: break;
@@ -1304,6 +1310,7 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
     case T_S2:
         switch (toTypeId) {
           case T_S1: emitMovxxRR(f, 0xBE, R_ACC, R_ACC); break; // movsb
+          case T_BOOL: boolCastSize = 2;
           case T_S2: break;
           case T_S4: break;
           case T_S8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
@@ -1325,6 +1332,7 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
         switch (toTypeId) {
           case T_S1: emitMovxxRR(f, 0xBE, R_ACC, R_ACC); break; // movsbx
           case T_S2: emitConvertWDQ(f, 0x98, 4); break; // cwde
+          case T_BOOL: boolCastSize = 4;
           case T_S4: break;
           case T_S8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
           case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break;  // movzbx
@@ -1346,6 +1354,7 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           case T_S1: emitMovxxRR(f, 0xBE, R_ACC, R_ACC); break; // movsbx
           case T_S2: emitConvertWDQ(f, 0x98, 4); break; // cwde
           case T_S4: break;
+          case T_BOOL: boolCastSize = 8;
           case T_S8: break;
           case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break;  // movzbx
           case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break;  // movzwx
@@ -1361,12 +1370,14 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           default: unreachable("unexpected type");
         }
         break;
+    case T_BOOL:
     case T_U1:
         switch (toTypeId) {
           case T_S1: emitMovxxRR(f, 0xBE, R_ACC, R_ACC); break; // movsbx
           case T_S2: emitConvertWDQ(f, 0x98, 4); break; // cwde
           case T_S4: break;
           case T_S8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
+          case T_BOOL: boolCastSize = 1;
           case T_U1: break;
           case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break; // movzbx
           case T_U4: break;
@@ -1389,6 +1400,7 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           case T_S4: break;
           case T_S8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
           case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break;  // movzbx
+          case T_BOOL: boolCastSize = 2;
           case T_U2: break;
           case T_U4: break;
           case T_U8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
@@ -1410,6 +1422,7 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           case T_S8: emitMoveRR(f, R_ACC, R_ACC, sizeof(int32_t)); break; // mov
           case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break;  // movzbx
           case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break;  // movzwx
+          case T_BOOL: boolCastSize = 4;
           case T_U4: break;
           case T_U8: emitMoveRR(f, R_ACC, R_ACC, 4); break; // mov
           case T_F4:
@@ -1437,6 +1450,7 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break;  // movzbx
           case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break;  // movzwx
           case T_U4: break;
+          case T_BOOL: boolCastSize = 8;
           case T_U8: break;
           case T_F4: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, TRUE); break; // cvtsi2ss rax, xmm0
           case T_F8: generateU8toF8(f, R_ACC, R_FACC); break;
@@ -1456,7 +1470,8 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
             break;
           case T_S4: emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE); break; // cvttss2si eax, xmm0
           case T_S8: emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, TRUE); break; // cvttss2si eax, xmm0
-          case T_U1: break;
+          case T_BOOL: boolCastSize = 1;
+          case T_U1:
             emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE);  // cvttss2si eax, xmm0
             emitMovxxRR(f, 0xB6, R_ACC, R_ACC); // movzbx
             break;
@@ -1490,6 +1505,7 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
             emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE);
             break; // cvttsd2si eax, xmm0
           case T_S8: emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, TRUE); break; // cvttsd2si eax, xmm0
+          case T_BOOL: boolCastSize = 1;
           case T_U1:
             emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE); // cvttsd2si eax, xmm0
             emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
@@ -1512,6 +1528,10 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
         break;
     case T_F10:
         switch (toTypeId) {
+          case T_BOOL:
+            boolCastSize = 1;
+            generateF10toInt(f, R_ACC, T_U1);
+            break;
           case T_S1:
           case T_S2:
           case T_S4:
@@ -1532,6 +1552,11 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
         break;
     default:
         unreachable("unexpected type");
+    }
+
+    if (toTypeId == T_BOOL) {
+      emitTestRR(f, R_ACC, R_ACC, boolCastSize);
+      emitSetccR(f, JC_NOT_ZERO, R_ACC);
     }
 }
 
@@ -2438,6 +2463,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
       TypeId tid = typeToId(returnType);
       switch (tid) {
       case T_S1: emitMovxxRR(f, 0xBE, R_ACC, R_ACC); break;
+      case T_BOOL:
       case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break;
       case T_S2: emitMovxxRR(f, 0xBF, R_ACC, R_ACC); break;
       case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break;
