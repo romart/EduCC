@@ -3523,7 +3523,8 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
   generateBlock(ctx, gen, &f->body->block, 0);
   assert(gen->stackOffset == 0);
 
-  if (gen->section->pc[-1] != 0xC3) {
+//  if (gen->section->pc[-1] != 0xC3) {
+   // TODO check if last AST node isn't return
     TypeRef * returnType = f->declaration->returnType;
     size_t returnTypeSize = computeTypeSize(returnType);
     if (isCompositeType(returnType) && returnTypeSize > sizeof(intptr_t)) {
@@ -3533,7 +3534,7 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
 
     popFrame(ctx, gen);
     emitReturn(ctx, gen);
-  }
+//  }
 
   gen->bodySize = (gen->section->pc - gen->section->start) - gen->sectionOffset;
 
