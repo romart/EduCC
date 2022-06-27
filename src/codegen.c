@@ -1773,7 +1773,12 @@ static void leaRelocatable(GeneratedFunction *f, Address *addr, enum Registers r
 
 static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression, Address *addr) {
 
-  if (expression->op == E_NAMEREF) {
+  if (expression->op == E_COMPOUND && isScalarType(expression->type)) {
+      generateExpression(ctx, f, scope, expression);
+      addr->base = R_ACC;
+      addr->index = R_BAD;
+      addr->scale = addr->imm = 0;
+  } else if (expression->op == E_NAMEREF) {
     Symbol *s = expression->nameRefExpr.s;
     if (s->kind == ValueSymbol && s->variableDesc->flags.bits.isLocal) {
       localVarAddress(ctx, s, addr);

@@ -82,6 +82,17 @@ static AstStatementList *allocateStmtList(ParserContext *ctx, AstStatement *stmt
   return result;
 }
 
+static void addToFile(AstFile *file, AstTranslationUnit *newUnit) {
+  AstTranslationUnit *tail = file->last;
+  if (tail) {
+    tail->next = newUnit;
+    file->last = newUnit;
+  } else {
+    file->units = file->last = newUnit;
+  }
+}
+
+
 static AstStatement *parseCompoundStatement(ParserContext *ctx, Boolean asExpr);
 static ParsedInitializer *parseInitializer(ParserContext *ctx);
 static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, DeclaratorScope scope);
@@ -616,6 +627,26 @@ static void useLabelExpr(ParserContext *ctx, AstExpression *expr, AstStatement *
   ctx->labels.usedLabels = used;
 }
 
+static AstValueDeclaration *wrapIntoGvar(ParserContext *ctx, AstExpression *compund) {
+  TypeRef *type = compund->type;
+
+  SpecifierFlags flags = { 0 };
+  flags.bits.isStatic = 1;
+
+  const char *name = "<anon>";
+  AstValueDeclaration *valueDeclaration = createAstValueDeclaration(ctx, &compund->coordinates, VD_VARIABLE, type, name, 0, flags.storage, compund->compound);
+  Symbol *s = newSymbol(ctx, ValueSymbol, name);
+  valueDeclaration->symbol = s;
+  s->variableDesc = valueDeclaration;
+
+  AstDeclaration *declaration = createAstDeclaration(ctx, DK_VAR, name);
+  declaration->variableDeclaration = valueDeclaration;
+
+  addToFile(ctx->parsedFile, createTranslationUnit(ctx, declaration, NULL));
+
+  return valueDeclaration;
+}
+
 static AstExpression *parseRefExpression(ParserContext *ctx) {
   assert(ctx->token->code == '&');
   Coordinates coords = { ctx->token };
@@ -664,6 +695,11 @@ static AstExpression *parseRefExpression(ParserContext *ctx) {
       if (fieldType->kind == TR_BITFIELD) {
           reportDiagnostic(ctx, DIAG_BIT_FIELD_ADDRESS, &coords);
       }
+  } else if (argument->op == E_COMPOUND && ctx->stateFlags.inStaticScope) {
+      AstValueDeclaration *v = wrapIntoGvar(ctx, argument);
+      AstExpression *result = createNameRef(ctx, &coords, v->name, v->symbol);
+      result->type = makePointedType(ctx, 0, v->type);
+      return result;
   }
   checkRefArgument(ctx, &coords, argument, TRUE);
 
@@ -2924,16 +2960,6 @@ declaration_list
  */
 static void* parseDeclarationList(ParserContext *ctx, struct _Scope* scope) {
     return NULL;
-}
-
-static void addToFile(AstFile *file, AstTranslationUnit *newUnit) {
-  AstTranslationUnit *tail = file->last;
-  if (tail) {
-    tail->next = newUnit;
-    file->last = newUnit;
-  } else {
-    file->units = file->last = newUnit;
-  }
 }
 
 static void verifyLabels(ParserContext *ctx) {
