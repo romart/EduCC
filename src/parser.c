@@ -97,8 +97,8 @@ static AstStatement *parseCompoundStatement(ParserContext *ctx, Boolean asExpr);
 static ParsedInitializer *parseInitializer(ParserContext *ctx);
 static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, DeclaratorScope scope);
 static void parseDeclarator(ParserContext *ctx, Declarator *declarator);
-static TypeDefiniton *processTypedef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator);
-static AstDeclaration *parseDeclaration(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator, TypeRef *type, Boolean isTopLevel);
+static TypeDefiniton *processTypedef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator, DeclaratorScope scope);
+static AstDeclaration *parseDeclaration(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator, TypeRef *type, AstStatementList **extra, Boolean isTopLevel, DeclaratorScope scope);
 
 static void verifyDeclarator(ParserContext *ctx, Declarator *declarator, DeclaratorScope scope);
 static Boolean verifyDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers *specifiers, DeclaratorScope scope);
@@ -479,7 +479,7 @@ static TypeRef* parseTypeName(ParserContext *ctx, struct _Scope *scope, Declarat
         reportDiagnostic(ctx, DIAG_UNKNOWN_TYPE_NAME, &specifiers.coordinates, declarator.identificator);
     }
 
-    return makeTypeRef(ctx, &specifiers, &declarator);
+    return makeTypeRef(ctx, &specifiers, &declarator, ds_scope);
 }
 
 /**
@@ -786,23 +786,28 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx, struct _Scope* sc
             }
 
             if (isErrorType(sizeType)) {
-                return argument;
+              return argument;
+            } else if (code == ALIGNOF) {
+              long long c = typeAlignment(sizeType);
+              AstExpression *constVal = createAstConst(ctx, &coords, CK_INT_CONST, &c, 0);
+              constVal->type = makePrimitiveType(ctx, T_U8, 0);
+              return constVal;
             } else {
-                long long c = code == SIZEOF ? computeTypeSize(sizeType) : typeAlignment(sizeType);
-                AstExpression *constVal = NULL;
-                if (c >= 0) {
-                    constVal = createAstConst(ctx, &coords, CK_INT_CONST, &c, 0);
-                    constVal->type = makePrimitiveType(ctx, T_U8, 0);
+                if (sizeType->kind == TR_VLA) {
+                  AstExpression *tmp = computeVLASize(ctx, &coords, sizeType);
+                  tmp->coordinates = coords;
+                  return tmp;
                 } else {
-                    reportDiagnostic(ctx, DIAG_SIZEOF_INCOMPLETE_TYPE, &coords, sizeType);
-                    constVal = createErrorExpression(ctx, &coords);
-                }
+                  long long c = computeTypeSize(sizeType);
+                  AstExpression *constVal = NULL;
+                  if (c >= 0) {
+                      constVal = createAstConst(ctx, &coords, CK_INT_CONST, &c, 0);
+                      constVal->type = makePrimitiveType(ctx, T_U8, 0);
+                  } else {
+                      reportDiagnostic(ctx, DIAG_SIZEOF_INCOMPLETE_TYPE, &coords, sizeType);
+                      constVal = createErrorExpression(ctx, &coords);
+                  }
 
-                if (argument) {
-                  result = createBinaryExpression(ctx, EB_COMMA, constVal->type, argument, constVal);
-                  result->type = constVal->type;
-                  return result;
-                } else {
                   return constVal;
                 }
             }
@@ -1399,6 +1404,7 @@ static Boolean checkIfBitfieldCorrect(ParserContext *ctx, TypeRef *type, const c
 }
 
 static Boolean checkFlexibleMember(StructualMember *member) {
+  if (member == NULL) return FALSE;
   assert(member->next == NULL);
   TypeRef *type = member->type;
 
@@ -1495,7 +1501,7 @@ static StructualMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
             }
 
             const char *name = declarator.identificator;
-            TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
+            TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator, DS_STRUCT);
 
             if (!name && definition && definition->isDefined) {
               /** Handle that case
@@ -1552,6 +1558,11 @@ static StructualMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
 
               if (!hasWidth) {
                 offset = alignMemberOffset(type, offset);
+              }
+
+              if (type->kind == TR_VLA) {
+                  reportDiagnostic(ctx, DIAG_FIELD_NON_CONSTANT_SIZE, &coords);
+                  type = makeErrorRef(ctx);
               }
 
               current = current->next = createStructualMember(ctx, &coords, name, type, offset);
@@ -1658,8 +1669,6 @@ done:;
 
     return definition;
 }
-
-
 
 /**
 declaration_specifiers
@@ -2351,10 +2360,11 @@ static void parseParameterList(ParserContext *ctx, FunctionParams *params, struc
           coords.right = declarator.coordinates.right;
           const char *name = declarator.identificator;
 
-          type = makeTypeRef(ctx, &specifiers, &declarator);
+          type = makeTypeRef(ctx, &specifiers, &declarator, DS_PARAMETERS);
           if (type->kind == TR_FUNCTION) {
               type = makePointedType(ctx, 0U, type);
           } else if (type->kind == TR_ARRAY) {
+              // TODO: probably it is redundant fix
               if (type->arrayTypeDesc.size < 0) {
                   // int foo(int a[]) -> int foo(const int *a)
                   TypeRef *arrayType = type;
@@ -2424,8 +2434,6 @@ static void parseFunctionDeclaratorPart(ParserContext *ctx, Declarator *declarat
 
   part->next = declarator->declaratorParts;
 
-//  if (declarator->functionDeclarator == NULL)
-//    declarator->functionDeclarator = declarator->declaratorParts ? NULL : part;
   declarator->declaratorParts = part;
 
   ctx->currentScope = paramScope->parent;
@@ -2433,19 +2441,78 @@ static void parseFunctionDeclaratorPart(ParserContext *ctx, Declarator *declarat
   consumeOrSkip(ctx, ')');
 }
 
+static void parseQualifierPrefix(ParserContext *ctx, DeclaratorPart *part) {
+  Token *t = ctx->token;
+
+  while (isTypeQualifierToken(t->code)) {
+      if (t->code == CONST) {
+          part->arrayDeclarator.isConst = 1;
+      }
+      if (t->code == VOLATILE) {
+          part->arrayDeclarator.isVolatile = 1;
+      }
+      if (t->code == RESTRICT) {
+          part->arrayDeclarator.isRestrict = 1;
+      }
+      t = nextToken(ctx);
+  }
+
+}
+
 static void parseArrayDeclaratorPart(ParserContext *ctx, Declarator *declarator) {
   Token *l = ctx->token;
   consume(ctx, '[');
-  int64_t size = UNKNOWN_SIZE;
+  AstExpression *sizeExpression = NULL;
+  DeclaratorPart *part = allocateDeclaratorPart(ctx);
+
+  Token *staticKW = NULL;
+
   if (ctx->token->code != ']') {
-      parseAsIntConst(ctx, &size);
+      if (ctx->token->code == STATIC) {
+          // check if it's in function prototype scope
+          staticKW = ctx->token;
+          nextToken(ctx);
+      }
+
+      parseQualifierPrefix(ctx, part);
+
+      if (staticKW == NULL && ctx->token->code == STATIC) {
+          staticKW = ctx->token;
+          nextToken(ctx);
+      }
+
+      Token *saved = ctx->token;
+      Token *next = nextToken(ctx);
+
+      if (saved->code == ']') {
+          if (staticKW) {
+              Coordinates coords = { staticKW, staticKW };
+              reportDiagnostic(ctx, DIAG_ARRAY_STATIC_WITHOUT_SIZE, &coords);
+              staticKW = NULL;
+          }
+          ctx->token = saved;
+      } else if (saved->code == '*' && next->code == ']') {
+          part->arrayDeclarator.isStar = 1;
+          if (staticKW) {
+            Coordinates coords = { staticKW, staticKW };
+            reportDiagnostic(ctx, DIAG_UNSPECIFIED_ARRAY_LENGTH_STATIC, &coords);
+            staticKW = NULL;
+          }
+      } else {
+          ctx->token = saved;
+          sizeExpression = parseAssignmentExpression(ctx, NULL);
+          if (!isIntegerType(sizeExpression->type)) {
+              reportDiagnostic(ctx, DIAG_ARRAY_SIZE_NOT_INT, &sizeExpression->coordinates, sizeExpression->type);
+              sizeExpression = createErrorExpression(ctx, &sizeExpression->coordinates);
+          }
+      }
   }
 
-  DeclaratorPart *part = allocateDeclaratorPart(ctx);
   part->coordinates.left = l;
   part->coordinates.right = declarator->coordinates.right = ctx->token;
   part->kind = DPK_ARRAY;
-  part->arraySize = size;
+  part->arrayDeclarator.isStatic = staticKW != NULL;
+  part->arrayDeclarator.sizeExpression = sizeExpression;
 
   part->next = declarator->declaratorParts;
   declarator->declaratorParts = part;
@@ -2613,8 +2680,12 @@ static AstStatementList *parseForInitial(ParserContext *ctx) {
 
       if (declarator.identificator) {
           AstDeclaration *result = NULL;
-          TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
-          result = parseDeclaration(ctx, &specifiers, &declarator, type, FALSE);
+          AstStatementList *extra = NULL;
+          TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator, DS_FOR);
+          result = parseDeclaration(ctx, &specifiers, &declarator, type, &extra, FALSE, DS_FOR);
+          for (; extra; extra = extra->next) {
+              current = current->next = extra;
+          }
           current = current->next = allocateStmtList(ctx, createDeclStatement(ctx, &declarator.coordinates, result));
       }
 
@@ -2867,12 +2938,15 @@ static AstStatement *parseCompoundStatementImpl(ParserContext *ctx, Boolean asEx
                     verifyDeclarator(ctx, &declarator, DS_STATEMENT);
 
                     if (specifiers.flags.bits.isTypedef) {
-                        processTypedef(ctx, &specifiers, &declarator);
+                        processTypedef(ctx, &specifiers, &declarator, DS_STATEMENT);
                     } else {
-                        TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
-                        AstDeclaration *declaration = parseDeclaration(ctx, &specifiers, &declarator, type, FALSE);
-                        AstStatement *declStmt = createDeclStatement(ctx, &declaration->variableDeclaration->coordinates, declaration);
-                        current = current->next = allocateStmtList(ctx, declStmt);
+                        TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator, DS_STATEMENT);
+                        AstStatementList *extra = NULL;
+                        AstDeclaration *declaration = parseDeclaration(ctx, &specifiers, &declarator, type, &extra, FALSE, DS_STATEMENT);
+                        for (; extra; extra = extra->next) {
+                            current = current->next = extra;
+                        }
+                        current = current->next = allocateStmtList(ctx, createDeclStatement(ctx, &declaration->variableDeclaration->coordinates, declaration));
                     }
                 } while (nextTokenIf(ctx, ','));
             } else {
@@ -3035,12 +3109,21 @@ static DeclaratorPart *findFunctionalPart(Declarator *declarator) {
   return result;
 }
 
-static void trasnformParameters(ParserContext *ctx, AstValueDeclaration *params) {
+static void trasnformAndCheckParameters(ParserContext *ctx, AstValueDeclaration *params, Boolean isDefinition) {
   for (; params; params = params->next) {
       TypeRef *type = params->type;
       if (type->kind == TR_ARRAY) {
           params->type = makePointedType(ctx, 0, type->arrayTypeDesc.elementType);
       }
+      if (type->kind == TR_VLA) {
+          if (type->vlaDescriptor.sizeExpression == NULL && isDefinition) {
+              reportDiagnostic(ctx, DIAG_UNBOUND_VLA_IN_DEFINITION, &params->coordinates);
+              params->type = makeErrorRef(ctx);
+          } else {
+              params->type = makePointedType(ctx, 0, type->vlaDescriptor.elementType);
+          }
+      }
+
   }
 }
 
@@ -3059,12 +3142,14 @@ static AstTranslationUnit *parseFunctionDeclaration(ParserContext *ctx, Declarat
       reportDiagnostic(ctx, DIAG_ILLEGAL_INIT_ONLY_VARS, &eqCoords);
   };
 
-  trasnformParameters(ctx, params);
+  Boolean isDefinition = ctx->token->code == '{';
+
+  trasnformAndCheckParameters(ctx, params, isDefinition);
 
   AstFunctionDeclaration *declaration = createFunctionDeclaration(ctx, &coords, functionalType, returnType, funName, specifiers->flags.storage, params, functionalPart->parameters.isVariadic);
   declaration->symbol = declareFunctionSymbol(ctx, funName, declaration);
 
-  if (ctx->token->code != '{') {
+  if (!isDefinition) {
       AstDeclaration *astDeclaration = createAstDeclaration(ctx, DK_PROTOTYPE, funName);
       astDeclaration->functionProrotype = declaration;
       return createTranslationUnit(ctx, astDeclaration, NULL);
@@ -3102,7 +3187,41 @@ static AstTranslationUnit *parseFunctionDeclaration(ParserContext *ctx, Declarat
   return createTranslationUnit(ctx, NULL, definition);
 }
 
-static AstDeclaration *parseDeclaration(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator, TypeRef *type, Boolean isTopLevel) {
+static AstStatementList *allocVLASizes(ParserContext *ctx, Coordinates *coords, TypeRef *type, const char *name, int depth) {
+  TypeRef *elementType = type->vlaDescriptor.elementType;
+
+  AstStatementList *next = NULL;
+
+  if (type->vlaDescriptor.sizeExpression == NULL) return NULL;
+
+  char *lName = allocateString(ctx, 1 + strlen(name) + 1 + 1 + 3 + 6 + 1 + 1);
+  sprintf(lName, "<%s.%d.length>", name, depth);
+  TypeRef *lType = makePrimitiveType(ctx, T_U8, 0);
+  AstExpression *sizeExpression = type->vlaDescriptor.sizeExpression;
+  AstInitializer *lInit = createAstInitializer(ctx, &sizeExpression->coordinates, IK_EXPRESSION);
+  lInit->slotType = lType;
+  lInit->offset = 0;
+  lInit->state = IS_INIT;
+  lInit->expression = createCastExpression(ctx, &sizeExpression->coordinates, lType, sizeExpression);
+  AstValueDeclaration *length = createAstValueDeclaration(ctx, coords, VD_VARIABLE, lType, lName, 0, 0, lInit);
+  type->vlaDescriptor.sizeSymbol = length->symbol = newSymbol(ctx, ValueSymbol, lName);
+  length->symbol->variableDesc = length;
+  length->flags.bits.isLocal = 1;
+  AstDeclaration *lDecl = createAstDeclaration(ctx, DK_VAR, lName);
+  lDecl->variableDeclaration = length;
+  length->next = ctx->locals;
+  ctx->locals = length;
+
+  AstStatementList *node = allocateStmtList(ctx, createDeclStatement(ctx, coords, lDecl));
+
+  if (elementType->kind == TR_VLA) {
+      node->next = allocVLASizes(ctx, coords, elementType, name, depth + 1);
+  }
+
+  return node;
+}
+
+static AstDeclaration *parseDeclaration(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator, TypeRef *type, AstStatementList **extra, Boolean isTopLevel, DeclaratorScope scope) {
   Coordinates coords = { specifiers->coordinates.left, declarator->coordinates.right };
 
   Boolean isTypeOk = verifyValueType(ctx, &coords, type);
@@ -3111,6 +3230,12 @@ static AstDeclaration *parseDeclaration(ParserContext *ctx, DeclarationSpecifier
 
   const char *name = declarator->identificator;
   isTopLevel |= specifiers->flags.bits.isStatic;
+
+  if (isTopLevel && type->kind == TR_VLA) {
+    enum DiagnosticId diag = scope == DS_FILE ? DIAG_VLA_FILE_SCOPE : DIAG_VLA_STATIC_DURATION;
+    reportDiagnostic(ctx, diag, &coords);
+    type = makeErrorRef(ctx);
+  }
 
   AstValueDeclaration *valueDeclaration = createAstValueDeclaration(ctx, &coords, VD_VARIABLE, type, name, 0, specifiers->flags.storage, NULL);
   valueDeclaration->flags.bits.isLocal = !isTopLevel;
@@ -3143,10 +3268,21 @@ static AstDeclaration *parseDeclaration(ParserContext *ctx, DeclarationSpecifier
       ctx->locals = valueDeclaration;
   }
 
+  if (type->kind == TR_VLA) {
+      assert(extra);
+      *extra = allocVLASizes(ctx, &coords, type, name, 0);
+      AstInitializer *init = valueDeclaration->initializer = createAstInitializer(ctx, &coords, IK_EXPRESSION);
+      AstExpression *vlaFullSize = computeVLASize(ctx, &coords, type);
+      init->offset = 0;
+      init->slotType = vlaFullSize->type;
+      init->state = IS_INIT;
+      init->expression = vlaFullSize;
+  }
+
   return declaration;
 }
 
-static TypeDefiniton *processTypedef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator) {
+static TypeDefiniton *processTypedef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator, DeclaratorScope scope) {
   assert(specifiers->flags.bits.isTypedef);
   if (ctx->token->code == '=') {
       Coordinates eqCoords = { ctx->token, ctx->token };
@@ -3158,7 +3294,13 @@ static TypeDefiniton *processTypedef(ParserContext *ctx, DeclarationSpecifiers *
       reportDiagnostic(ctx, DIAG_INLINE_NON_FUNC, &specifiers->coordinates);
   }
 
-  TypeRef *type = makeTypeRef(ctx, specifiers, declarator);
+  TypeRef *type = makeTypeRef(ctx, specifiers, declarator, scope);
+
+  if (type->kind == TR_VLA && scope == DS_FILE) {
+      reportDiagnostic(ctx, DIAG_VLA_FILE_SCOPE, &declarator->coordinates);
+      type = makeErrorRef(ctx);
+  }
+
   const char *name = declarator->identificator;
   Coordinates coords = { specifiers->coordinates.left, declarator->coordinates.right };
   if (name) {
@@ -3224,10 +3366,10 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
     verifyDeclarator(ctx, &declarator, DS_FILE);
 
     AstDeclaration *declaration = NULL;
-    TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator);
+    TypeRef *type = makeTypeRef(ctx, &specifiers, &declarator, DS_FILE);
 
     if (isTypeDefDeclaration) { // typedef x y;
-      processTypedef(ctx, &specifiers, &declarator);
+      processTypedef(ctx, &specifiers, &declarator, DS_FILE);
     } else if (type->kind == TR_FUNCTION) { // int foo(int x) | int bar(int y) {}
       if (ctx->token->code == '{' && unitIdx) {
           Coordinates coords3 = { ctx->token, ctx->token };
@@ -3240,7 +3382,7 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
         return;
       }
     } else { // int var = 10;
-      AstDeclaration *declaration = parseDeclaration(ctx, &specifiers, &declarator, type, TRUE);
+      AstDeclaration *declaration = parseDeclaration(ctx, &specifiers, &declarator, type, NULL, TRUE, DS_FILE);
       addToFile(file, createTranslationUnit(ctx, declaration, NULL));
     }
     ++unitIdx;

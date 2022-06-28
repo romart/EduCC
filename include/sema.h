@@ -17,6 +17,7 @@ int typeIdSize(TypeId id);
 TypeId typeToId(TypeRef *type);
 int computeTypeSize(TypeRef *type);
 int32_t computeTypeDefinitionSize(ParserContext *ctx, TypeDefiniton *definition);
+AstExpression *computeVLASize(ParserContext *ctx, Coordinates *coords, TypeRef *type);
 
 TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, Coordinates *coords, TypeRef *arrayType, TypeRef *indexType);
 StructualMember *computeMember(ParserContext *ctx, Coordinates *coords, TypeRef *_receiverType, const char *memberName, ExpressionType op);
@@ -146,7 +147,7 @@ TypeRef *makeBasicType(ParserContext *ctx, TypeDesc *descriptor, unsigned flags)
 TypeRef* makePointedType(ParserContext *ctx, unsigned flags, TypeRef *pointedTo);
 TypeRef *makeArrayType(ParserContext *ctx, int size, TypeRef *elementType);
 TypeRef *makeFunctionType(ParserContext *ctx, TypeRef *returnType, FunctionParams *params);
-TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator);
+TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator, DeclaratorScope scope);
 TypeRef *makeBitFieldType(ParserContext *ctx, TypeRef *storage, unsigned offset, unsigned width);
 TypeRef *makeErrorRef(ParserContext *ctx);
 

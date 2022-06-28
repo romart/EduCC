@@ -2181,25 +2181,16 @@ static enum Opcodes selectIncDecOpcode(ExpressionType astOp, TypeRef *type) {
   }
 }
 
-
-static Boolean generateAlloca(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
-  AstExpression *callee = expression->callExpr.callee;
-
-  if (callee->op != E_NAMEREF) return FALSE;
-  if (strcmp("alloca", callee->nameRefExpr.s->name)) return FALSE;
-
-  const int32_t dataSize = sizeof(intptr_t);
+static void generateAllocaImpl(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *size) {
   // alloca algo consts of three steps:
   // 1. move existing stack down on allocating delta
   // 2. set new rsp
   // 3. save new alloca stack border which is also a result of alloca
 
   // callee-saved regs: R_EBX, R_R12, R_R13, R_R14, R_R15
+  const int32_t dataSize = sizeof(intptr_t);
 
-  AstExpressionList *args = expression->callExpr.arguments;
-  assert(args->next == NULL);
-
-  generateExpression(ctx, f, scope, args->expression);
+  generateExpression(ctx, f, scope, size);
 
   int32_t alignment = 2 * dataSize;
 
@@ -2249,6 +2240,21 @@ static Boolean generateAlloca(GenerationContext *ctx, GeneratedFunction *f, Scop
   emitNegR(f, delta, dataSize);
   emitArithRR(f, OP_ADD, delta, r_sab, dataSize);
   emitMoveRA(f, R_ACC, &sabAddress, dataSize);
+}
+
+static Boolean generateAlloca(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
+  AstExpression *callee = expression->callExpr.callee;
+
+  if (callee->op != E_NAMEREF) return FALSE;
+  if (strcmp("alloca", callee->nameRefExpr.s->name)) return FALSE;
+
+  const int32_t dataSize = sizeof(intptr_t);
+  AstExpressionList *args = expression->callExpr.arguments;
+  assert(args->next == NULL);
+
+  generateAllocaImpl(ctx, f, scope, args->expression);
+
+  return TRUE;
 }
 
 static const enum Registers intArgumentRegs[] = { R_ARG_0, R_ARG_1, R_ARG_2, R_ARG_3, R_ARG_4, R_ARG_5 };
@@ -3213,6 +3219,15 @@ static int generateForStatement(GenerationContext *ctx, GeneratedFunction *f, As
   return frameSize;
 }
 
+static void allocateVLAMemory(GenerationContext *ctx, GeneratedFunction *f, GeneratedVariable *v, AstInitializer *init, TypeRef *type) {
+  assert(init && init->kind == IK_EXPRESSION);
+
+  generateAllocaImpl(ctx, f, NULL, init->expression);
+
+  Address addr = { R_EBP, R_BAD, 0, v->baseOffset };
+  emitStore(f, R_ACC, &addr, T_U8);
+}
+
 static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstStatement *stmt, Scope *scope, size_t frameOffset) {
 
   switch (stmt->statementKind) {
@@ -3231,8 +3246,12 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
 
         if (v->flags.bits.isLocal) {
             assert(v->gen);
-            if (v->initializer) {
-                emitLocalInitializer(ctx, f, scope, v->type, v->gen->baseOffset, v->initializer);
+            if (v->type->kind == TR_VLA) {
+                allocateVLAMemory(ctx, f, v->gen, v->initializer, v->type);
+            } else {
+              if (v->initializer) {
+                  emitLocalInitializer(ctx, f, scope, v->type, v->gen->baseOffset, v->initializer);
+              }
             }
         } else {
           assert(v->flags.bits.isStatic);

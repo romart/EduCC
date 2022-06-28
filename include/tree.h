@@ -388,7 +388,14 @@ typedef struct _DeclaratorPart {
     struct _DeclaratorPart *next;
     union {
       SpecifierFlags flags;
-      int arraySize;
+      struct {
+        AstExpression *sizeExpression;
+        unsigned isStatic : 1;
+        unsigned isRestrict: 1;
+        unsigned isConst : 1;
+        unsigned isVolatile : 1;
+        unsigned isStar: 1;
+      } arrayDeclarator;
       FunctionParams parameters;
     };
 } DeclaratorPart;
@@ -410,7 +417,6 @@ typedef struct _Declarator {
     Coordinates idCoordinates;
     const char* identificator;
     DeclaratorPart *declaratorParts;
-    DeclaratorPart *functionDeclarator;
 } Declarator;
 
 typedef struct _EnumConstant {

@@ -54,6 +54,18 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, FUNCTION_RETURN_ARRAY_TYPE, "function cannot return array type '%tr'"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ARRAY_OF_FUNCTIONS_ILLEGAL, "Array of functions is illegal type '%tr'"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ARRAY_SUBSCRIPT_NOT_INT, "array subscript is not an integer"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ARRAY_SIZE_NOT_INT, "size of array has non-integer type '%tr'"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, UNSPECIFIED_ARRAY_LENGTH_STATIC, "'static' may not be used with an unspecified variable length array size"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, DECLARED_ARRAY_NEGATIVE_SIZE, "'%s' declared as an array with a negative size"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ARRAY_NEGATIVE_SIZE, "array size is negative"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ARRAY_STAR_OUTSIDE_PROTOTYPE, "star modifier used outside of function prototype"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, VM_OBJECT_MAY_NOT_BE_INITIALIZED, "variable-sized object may not be initialized"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, FIELD_NON_CONSTANT_SIZE, "fields must have a constant size"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, VLA_STATIC_DURATION, "variable length array declaration cannot have 'static' storage duration"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, VLA_FILE_SCOPE, "variable length array declaration not allowed at file scope"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, UNBOUND_VLA_IN_DEFINITION, "variable length array must be bound in function definition"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ARRAY_STATIC_WITHOUT_SIZE, "'static' may not be used without an array size"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ARRAY_MODIFIER_NOT_IN_PROTOTYPE, "'%s' used in array declarator outside of function prototype"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, SUBSCRIPTED_NOT_A_POINTER, "subscripted value is not an array or pointer"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, INVOKE_NOT_FUNCTIONAL, "called object type '%tr' is not a function or function pointer"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, MEMBER_REF_NOT_A_POINTER, "member reference type '%tr' is not a pointer"), \

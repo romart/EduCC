@@ -106,6 +106,13 @@ TypeEqualityKind typeEquality(TypeRef *t1, TypeRef *t2) {
       }
   }
 
+
+  if (t1->kind == TR_VLA && t2->kind == TR_VLA) {
+      if (t1->vlaDescriptor.sizeSymbol == t2->vlaDescriptor.sizeSymbol) return TEK_EQUAL;
+
+      return typeEquality(t1->vlaDescriptor.elementType, t2->vlaDescriptor.elementType);
+  }
+
   if (t1->kind == TR_POINTED && t2->kind == TR_ARRAY || t2->kind == TR_POINTED && t1->kind == TR_ARRAY) {
       TypeRef *arrayType = t1->kind == TR_ARRAY ? t1 : t2;
       TypeRef *pointerType = t1 == arrayType ? t2 : t1;
@@ -306,7 +313,7 @@ static Boolean isPrimitiveType(TypeRef *type) {
 }
 
 Boolean isPointerLikeType(TypeRef *type) {
-  return type->kind == TR_POINTED || type->kind == TR_ARRAY;
+  return type->kind == TR_POINTED || type->kind == TR_ARRAY || type->kind == TR_VLA;
 }
 
 Boolean isScalarType(TypeRef *type) {
@@ -362,6 +369,7 @@ int32_t typeAlignment(TypeRef *type) {
     case TR_POINTED:
     case TR_FUNCTION:
       return sizeof(intptr_t);
+    case TR_VLA:
     case TR_ARRAY:
       return typeAlignment(type->arrayTypeDesc.elementType);
     case TR_BITFIELD: effectiveType = type->bitFieldDesc.storageType; goto value_type;
@@ -429,6 +437,10 @@ TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, Coordinates *coord
 
   if (arrayType->kind == TR_ARRAY) {
       return arrayType->arrayTypeDesc.elementType;
+  }
+
+  if (arrayType->kind == TR_VLA) {
+      return arrayType->vlaDescriptor.elementType;
   }
 
   reportDiagnostic(ctx, DIAG_SUBSCRIPTED_NOT_A_POINTER, coords);
@@ -616,6 +628,7 @@ TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* co
 TypeRef *elementType(TypeRef *type) {
   if (type->kind == TR_POINTED) return type->pointed;
   if (type->kind == TR_ARRAY) return type->arrayTypeDesc.elementType;
+  if (type->kind == TR_VLA) return type->vlaDescriptor.elementType;
   return NULL;
 }
 
@@ -712,6 +725,16 @@ TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, AstExpressio
 
       TypeRef *l = left;
       TypeRef *r = right;
+
+      // TODO: vla with non-vla
+      /**
+       *
+       *     int *pvla[x]; -- VLA of pointers
+       *     int (*vlap)[x]; -- pointer to VLA
+       *     long d1 = pvla - vlap;
+       *     long d2 = vlap - pvla;
+       *
+       */
 
       while (l && r) {
           left = l;
@@ -816,6 +839,10 @@ static TypeRef *computeTypeForDerefOperator(ParserContext *ctx, Coordinates *coo
 
   if (argumentType->kind == TR_ARRAY) {
       return argumentType->arrayTypeDesc.elementType;
+  }
+
+  if (argumentType->kind == TR_VLA) {
+          return argumentType->vlaDescriptor.elementType;
   }
 
   reportDiagnostic(ctx, DIAG_INDERECTION_POINTER_OP, coords, argumentType);
@@ -2028,11 +2055,14 @@ static ParsedInitializer *finalizeInitializerInternal(ParserContext *ctx, Parsed
   Coordinates *coords = &initializer->coords;
   TypeRef *valueType = semaInit->slotType;
 
-  if (isErrorType(valueType)) {
+  if (isErrorType(valueType) || valueType->kind == TR_VLA) {
+      if (valueType->kind == TR_VLA) {
+          reportDiagnostic(ctx, DIAG_VM_OBJECT_MAY_NOT_BE_INITIALIZED, &initializer->coords);
+      }
       semaInit->coordinates = initializer->coords;
       semaInit->expression = createErrorExpression(ctx, coords);
       semaInit->state = IS_INIT;
-      return initializer->next;
+      return skipIncorrectDesignation(initializer->next);
   }
 
   if (isStructualType(valueType)) {
@@ -2132,6 +2162,13 @@ AstInitializer *typeInitializer(ParserContext *ctx, TypeRef *valueType, int32_t 
       return init;
   }
 
+  if (valueType->kind == TR_VLA) {
+      AstInitializer *init = createEmptyInitializer(ctx);
+      init->kind = IK_LIST;
+      init->slotType = valueType;
+      return init;
+  }
+
   if (valueType->kind == TR_FUNCTION) {
       unreachable("I am not sure if and how functional type could be initialized");
   }
@@ -2151,7 +2188,10 @@ static Boolean isFlexible(TypeRef *type) {
 AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, ParsedInitializer *parsed, Boolean isTopLevel) {
   AstExpression *expr = parsed->expression;
 
-  if (isErrorType(valueType)) {
+  if (isErrorType(valueType) || valueType->kind == TR_VLA) {
+      if (valueType->kind == TR_VLA) {
+          reportDiagnostic(ctx, DIAG_VM_OBJECT_MAY_NOT_BE_INITIALIZED, &parsed->coords);
+      }
       AstInitializer *init = createAstInitializer(ctx, &parsed->coords, IK_EXPRESSION);
       init->offset = -1;
       init->expression = createErrorExpression(ctx, &parsed->coords);
@@ -2254,13 +2294,19 @@ AstExpression *transformBinaryExpression(ParserContext *ctx, AstExpression *expr
               base = right;
               offset = left;
           }
+          AstExpression *elementSize = NULL;
+          if (elemType->kind == TR_VLA) {
+              elementSize = computeVLASize(ctx, &expr->coordinates, elemType);
+          } else {
+            int64_t elemSize = isVoidType(elemType) ? 1 : computeTypeSize(elemType);
+            if (elemSize != 1) {
+              elementSize = createAstConst(ctx, &offset->coordinates, CK_INT_CONST, &elemSize, 0);
+            }
+          }
 
-          int64_t elemSize = isVoidType(elemType) ? 1 : computeTypeSize(elemType);
-
-          if (elemSize != 1) {
-            AstExpression *sizeConst = createAstConst(ctx, &offset->coordinates, CK_INT_CONST, &elemSize, 0);
-            sizeConst->type = makePrimitiveType(ctx, T_S8, 0);
-            offset = createBinaryExpression(ctx, EB_MUL, sizeConst->type, offset, sizeConst);
+          if (elementSize) {
+              elementSize->type = makePrimitiveType(ctx, T_S8, 0);
+              offset = createBinaryExpression(ctx, EB_MUL, elementSize->type, offset, elementSize);
           }
 
           if (base == left) {
@@ -2270,15 +2316,23 @@ AstExpression *transformBinaryExpression(ParserContext *ctx, AstExpression *expr
               expr->binaryExpr.left = offset;
               expr->binaryExpr.right = base;
           }
-
       } else {
           if (expr->op == EB_SUB) {
             TypeRef *elemType = elementType(left->type);
-            int64_t elemSize = isVoidType(elemType) ? 1 : computeTypeSize(elemType);
-            if (elemSize != 1) {
-              AstExpression *astConst = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &elemSize, 0);
-              astConst->type = expr->type;
-              return createBinaryExpression(ctx, EB_DIV, expr->type, expr, astConst);
+            AstExpression *elementSize = NULL;
+
+            if (elemType->kind == TR_VLA) {
+                elementSize = computeVLASize(ctx, &expr->coordinates, elemType);
+            } else {
+              int64_t elemSize = isVoidType(elemType) ? 1 : computeTypeSize(elemType);
+              if (elemSize != 1) {
+                elementSize = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &elemSize, 0);
+              }
+            }
+
+            if (elementSize) {
+                elementSize->type = expr->type;
+                return createBinaryExpression(ctx, EB_DIV, expr->type, expr, elementSize);
             }
           }
       }
@@ -2325,11 +2379,17 @@ AstExpression *transformAssignExpression(ParserContext *ctx, AstExpression *expr
       if (lvalue->type->kind == TR_POINTED && isIntegerType(rvalue->type)) {
           // ptr += x | ptr -= x
           TypeRef *ptrType = lvalue->type;
-          int64_t typeSize = isVoidType(ptrType) ? 1 : computeTypeSize(ptrType->pointed);
-          assert(typeSize != UNKNOWN_SIZE);
-          AstExpression *size = createAstConst(ctx, &rvalue->coordinates, CK_INT_CONST, &typeSize, 0);
-          size->type = makePrimitiveType(ctx, T_S8, 0);
-          expr->binaryExpr.right = createBinaryExpression(ctx, EB_MUL, size->type, rvalue, size);
+          AstExpression *elementSize = NULL;
+          if (ptrType->kind == TR_VLA) {
+              elementSize = computeVLASize(ctx, &rvalue->coordinates, ptrType);
+          } else {
+              int64_t typeSize = isVoidType(ptrType) ? 1 : computeTypeSize(ptrType->pointed);
+              assert(typeSize != UNKNOWN_SIZE);
+              elementSize = createAstConst(ctx, &rvalue->coordinates, CK_INT_CONST, &typeSize, 0);
+
+          }
+          elementSize->type = makePrimitiveType(ctx, T_S8, 0);
+          expr->binaryExpr.right = createBinaryExpression(ctx, EB_MUL, elementSize->type, rvalue, elementSize);
       }
   }
 
@@ -2792,10 +2852,43 @@ TypeId typeToId(TypeRef *type) {
  }
  case TR_POINTED:
  case TR_FUNCTION:
+ case TR_VLA:
  case TR_ARRAY: return T_U8;
  case TR_BITFIELD: return type->bitFieldDesc.storageType->descriptorDesc->typeId;
  default: unreachable("Unknown type ref"); return T_ERROR;
    }
+}
+
+static AstExpression *copyExpression(ParserContext *ctx, AstExpression *expression) {
+  return expression;
+}
+
+AstExpression *computeVLASize(ParserContext *ctx, Coordinates *coords, TypeRef *type) {
+  AstExpression *sizeExpression = NULL;
+  TypeRef *sizeType = makePrimitiveType(ctx, T_U8, 0);
+  if (type->kind == TR_VLA) {
+      AstExpression *elementSize = computeVLASize(ctx, coords, type->vlaDescriptor.elementType);
+      Symbol *sizeSymbol = type->vlaDescriptor.sizeSymbol;
+      AstExpression *numOfElements = NULL;
+      if (sizeSymbol) {
+        AstExpression *numOfElementsRef = createNameRef(ctx, coords, sizeSymbol->name, sizeSymbol);
+        numOfElementsRef->type = makePointedType(ctx, 0, sizeType);
+        numOfElements = createUnaryExpression(ctx, coords, EU_DEREF, numOfElementsRef);
+        numOfElements->type = sizeType;
+      } else if (type->vlaDescriptor.sizeExpression) {
+        // it means we have unmaterialized VLA such as sizeof(int[x][y]) or int (*)[n][m]
+        // seems like it's safe to use original expression directly otherwise it's UB
+        numOfElements = type->vlaDescriptor.sizeExpression;
+      } else {
+        numOfElements = createErrorExpression(ctx, coords);
+      }
+      sizeExpression = createBinaryExpression(ctx, EB_MUL, sizeType, numOfElements, elementSize);
+  } else {
+      int64_t elementSize = computeTypeSize(type);
+      sizeExpression = createAstConst(ctx, coords, CK_INT_CONST, &elementSize, 8);
+      sizeExpression->type = sizeType;
+  }
+  return sizeExpression;
 }
 
 
@@ -2888,6 +2981,14 @@ TypeRef *makeArrayType(ParserContext *ctx, int size, TypeRef *elementType) {
     return result;
 }
 
+TypeRef *makeVLAType(ParserContext *ctx, AstExpression *sizeExpression, TypeRef *elementType) {
+  TypeRef *result = (TypeRef *)areanAllocate(ctx->memory.typeArena, sizeof(TypeRef));
+  result->kind = TR_VLA;
+  result->vlaDescriptor.elementType = elementType;
+  result->vlaDescriptor.sizeExpression = sizeExpression;
+  return result;
+}
+
 TypeRef *makeFunctionType(ParserContext *ctx, TypeRef *returnType, FunctionParams *params) {
     TypeRef *result = (TypeRef *)areanAllocate(ctx->memory.typeArena, sizeof(TypeRef));
     result->kind = TR_FUNCTION;
@@ -2913,7 +3014,7 @@ TypeRef *makeFunctionType(ParserContext *ctx, TypeRef *returnType, FunctionParam
 void verifyFunctionReturnType(ParserContext *ctx, Declarator *declarator, TypeRef *returnType) {
   TypeRefKind returnRefKind = returnType->kind;
 
-  if (returnRefKind == TR_FUNCTION || returnRefKind == TR_ARRAY) {
+  if (returnRefKind == TR_FUNCTION || returnRefKind == TR_ARRAY || returnRefKind == TR_VLA) {
       enum DiagnosticId diag = returnRefKind == TR_FUNCTION ? DIAG_FUNCTION_RETURN_FUNCTION_TYPE : DIAG_FUNCTION_RETURN_ARRAY_TYPE;
       reportDiagnostic(ctx, diag, &declarator->coordinates, returnType);
   }
@@ -2926,15 +3027,72 @@ static void verifyFunctionType(ParserContext *ctx, Declarator *declarator, TypeR
 }
 
 static void verifyArrayType(ParserContext *ctx, Declarator *declarator, TypeRef *type) {
-  assert(type->kind == TR_ARRAY);
-  TypeRef *elementType = type->arrayTypeDesc.elementType;
+  assert(type->kind == TR_ARRAY || type->kind == TR_VLA);
+  TypeRef *elementType = type->kind == TR_ARRAY ? type->arrayTypeDesc.elementType : type->vlaDescriptor.elementType;
 
   if (elementType->kind == TR_FUNCTION) {
       reportDiagnostic(ctx, DIAG_ARRAY_OF_FUNCTIONS_ILLEGAL, &declarator->coordinates, type);
   }
 }
 
-TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator) {
+static TypeRef *makeArrayTypeFromDeclarator(ParserContext *ctx, TypeRef *elementType, DeclaratorPart *part, const char *id, DeclaratorScope scope) {
+  assert(part->kind == DPK_ARRAY);
+
+  AstExpression *sizeExpession = part->arrayDeclarator.sizeExpression;
+
+  if (part->arrayDeclarator.isStar) {
+      assert(sizeExpession == NULL);
+
+      if (scope != DS_PARAMETERS) {
+          reportDiagnostic(ctx, DIAG_ARRAY_STAR_OUTSIDE_PROTOTYPE, &part->coordinates);
+      }
+
+      return makeVLAType(ctx, NULL, elementType);
+  }
+
+  if (sizeExpession == NULL) {
+      return makeArrayType(ctx, -1, elementType);
+  }
+
+  AstConst *e = eval(ctx, sizeExpession);
+  TypeRef *result = NULL;
+  if (e) {
+      int32_t size = e->i;
+      if (size < 0) {
+          if (id) {
+            reportDiagnostic(ctx, DIAG_DECLARED_ARRAY_NEGATIVE_SIZE, &sizeExpession->coordinates, id);
+          } else {
+            reportDiagnostic(ctx, DIAG_ARRAY_NEGATIVE_SIZE, &sizeExpession->coordinates);
+          }
+          size = UNKNOWN_SIZE;
+      }
+
+      if (elementType->kind != TR_VLA) {
+        result = makeArrayType(ctx, size, elementType);
+        result->arrayTypeDesc.isStatic = part->arrayDeclarator.isStatic;
+      } else {
+        AstExpression *evaluated = createAstConst2(ctx, &sizeExpession->coordinates, sizeExpession->type, e);
+        result = makeVLAType(ctx, evaluated, elementType);
+      }
+  } else {
+      result = makeVLAType(ctx, sizeExpession, elementType);
+  }
+
+  if (scope != DS_PARAMETERS) {
+      if (part->arrayDeclarator.isStatic) reportDiagnostic(ctx, DIAG_ARRAY_MODIFIER_NOT_IN_PROTOTYPE, &part->coordinates, "static");
+      if (part->arrayDeclarator.isConst) reportDiagnostic(ctx, DIAG_ARRAY_MODIFIER_NOT_IN_PROTOTYPE, &part->coordinates, "const");
+      if (part->arrayDeclarator.isRestrict) reportDiagnostic(ctx, DIAG_ARRAY_MODIFIER_NOT_IN_PROTOTYPE, &part->coordinates, "restrict");
+      if (part->arrayDeclarator.isVolatile) reportDiagnostic(ctx, DIAG_ARRAY_MODIFIER_NOT_IN_PROTOTYPE, &part->coordinates, "volatile");
+  }
+
+  result->flags.bits.isConst = part->arrayDeclarator.isConst;
+  result->flags.bits.isRestrict = part->arrayDeclarator.isRestrict;
+  result->flags.bits.isVolatile = part->arrayDeclarator.isVolatile;
+
+  return result;
+}
+
+TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator, DeclaratorScope scope) {
 
     TypeRef *type = specifiers->basicType;
 
@@ -2946,7 +3104,7 @@ TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Decl
             type = makePointedType(ctx, part->flags.storage, type);
             break;
         case DPK_ARRAY:
-            type = makeArrayType(ctx, part->arraySize, type);
+            type = makeArrayTypeFromDeclarator(ctx, type, part, declarator->identificator, scope);
             verifyArrayType(ctx, declarator, type);
             break;
         case DPK_FUNCTION:
