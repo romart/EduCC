@@ -56,13 +56,13 @@ FILE test/testData/parser/positive/compoundStringLiteral.c
         signed char #11 <--- 0
       INIT_END
     signed int l0 = \
-      (signed int)(*s0, 1)
+      (signed int)1
     signed int l1 = \
-      (signed int)(*s1, 8)
+      (signed int)8
     signed int l2 = \
-      (signed int)(*s2, 4)
+      (signed int)4
     signed int l3 = \
-      (signed int)(*s3, 11)
+      (signed int)11
     signed int l4 = \
-      (signed int)(*s4, 7)
+      (signed int)7
   END

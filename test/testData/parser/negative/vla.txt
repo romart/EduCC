@@ -1,0 +1,87 @@
+FILE test/testData/parser/negative/vla.c
+  STRUCT SX
+    signed int x #0
+    signed int[10] arr #4
+    ERROR TYPE vla #44
+  STRUCT_END
+----
+  signed int[-1] a
+----
+  ERROR TYPE b
+----
+  signed int d
+----
+  float f
+----
+  ERROR TYPE c
+----
+  ERROR TYPE e
+----
+  FUN signed int prot 
+    #0: *signed int x
+    #1: *signed int y
+    #2: *signed int z
+----
+  FUN signed int neg 
+    #0: *signed int
+----
+  ERROR TYPE s1
+----
+  FUN signed int def 
+    #0: ERROR TYPE s2
+  BEGIN
+    signed int[*] ls = \
+      ERROR EXPR * 4    
+  END
+----
+  FUN signed int init 
+    #0: signed int n
+  BEGIN
+    unsigned long <arr.0.length> = \
+      (unsigned long)*n
+    unsigned long <arr.1.length> = \
+      (unsigned long)(*n + 1)
+    unsigned long <arr.2.length> = \
+      (unsigned long)(*n + 2)
+    ((signed int[<arr.2.length>])[<arr.1.length>])[<arr.0.length>] arr = \
+      *<arr.0.length> * *<arr.1.length> * *<arr.2.length> * 4
+    S ERROR TYPE vla2
+    signed int[-1] s
+    unsigned long <ss.0.length> = \
+      (unsigned long)ERROR EXPR
+    signed int[<ss.0.length>] ss = \
+      *<ss.0.length> * 4
+    C signed int[static 10] cs
+    unsigned long <vlacs1.0.length> = \
+      (unsigned long)*n
+    C signed int[<vlacs1.0.length>] vlacs1 = \
+      *<vlacs1.0.length> * 4
+    unsigned long <vlacs2.0.length> = \
+      (unsigned long)*n
+    V signed int[<vlacs2.0.length>] vlacs2 = \
+      *<vlacs2.0.length> * 4
+    unsigned long <vlacs3.0.length> = \
+      (unsigned long)*n
+    signed int[<vlacs3.0.length>] vlacs3 = \
+      *<vlacs3.0.length> * 4    
+  END
+----
+  signed int[-1] ss
+----
+  FUN signed int foo 
+    #0: signed int n
+    #1: *signed int vlacs
+  BEGIN
+    
+  END
+----
+  FUN signed int bar 
+    #0: signed int n
+    #1: signed int m
+    #2: signed int k
+    #3: *signed int a1
+    #4: *signed int[*] a2
+    #5: *(signed int[*])[*] a3
+  BEGIN
+    RETURN 42    
+  END
