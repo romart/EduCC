@@ -1858,7 +1858,6 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
             AstExpression *idxs = r->op == EB_MUL ? r : l;
             AstExpression *expr = idxs == r ? l : r;
             generateExpression(ctx, f, scope, expr);
-            emitPushReg(f, R_ACC);
             AstExpression *ml = idxs->binaryExpr.left;
             AstExpression *mr = idxs->binaryExpr.right;
             if (mr->op == E_CONST) {
@@ -1866,7 +1865,9 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
                 if (d == 0) {
                     addr->scale = 0;
                     addr->index = R_BAD;
+                    addr->base = R_ACC;
                 } else if (d == 1 || d == 2 || d == 4 || d == 8) {
+                  emitPushReg(f, R_ACC);
                   generateExpression(ctx, f, scope, ml);
                   switch (d) {
                   case 1: addr->scale = 0; break;
@@ -1879,6 +1880,7 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
                   emitMoveRR(f, R_ACC, R_ECX, sizeof(intptr_t));
                   addr->index = R_ECX;
                 } else {
+                  emitPushReg(f, R_ACC);
                   generateExpression(ctx, f, scope, idxs);
                   emitPopReg(f, R_EDI);
                   addr->base = R_EDI;
