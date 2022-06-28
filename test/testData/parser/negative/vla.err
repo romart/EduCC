@@ -1,0 +1,28 @@
+test/testData/parser/negative/vla.c:4:7: error: 'a' declared as an array with a negative size
+test/testData/parser/negative/vla.c:4:5: error: definition of variable with array type needs an explicit size or an initializer
+test/testData/parser/negative/vla.c:5:7: error: size of array has non-integer type 'C double'
+test/testData/parser/negative/vla.c:5:1: error: variable length array declaration not allowed at file scope
+test/testData/parser/negative/vla.c:8:1: error: variable length array declaration not allowed at file scope
+test/testData/parser/negative/vla.c:9:7: error: size of array has non-integer type 'float'
+test/testData/parser/negative/vla.c:9:1: error: variable length array declaration not allowed at file scope
+test/testData/parser/negative/vla.c:12:26: error: 'static' may not be used with an unspecified variable length array size
+test/testData/parser/negative/vla.c:14:14: error: array size is negative
+test/testData/parser/negative/vla.c:16:7: error: star modifier used outside of function prototype
+test/testData/parser/negative/vla.c:16:1: error: variable length array declaration not allowed at file scope
+test/testData/parser/negative/vla.c:18:9: error: variable length array must be bound in function definition
+test/testData/parser/negative/vla.c:19:9: error: star modifier used outside of function prototype
+test/testData/parser/negative/vla.c:25:26: error: variable-sized object may not be initialized
+test/testData/parser/negative/vla.c:27:3: error: variable length array declaration cannot have 'static' storage duration
+test/testData/parser/negative/vla.c:29:9: error: 'static' may not be used without an array size
+test/testData/parser/negative/vla.c:29:7: error: definition of variable with array type needs an explicit size or an initializer
+test/testData/parser/negative/vla.c:31:17: error: size of array has non-integer type 'ERROR TYPE'
+test/testData/parser/negative/vla.c:31:9: error: 'static' used in array declarator outside of function prototype
+test/testData/parser/negative/vla.c:33:9: error: 'static' used in array declarator outside of function prototype
+test/testData/parser/negative/vla.c:33:9: error: 'const' used in array declarator outside of function prototype
+test/testData/parser/negative/vla.c:35:13: error: 'const' used in array declarator outside of function prototype
+test/testData/parser/negative/vla.c:36:13: error: 'volatile' used in array declarator outside of function prototype
+test/testData/parser/negative/vla.c:37:13: error: 'restrict' used in array declarator outside of function prototype
+test/testData/parser/negative/vla.c:40:8: error: 'static' may not be used without an array size
+test/testData/parser/negative/vla.c:40:5: error: definition of variable with array type needs an explicit size or an initializer
+test/testData/parser/negative/vla.c:53:3: error: fields must have a constant size
+test/testData/parser/negative/vla.c:53:3: error: field 'vla' has incomplete type 'ERROR TYPE'
