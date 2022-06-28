@@ -167,7 +167,7 @@ type_qualifier
     ;
  */
 static int isTypeQualifierToken(int token) {
-    return token == CONST || token == VOLATILE;
+    return token == CONST || token == VOLATILE || token == RESTRICT;
 }
 
 /**
