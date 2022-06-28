@@ -68,7 +68,14 @@ typedef struct _FunctionTypeDescriptor {
 typedef struct _ArrayTypeDescriptor {
     struct _TypeRef *elementType;
     int size;
+    unsigned isStatic : 1;
 } ArrayTypeDescriptor;
+
+typedef struct _VLADescriptor {
+  struct _TypeRef *elementType;
+  struct _AstExpression *sizeExpression;
+  struct _Symbol *sizeSymbol;
+} VLADescriptor;
 
 typedef struct _TypeDesc {
   TypeId typeId;
@@ -87,6 +94,7 @@ typedef enum _TypeRefKind {
     TR_VALUE,
     TR_POINTED,
     TR_ARRAY,
+    TR_VLA,
     TR_FUNCTION,
     TR_BITFIELD
 } TypeRefKind;
@@ -99,6 +107,7 @@ typedef struct _TypeRef {
         FunctionTypeDescriptor functionTypeDesc;
         struct _TypeRef *pointed;
         ArrayTypeDescriptor arrayTypeDesc;
+        VLADescriptor vlaDescriptor;
         BitFieldTypeDescriptor bitFieldDesc;
     };
 } TypeRef;

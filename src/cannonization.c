@@ -24,15 +24,21 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
 
   TypeRef *arrayType = base->type;
   assert(isPointerLikeType(arrayType));
-  TypeRef *pointerType = arrayType->kind == TR_ARRAY ? makePointedType(ctx, arrayType->flags.storage, arrayType->arrayTypeDesc.elementType) : arrayType;
+  TypeRef *pointerType = NULL;
+
+  if (arrayType->kind == TR_ARRAY) {
+      pointerType = makePointedType(ctx, arrayType->flags.storage, arrayType->arrayTypeDesc.elementType);
+  } else if (arrayType->kind == TR_VLA) {
+      pointerType = makePointedType(ctx, arrayType->flags.storage, arrayType->vlaDescriptor.elementType);
+  } else {
+      pointerType = arrayType;
+  }
+
   TypeRef *elementType = pointerType->pointed;
-
-  size_t elementSize = computeTypeSize(elementType);
-
   int32_t indexOrigSize = computeTypeSize(index->type);
   TypeRef *indexType = makePrimitiveType(ctx, isUnsignedType(index->type) ? T_U8 : T_S8, 0);
 
-  Boolean isFlat = base->type->kind == TR_ARRAY && base->op != E_CONST;
+  Boolean isFlat = (base->type->kind == TR_ARRAY /*|| base->type->kind == TR_VLA*/) && base->op != E_CONST;
 
   base = transformExpression(ctx, base);
   index = transformExpression(ctx, index);
@@ -46,24 +52,37 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
   // TODO: probably void* isn't the best choose, think about introducing an address type for that purpose
   base->type = voidPtrType(ctx); // we do some address arith here, first normalize pointer
 
-  AstExpression *elemSizeConst = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &elementSize, 0);
-  elemSizeConst->type = indexType;
+  AstExpression *indexValue = NULL;
 
-  if (indexOrigSize < 8) {
-      index = createCastExpression(ctx, &index->coordinates, indexType, index);
+  if (elementType->kind == TR_VLA) {
+      AstExpression *vlaSize = computeVLASize(ctx, &expr->coordinates, elementType);
+      indexValue = createBinaryExpression(ctx, EB_MUL, indexType, vlaSize, index);
+      indexValue = transformExpression(ctx, indexValue);
+  } else {
+      size_t elementSize = computeTypeSize(elementType);
+      AstExpression *elemSizeConst = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &elementSize, 0);
+      elemSizeConst->type = indexType;
+
+      if (indexOrigSize < 8) {
+          index = createCastExpression(ctx, &index->coordinates, indexType, index);
+      }
+
+      indexValue = createBinaryExpression(ctx, EB_MUL, indexType, index, elemSizeConst);
+      AstConst *evaluated = eval(ctx, indexValue);
+      if (evaluated) {
+          indexValue = createAstConst2(ctx, &indexValue->coordinates, indexType, evaluated);
+      }
   }
 
-  AstExpression *indexValue = createBinaryExpression(ctx, EB_MUL, indexType, index, elemSizeConst);
-  AstConst *evaluated = eval(ctx, indexValue);
-  if (evaluated) {
-      indexValue = createAstConst2(ctx, &indexValue->coordinates, indexType, evaluated);
-  }
   AstExpression *summed = createBinaryExpression(ctx, EB_ADD, pointerType, base, indexValue);
   AstExpression *transformed = transformExpression(ctx, summed);
-  AstExpression *derefered = createUnaryExpression(ctx, &expr->coordinates, EU_DEREF, transformed);
-  derefered->type = elementType;
-
-  return derefered;
+  if (elementType->kind != TR_VLA) {
+    AstExpression *derefered = createUnaryExpression(ctx, &expr->coordinates, EU_DEREF, transformed);
+    derefered->type = elementType;
+    return derefered;
+  } else {
+    return transformed;
+  }
 }
 
 static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpression *expr) {

@@ -586,14 +586,40 @@ int renderTypeRef(TypeRef *type, char *b, int bufferSize) {
             if (bufferSize <= 0) goto done;
         }
 
+        const char *st = desc->isStatic ? "static" : "";
+
         if (desc->size) {
-            l = snprintf(b, bufferSize, "[%d]", desc->size);
+            l = snprintf(b, bufferSize, "[%s%s%d]", st, st[0] ? " " : "", desc->size);
         } else {
-            l = snprintf(b, bufferSize, "[]");
+            l = snprintf(b, bufferSize, "[%s]", st);
         }
         b += l; bufferSize -=l;
       }
       break;
+  case TR_VLA: {
+      VLADescriptor *desc = &type->vlaDescriptor;
+      int wrap = desc->elementType->kind != TR_VALUE ? TRUE : FALSE;
+      if (wrap) {
+          l = snprintf(b, bufferSize, "("); b += l; bufferSize -= l;
+          if (bufferSize <= 0) goto done;
+      }
+
+      l = renderTypeRef(desc->elementType, b, bufferSize); b += l; bufferSize -= l;
+      if (bufferSize <= 0) goto done;
+
+      if (wrap) {
+          l = snprintf(b, bufferSize, ")"); b += l; bufferSize -= l;
+          if (bufferSize <= 0) goto done;
+      }
+
+      if (desc->sizeSymbol) {
+          l = snprintf(b, bufferSize, "[%s]", desc->sizeSymbol->name);
+      } else {
+          l = snprintf(b, bufferSize, "[*]");
+      }
+      b += l; bufferSize -=l;
+    }
+    break;
   case TR_FUNCTION: {
       FunctionTypeDescriptor *desc = &type->functionTypeDesc;
       l = snprintf(b, bufferSize, "{"); b += l; bufferSize -= l;
