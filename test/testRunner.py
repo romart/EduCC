@@ -68,8 +68,9 @@ def runParserTest(compiler, workingDir, dirname, name):
 
     err = open(actualErrFilePath, 'w+')
 
-    # print(f"Run process: {compiler} -astDump {actualFilePath} {testFilePath}")
-    process = Popen([compiler, "-skipCodegen", "-oneline" , "-astDump", actualAstFilePath, "-astCanonDump", actualAstCanonFilePath, testFilePath], stdout=DEVNULL, stderr=err)
+    compialtionCommand = [compiler, "-skipCodegen", "-oneline" , "-astDump", actualAstFilePath, "-astCanonDump", actualAstCanonFilePath, testFilePath];
+#    print(compialtionCommand)
+    process = Popen(compialtionCommand, stdout=DEVNULL, stderr=err)
     exit_code = process.wait()
     if exit_code != 0:
         print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
@@ -106,12 +107,8 @@ def runCodegenTest(compiler, workingDir, dirname, name):
         os.makedirs(outputDir)
 
     errFilePath = outputDir + '/' + name + '.err'
-    objFileName = outputDir + '/' + name + '.o'
     binFileName = outputDir + '/' + name
 
-
-    if path.exists(objFileName):
-        os.remove(objFileName);
 
     if path.exists(binFileName):
         os.remove(binFileName);
@@ -125,7 +122,7 @@ def runCodegenTest(compiler, workingDir, dirname, name):
         args.append("")
 
     err = open(errFilePath, 'w+')
-    compialtionCommand = [compiler, "-oneline" , "-o", objFileName, testFilePath]
+    compialtionCommand = [compiler, "-oneline" , "-o", binFileName, testFilePath, "-lm"]
 #    print(compialtionCommand)
     compilation = Popen(compialtionCommand, stdout=sys.stdout, stderr=err)
     exit_code = compilation.wait()
@@ -141,27 +138,20 @@ def runCodegenTest(compiler, workingDir, dirname, name):
         print(f"  Compilation crashed (exit code {exit_code})")
         numOfFailedTests = numOfFailedTests + 1
     else:
-        linkage = Popen(["gcc", objFileName, "-o" , binFileName, "-lm"], stdout=sys.stdout, stderr=sys.stderr)
-        exit_code = linkage.wait()
-        if exit_code != 0:
-            print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-            print(f"  Linkage crashed (exit code {exit_code})")
-            numOfFailedTests = numOfFailedTests + 1
-        else:
-            for arg in args:
-                runCommand = [binFileName]
+        for arg in args:
+            runCommand = [binFileName]
+            if arg:
+                runCommand.extend(arg.split())
+            execution = Popen(runCommand, stdout=sys.stdout, stderr=sys.stderr)
+            exit_code = execution.wait()
+            if exit_code != 0:
+                print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
+                print(f"  Execution exit code is not 0 ({exit_code})")
                 if arg:
-                    runCommand.extend(arg.split())
-                execution = Popen(runCommand, stdout=sys.stdout, stderr=sys.stderr)
-                exit_code = execution.wait()
-                if exit_code != 0:
-                    print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-                    print(f"  Execution exit code is not 0 ({exit_code})")
-                    if arg:
-                        print(f"  Argument: '{arg}'")
-                    numOfFailedTests = numOfFailedTests + 1
-                else:
-                    print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
+                    print(f"  Argument: '{arg}'")
+                numOfFailedTests = numOfFailedTests + 1
+            else:
+                print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
 
 
 def runPPTest(compiler, workingDir, dirname, name):
