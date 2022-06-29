@@ -1620,6 +1620,8 @@ static void defineCLIMacro(ParserContext *ctx, const char *s) {
 
 void initializeProprocessor(ParserContext *ctx) {
 
+  counterState = 0;
+
   putToHashMap(ctx->macroMap, (intptr_t)__file_macro.name, (intptr_t)&__file_macro);
   putToHashMap(ctx->macroMap, (intptr_t)__line_macro.name, (intptr_t)&__line_macro);
   putToHashMap(ctx->macroMap, (intptr_t)__counter_macro.name, (intptr_t)&__counter_macro);
