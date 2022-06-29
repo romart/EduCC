@@ -3494,6 +3494,7 @@ static void printMemoryStatistics(ParserContext *ctx) {
 
   printf("Heap bytes allocated: %lu bytes (%lu kb)\n", heapBytesAllocated, heapBytesAllocated / kb);
   printArenaStatistic(stdout, ctx->memory.tokenArena);
+  printArenaStatistic(stdout, ctx->memory.macroArena);
   printArenaStatistic(stdout, ctx->memory.stringArena);
   printArenaStatistic(stdout, ctx->memory.astArena);
   printArenaStatistic(stdout, ctx->memory.typeArena);
