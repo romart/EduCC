@@ -4,7 +4,6 @@ endif
 
 
 CC=$(COMPILER)
-LD=gcc
 CFLAGS=-I./include -g -O0 -std=gnu90
 DEPS=$(wildcard ./include/*.h)
 SRCDIR=src
@@ -47,7 +46,7 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c $(DEPS)
 
 
 main: $(OBJ) 
-	$(LD) $(CFLAGS) -o $(BINDIR)/$@ $^ -ludis86
+	$(CC) $(CFLAGS) -o $(BINDIR)/$@ $^ -ludis86
 
 
 .PHONY: clean
