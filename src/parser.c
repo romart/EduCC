@@ -1,6 +1,7 @@
 
 
 #include <assert.h>
+#include <stdlib.h>
 
 #include "tokens.h"
 #include "tree.h"
@@ -3506,8 +3507,16 @@ static void printMemoryStatistics(ParserContext *ctx) {
 static void printPPOutput(ParserContext *ctx) {
   const char *r = joinToStringTokenSequence(ctx, ctx->firstToken);
   if (r) {
-    fprintf(stdout, "%s\n", r);
-    releaseHeap((char*)r);
+    const char *cfgOutput = ctx->config->outputFile;
+    FILE *output = cfgOutput ? fopen(cfgOutput, "w") : stdout;
+    if (output) {
+      fprintf(output, "%s\n", r);
+      if (cfgOutput) fclose(output);
+      releaseHeap((char*)r);
+    } else {
+      fprintf(stderr, "cannot open file %s\n", cfgOutput);
+      exit(-3);
+    }
   }
 }
 
