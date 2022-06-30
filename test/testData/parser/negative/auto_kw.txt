@@ -3,20 +3,19 @@ FILE test/testData/parser/negative/auto_kw.c
 ----
   signed int y
 ----
-  FUN signed int foo 
+  FUN signed int foo
   BEGIN
-    RETURN 42    
+    RETURN 42
   END
 ----
-  FUN signed int bar 
+  FUN signed int bar
   BEGIN
-    ERROR EXPR
-    signed int a    
+    signed int z
+    signed int a
   END
 ----
-  FUN signed int tex 
+  FUN signed int tex
     #0: float f
   BEGIN
-    RETURN (signed int)(ERROR EXPR)
-    signed int    
+    RETURN (signed int)*f
   END

@@ -1,9 +1,6 @@
 test/testData/parser/negative/auto_kw.c:5:1: error: illegal storage class on file-scoped variable
 test/testData/parser/negative/auto_kw.c:7:6: error: cannot combine with previous 'auto' declaration specifier
 test/testData/parser/negative/auto_kw.c:9:1: error: illegal storage class on file-scoped variable
-test/testData/parser/negative/auto_kw.c:15:8: error: unexpected token AUTO 'auto' instead of ;
+test/testData/parser/negative/auto_kw.c:15:8: error: duplicate 'auto' declaration specifier
 test/testData/parser/negative/auto_kw.c:17:12: error: cannot combine with previous 'register' declaration specifier
-test/testData/parser/negative/auto_kw.c:23:16: error: unexpected token INT 'int' instead of )
-test/testData/parser/negative/auto_kw.c:23:16: error: unexpected token INT 'int' instead of ;
-test/testData/parser/negative/auto_kw.c:23:19: warning: declaration does not declare anything
-test/testData/parser/negative/auto_kw.c:23:19: error: unexpected token ) ')' instead of ;
+test/testData/parser/negative/auto_kw.c:23:11: error: type name does not allow storage class to be specified
