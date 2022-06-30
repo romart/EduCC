@@ -2160,6 +2160,8 @@ static SpecifierFlags parseTypeQualifierList(ParserContext *ctx) {
           }
         }
     } while (nextToken(ctx));
+
+    unreachable("should return early");
 }
 
 static ParsedInitializer *allocParsedInitializer(ParserContext *ctx, Coordinates *coords, AstExpression *expr, int32_t level, enum ParsedLoc loc)  {

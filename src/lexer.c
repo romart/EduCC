@@ -1,6 +1,5 @@
 
 #include <assert.h>
-#include <stdbool.h>
 
 #include "parser.h"
 #include "sema.h"
