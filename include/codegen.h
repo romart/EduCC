@@ -10,30 +10,6 @@
 #include "instructions.h"
 #include "_elf.h"
 
-typedef struct _Operand {
-  enum OperandKind opKind;
-  union {
-    struct Label *label;
-    enum Registers reg;
-    int64_t constant;
-    Address address;
-    Relocation reloc;
-  };
-  struct _Operand *next;
-} Operand;
-
-typedef struct _Instruction {
-  enum Opcodes opcode;
-
-  unsigned flags;
-
-  Operand *operands;
-
-  struct _Instruction *next;
-
-} Instruction;
-
-
 typedef struct _GeneratedFunction {
   const char *name;
 
@@ -56,6 +32,8 @@ typedef struct _GeneratedFunction {
   ptrdiff_t sectionOffset;
 
   struct _Symbol *symbol;
+
+  struct _GenerationContext *context;
 
   Arena *arena;
 
