@@ -218,6 +218,6 @@ Token *allocToken(ParserContext *ctx);
 void compileFile(Configuration * config);
 void cannonizeAstFile(ParserContext *ctx, AstFile *file);
 AstConst* eval(ParserContext *ctx, AstExpression* expression);
-AstExpression* parseConditionalExpression(ParserContext *ctx, struct _Scope* scope);
+AstExpression* parseConditionalExpression(ParserContext *ctx);
 
 #endif // __PARSER_H__
