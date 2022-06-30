@@ -95,17 +95,9 @@ TypeEqualityKind typeEquality(TypeRef *t1, TypeRef *t2) {
   if (equality != TEK_UNKNOWN) return equality;
 
   if (t1->kind == TR_POINTED && t2->kind == TR_POINTED) {
-      equality = typeEquality(t1->pointed, t2->pointed);
-      if (t1->flags.bits.isConst == t2->flags.bits.isConst) {
-        if (equality == TEK_EQUAL) {
-            return TEK_EQUAL;
-          } else {
-            // 'int *' is not equal to 'int *const'
-            return equality;
-          }
-      }
+      // In fact there is required more precise check taking qualifiers into account
+      return typeEquality(t1->pointed, t2->pointed);
   }
-
 
   if (t1->kind == TR_VLA && t2->kind == TR_VLA) {
       if (t1->vlaDescriptor.sizeSymbol == t2->vlaDescriptor.sizeSymbol) return TEK_EQUAL;
