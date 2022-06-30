@@ -586,7 +586,7 @@ static void emitSymbolCall(GeneratedFunction *f, Symbol *s) {
 
 static void copyStructTo(GeneratedFunction *f, TypeRef *type, Address *src, Address *dst) {
 
-  assert(isStructualType(type) || isUnionType(type));
+  assert(isCompositeType(type));
 
   int32_t align = type->descriptorDesc->typeDefinition->align;
   int32_t size = computeTypeSize(type);
@@ -651,7 +651,7 @@ static size_t emitInitializerImpl(GeneratedFunction *f, int32_t typeSize, Addres
             } else {
               emitMovfpRA(f, R_FACC, &addr, slotSize);
             }
-        } else if (isStructualType(slotType) || isUnionType(slotType)) {
+        } else if (isCompositeType(slotType)) {
             Address src = { R_ACC, R_BAD, 0, 0 };
             copyStructTo(f, expr->type, &src, &addr);
         } else if (slotType->kind == TR_BITFIELD) {
@@ -705,7 +705,7 @@ static void emitLocalInitializer(GeneratedFunction *f, TypeRef* type, int32_t fr
 
     size_t emitted = emitInitializerImpl(f, typeSize, &addr, initializer, FALSE);
 
-    if ((isStructualType(type) || isUnionType(type)) && emitted < typeSize) {
+    if (isCompositeType(type) && emitted < typeSize) {
         addr.imm += emitted;
         emitArithRR(f, OP_XOR, R_ACC, R_ACC, sizeof (intptr_t));
         int32_t delta1 = ALIGN_SIZE(emitted, sizeof (intptr_t));
@@ -1941,7 +1941,7 @@ static void generateAssign(GeneratedFunction *f, AstExpression *expression) {
           }
           storeBitField(f, lType, R_ACC, &addr);
       } else {
-          if (isStructualType(lType) || isUnionType(lType)) {
+          if (isCompositeType(lType)) {
             emitPopReg(f, R_TMP2); // load result
 
             Address src = { 0 };
@@ -3241,7 +3241,7 @@ static Boolean generateStatement(GeneratedFunction *f, AstStatement *stmt) {
   case SK_RETURN: {
       AstExpression *retExpr = stmt->jumpStmt.expression;
       if (retExpr) {
-          if (isStructualType(retExpr->type)) {
+          if (isCompositeType(retExpr->type)) {
             Address src = { 0 };
             assert(retExpr->op == EU_DEREF);
             translateAddress(f, retExpr->unaryExpr.argument, &src);
@@ -3343,7 +3343,7 @@ static size_t allocateLocalSlots(GeneratedFunction *g, AstFunctionDefinition *f)
 
   Address addr = { R_EBP, R_BAD, 0, 0, NULL, NULL };
 
-  if (isStructualType(returnType) && computeTypeSize(returnType) > sizeof(intptr_t)) {
+  if (isCompositeType(returnType) && computeTypeSize(returnType) > sizeof(intptr_t)) {
       baseOffset += sizeof(intptr_t);
       g->returnStructAddressOffset = addr.imm = -baseOffset;
       emitMoveRA(g, intArgumentRegs[intRegParams++], &addr, sizeof(intptr_t));
@@ -3355,7 +3355,7 @@ static size_t allocateLocalSlots(GeneratedFunction *g, AstFunctionDefinition *f)
     size_t size = max(computeTypeSize(paramType), sizeof(intptr_t));
     size_t align = max(typeAlignment(paramType), sizeof(intptr_t));
 
-    if (isStructualType(paramType) && size > sizeof(intptr_t)) {
+    if (isCompositeType(paramType) && size > sizeof(intptr_t)) {
         int32_t alignedOffset = ALIGN_SIZE(stackParamOffset, align);
         gp->baseOffset = alignedOffset;
         stackParamOffset = alignedOffset + size;
