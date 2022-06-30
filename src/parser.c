@@ -465,7 +465,7 @@ type_name
     | specifier_qualifier_list abstract_declarator
     ;
  */
-static TypeRef* parseTypeName(ParserContext *ctx, struct _Scope *scope, DeclaratorScope ds_scope) {
+static TypeRef* parseTypeName(ParserContext *ctx, DeclaratorScope ds_scope) {
     DeclarationSpecifiers specifiers = { 0 };
     Declarator declarator= { 0 };
     specifiers.coordinates.left = specifiers.coordinates.right = ctx->token;
@@ -506,10 +506,10 @@ static AstExpression* parsePostfixExpression(ParserContext *ctx) {
           left = createCompundExpression(ctx, &coords, initializer);
       } else {
           ctx->token = saved;
-          left = parsePrimaryExpression(ctx, scope);
+          left = parsePrimaryExpression(ctx);
       }
     } else {
-      left = parsePrimaryExpression(ctx, scope);
+      left = parsePrimaryExpression(ctx);
     }
 
     AstExpression *right = NULL, *tmp = NULL;
@@ -1192,6 +1192,16 @@ static Boolean isAttributeName(Token *token) {
   return FALSE;
 }
 
+static void skipAttributeArgs(ParserContext *ctx) {
+  int depth = 0;
+  Token *t;
+
+  for (t = ctx->token; t->code && t->code != ';'; t = nextToken(ctx)) {
+      if (t->code == '(') ++depth;
+      if (t->code == ')' && depth == 0) return;
+  }
+}
+
 static AstAttribute *parseAttributes(ParserContext *ctx) {
   AstAttribute head = { 0 }, *current = &head;
 
@@ -1202,18 +1212,13 @@ static AstAttribute *parseAttributes(ParserContext *ctx) {
       consume(ctx, '(');
       consume(ctx, '(');
 
-      Boolean first = TRUE;
-
       AstAttributeList idHead = { 0 }, *idcur  = &idHead;
 
       while (ctx->token->code != ')') {
           Coordinates coords2 = { ctx->token };
 
-          if (!first) {
-              consume(ctx, ',');
-          }
-
-          first = FALSE;
+          // __attribute__((,,,foo)) -- clang says it could be valid so let allow it too
+          while (nextTokenIf(ctx, ','));
 
           if (isAttributeName(ctx->token)) {
               const char *attribName = ctx->token->id;
@@ -1221,7 +1226,11 @@ static AstAttribute *parseAttributes(ParserContext *ctx) {
               const char *idArg = NULL;
               if (nextTokenIf(ctx, '(')) {
                   idArg = ctx->token->id;
-                  consume(ctx, IDENTIFIER);
+                  Token *tmp = ctx->token;
+                  if (idArg == NULL || nextToken(ctx)->code != ')') {
+                      ctx->token = tmp;
+                      skipAttributeArgs(ctx);
+                  }
                   consume(ctx, ')');
               }
 
@@ -1299,6 +1308,10 @@ static TypeDefiniton* parseEnumDeclaration(ParserContext *ctx) {
     EnumConstant *enumerators = NULL;
     Coordinates coords = { ctx->token, ctx->token };
     consume(ctx, ENUM);
+
+    // temporary ignore them
+    parseAttributes(ctx);
+
     int token = ctx->token->code;
     coords.right = ctx->token;
 
@@ -1634,9 +1647,12 @@ static TypeDefiniton *parseStructOrUnionDeclaration(ParserContext *ctx, enum Typ
     unsigned flexible = 0;
     unsigned factor = ctx->token->code == STRUCT ? 1 : 0;
 
+    nextToken(ctx);
+
     AstAttribute *attributes = parseAttributes(ctx);
 
-    int token = nextToken(ctx)->rawCode;
+    int token = ctx->token->rawCode;
+
     coords.right = ctx->token;
 
     if (token == IDENTIFIER) { // typedef'ed typename is valid struct name
@@ -1659,6 +1675,8 @@ static TypeDefiniton *parseStructOrUnionDeclaration(ParserContext *ctx, enum Typ
 
     coords.right = ctx->token;
     consumeOrSkip(ctx, '}');
+
+    parseAttributes(ctx);
 
 done:;
 
@@ -2899,10 +2917,6 @@ static AstStatement *parseStatement(ParserContext *ctx) {
   return parseStatementImpl(ctx, FALSE);
 }
 
-static unsigned processDeclarationPart(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator) {
-  return 0;
-}
-
 /**
 compound_statement
     : '{'  block_item_list? '}'
@@ -3343,6 +3357,9 @@ init_declarator
     ;
 */
 static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
+
+  parseAttributes(ctx);
+
   DeclarationSpecifiers specifiers = { 0 };
   specifiers.coordinates.left = specifiers.coordinates.right = ctx->token;
   parseDeclarationSpecifiers(ctx, &specifiers, DS_FILE);
@@ -3388,6 +3405,8 @@ static void parseExternalDeclaration(ParserContext *ctx, AstFile *file) {
     }
     ++unitIdx;
   } while (nextTokenIf(ctx, ','));
+
+  parseAttributes(ctx);
 
   consumeOrSkip(ctx, ';');
 }
