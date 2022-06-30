@@ -182,7 +182,7 @@ storage_class_specifier
 
  */
 static int isStorageClassToken(int token) {
-    return token == TYPEDEF || token == EXTERN || token == STATIC || token == REGISTER;
+    return token == TYPEDEF || token == EXTERN || token == STATIC || token == REGISTER || token == AUTO;
 }
 
 /**
