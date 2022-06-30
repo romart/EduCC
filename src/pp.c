@@ -1100,7 +1100,7 @@ static AstExpression *parsePPExpression(ParserContext *ctx, Token *start) {
   ctx->token = &head;
   nextToken(ctx);
 
-  AstExpression *expr = parseConditionalExpression(ctx, NULL);
+  AstExpression *expr = parseConditionalExpression(ctx);
 
   ctx->token = ctxToken;
 
