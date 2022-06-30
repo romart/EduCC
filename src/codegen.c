@@ -88,13 +88,13 @@ static GeneratedFile *allocateGenFile(GenerationContext *ctx) {
   return areanAllocate(ctx->codegenArena, sizeof (GeneratedFile));
 }
 
-
 static GeneratedFunction *allocateGenFunction(GenerationContext *ctx) {
   GeneratedFunction *f = areanAllocate(ctx->codegenArena, sizeof (GeneratedFunction));
   f->returnStructAddressOffset = -1;
   f->arena = ctx->codegenArena;
   f->section = ctx->text;
   f->sectionOffset = (ctx->text->pc - ctx->text->start);
+  f->context = ctx;
   return f;
 }
 
@@ -106,14 +106,6 @@ static GeneratedVariable *allocateGenVarialbe(GenerationContext *ctx, AstValueDe
   return v;
 }
 
-static Instruction *allocateInstruction(GenerationContext *ctx) {
-  return areanAllocate(ctx->codegenArena, sizeof (Instruction));
-}
-
-static Operand *allocateOperand(GenerationContext *ctx) {
-  return areanAllocate(ctx->codegenArena, sizeof (Operand));
-}
-
 static struct Label *allocateLabel(GenerationContext *ctx) {
   return areanAllocate(ctx->codegenArena, sizeof (struct Label));
 }
@@ -122,16 +114,7 @@ static Relocation *allocateRelocation(GenerationContext *ctx) {
   return areanAllocate(ctx->codegenArena, sizeof (Relocation));
 }
 
-static int symbolHashCode(intptr_t s) {
-  return (int)(uintptr_t)s;
-}
-
-static int symbolEquals(intptr_t s1, intptr_t s2) {
-  return (int)(s2 - s1);
-}
-
-
-void emitPushRegF(GeneratedFunction *f, enum Registers r, Boolean isD) {
+void emitPushRegF(GeneratedFunction *f, enum Registers r) {
   int size = sizeof(double);
   Address addr = { 0 };
   addr.base = R_ESP;
@@ -144,7 +127,7 @@ void emitPushRegF(GeneratedFunction *f, enum Registers r, Boolean isD) {
   emitArithConst(f, OP_SUB, R_ESP, size, T_S8);
 }
 
-void emitPopRegF(GeneratedFunction *f, enum Registers r, Boolean isD) {
+void emitPopRegF(GeneratedFunction *f, enum Registers r) {
   int size = sizeof(double);
   Address addr = { 0 };
   addr.base = R_ESP;
@@ -296,14 +279,6 @@ static enum Opcodes selectAssignOpcode(ExpressionType astOp, TypeRef *type) {
     }
 }
 
-static void emitInc(GeneratedFunction *f, TypeRef *type) {
-
-}
-
-static void emitDec(GeneratedFunction *f, TypeRef *type) {
-
-}
-
 typedef union {
   uint8_t bytes[sizeof(float)];
   float f;
@@ -429,7 +404,8 @@ static ptrdiff_t checkFloatConstCache(GenerationContext *ctx, AstConst *_const, 
   return (ptrdiff_t)getFromHashMap(cache, (intptr_t)&_const->f);
 }
 
-static Boolean emitFloatConst(GenerationContext *ctx, GeneratedFunction *f, AstConst *_const, TypeId tid, Address *addr) {
+static Boolean emitFloatConst(GeneratedFunction *f, AstConst *_const, TypeId tid, Address *addr) {
+  GenerationContext *ctx = f->context;
   assert(_const->op == CK_FLOAT_CONST);
   Section *rodata = ctx->rodata;
   ptrdiff_t offset = rodata->pc - rodata->start;
@@ -473,17 +449,6 @@ static Boolean emitFloatConst(GenerationContext *ctx, GeneratedFunction *f, AstC
   return TRUE;
 }
 
-static int parseIfHex(char c) {
-  if (!c) return -1;
-
-  if ('0' <= c && c <= '9') return c - '0';
-  if ('a' <= c && c <= 'f') return 10 + (c - 'a');
-  if ('A' <= c && c <= 'F') return 10 + (c - 'A');
-
-  return -1;
-
-}
-
 static ptrdiff_t emitStringWithEscaping(GenerationContext *ctx, Section *section, AstConst *_const) {
   unsigned idx = 0;
 
@@ -504,13 +469,13 @@ static ptrdiff_t emitStringWithEscaping(GenerationContext *ctx, Section *section
   return sectionOffset;
 }
 
-static void emitConst(GenerationContext *ctx, GeneratedFunction *f, AstConst *_const, TypeId tid) {
+static void emitConst(GeneratedFunction *f, AstConst *_const, TypeId tid) {
   // movq #const, %rax
   int64_t c = 0;
   switch (_const->op) {
   case CK_FLOAT_CONST: {
         Address addr = { 0 };
-        if (emitFloatConst(ctx, f, _const, tid, &addr)) {
+        if (emitFloatConst(f, _const, tid, &addr)) {
           switch (tid) {
             case T_F4: emitMovfpAR(f, &addr, R_FACC, 4); break;
             case T_F8: emitMovfpAR(f, &addr, R_FACC, 8); break;
@@ -525,6 +490,7 @@ static void emitConst(GenerationContext *ctx, GeneratedFunction *f, AstConst *_c
       emitMoveCR(f, c, R_ACC, tid);
       break;
   case CK_STRING_LITERAL: {
+        GenerationContext *ctx = f->context;
         Section *rodata = ctx->rodata;
         ptrdiff_t literalSectionOffset = emitStringWithEscaping(ctx, rodata, _const);
 
@@ -599,14 +565,15 @@ static void emitStore(GeneratedFunction *f, enum Registers from, Address *to, Ty
   }
 }
 
-static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression);
-static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstStatement *stmt, Scope *scope, size_t frameOffset);
-static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *cond, Boolean invertion);
-static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression, Address *addr);
 static void storeBitField(GeneratedFunction *f, TypeRef *t, enum Registers from, Address *addr);
+static void generateExpression(GeneratedFunction *f, AstExpression *expression);
+static enum JumpCondition generateCondition(GeneratedFunction *f, AstExpression *cond, Boolean invertion);
+static void translateAddress(GeneratedFunction *f, AstExpression *expression, Address *addr);
+static Boolean generateStatement(GeneratedFunction *f, AstStatement *stmt);
+static Boolean generateBlock(GeneratedFunction *f, AstBlock *block);
 
-static void emitSymbolCall(GenerationContext *ctx, GeneratedFunction *f, Symbol *s) {
-  Relocation *newReloc = allocateRelocation(ctx);
+static void emitSymbolCall(GeneratedFunction *f, Symbol *s) {
+  Relocation *newReloc = allocateRelocation(f->context);
   newReloc->applySection = f->section;
   newReloc->symbolData.symbolName = s->name;
   newReloc->symbolData.symbol = s;
@@ -650,7 +617,7 @@ static Boolean isNullConst(AstExpression *expr) {
   return expr->constExpr.i == 0;
 }
 
-static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, int32_t typeSize, Address *dst, AstInitializer *initializer, Boolean skipNull) {
+static size_t emitInitializerImpl(GeneratedFunction *f, int32_t typeSize, Address *dst, AstInitializer *initializer, Boolean skipNull) {
   size_t emitted = 0;
 
   switch (initializer->kind) {
@@ -670,11 +637,11 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
       AstExpression *expression = initializer->expression;
 
       if (expression->op == E_COMPOUND) {
-          emitInitializerImpl(ctx, f, scope, slotSize, &addr, expression->compound, skipNull);
+          emitInitializerImpl(f, slotSize, &addr, expression->compound, skipNull);
           return offset + slotSize;
       }
 
-      generateExpression(ctx, f, scope, initializer->expression);
+      generateExpression(f, initializer->expression);
 
       if ((offset + slotSize) <= typeSize) {
         if (isRealType(slotType)) {
@@ -682,7 +649,6 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
             if (sid == T_F10) {
               emitFPStore(f, &addr, T_F10);
             } else {
-              Boolean isD = slotSize > sizeof(float);
               emitMovfpRA(f, R_FACC, &addr, slotSize);
             }
         } else if (isStructualType(slotType) || isUnionType(slotType)) {
@@ -703,13 +669,13 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
         if (isUnionType(initializer->slotType) && initializer->state == IS_INIT) {
           for (; inits; inits = inits->next) {
             if (inits->initializer->state == IS_INIT) {
-              emitted = emitInitializerImpl(ctx, f, scope, typeSize, dst, inits->initializer, skipNull);
+              emitted = emitInitializerImpl(f, typeSize, dst, inits->initializer, skipNull);
               break;
             }
           }
         } else {
           while (inits) {
-            emitted = emitInitializerImpl(ctx, f, scope, typeSize, dst, inits->initializer, skipNull);
+            emitted = emitInitializerImpl(f, typeSize, dst, inits->initializer, skipNull);
             inits = inits->next;
           }
         }
@@ -723,7 +689,7 @@ static size_t emitInitializerImpl(GenerationContext *ctx, GeneratedFunction *f, 
   return 0;
 }
 
-static void emitLocalInitializer(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, TypeRef* type, int32_t frameOffset, AstInitializer *initializer) {
+static void emitLocalInitializer(GeneratedFunction *f, TypeRef* type, int32_t frameOffset, AstInitializer *initializer) {
   Address addr = { R_EBP, R_BAD, 0, frameOffset };
 
   size_t typeSize = computeTypeSize(type);
@@ -733,11 +699,11 @@ static void emitLocalInitializer(GenerationContext *ctx, GeneratedFunction *f, S
       emitLea(f, &addr, R_ARG_0);
       emitArithRR(f, OP_XOR, R_ARG_1, R_ARG_1, sizeof (intptr_t));
       emitMoveCR(f, typeSize, R_ARG_2, T_U8);
-      emitSymbolCall(ctx, f, ctx->memsetSymbol);
-      emitInitializerImpl(ctx, f, scope, typeSize, &addr, initializer, TRUE);
+      emitSymbolCall(f, f->context->memsetSymbol);
+      emitInitializerImpl(f, typeSize, &addr, initializer, TRUE);
   } else {
 
-    size_t emitted = emitInitializerImpl(ctx, f, scope, typeSize, &addr, initializer, FALSE);
+    size_t emitted = emitInitializerImpl(f, typeSize, &addr, initializer, FALSE);
 
     if ((isStructualType(type) || isUnionType(type)) && emitted < typeSize) {
         addr.imm += emitted;
@@ -849,7 +815,6 @@ static size_t emitStaticBitField(ParserContext *ctx, Section *section, AstInitia
       v &= (ROL(1UL, w) - 1);
       v <<= s;
       r |= v;
-
   }
 
   *next = inits;
@@ -1034,12 +999,12 @@ static GeneratedVariable *generateVaribale(GenerationContext *ctx, AstValueDecla
   return v;
 }
 
-static void generateBitExtend(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *extend) {
+static void generateBitExtend(GeneratedFunction *f, AstExpression *extend) {
   unsigned w = extend->extendExpr.w;
   Boolean isU = extend->extendExpr.isUnsigned;
   TypeId id = typeToId(extend->type);
 
-  generateExpression(ctx, f, scope, extend->extendExpr.argument);
+  generateExpression(f, extend->extendExpr.argument);
 
   uint8_t opcode = 0;
 
@@ -1093,7 +1058,7 @@ static void generateU8toF8(GeneratedFunction *f, enum Registers from, enum Regis
   bindLabel(f, &l2);
 }
 
-static void generateU8toF10(GenerationContext *ctx, GeneratedFunction *f, enum Registers from) {
+static void generateU8toF10(GeneratedFunction *f, enum Registers from) {
   /**
    *       fild    QWORD PTR [rbp-8]
    *       cmp     QWORD PTR [rbp-8], 0
@@ -1117,7 +1082,7 @@ static void generateU8toF10(GenerationContext *ctx, GeneratedFunction *f, enum R
   cv.op = CK_FLOAT_CONST;
   cv.f = 18446744073709551616.0;
   Address magic = { 0 };
-  emitFloatConst(ctx, f, &cv, T_F10, &magic);
+  emitFloatConst(f, &cv, T_F10, &magic);
   emitFPLoad(f, &magic, T_F10);
   emitFPArith(f, OP_FADD, 1, TRUE);
 
@@ -1190,7 +1155,7 @@ static void generateF10toInt(GeneratedFunction *f, enum Registers to, TypeId tid
   emitLoad(f, &result, R_ACC, tid);
 }
 
-static void generateF10toU8(GenerationContext *ctx, GeneratedFunction *f, enum Registers to) {
+static void generateF10toU8(GeneratedFunction *f, enum Registers to) {
 
   /**
    *        fld     TBYTE PTR .LC9[rip]
@@ -1233,7 +1198,7 @@ static void generateF10toU8(GenerationContext *ctx, GeneratedFunction *f, enum R
   cv.op = CK_FLOAT_CONST;
   cv.f = 18446744073709551616.0;
   Address magic = { 0 };
-  emitFloatConst(ctx, f, &cv, T_F10, &magic);
+  emitFloatConst(f, &cv, T_F10, &magic);
 
   emitFPLoad(f, &magic, T_F10);
   emitFPnoArg(f, 0xC9); // xchg
@@ -1269,14 +1234,14 @@ static void generateF10toU8(GenerationContext *ctx, GeneratedFunction *f, enum R
   emitFPPop(f, 0);
 }
 
-static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstCastExpression *cast) {
+static void generateCast(GeneratedFunction *f, AstCastExpression *cast) {
     TypeRef *fromType = cast->argument->type;
     TypeRef *toType = cast->type;
 
     TypeId fromTypeId = typeToId(fromType);
     TypeId toTypeId = typeToId(toType);
 
-    generateExpression(ctx, f, scope, cast->argument);
+    generateExpression(f, cast->argument);
 
     int32_t boolCastSize = -1;
 
@@ -1452,7 +1417,7 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           case T_U8: break;
           case T_F4: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, TRUE); break; // cvtsi2ss rax, xmm0
           case T_F8: generateU8toF8(f, R_ACC, R_FACC); break;
-          case T_F10: generateU8toF10(ctx, f, R_ACC); break;
+          case T_F10: generateU8toF10(f, R_ACC); break;
           default: unreachable("unexpected type");
         }
         break;
@@ -1482,9 +1447,9 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           case T_F4: break;
           case T_F8: emitConvertFP(f, 0xF3, 0x5A, R_FACC, R_FACC, FALSE); // cvtss2sd xmm0, xmm0
           case T_F10:
-            emitPushRegF(f, R_FACC, TRUE);
+            emitPushRegF(f, R_FACC);
             emitFPLoad(f, &tos, T_F4);
-            emitPopRegF(f, R_FACC, TRUE);
+            emitPopRegF(f, R_FACC);
             break;
           default: unreachable("unexpected type");
         }
@@ -1517,9 +1482,9 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           case T_F4: emitConvertFP(f, 0xF2, 0x5A, R_FACC, R_FACC, FALSE); break; // cvtss2sd xmm0,xmm0
           case T_F8: break;
           case T_F10:
-            emitPushRegF(f, R_FACC, TRUE);
+            emitPushRegF(f, R_FACC);
             emitFPLoad(f, &tos, T_F8);
-            emitPopRegF(f, R_FACC, TRUE);
+            emitPopRegF(f, R_FACC);
             break;
           default: unreachable("unexpected type");
         }
@@ -1537,7 +1502,7 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           case T_U1:
           case T_U2:
           case T_U4: generateF10toInt(f, R_ACC, toTypeId); break;
-          case T_U8: generateF10toU8(ctx, f, R_ACC); break;
+          case T_U8: generateF10toU8(f, R_ACC); break;
           case T_F4:
           case T_F8:
             tos.imm = -8;
@@ -1558,17 +1523,16 @@ static void generateCast(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
     }
 }
 
-static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpression *binOp, Scope *scope) {
+static void generateBinary(GeneratedFunction *f, AstExpression *binOp) {
   assert(isBinOp(binOp->op));
   AstExpression *left = binOp->binaryExpr.left;
   assert(left);
 
   size_t opSize = computeTypeSize(binOp->type);
   Boolean isFP = isRealType(left->type);
-  Boolean isD = isFP && opSize > 4;
 
   // TODO: optimize memory operations
-  generateExpression(ctx, f, scope, left);
+  generateExpression(f, left);
 
   AstExpression *right = binOp->binaryExpr.right;
   assert(right);
@@ -1582,12 +1546,12 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
 
   if (rid == T_F10) {
       // TODO: probably it worth to be poped and pushed after evaluation to FP stack
-      generateExpression(ctx, f, scope, right);
+      generateExpression(f, right);
       emitFPArith(f, opcode, 1, TRUE);
   } else if (right->op == E_CONST) {
       if (rid == T_F4 || rid == T_F8) {
         Address addr = { 0 };
-        emitFloatConst(ctx, f, &right->constExpr, rid, &addr);
+        emitFloatConst(f, &right->constExpr, rid, &addr);
         emitArithAR(f, opcode, R_FACC, &addr, opSize);
       } else {
         uint64_t cnst = right->constExpr.i;
@@ -1595,14 +1559,14 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
       }
   } else {
     if (isFP) {
-      emitPushRegF(f, R_FACC, isD);
+      emitPushRegF(f, R_FACC);
     } else {
       emitPushReg(f, R_ACC); // save result
     }
 
     if (right->op == EU_DEREF && !isFlatType(right->type) && !isShiftOp(binOp->op) && lid == rid) {
       Address addr = { 0 };
-      translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
+      translateAddress(f, right->unaryExpr.argument, &addr);
 
       if (addr.base == R_ACC && !isFP) {
           emitMoveRR(f, R_ACC, R_TMP, sizeof(intptr_t));
@@ -1615,18 +1579,18 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
       }
 
       if (isFP) {
-        emitPopRegF(f, R_FACC, isD);
+        emitPopRegF(f, R_FACC);
       } else {
         emitPopReg(f, R_ACC); // saved result
       }
 
       emitArithAR(f, opcode, isFP ? R_FACC : R_ACC, &addr, opSize);
     } else {
-      generateExpression(ctx, f, scope, right);
+      generateExpression(f, right);
 
       if (isFP) {
         emitMovfpRR(f, R_FACC, R_FTMP, opSize);
-        emitPopRegF(f, R_FACC, isD);
+        emitPopRegF(f, R_FACC);
         emitArithRR(f, opcode, R_FACC, R_FTMP, opSize);
       } else {
         emitMoveRR(f, R_ACC, R_ECX, opSize); // ECX becouse of shift instructions
@@ -1637,9 +1601,9 @@ static void generateBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpr
   }
 }
 
-static void generateDiv(GenerationContext *ctx, GeneratedFunction *f, AstExpression *binOp, Scope *scope) {
+static void generateDiv(GeneratedFunction *f, AstExpression *binOp) {
   TypeRef *type = binOp->type;
-  if (isRealType(type)) return generateBinary(ctx, f, binOp, scope);
+  if (isRealType(type)) return generateBinary(f, binOp);
 
   Boolean isMod = binOp->op == EB_MOD;
   size_t opSize = computeTypeSize(type);
@@ -1648,7 +1612,7 @@ static void generateDiv(GenerationContext *ctx, GeneratedFunction *f, AstExpress
   AstExpression *left = binOp->binaryExpr.left;
   Boolean isLU = isUnsignedType(left->type);
 
-  generateExpression(ctx, f, scope, left);
+  generateExpression(f, left);
 
   emitPushReg(f, R_ACC);
 
@@ -1661,7 +1625,7 @@ static void generateDiv(GenerationContext *ctx, GeneratedFunction *f, AstExpress
   enum Opcodes opcode;
   if (right->op == EU_DEREF && lid == rid) {
       Address addr = { 0 };
-      translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
+      translateAddress(f, right->unaryExpr.argument, &addr);
       emitPopReg(f, R_ACC);
 
       if (isU) {
@@ -1673,7 +1637,7 @@ static void generateDiv(GenerationContext *ctx, GeneratedFunction *f, AstExpress
       }
       emitArithAR(f, OP_SDIV, R_ACC, &addr, opSize);
   } else {
-      generateExpression(ctx, f, scope, right);
+      generateExpression(f, right);
       emitMoveRR(f, R_ACC, R_TMP2, opSize);
       emitPopReg(f, R_ACC);
 
@@ -1693,16 +1657,16 @@ static void generateDiv(GenerationContext *ctx, GeneratedFunction *f, AstExpress
   }
 }
 
-static void generateLogicalBinary(GenerationContext *ctx, GeneratedFunction *f, AstExpression *binOp, Scope *scope) {
+static void generateLogicalBinary(GeneratedFunction *f, AstExpression *binOp) {
   assert(binOp->op == EB_ANDAND || binOp->op == EB_OROR);
 
-  enum JumpCondition cc = generateCondition(ctx, f, scope, binOp->binaryExpr.left, binOp->op == EB_ANDAND);
+  enum JumpCondition cc = generateCondition(f, binOp->binaryExpr.left, binOp->op == EB_ANDAND);
 
   struct Label elseB = { 0 }, endB = { 0 };
 
   emitCondJump(f, &elseB, cc, FALSE);
 
-  cc = generateCondition(ctx, f, scope, binOp->binaryExpr.right, FALSE);
+  cc = generateCondition(f, binOp->binaryExpr.right, FALSE);
 
   emitSetccR(f, cc, R_ACC);
   emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
@@ -1778,7 +1742,7 @@ static void storeBitField(GeneratedFunction *f, TypeRef *t, enum Registers from,
   }
 }
 
-static void localVarAddress(GenerationContext *ctx, const Symbol *s, Address *addr) {
+static void localVarAddress(const Symbol *s, Address *addr) {
   addr->base = R_EBP;
   addr->index = R_BAD;
   addr->imm = s->variableDesc->gen->baseOffset;
@@ -1794,19 +1758,19 @@ static void leaRelocatable(GeneratedFunction *f, Address *addr, enum Registers r
   }
 }
 
-static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression, Address *addr) {
+static void translateAddress(GeneratedFunction *f, AstExpression *expression, Address *addr) {
 
   if (expression->op == E_COMPOUND && isScalarType(expression->type)) {
-      generateExpression(ctx, f, scope, expression);
-      addr->base = R_ACC;
-      addr->index = R_BAD;
-      addr->scale = addr->imm = 0;
+    generateExpression(f, expression);
+    addr->base = R_ACC;
+    addr->index = R_BAD;
+    addr->scale = addr->imm = 0;
   } else if (expression->op == E_NAMEREF) {
     Symbol *s = expression->nameRefExpr.s;
     if (s->kind == ValueSymbol && s->variableDesc->flags.bits.isLocal) {
-      localVarAddress(ctx, s, addr);
+      localVarAddress(s, addr);
     } else {
-      Relocation *reloc = allocateRelocation(ctx);
+      Relocation *reloc = allocateRelocation(f->context);
       addr->base = R_RIP;
       addr->index = R_BAD;
       addr->scale = addr->imm = 0;
@@ -1827,9 +1791,9 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
     if (l->op == EB_ADD) {
       // [(base + index * scale) + imm]
       // TODO
-      generateExpression(ctx, f, scope, l);
+      generateExpression(f, l);
       emitPushReg(f, R_ACC);
-      generateExpression(ctx, f, scope, r);
+      generateExpression(f, r);
       emitPopReg(f, R_EDI);
       addr->base = R_EDI;
       emitMoveRR(f, R_ACC, R_ECX, sizeof(intptr_t));
@@ -1837,9 +1801,9 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
       addr->scale = 0;
     } else if (r->op == EB_ADD) {
       // [base + (index * scale + imm)]
-      generateExpression(ctx, f, scope, l);
+      generateExpression(f, l);
       emitPushReg(f, R_ACC);
-      generateExpression(ctx, f, scope, r);
+      generateExpression(f, r);
       emitPopReg(f, R_EDI);
       addr->base = R_EDI;
       emitMoveRR(f, R_ACC, R_ECX, sizeof(intptr_t));
@@ -1848,7 +1812,7 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
     } else {
         if (r->op == E_CONST && r->constExpr.op != CK_STRING_LITERAL) {
             // [expr + imm]
-            generateExpression(ctx, f, scope, l);
+            generateExpression(f, l);
             emitMoveRR(f, R_ACC, R_EDI, sizeof(intptr_t));
             addr->base = R_EDI;
             addr->index = R_BAD;
@@ -1857,7 +1821,7 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
             // [expr + index * scale] || [index * scale + expr]
             AstExpression *idxs = r->op == EB_MUL ? r : l;
             AstExpression *expr = idxs == r ? l : r;
-            generateExpression(ctx, f, scope, expr);
+            generateExpression(f, expr);
             AstExpression *ml = idxs->binaryExpr.left;
             AstExpression *mr = idxs->binaryExpr.right;
             if (mr->op == E_CONST) {
@@ -1868,7 +1832,7 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
                     addr->base = R_ACC;
                 } else if (d == 1 || d == 2 || d == 4 || d == 8) {
                   emitPushReg(f, R_ACC);
-                  generateExpression(ctx, f, scope, ml);
+                  generateExpression(f, ml);
                   switch (d) {
                   case 1: addr->scale = 0; break;
                   case 2: addr->scale = 1; break;
@@ -1881,14 +1845,14 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
                   addr->index = R_ECX;
                 } else {
                   emitPushReg(f, R_ACC);
-                  generateExpression(ctx, f, scope, idxs);
+                  generateExpression(f, idxs);
                   emitPopReg(f, R_EDI);
                   addr->base = R_EDI;
                   addr->scale = 0;
                   addr->index = R_ACC;
                 }
             } else {
-                generateExpression(ctx, f, scope, idxs);
+                generateExpression(f, idxs);
                 emitPopReg(f, R_EDI);
                 addr->base = R_EDI;
                 addr->scale = 0;
@@ -1896,9 +1860,9 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
             }
         } else {
             // [expr1 + expr2]
-            generateExpression(ctx, f, scope, l);
+            generateExpression(f, l);
             emitPushReg(f, R_ACC);
-            generateExpression(ctx, f, scope, r);
+            generateExpression(f, r);
             emitPopReg(f, R_EDI);
             addr->base = R_EDI;
             addr->index = R_ACC;
@@ -1906,7 +1870,7 @@ static void translateAddress(GenerationContext *ctx, GeneratedFunction *f, Scope
     }
 
   } else {
-    generateExpression(ctx, f, scope, expression);
+    generateExpression(f, expression);
     addr->base = R_ACC;
     addr->index = R_BAD;
   }
@@ -1924,12 +1888,12 @@ static Boolean isShiftLikeOp(ExpressionType op) {
   return FALSE;
 }
 
-static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
+static void generateAssign(GeneratedFunction *f, AstExpression *expression) {
   AstExpression *lvalue = expression->binaryExpr.left;
   AstExpression *rvalue = expression->binaryExpr.right;
   ExpressionType op = expression->op;
 
-  generateExpression(ctx, f, scope, rvalue);
+  generateExpression(f, rvalue);
 
   TypeRef *lType = lvalue->type;
   TypeRef *rType = rvalue->type;
@@ -1941,22 +1905,20 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
   TypeId rTypeId = typeToId(rType);
 
   Boolean isFP = lTypeId == T_F4 || lTypeId == T_F8;
-  Boolean isD = lTypeId == T_F8;
 
   size_t typeSize = computeTypeSize(lType);
 
   if (!((addrExpr->op == E_NAMEREF || addrExpr->op == E_CONST) && op == EB_ASSIGN) && lTypeId != T_F10) {
     if (isFP) {
-      emitPushRegF(f, R_FACC, isD);
+      emitPushRegF(f, R_FACC);
     } else {
       emitPushReg(f, R_ACC); // save result
     }
     saved_acc = TRUE;
   }
 
-
   assert(addrExpr->op == EU_DEREF);
-  translateAddress(ctx, f, scope, addrExpr->unaryExpr.argument, &addr);
+  translateAddress(f, addrExpr->unaryExpr.argument, &addr);
 
   if (op == EB_ASSIGN) {
       // a = b
@@ -1991,7 +1953,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
             copyStructTo(f, lType, &src, &addr);
           } else {
             if (isFP) {
-                emitPopRegF(f, R_FACC, isD);
+                emitPopRegF(f, R_FACC);
                 emitStore(f, R_FACC, &addr, rTypeId);
             } else {
                 enum Registers resultReg = R_BAD;
@@ -2057,7 +2019,7 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
     } else {
         if (isFP) {
             emitLoad(f, &addr, R_FACC, lTypeId);
-            emitPopRegF(f, R_FTMP, isD);
+            emitPopRegF(f, R_FTMP);
             emitArithRR(f, opcode, R_FACC, R_FTMP, typeSize);
             emitStore(f, R_FACC, &addr, rTypeId);
         } else {
@@ -2090,18 +2052,17 @@ static void generateAssign(GenerationContext *ctx, GeneratedFunction *f, Scope *
   }
 }
 
-
-static void generateAssignDiv(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
+static void generateAssignDiv(GeneratedFunction *f, AstExpression *expression) {
   assert(expression->op == EB_ASG_DIV || EB_ASG_MOD);
 
   TypeRef *type = expression->type;
 
-  if (isRealType(type)) return generateAssign(ctx, f, scope, expression);
+  if (isRealType(type)) return generateAssign(f, expression);
 
   AstExpression *lvalue = expression->binaryExpr.left;
   AstExpression *rvalue = expression->binaryExpr.right;
 
-  generateExpression(ctx, f, scope, rvalue);
+  generateExpression(f, rvalue);
 
   emitPushReg(f, R_ACC);
 
@@ -2118,7 +2079,7 @@ static void generateAssignDiv(GenerationContext *ctx, GeneratedFunction *f, Scop
   Boolean isU = isUnsignedType(type);
 
   assert(lvalue->op == EU_DEREF);
-  translateAddress(ctx, f, scope, lvalue->unaryExpr.argument, &addr);
+  translateAddress(f, lvalue->unaryExpr.argument, &addr);
   leaRelocatable(f, &addr, R_EDI);
 
   enum Opcodes opcode;
@@ -2181,7 +2142,7 @@ static enum Opcodes selectIncDecOpcode(ExpressionType astOp, TypeRef *type) {
   }
 }
 
-static void generateAllocaImpl(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *size) {
+static void generateAllocaImpl(GeneratedFunction *f, AstExpression *size) {
   // alloca algo consts of three steps:
   // 1. move existing stack down on allocating delta
   // 2. set new rsp
@@ -2190,7 +2151,7 @@ static void generateAllocaImpl(GenerationContext *ctx, GeneratedFunction *f, Sco
   // callee-saved regs: R_EBX, R_R12, R_R13, R_R14, R_R15
   const int32_t dataSize = sizeof(intptr_t);
 
-  generateExpression(ctx, f, scope, size);
+  generateExpression(f, size);
 
   int32_t alignment = 2 * dataSize;
 
@@ -2242,7 +2203,7 @@ static void generateAllocaImpl(GenerationContext *ctx, GeneratedFunction *f, Sco
   emitMoveRA(f, R_ACC, &sabAddress, dataSize);
 }
 
-static Boolean generateAlloca(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
+static Boolean generateAlloca(GeneratedFunction *f, AstExpression *expression) {
   AstExpression *callee = expression->callExpr.callee;
 
   if (callee->op != E_NAMEREF) return FALSE;
@@ -2252,7 +2213,7 @@ static Boolean generateAlloca(GenerationContext *ctx, GeneratedFunction *f, Scop
   AstExpressionList *args = expression->callExpr.arguments;
   assert(args->next == NULL);
 
-  generateAllocaImpl(ctx, f, scope, args->expression);
+  generateAllocaImpl(f, args->expression);
 
   return TRUE;
 }
@@ -2261,10 +2222,10 @@ static const enum Registers intArgumentRegs[] = { R_ARG_0, R_ARG_1, R_ARG_2, R_A
 static const enum Registers fpArgumentRegs[] = { R_XMM0, R_XMM1, R_XMM2, R_XMM3, R_XMM4, R_XMM5, R_XMM6, R_XMM7 };
 static const int32_t smallStructSize = 2 * sizeof (intptr_t);
 
-static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
+static void generateCall(GeneratedFunction *f, AstExpression *expression) {
   assert(expression->op == E_CALL);
 
-  if (generateAlloca(ctx, f, scope, expression)) return;
+  if (generateAlloca(f, expression)) return;
 
   AstExpression *callee = expression->callExpr.callee;
   AstExpressionList *args = expression->callExpr.arguments;
@@ -2366,12 +2327,12 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
     if (isCompositeType(argType) && argSize > sizeof(intptr_t)) {
       Address addr = { 0 };
       assert(arg->op == EU_DEREF);
-      translateAddress(ctx, f, scope, arg->unaryExpr.argument, &addr);
+      translateAddress(f, arg->unaryExpr.argument, &addr);
       leaRelocatable(f, &addr, R_ACC);
       dst.imm = rspOffset + (f->stackOffset - stackBase);
       copyStructTo(f, argType, &addr, &dst);
     } else {
-      generateExpression(ctx, f, scope, arg);
+      generateExpression(f, arg);
       dst.imm = rspOffset + (f->stackOffset - stackBase);
 
       if (isRealType(argType)) {
@@ -2380,7 +2341,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
               r_offsets[totalRegArg - idx - 1] = rspOffset;
               r_types[totalRegArg - idx - 1] = argType;
               ++idx;
-              emitPushRegF(f, R_FACC, TRUE);
+              emitPushRegF(f, R_FACC);
           } else {
               emitMovfpRA(f, R_FACC, &dst, argSize);
           }
@@ -2418,7 +2379,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   Address saddr = { R_ESP, R_BAD, 0, 0, NULL, NULL };
 
   if (callee->op != E_NAMEREF) {
-      generateExpression(ctx, f, scope, callee);
+      generateExpression(f, callee);
       emitMoveRR(f, R_ACC, R_R10, sizeof(intptr_t));
   }
 
@@ -2439,7 +2400,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
           if (isRealType(argType)) {
             if (argSize <= 8) {
               enum Registers fpArg = fpArgumentRegs[fr++];
-              emitPopRegF(f, fpArg, TRUE);
+              emitPopRegF(f, fpArg);
             }
           } else {
             emitPopReg(f, intArgumentRegs[ir++]);
@@ -2456,7 +2417,7 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   }
 
   if (callee->op == E_NAMEREF) {
-    emitSymbolCall(ctx, f, callee->nameRefExpr.s);
+    emitSymbolCall(f, callee->nameRefExpr.s);
   } else {
     emitCall(f, R_R10);
   }
@@ -2483,8 +2444,8 @@ static void generateCall(GenerationContext *ctx, GeneratedFunction *f, Scope *sc
   }
 }
 
-static void generateVaArg(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
-  generateExpression(ctx, f, scope, expression->vaArg.va_list);
+static void generateVaArg(GeneratedFunction *f, AstExpression *expression) {
+  generateExpression(f, expression->vaArg.va_list);
 
   TypeRef *vatype = expression->vaArg.argType;
   struct Label memLabl = { 0 }, doneLabl = { 0 };
@@ -2567,7 +2528,7 @@ static void generateVaArg(GenerationContext *ctx, GeneratedFunction *f, Scope *s
   bindLabel(f, &doneLabl);
 }
 
-static void emitFPNeg(GenerationContext *ctx, GeneratedFunction *f, TypeId id) {
+static void emitFPNeg(GeneratedFunction *f, TypeId id) {
   switch (id) {
    case T_F4:
       emitMovdq(f, 0x66, 0x0F, 0x7E, R_ACC, R_FACC, FALSE);
@@ -2588,12 +2549,12 @@ static void emitFPNeg(GenerationContext *ctx, GeneratedFunction *f, TypeId id) {
     }
 }
 
-static void generateCompoundExpression(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
+static void generateCompoundExpression(GeneratedFunction *f, AstExpression *expression) {
   Address addr = { R_EBP, R_BAD, 0, f->structBufferOffset, NULL, NULL };
 
   TypeRef *type = expression->type;
 
-  emitInitializerImpl(ctx, f, scope, computeTypeSize(type), &addr, expression->compound, FALSE);
+  emitInitializerImpl(f, computeTypeSize(type), &addr, expression->compound, FALSE);
 
   if (isScalarType(type)) {
       TypeId tid = typeToId(type);
@@ -2605,56 +2566,56 @@ static void generateCompoundExpression(GenerationContext *ctx, GeneratedFunction
 }
 
 // result is in accamulator
-static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *expression) {
+static void generateExpression(GeneratedFunction *f, AstExpression *expression) {
   Address addr = { 0 };
   TypeId typeId = typeToId(expression->type);
   switch (expression->op) {
     case E_PAREN:
-      generateExpression(ctx, f, scope, expression->parened);
+      generateExpression(f, expression->parened);
       break;
     case E_BLOCK:
-      generateStatement(ctx, f, expression->block, scope, 0);
+      generateStatement(f, expression->block);
       break;
     case E_CONST:
-      emitConst(ctx, f, &expression->constExpr, typeId);
+      emitConst(f, &expression->constExpr, typeId);
       break;
     case E_VA_ARG:
-      generateVaArg(ctx, f, scope, expression);
+      generateVaArg(f, expression);
       break;
     case E_NAMEREF:
-      translateAddress(ctx, f, scope, expression, &addr);
+      translateAddress(f, expression, &addr);
       emitLea(f, &addr, R_ACC);
       break;
     case E_COMPOUND:
-      generateCompoundExpression(ctx, f, scope, expression);
+      generateCompoundExpression(f, expression);
       break;
     case E_CALL:
-      generateCall(ctx, f, scope, expression);
+      generateCall(f, expression);
       break;
     case E_TERNARY: {
         AstTernaryExpression *ternary = &expression->ternaryExpr;
         struct Label elseLabel = { 0 }, endLabel = { 0 };
         assert(ternary->condition);
-        enum JumpCondition cc = generateCondition(ctx, f, scope, ternary->condition, TRUE);
+        enum JumpCondition cc = generateCondition(f, ternary->condition, TRUE);
 
         emitCondJump(f, &elseLabel, cc, FALSE);
 
         assert(ternary->ifTrue);
-        generateExpression(ctx, f, scope, ternary->ifTrue);
+        generateExpression(f, ternary->ifTrue);
         emitJumpTo(f, &endLabel, FALSE);
 
         assert(ternary->ifFalse);
         bindLabel(f, &elseLabel);
-        generateExpression(ctx, f, scope, ternary->ifFalse);
+        generateExpression(f, ternary->ifFalse);
 
         bindLabel(f, &endLabel);
       }
       break;
     case E_BIT_EXTEND:
-      generateBitExtend(ctx, f, scope, expression);
+      generateBitExtend(f, expression);
       break;
     case E_CAST:
-      generateCast(ctx, f, scope, &expression->castExpr);
+      generateCast(f, &expression->castExpr);
       break;
     case EB_ADD:
     case EB_SUB:
@@ -2664,15 +2625,15 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
     case EB_OR:
     case EB_XOR:
     case EB_MUL:
-      generateBinary(ctx, f, expression, scope);
+      generateBinary(f, expression);
       break;
     case EB_DIV:
     case EB_MOD:
-      generateDiv(ctx, f, expression, scope);
+      generateDiv(f, expression);
       break;
     case EB_ANDAND:
     case EB_OROR:
-      generateLogicalBinary(ctx, f, expression, scope);
+      generateLogicalBinary(f, expression);
       break;
     case EB_EQ:
     case EB_NE:
@@ -2680,7 +2641,7 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
     case EB_LE:
     case EB_GT:
     case EB_GE: {
-        enum JumpCondition cc = generateCondition(ctx, f, scope, expression, FALSE);
+        enum JumpCondition cc = generateCondition(f, expression, FALSE);
         emitSetccR(f, cc, R_ACC);
         emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
       }
@@ -2694,23 +2655,23 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
     case EB_ASG_AND:
     case EB_ASG_XOR:
     case EB_ASG_OR:
-      generateAssign(ctx, f, scope, expression);
+      generateAssign(f, expression);
       // TODO:
       break;
     case EB_ASG_DIV:
     case EB_ASG_MOD:
-      generateAssignDiv(ctx, f, scope, expression);
+      generateAssignDiv(f, expression);
       break;
     case EB_COMMA:
-      generateExpression(ctx, f, scope, expression->binaryExpr.left);
-      generateExpression(ctx, f, scope, expression->binaryExpr.right);
+      generateExpression(f, expression->binaryExpr.left);
+      generateExpression(f, expression->binaryExpr.right);
       break;
     case EU_REF:
-      translateAddress(ctx, f, scope, expression->unaryExpr.argument, &addr);
+      translateAddress(f, expression->unaryExpr.argument, &addr);
       emitLea(f, &addr, R_ACC);
       break;
     case EU_DEREF:
-      translateAddress(ctx, f, scope, expression->unaryExpr.argument, &addr);
+      translateAddress(f, expression->unaryExpr.argument, &addr);
       if (isFlatType(expression->type) || expression->type->kind == TR_FUNCTION) {
         if (!(addr.base == R_ACC && addr.index == R_BAD && addr.imm == 0)) {
           emitLea(f, &addr, R_ACC);
@@ -2720,26 +2681,27 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
       }
       break;
     case EU_PLUS:
-      generateExpression(ctx, f, scope, expression->unaryExpr.argument);
+      generateExpression(f, expression->unaryExpr.argument);
       break;
     case EU_MINUS:
-      generateExpression(ctx, f, scope, expression->unaryExpr.argument);
+      generateExpression(f, expression->unaryExpr.argument);
       if (isRealType(expression->type)) {
-          emitFPNeg(ctx, f, expression->type->descriptorDesc->typeId);
+          emitFPNeg(f, expression->type->descriptorDesc->typeId);
       } else {
           emitNegR(f, R_ACC, typeIdSize(typeId));
       }
       break;
     case EU_TILDA:
-      generateExpression(ctx, f, scope, expression->unaryExpr.argument);
+      generateExpression(f, expression->unaryExpr.argument);
       emitBitwiseNotR(f, R_ACC, computeTypeSize(expression->type));
       break;
     case EU_EXL:
-      generateExpression(ctx, f, scope, expression->unaryExpr.argument);
+      generateExpression(f, expression->unaryExpr.argument);
       emitNot(f, R_ACC, computeTypeSize(expression->unaryExpr.argument->type));
       break;
 
     case E_LABEL_REF: {
+      GenerationContext *ctx = f->context;
       struct Label *l = (struct Label *)getFromHashMap(ctx->labelMap, (intptr_t)expression->label);
       if (l == NULL) {
           l = allocateLabel(ctx);
@@ -2755,13 +2717,8 @@ static void generateExpression(GenerationContext *ctx, GeneratedFunction *f, Sco
   }
 }
 
-
-
-static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstStatement *stmt, Scope *scope, size_t frameOffset);
-static int generateBlock(GenerationContext *ctx, GeneratedFunction *f, AstBlock *block, size_t frameOffset);
-
-
-static size_t generateLabel(GenerationContext *ctx, GeneratedFunction *f, AstLabelStatement *label, Scope *scope, size_t frameOffset) {
+static Boolean generateLabel(GeneratedFunction *f, AstLabelStatement *label) {
+  GenerationContext *ctx = f->context;
   int i;
   switch (label->kind) {
     case LK_CASE:
@@ -2791,12 +2748,10 @@ static size_t generateLabel(GenerationContext *ctx, GeneratedFunction *f, AstLab
     break;
   }
 
-  return generateStatement(ctx, f, label->body, scope, frameOffset);
+  return generateStatement(f, label->body);
 }
 
-
-
-static void emitReturn(GenerationContext *ctx, GeneratedFunction *f) {
+static void emitReturn(GeneratedFunction *f) {
   // movq $result, %rax
   // ret
   emitRet(f, 0);
@@ -2855,7 +2810,8 @@ static unsigned walkCaseLabels(AstStatement *body, struct CaseLabel *caseLabels,
 
 }
 
-static int generateSwitchStatement(GenerationContext *ctx, GeneratedFunction *f, AstSwitchStatement *stmt, Scope *scope, size_t frameOffset) {
+static void generateSwitchStatement(GeneratedFunction *f, AstSwitchStatement *stmt) {
+  GenerationContext *ctx = f->context;
   struct Label *oldBreak = ctx->breakLabel;
   struct Label switchBreak = { 0 };
   ctx->breakLabel = &switchBreak;
@@ -2878,7 +2834,7 @@ static int generateSwitchStatement(GenerationContext *ctx, GeneratedFunction *f,
 
   AstExpression *condition = stmt->condition;
   assert(condition->type->kind == TR_VALUE);
-  generateExpression(ctx, f, scope, condition);
+  generateExpression(f, condition);
 
   size_t condTypeSize = computeTypeSize(condition->type);
 
@@ -2897,7 +2853,7 @@ static int generateSwitchStatement(GenerationContext *ctx, GeneratedFunction *f,
       emitJumpTo(f, &switchBreak, FALSE);
   }
 
-  generateStatement(ctx, f, stmt->body, scope, frameOffset);
+  generateStatement(f, stmt->body);
 
   bindLabel(f, &switchBreak);
 
@@ -2905,20 +2861,17 @@ static int generateSwitchStatement(GenerationContext *ctx, GeneratedFunction *f,
   ctx->caseLabels = oldCaseLabels;
   ctx->defaultLabel = oldDefaultLabel;
   ctx->breakLabel = oldBreak;
-
-  return 0;
 }
 
-static enum JumpCondition generateFloatCondition(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *left, AstExpression *right, ExpressionType op, Boolean invertion) {
+static enum JumpCondition generateFloatCondition(GeneratedFunction *f, AstExpression *left, AstExpression *right, ExpressionType op, Boolean invertion) {
   TypeId lid = typeToId(left->type);
   TypeId rid = typeToId(right->type);
   int32_t opSize = typeIdSize(lid);
-  Boolean isD = lid == T_F8;
 
-  generateExpression(ctx, f, scope, left);
+  generateExpression(f, left);
 
   if (lid != T_F10) {
-    emitPushRegF(f, R_FACC, isD);
+    emitPushRegF(f, R_FACC);
   }
 
   Address addr = { 0 };
@@ -2927,13 +2880,13 @@ static enum JumpCondition generateFloatCondition(GenerationContext *ctx, Generat
       enum JumpCondition setcc = op == EB_EQ ? JC_NOT_PARITY : JC_PARITY;
 
       if (rid == T_F10) {
-          generateExpression(ctx, f, scope, right);
+          generateExpression(f, right);
           emitFPArith(f, OP_FUCMP, 1, FALSE);
           emitSetccR(f, setcc, R_ACC);
           emitFPArith(f, OP_FUCMP, 1, TRUE);
           emitFPPop(f, 0);
       } else if (right->op == EU_DEREF) {
-          translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
+          translateAddress(f, right->unaryExpr.argument, &addr);
           if (addr.reloc) {
               emitLea(f, &addr, R_TMP);
               addr.base = R_TMP;
@@ -2941,14 +2894,14 @@ static enum JumpCondition generateFloatCondition(GenerationContext *ctx, Generat
               addr.imm = addr.scale = 0;
               addr.reloc = NULL;
           }
-          emitPopRegF(f, R_FTMP2, isD);
+          emitPopRegF(f, R_FTMP2);
           emitArithAR(f, OP_FUCMP, R_FTMP2, &addr, opSize);
           emitSetccR(f, setcc, R_ACC);
           emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
           emitArithAR(f, OP_FUCMP, R_FTMP2, &addr, opSize);
       } else {
-          generateExpression(ctx, f, scope, right);
-          emitPopRegF(f, R_FTMP2, isD);
+          generateExpression(f, right);
+          emitPopRegF(f, R_FTMP2);
           emitArithRR(f, OP_FUCMP, R_FTMP2, R_FACC, opSize);
           emitSetccR(f, setcc, R_ACC);
           emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
@@ -2969,21 +2922,21 @@ static enum JumpCondition generateFloatCondition(GenerationContext *ctx, Generat
       return invertion ? JC_ZERO : JC_NOT_ZERO;
   } else if (op == EB_LT || op == EB_LE) {
       if (rid == T_F10) {
-          generateExpression(ctx, f, scope, right);
+          generateExpression(f, right);
           emitFPArith(f, OP_FOCMP, 1, TRUE);
           emitFPPop(f, 0);
       } else if (right->op == EU_DEREF) {
-          translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
+          translateAddress(f, right->unaryExpr.argument, &addr);
           emitPopReg(f, R_ACC);
           emitArithAR(f, OP_FOCMP, R_FACC, &addr, opSize);
       } else {
-          generateExpression(ctx, f, scope, right);
+          generateExpression(f, right);
           emitPopReg(f, R_TMP);
           emitArithRR(f, OP_FOCMP, R_FTMP, R_FACC, opSize);
       }
       return op == EB_LT ? invertion ? JC_NOT_L : JC_L : invertion ? JC_NOT_LE : JC_LE;
   } else {
-      generateExpression(ctx, f, scope, right);
+      generateExpression(f, right);
       if (rid == T_F10) {
         emitFPnoArg(f, 0xC9); // change st(0) with st(1)
         emitFPArith(f, OP_FOCMP, 1, TRUE);
@@ -2997,7 +2950,7 @@ static enum JumpCondition generateFloatCondition(GenerationContext *ctx, Generat
 
 }
 
-static enum JumpCondition generateUnsignedCondition(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *left, AstExpression *right, ExpressionType op, Boolean invertion) {
+static enum JumpCondition generateUnsignedCondition(GeneratedFunction *f, AstExpression *left, AstExpression *right, ExpressionType op, Boolean invertion) {
   enum JumpCondition cc = JC_BAD;
   Boolean swap = FALSE;
   switch (op) {
@@ -3014,7 +2967,7 @@ static enum JumpCondition generateUnsignedCondition(GenerationContext *ctx, Gene
   TypeId rid = typeToId(right->type);
   int32_t opSize = typeIdSize(lid);
 
-  generateExpression(ctx, f, scope, left);
+  generateExpression(f, left);
 
   if (right->op == E_CONST && !swap) {
     uint64_t cnst = right->constExpr.i;
@@ -3024,11 +2977,11 @@ static enum JumpCondition generateUnsignedCondition(GenerationContext *ctx, Gene
 
     if (right->op == EU_DEREF && !isFlatType(right->type) && lid == rid && !swap) {
         Address addr = { 0 };
-        translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
+        translateAddress(f, right->unaryExpr.argument, &addr);
         emitPopReg(f, R_TMP);
         emitArithAR(f, OP_CMP, R_TMP, &addr, opSize);
     } else {
-        generateExpression(ctx, f, scope, right);
+        generateExpression(f, right);
         emitPopReg(f, R_TMP);
         // x op y -> y op x
         enum Registers l = swap ? R_ACC : R_TMP;
@@ -3040,7 +2993,7 @@ static enum JumpCondition generateUnsignedCondition(GenerationContext *ctx, Gene
   return cc;
 }
 
-static enum JumpCondition generateSignedCondition(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *left, AstExpression *right, ExpressionType op, Boolean invertion) {
+static enum JumpCondition generateSignedCondition(GeneratedFunction *f, AstExpression *left, AstExpression *right, ExpressionType op, Boolean invertion) {
   enum JumpCondition cc = JC_BAD;
   switch (op) {
   case EB_GE: cc = invertion ? JC_NOT_GE : JC_GE; break;
@@ -3056,7 +3009,7 @@ static enum JumpCondition generateSignedCondition(GenerationContext *ctx, Genera
   TypeId rid = typeToId(right->type);
   int32_t opSize = typeIdSize(lid);
 
-  generateExpression(ctx, f, scope, left);
+  generateExpression(f, left);
 
   if (right->op == E_CONST) {
     uint64_t cnst = right->constExpr.i;
@@ -3068,11 +3021,11 @@ static enum JumpCondition generateSignedCondition(GenerationContext *ctx, Genera
 
     if (right->op == EU_DEREF && lid == rid) {
         Address addr = { 0 };
-        translateAddress(ctx, f, scope, right->unaryExpr.argument, &addr);
+        translateAddress(f, right->unaryExpr.argument, &addr);
         emitPopReg(f, R_TMP);
         emitArithAR(f, OP_CMP, R_TMP, &addr, opSize);
     } else {
-        generateExpression(ctx, f, scope, right);
+        generateExpression(f, right);
         emitPopReg(f, R_TMP);
         // x op y -> y op x
         emitArithRR(f, OP_CMP, R_TMP, R_ACC, opSize);
@@ -3082,7 +3035,7 @@ static enum JumpCondition generateSignedCondition(GenerationContext *ctx, Genera
   return cc;
 }
 
-static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFunction *f, Scope *scope, AstExpression *cond, Boolean invertion) {
+static enum JumpCondition generateCondition(GeneratedFunction *f, AstExpression *cond, Boolean invertion) {
 
   switch (cond->op) {
     case EB_GE:
@@ -3095,33 +3048,33 @@ static enum JumpCondition generateCondition(GenerationContext *ctx, GeneratedFun
       Boolean isFP = tid >= T_F4;
       Boolean isU = tid >= T_U1;
       if (tid >= T_F4) {
-          return generateFloatCondition(ctx, f, scope, cond->binaryExpr.left, cond->binaryExpr.right, cond->op, invertion);
+          return generateFloatCondition(f, cond->binaryExpr.left, cond->binaryExpr.right, cond->op, invertion);
       }
       if (tid >= T_U1) {
-          return generateUnsignedCondition(ctx, f, scope, cond->binaryExpr.left, cond->binaryExpr.right, cond->op, invertion);
+          return generateUnsignedCondition(f, cond->binaryExpr.left, cond->binaryExpr.right, cond->op, invertion);
       }
 
-      return generateSignedCondition(ctx, f, scope, cond->binaryExpr.left, cond->binaryExpr.right, cond->op, invertion);
+      return generateSignedCondition(f, cond->binaryExpr.left, cond->binaryExpr.right, cond->op, invertion);
     }
     default:
       if (cond->op == EU_EXL) {
-        generateExpression(ctx, f, scope, cond->unaryExpr.argument);
+        generateExpression(f, cond->unaryExpr.argument);
         emitTestRR(f, R_ACC, R_ACC, computeTypeSize(cond->type));
         return invertion ? JC_NOT_ZERO : JC_ZERO;
       } else {
-        generateExpression(ctx, f, scope, cond);
+        generateExpression(f, cond);
         emitTestRR(f, R_ACC, R_ACC, computeTypeSize(cond->type));
         return invertion ? JC_ZERO : JC_NOT_ZERO;
       }
   }
 }
 
-static int generateIfStatement(GenerationContext *ctx, GeneratedFunction *f, AstIfStatement *stmt, Scope *scope, size_t frameOffset) {
+static void generateIfStatement(GeneratedFunction *f, AstIfStatement *stmt) {
 
   struct Label elseLabel = { 0 }, endLabel = { 0 };
 
   assert(stmt->condition);
-  enum JumpCondition cc = generateCondition(ctx, f, scope, stmt->condition, TRUE);
+  enum JumpCondition cc = generateCondition(f, stmt->condition, TRUE);
 
   if (stmt->elseBranch) {
     emitCondJump(f, &elseLabel, cc, FALSE);
@@ -3130,21 +3083,20 @@ static int generateIfStatement(GenerationContext *ctx, GeneratedFunction *f, Ast
   }
 
   assert(stmt->thenBranch);
-  size_t frameSize = generateStatement(ctx, f, stmt->thenBranch, scope, frameOffset);
+  generateStatement(f, stmt->thenBranch);
 
   if (stmt->elseBranch) {
       emitJumpTo(f, &endLabel, FALSE);
       bindLabel(f, &elseLabel);
-      frameSize = max(frameSize, generateStatement(ctx, f, stmt->elseBranch, scope, frameOffset));
+      generateStatement(f, stmt->elseBranch);
   }
 
   bindLabel(f, &endLabel);
-
-  return frameSize;
 }
 
-static int generateLoopStatement(GenerationContext *ctx, GeneratedFunction *f, AstLoopStatement *stmt, Scope *scope, size_t frameOffset, Boolean doLoop) {
+static void generateLoopStatement(GeneratedFunction *f, AstLoopStatement *stmt, Boolean doLoop) {
 
+  GenerationContext *ctx = f->context;
   struct Label loopHead = { 0 }, loopTail = { 0 }, continueLabel = { 0 };
   struct Label *oldBreak = ctx->breakLabel, *oldContinue = ctx->continueLabel;
 
@@ -3157,16 +3109,16 @@ static int generateLoopStatement(GenerationContext *ctx, GeneratedFunction *f, A
 
   if (!doLoop) {
       bindLabel(f, &continueLabel);
-      enum JumpCondition cc = generateCondition(ctx, f, scope, stmt->condition, TRUE);
+      enum JumpCondition cc = generateCondition(f, stmt->condition, TRUE);
       emitCondJump(f, &loopTail, cc, FALSE);
   }
 
   assert(stmt->body);
-  size_t frameSize = generateStatement(ctx, f, stmt->body, scope, frameOffset);
+  generateStatement(f, stmt->body);
 
   if (doLoop) {
       bindLabel(f, &continueLabel);
-      enum JumpCondition cc = generateCondition(ctx, f, scope, stmt->condition, FALSE);
+      enum JumpCondition cc = generateCondition(f, stmt->condition, FALSE);
       emitCondJump(f, &loopHead, cc, FALSE);
   } else {
       emitJumpTo(f, &loopHead, FALSE);
@@ -3176,17 +3128,17 @@ static int generateLoopStatement(GenerationContext *ctx, GeneratedFunction *f, A
 
   ctx->breakLabel = oldBreak;
   ctx->continueLabel = oldContinue;
-
-  return frameSize;
 }
 
-static int generateForStatement(GenerationContext *ctx, GeneratedFunction *f, AstForStatement *stmt, Scope *scope, size_t frameOffset) {
+static void generateForStatement(GeneratedFunction *f, AstForStatement *stmt) {
   if (stmt->initial) {
       AstStatementList *stmts = stmt->initial;
       for (; stmts; stmts = stmts->next) {
-        generateStatement(ctx, f, stmts->stmt, scope, frameOffset);
+        generateStatement(f, stmts->stmt);
       }
   }
+
+  GenerationContext *ctx = f->context;
 
   struct Label loopHead = { 0 }, loopTail = { 0 }, continueLabel = { 0 };
 
@@ -3198,16 +3150,16 @@ static int generateForStatement(GenerationContext *ctx, GeneratedFunction *f, As
   bindLabel(f, &loopHead);
 
   if (stmt->condition) {
-    enum JumpCondition cc = generateCondition(ctx, f, scope, stmt->condition, TRUE);
+    enum JumpCondition cc = generateCondition(f, stmt->condition, TRUE);
     emitCondJump(f, &loopTail, cc, FALSE);
   }
 
   assert(stmt->body);
-  size_t frameSize = generateStatement(ctx, f, stmt->body, scope, frameOffset);
+  generateStatement(f, stmt->body);
 
   if (stmt->modifier) {
     bindLabel(f, &continueLabel);
-    generateExpression(ctx, f, scope, stmt->modifier);
+    generateExpression(f, stmt->modifier);
   }
 
   emitJumpTo(f, &loopHead, FALSE);
@@ -3215,25 +3167,24 @@ static int generateForStatement(GenerationContext *ctx, GeneratedFunction *f, As
 
   ctx->breakLabel = oldBreak;
   ctx->continueLabel = oldContinue;
-
-  return frameSize;
 }
 
-static void allocateVLAMemory(GenerationContext *ctx, GeneratedFunction *f, GeneratedVariable *v, AstInitializer *init, TypeRef *type) {
+static void allocateVLAMemory(GeneratedFunction *f, GeneratedVariable *v, AstInitializer *init, TypeRef *type) {
   assert(init && init->kind == IK_EXPRESSION);
 
-  generateAllocaImpl(ctx, f, NULL, init->expression);
+  generateAllocaImpl(f, init->expression);
 
   Address addr = { R_EBP, R_BAD, 0, v->baseOffset };
   emitStore(f, R_ACC, &addr, T_U8);
 }
 
-static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstStatement *stmt, Scope *scope, size_t frameOffset) {
+static Boolean generateStatement(GeneratedFunction *f, AstStatement *stmt) {
+
+  GenerationContext *ctx = f->context;
 
   switch (stmt->statementKind) {
   case SK_BLOCK:
-      generateBlock(ctx, f, &stmt->block, frameOffset);
-      break;
+      return generateBlock(f, &stmt->block);
   case SK_DECLARATION: {
       AstDeclaration *d = stmt->declStmt.declaration;
       if (d->kind == DK_VAR) {
@@ -3247,10 +3198,10 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
         if (v->flags.bits.isLocal) {
             assert(v->gen);
             if (v->type->kind == TR_VLA) {
-                allocateVLAMemory(ctx, f, v->gen, v->initializer, v->type);
+                allocateVLAMemory(f, v->gen, v->initializer, v->type);
             } else {
               if (v->initializer) {
-                  emitLocalInitializer(ctx, f, scope, v->type, v->gen->baseOffset, v->initializer);
+                  emitLocalInitializer(f, v->type, v->gen->baseOffset, v->initializer);
               }
             }
         } else {
@@ -3260,22 +3211,19 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
           gv->next = ctx->file->staticVariables;
           ctx->file->staticVariables = gv;
         }
-
-        return typeSize;
       }
       break;
   }
   case SK_EMPTY: break;
   case SK_EXPR_STMT:
-      generateExpression(ctx, f, scope, stmt->exprStmt.expression);
+      generateExpression(f, stmt->exprStmt.expression);
       if (typeToId(stmt->exprStmt.expression->type) == T_F10) {
           // clean up FP processor stack
           emitFPPop(f, 0);
       }
       break;
   case SK_LABEL:
-      generateLabel(ctx, f, &stmt->labelStmt, scope, frameOffset);
-      break;
+      return generateLabel(f, &stmt->labelStmt);
   case SK_GOTO_L: {
       struct Label *l = (struct Label *)getFromHashMap(ctx->labelMap, (intptr_t)stmt->jumpStmt.label);
       if (l == NULL) {
@@ -3286,9 +3234,9 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
       break;
   }
   case SK_GOTO_P: {
-        generateExpression(ctx, f, scope, stmt->jumpStmt.expression);
-        emitJumpByReg(f, R_ACC);
-        break;
+      generateExpression(f, stmt->jumpStmt.expression);
+      emitJumpByReg(f, R_ACC);
+      break;
   }
   case SK_RETURN: {
       AstExpression *retExpr = stmt->jumpStmt.expression;
@@ -3296,7 +3244,7 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
           if (isStructualType(retExpr->type)) {
             Address src = { 0 };
             assert(retExpr->op == EU_DEREF);
-            translateAddress(ctx, f, scope, retExpr->unaryExpr.argument, &src);
+            translateAddress(f, retExpr->unaryExpr.argument, &src);
 
             size_t retSize = computeTypeSize(retExpr->type);
             if (retSize > sizeof(intptr_t)) {
@@ -3310,58 +3258,55 @@ static int generateStatement(GenerationContext *ctx, GeneratedFunction *f, AstSt
               emitMoveAR(f, &src, R_ACC, retSize);
             }
           } else {
-            generateExpression(ctx, f, scope, retExpr);
+            generateExpression(f, retExpr);
           }
       }
       emitLeave(f);
       emitRet(f, 0);
-      break;
+      return TRUE;
       }
   case SK_BREAK:
-        assert(ctx->breakLabel);
-        emitJumpTo(f, ctx->breakLabel, FALSE);
-        break;
+      assert(f->context->breakLabel);
+      emitJumpTo(f, f->context->breakLabel, FALSE);
+      break;
   case SK_CONTINUE:
-        assert(ctx->continueLabel);
-        emitJumpTo(f, ctx->continueLabel, FALSE);
-        break;
+      assert(ctx->continueLabel);
+      emitJumpTo(f, ctx->continueLabel, FALSE);
+      break;
   case SK_IF:
-      generateIfStatement(ctx, f, &stmt->ifStmt, scope, frameOffset);
+      generateIfStatement(f, &stmt->ifStmt);
       break;
   case SK_SWITCH:
-      generateSwitchStatement(ctx, f, &stmt->switchStmt, scope, frameOffset);
+      generateSwitchStatement(f, &stmt->switchStmt);
       break;
   case SK_WHILE:
   case SK_DO_WHILE:
-      generateLoopStatement(ctx, f, &stmt->loopStmt, scope, frameOffset, stmt->statementKind == SK_DO_WHILE);
+      generateLoopStatement(f, &stmt->loopStmt, stmt->statementKind == SK_DO_WHILE);
       break;
   case SK_FOR:
-      generateForStatement(ctx, f, &stmt->forStmt, scope, frameOffset);
+      generateForStatement(f, &stmt->forStmt);
       break;
   default:
       unreachable("Unreachable");
       break;
   }
-
-  return 0;
+  return FALSE;
 }
 
-static int generateBlock(GenerationContext *ctx, GeneratedFunction *f, AstBlock *block, size_t frameOffset) {
+static Boolean generateBlock(GeneratedFunction *f, AstBlock *block) {
 
   AstStatementList *stmt = block->stmts;
-  Scope *scope = block->scope;
-  size_t innerScopeSize = 0;
-  size_t initFrameOffset = frameOffset;
+  Boolean lastIsRet = FALSE;
 
   while (stmt) {
-    frameOffset += generateStatement(ctx, f, stmt->stmt, scope, frameOffset);
+    lastIsRet = generateStatement(f, stmt->stmt);
     stmt = stmt->next;
   }
 
-  return 0;
+  return lastIsRet;
 }
 
-static void pushFrame(GenerationContext *ctx, GeneratedFunction *f) {
+static void pushFrame(GeneratedFunction *f) {
 
   // pushq %rbp
   emitPushReg(f, R_EBP);
@@ -3369,14 +3314,14 @@ static void pushFrame(GenerationContext *ctx, GeneratedFunction *f) {
   emitMoveRR(f, R_ESP, R_EBP, sizeof(intptr_t));
 }
 
-static void popFrame(GenerationContext *ctx, GeneratedFunction *f) {
+static void popFrame(GeneratedFunction *f) {
   // movq %rbp, %rsp
   // popq %rbp
 
   emitLeave(f);
 }
 
-static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, AstFunctionDefinition *f) {
+static size_t allocateLocalSlots(GeneratedFunction *g, AstFunctionDefinition *f) {
   AstValueDeclaration *param = f->declaration->parameters;
   AstValueDeclaration *local = f->locals;
   TypeRef *returnType = f->declaration->returnType;
@@ -3406,7 +3351,7 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
 
   for (; param; param = param->next) {
     TypeRef *paramType = param->type;
-    GeneratedVariable *gp = allocateGenVarialbe(ctx, param);
+    GeneratedVariable *gp = allocateGenVarialbe(g->context, param);
     size_t size = max(computeTypeSize(paramType), sizeof(intptr_t));
     size_t align = max(typeAlignment(paramType), sizeof(intptr_t));
 
@@ -3441,7 +3386,7 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
 
   for (; local; local = local->next) {
       TypeRef *localType = local->type;
-      GeneratedVariable *gp = allocateGenVarialbe(ctx, local);
+      GeneratedVariable *gp = allocateGenVarialbe(g->context, local);
       size_t size = computeTypeSize(localType);
       size_t align = typeAlignment(localType);
 
@@ -3460,7 +3405,7 @@ static size_t allocateLocalSlots(GenerationContext *ctx, GeneratedFunction *g, A
       int32_t fp_offset_off = baseOffset += sizeof(uint32_t);
       int32_t gp_offset_off = baseOffset += sizeof(uint32_t);
 
-      va_area->gen = allocateGenVarialbe(ctx, va_area);
+      va_area->gen = allocateGenVarialbe(g->context, va_area);
       va_area->gen->baseOffset = -gp_offset_off;
 
       int32_t fp_va_area = baseOffset += R_FP_PARAM_COUNT * dataSize;
@@ -3552,9 +3497,9 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
   gen->symbol = f->declaration->symbol;
   gen->name = f->declaration->name;
 
-  pushFrame(ctx, gen);
+  pushFrame(gen);
 
-  size_t frameSize = allocateLocalSlots(ctx, gen, f);
+  size_t frameSize = allocateLocalSlots(gen, f);
 
   size_t delta = frameSize;
 
@@ -3565,11 +3510,10 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
   emitMoveRA(gen, R_ESP, &addr, sizeof(intptr_t));
 
   gen->stackOffset = 0;
-  generateBlock(ctx, gen, &f->body->block, 0);
+  Boolean lastIsRet = generateBlock(gen, &f->body->block);
   assert(gen->stackOffset == 0);
 
-//  if (gen->section->pc[-1] != 0xC3) {
-   // TODO check if last AST node isn't return
+  if (!lastIsRet) {
     TypeRef * returnType = f->declaration->returnType;
     size_t returnTypeSize = computeTypeSize(returnType);
     if (isCompositeType(returnType) && returnTypeSize > sizeof(intptr_t)) {
@@ -3577,9 +3521,9 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
         emitMoveAR(gen, &addr, R_EAX, sizeof(intptr_t));
     }
 
-    popFrame(ctx, gen);
-    emitReturn(ctx, gen);
-//  }
+    popFrame(gen);
+    emitReturn(gen);
+  }
 
   gen->bodySize = (gen->section->pc - gen->section->start) - gen->sectionOffset;
 
