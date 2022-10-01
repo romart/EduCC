@@ -151,11 +151,10 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, NON_VAR_IN_FOR, "non-variable declaration in 'for' loop"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, NON_LOCAL_IN_FOR, "declaration of non-local variable in 'for' loop"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, VOID_NOT_IGNORED, "void value not ignored as it ought to be"), \
-  DIAGNOSTIC_DEF(ERROR, PP, INVALID_PP_DIRECTIVE, "invalid preprocessor directive %tk"), \
-  DIAGNOSTIC_DEF(ERROR, PP, EXPECTED_FILENAME, "expected \"FILENAME\" or <FILENAME>"), \
-  DIAGNOSTIC_DEF(ERROR, PP, INCLUDE_FILE_NOT_FOUND, "'%s' file not found"), \
-  DIAGNOSTIC_DEF(WARNING, PP, EXTRA_TOKENS, "extra tokens at end of #include directive"), \
-  DIAGNOSTIC_DEF(ERROR, PP, MACRO_NAME_IS_ID, "macro name must be an identifier"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_INVALID_PP_DIRECTIVE, "invalid preprocessor directive %tk"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_EXPECTED_FILENAME, "expected \"FILENAME\" or <FILENAME>"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_INCLUDE_FILE_NOT_FOUND, "'%s' file not found"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_MACRO_NAME_IS_ID, "macro name must be an identifier"), \
   DIAGNOSTIC_DEF(ERROR, PP, PP_ERROR, "%s"), \
   DIAGNOSTIC_DEF(WARNING, PP, PP_WARNING, "%s"), \
   DIAGNOSTIC_DEF(ERROR, PP, PP_CANNOT_EVALUATE, "cannot evaluate expression"), \
@@ -170,7 +169,14 @@
   DIAGNOSTIC_DEF(WARNING, PP, PP_DEFINED_NOT_A_NAME, "'defined' cannot be used as a macro name"), \
   DIAGNOSTIC_DEF(WARNING, PP, PP_EXTRA_TOKEN_ENDOF_DIRECTIVE, "extra tokens at end of #%s directive"), \
   DIAGNOSTIC_DEF(ERROR, PP, PP_LINE_NOT_POSITIVE_INT, "'%s' after #line is not a positive integer"), \
-  DIAGNOSTIC_DEF(WARNING, PP, PP_LINE_EXTRA_TOKEN_AT_END, "extra tokens at end of #line directive") , \
   DIAGNOSTIC_DEF(WARNING, PP, PP_LINE_NOT_FILE_NAME, "'%s' is not a valid filename"), \
-  DIAGNOSTIC_DEF(WARNING, PP, PP_LINE_UNEXPECTED_EOL, "unexpected end of line after #line")
+  DIAGNOSTIC_DEF(WARNING, PP, PP_LINE_UNEXPECTED_EOL, "unexpected end of line after #line"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_FILE_NAME_TOO_LONG, "include file name is too long"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_MACRO_NAME_MISSING, "macro name missing") ,\
+  DIAGNOSTIC_DEF(ERROR, PP, PP_UNTERMINATED_MACRO_INVOCATION, "unterminated function-like macro invocation"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_HASH_NOT_FOLLOWED_BY_PARAM, "'#' is not followed by a macro parameter"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_EXPECTED_VALUE_IN_EXPRESSION, "expected value in expression"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_AFTER_ELSE, "#%s after #else"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_INVALID_FILE_LINE, "invalid filename for #line directive"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_UNSUPPORTED_DIRECTIVE, "unsupported preprocessor directive '%s'")
 

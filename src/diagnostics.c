@@ -93,6 +93,9 @@ const Severity *getSeverity(enum DiagSeverityKind id) {
 }
 
 void reportDiagnostic(ParserContext *ctx, enum DiagnosticId diag, const Coordinates *location, ...) {
+
+  if (ctx->stateFlags.silentMode) return;
+
   Diagnostic *newDiagnostic = allocDiagnostic(ctx);
   char buffer[1024] = { 0 };
 

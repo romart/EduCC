@@ -2579,6 +2579,8 @@ void verifySwitchCases(ParserContext *ctx, AstStatement *switchBody, unsigned ca
   releaseHeap(caseSet);
 }
 
+#include <signal.h>
+
 int stringHashCode(intptr_t v) {
     const char *s = (const char *)v;
     assert(s != NULL && "hashMap key is NULL");
