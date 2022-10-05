@@ -17,6 +17,7 @@ test/testData/parser/negative/expressions/numericalConsts.c:24:12: warning: Inte
 test/testData/parser/negative/expressions/numericalConsts.c:24:12: error: octal escape sequence out of range
 test/testData/parser/negative/expressions/numericalConsts.c:26:12: warning: multi-character character constant
 test/testData/parser/negative/expressions/numericalConsts.c:27:12: warning: unknown escape sequence '\j'
+test/testData/parser/negative/expressions/numericalConsts.c:39:13: warning: integer literal is too large to be represented in a signed integer type, interpreting as unsigned
 test/testData/parser/negative/expressions/numericalConsts.c:42:23: error: integer literal is too large to be represented in any integer type
 test/testData/parser/negative/expressions/numericalConsts.c:43:23: error: integer literal is too large to be represented in any integer type
 test/testData/parser/negative/expressions/numericalConsts.c:44:23: error: integer literal is too large to be represented in any integer type
