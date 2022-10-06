@@ -1,9 +1,13 @@
 
 #include <assert.h>
+#include <libgen.h>
+#include <linux/limits.h>
 
 #include "parser.h"
 #include "sema.h"
 #include "pp.h"
+
+extern char *strdup (const char *__s);
 
 static int isalfanum(char c) {
   return '0' <= c && c <= '9' || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z';
@@ -27,6 +31,10 @@ static EnumConstant *enumConstant(ParserContext *ctx, const char* name) {
   Symbol *s = findSymbol(ctx, name);
   if (s && s->kind == EnumConstSymbol) return s->enumerator;
   return NULL;
+}
+
+Boolean isTechnicalToken(int code) {
+  return code == NEWLINE || code == BLOCK_COMMENT || code == LINE_COMMENT || code == DANGLING_NEWLINE;
 }
 
 static void dumpToken(char *buffer, size_t bsize, Token *token) {
@@ -96,7 +104,7 @@ const char *joinToStringTokenSequence(ParserContext *ctx, Token *s) {
 
   Token *t = s, *p = NULL;
 
-  while (t && t->rawCode) {
+  while (t->rawCode != END_OF_FILE) {
       if (sb.idx && t->startOfLine) {
           putSymbol(&sb, '\n');
       }
@@ -141,6 +149,29 @@ LocationInfo *allocateFileLocationInfo(const char *fileName, const char *buffer,
   return locInfo;
 }
 
+LexerState *allocateFileLexerState(LocationInfo *locInfo) {
+  LexerState *lex = heapAllocate(sizeof(LexerState));
+
+  lex->state = LS_FILE;
+
+  lex->fileContext.atLineStart = 1;
+  lex->fileContext.locInfo = locInfo;
+  lex->fileContext.visibleLine = locInfo->fileInfo.lineno;
+
+  return lex;
+}
+
+LexerState *allocateMacroLexerState(MacroDefinition *def, Token *trigger) {
+  LexerState *lex = heapAllocate(sizeof(LexerState));
+
+  lex->state = LS_MACRO;
+
+  lex->macroContext.definition = def;
+  lex->macroContext.trigger = trigger;
+
+  return lex;
+}
+
 LocationInfo *allocateMacroLocationInfo(const char *buffer, size_t buffeSize, Boolean isConst) {
   LocationInfo *locInfo = heapAllocate(sizeof(LocationInfo));
 
@@ -152,8 +183,7 @@ LocationInfo *allocateMacroLocationInfo(const char *buffer, size_t buffeSize, Bo
   return locInfo;
 }
 
-Token *tokenizeFile(ParserContext *ctx, const char *fileName, Token *tail) {
-
+LexerState *loadFile(const char *fileName, LexerState *prev) {
   size_t bufferSize = 0;
 
   char *buffer = readFileToBuffer(fileName, &bufferSize);
@@ -162,27 +192,12 @@ Token *tokenizeFile(ParserContext *ctx, const char *fileName, Token *tail) {
 
   unsigned lineCount = countLinesInBuffer(buffer);
 
+  // TODO: think about reusing of already allocated LocationInfo
   LocationInfo *locInfo = allocateFileLocationInfo(fileName, buffer, bufferSize, lineCount);
+  LexerState *lexState = allocateFileLexerState(locInfo);
+  lexState->prev = lexState->virtPrev = prev;
 
-  locInfo->next = ctx->locationInfo;
-  ctx->locationInfo = locInfo;
-
-  Token *s = tokenizeBuffer(ctx, locInfo, locInfo->fileInfo.linesPos, tail);
-
-  return s;
-}
-
-Token *tokenizeFileAndPP(ParserContext *ctx, const char *fileName, Token *tail) {
-
-  const char *oldfile = ctx->config->fileToCompile;
-  ctx->config->fileToCompile = fileName;
-
-  Token *tokenized = tokenizeFile(ctx, fileName, NULL);
-  Token *preprocessed = preprocessFile(ctx, tokenized, tail);
-
-  ctx->config->fileToCompile = oldfile;
-
-  return preprocessed;
+  return lexState;
 }
 
 static Boolean isDigit(char c) {
@@ -233,7 +248,6 @@ static unsigned verifyNumberLiteral(ParserContext *ctx, Token *new, const char *
 
   char bx[32] = { 0 };
   memcpy(bx, buffer, max(31, *size_ptr));
-//  printf("verify %s\n", bx);
 
   size_t size = *size_ptr;
 
@@ -526,27 +540,27 @@ static void parseNumericLiteral(ParserContext *ctx, Token *new, unsigned flags, 
       reportDiagnostic(ctx, DIAG_INT_TOO_LARGE, &coords);
       new->value.iv = 0;
       return;
-  } /* else {
+  } else {
       int64_t sResult = 0;
       switch (new->code) {
-      case I_CONSTANT:
-          sResult = (int32_t)result;
-          if ((int32_t)result < 0) {
-              // report conversion from
-              reportDiagnostic(ctx, DIAG_IMPLICIT_CONVERSION, &coords, "long", "int", result, sResult);
-          }
-      case U_CONSTANT:
-          sResult = (uint32_t)result;
-          if (result != (uint64_t)sResult) {
-              reportDiagnostic(ctx, DIAG_IMPLICIT_CONVERSION, &coords, "long", "unsigned int", result, sResult);
-          }
+//      case I_CONSTANT:
+//          sResult = (int32_t)result;
+//          if ((int32_t)result < 0) {
+//              // report conversion from
+//              reportDiagnostic(ctx, DIAG_IMPLICIT_CONVERSION, &coords, "long", "int", result, sResult);
+//          }
+//      case U_CONSTANT:
+//          sResult = (uint32_t)result;
+//          if (result != (uint64_t)sResult) {
+//              reportDiagnostic(ctx, DIAG_IMPLICIT_CONVERSION, &coords, "long", "unsigned int", result, sResult);
+//          }
       case L_CONSTANT:
           sResult = (int64_t)result;
           if (sResult < 0) {
               reportDiagnostic(ctx, DIAG_SIGNED_LITERAL_TOO_LARGE, &coords);
           }
       }
-  } */
+  }
 
   new->value.iv = result;
 }
@@ -593,6 +607,8 @@ static unsigned lexNumber(ParserContext *ctx, Token *new, const char *buffer, si
       ++i;
     } else break;
   }
+
+  if (ctx->stateFlags.silentMode) return i;
 
   unsigned flags = verifyNumberLiteral(ctx, new, buffer, &i);
 
@@ -1016,17 +1032,589 @@ static unsigned skipBlockComment(ParserContext *ctx, LocationInfo *locInfo, cons
       ++i;
   }
 
-  return i;
+  return i - start;
 }
 
-Token *tokenizeBuffer(ParserContext *ctx, LocationInfo *locInfo, unsigned *linePos, Token *tail) {
+// lex token from file lexer, returns False if lexing done
+Boolean lexTokenRaw2(ParserContext *ctx, Token *new) {
+  LexerState *lexState = ctx->lexerState;
+  LocationInfo *locInfo = lexState->fileContext.locInfo;
+  unsigned i = lexState->fileContext.pos;
+  unsigned tokenStart = i;
+  unsigned tokenEnd = tokenStart;
+  const char *buffer = locInfo->buffer;
+  const size_t bufferSize = locInfo->bufferSize - 1;
+  unsigned *linePos = locInfo->fileInfo.linesPos;
+
+  unsigned lineCounter = locInfo->fileInfo.lineno;
+  unsigned l = 0;
+
+  Boolean isWide = FALSE;
+  char c = buffer[i];
+  Token head = { 0 };
+  Coordinates coords = { &head, &head };
+  new->pos = head.pos = &buffer[i];
+
+  int code;
+
+  switch (c) {
+    case 0: // END_OF_FILE
+      new->code = new->rawCode = END_OF_FILE;
+      tokenEnd = ++i;
+      break;
+    case '\\': { // escaping
+        unsigned skipped = skipWhiteSpace(&buffer[i], bufferSize - i);
+        if ((i + skipped + 1) < bufferSize) {
+            if (buffer[i + skipped + 1] == '\n') {
+                assert(linePos && "new line is not allowed here");
+                i += (skipped + 2);
+                linePos[lineCounter++] = i;
+                locInfo->fileInfo.lineno = lineCounter;
+                if (skipped) {
+                    head.length = &buffer[i] - head.pos;
+                    reportDiagnostic(ctx, DIAG_SPACE_SEPARATED, &coords);
+                }
+                new->code = new->rawCode = DANGLING_NEWLINE;
+                new->length = 1;
+                lexState->fileContext.pos = i;
+                return TRUE;
+            }
+        }
+      }
+      new->code = new->rawCode = '\\';
+      tokenEnd = ++i;
+      break;
+    case '\r':
+      tokenEnd = ++i;
+      if (i >= bufferSize || buffer[i] != '\n') {
+          // standalone \r is weird
+          lexState->fileContext.pos = i;
+          new->code = new->rawCode = BAD_CHARACTER;
+          new->length = 1;
+          return TRUE;
+      }
+      // fall through
+    case '\n':
+      tokenEnd = ++i;
+      assert(linePos && "new line is not allowed here");
+      linePos[lineCounter++] = i;
+      locInfo->fileInfo.lineno = lineCounter;
+      lexState->fileContext.atLineStart = 1;
+      lexState->fileContext.pos = i;
+      new->hasLeadingSpace = 0;
+      new->code = new->rawCode = NEWLINE;
+      new->length = 1;
+      break;
+    case ' ':
+    case '\t':
+    case '\f':
+    case '\v':
+      new->code = new->rawCode = c;
+      new->hasLeadingSpace = 1;
+      lexState->fileContext.pos = i + 1;
+      return TRUE;
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
+      i += lexNumber(ctx, new, &buffer[i], bufferSize - tokenStart);
+      tokenEnd = i;
+      break;
+    case 'L': // wide char or identifier or wide string
+      if ((i + 1) == bufferSize || buffer[i + 1] != '\'') {
+          goto lexID;
+      }
+    case '\'':
+      i += lexChar(ctx, new, &buffer[i], bufferSize - tokenStart);
+      tokenEnd = i;
+      break;
+    case '"':
+      i += lexStringLiteral(ctx, new, locInfo, &buffer[i], bufferSize - tokenStart);
+      tokenEnd = i;
+      break;
+    case '/': // or /* or /= or /
+      code = '/';
+      if ((i + 1) < bufferSize) {
+        char c = buffer[i+1];
+        if (c == '/') {
+            l = skipLineComment(&buffer[i], bufferSize - i);
+            i += l;
+            new->code = new->rawCode = LINE_COMMENT;
+            new->length = l;
+            lexState->fileContext.pos = i;
+            return TRUE;
+        } else if (c == '*') {
+            l = skipBlockComment(ctx, locInfo, buffer, i, bufferSize);
+            i += l;
+            new->code = new->rawCode = BLOCK_COMMENT;
+            new->length = l;
+            lexState->fileContext.pos = i;
+            return TRUE;
+        } else if (c == '=') {
+            code = DIV_ASSIGN;
+            ++i;
+        }
+      }
+      tokenEnd = ++i;
+      new->code = new->rawCode = code;
+      break;
+    case '.': // ... or .. or x.y or .1
+      new->code = new->rawCode = '.';
+      tokenEnd = ++i;
+      if (i < bufferSize) {
+          if ('0' <= buffer[i] && buffer[i] <= '9') { // .1
+            --i;
+            i += lexNumber(ctx, new, &buffer[i], bufferSize - i);
+            tokenEnd = i;
+          } else if (buffer[i] == '.') { // .. or ...
+              new->code = new->rawCode = DDOT; // ..
+              tokenEnd = ++i;
+              if (i < bufferSize && buffer[i] == '.') {
+                  new->code = new->rawCode = ELLIPSIS; // ...
+                  tokenEnd = ++i;
+              }
+          }
+      }
+      break;
+    case '>': // >>= or >> or >= or >
+      new->code = new->rawCode = '>';
+      tokenEnd = ++i;
+      if (i < bufferSize) {
+          if (buffer[i] == '=') { // >=
+            new->code = new->rawCode = GE_OP;
+            tokenEnd = ++i;
+          } else if (buffer[i] == '>') { // >> or >>=
+              new->code = new->rawCode = RIGHT_OP;
+              tokenEnd = ++i;
+              if (i < bufferSize && buffer[i] == '=') {
+                  new->code = new->rawCode = RIGHT_ASSIGN;
+                  tokenEnd = ++i;
+              }
+          }
+      }
+      break;
+    case '<': // <<= or << or <% == { or <: == [ or <= or <
+      new->code = new->rawCode = '<';
+      tokenEnd = ++i;
+      if (i < bufferSize) {
+          if (buffer[i] == '=') { // <=
+            new->code = new->rawCode = LE_OP;
+            tokenEnd = ++i;
+          } else if (buffer[i] == ':') { // digraph [
+              new->code = new->rawCode = '[';
+              tokenEnd = ++i;
+          } else if (buffer[i] == '%') { // digraph {
+              new->code = new->rawCode = '{';
+              tokenEnd = ++i;
+          } else if (buffer[i] == '<') { // << or <<=
+              new->code = new->rawCode = LEFT_OP;
+              tokenEnd = ++i;
+              if (i < bufferSize && buffer[i] == '=') {
+                  new->code = new->rawCode = LEFT_ASSIGN;
+                  tokenEnd = ++i;
+              }
+          }
+      }
+      break;
+    case '+': // += or ++ or +
+      new->code = new->rawCode = '+';
+      tokenEnd = ++i;
+      if (i < bufferSize) {
+          if (buffer[i] == '=') {
+            new->code = new->rawCode = ADD_ASSIGN;
+            tokenEnd = ++i;
+          } else if (buffer[i] == '+') {
+              new->code = new->rawCode = INC_OP;
+              tokenEnd = ++i;
+          }
+      }
+      break;
+    case '-': // -= or -- or -> or -
+      new->code = new->rawCode = '-';
+      tokenEnd = ++i;
+      if (i < bufferSize) {
+          if (buffer[i] == '=') {
+            new->code = new->rawCode = SUB_ASSIGN;
+            tokenEnd = ++i;
+          } else if (buffer[i] == '>') {
+              new->code = new->rawCode = PTR_OP;
+              tokenEnd = ++i;
+          } else if (buffer[i] == '-') {
+              new->code = new->rawCode = DEC_OP;
+              tokenEnd = ++i;
+          }
+      }
+      break;
+    case '*': // *= or *
+      new->code = new->rawCode = '*';
+      tokenEnd = ++i;
+      if (i < bufferSize && buffer[i] == '=') {
+          new->code = new->rawCode = MUL_ASSIGN;
+          tokenEnd = ++i;
+      }
+      break;
+    case '%': // %= or %> == } or %
+      new->code = new->rawCode = '%';
+      tokenEnd = ++i;
+      if (i < bufferSize) {
+          if (buffer[i] == '=') {
+            new->code = new->rawCode = MOD_ASSIGN;
+            tokenEnd = ++i;
+          } else if (buffer[i] == '>') {
+              new->code = new->rawCode = '}';
+              tokenEnd = ++i;
+          }
+      }
+      break;
+    case '&': // &= or && or &
+      new->code = new->rawCode = '&';
+      tokenEnd = ++i;
+      if (i < bufferSize) {
+          if (buffer[i] == '=') {
+            new->code = new->rawCode = AND_ASSIGN;
+            tokenEnd = ++i;
+          } else if (buffer[i] == '&') {
+              new->code = new->rawCode = AND_OP;
+              tokenEnd = ++i;
+          }
+      }
+      break;
+    case '^': // ^= or ^
+      new->code = new->rawCode = '^';
+      tokenEnd = ++i;
+      if (i < bufferSize && buffer[i] == '=') {
+          new->code = new->rawCode = XOR_ASSIGN;
+          tokenEnd = ++i;
+      }
+      break;
+    case '|': // |= or || or |
+      new->code = new->rawCode = '|';
+      tokenEnd = ++i;
+      if (i < bufferSize) {
+          if (buffer[i] == '=') {
+            new->code = new->rawCode = OR_ASSIGN;
+            tokenEnd = ++i;
+          } else if (buffer[i] == '|') {
+              new->code = new->rawCode = OR_OP;
+              tokenEnd = ++i;
+          }
+      }
+      break;
+    case '=': // '==' or '='
+      new->code = new->rawCode = '=';
+      tokenEnd = ++i;
+      if (i < bufferSize && buffer[i] == '=') {
+          new->code = new->rawCode = EQ_OP;
+          tokenEnd = ++i;
+      }
+      break;
+    case '!': // != or !
+      new->code = new->rawCode = '!';
+      tokenEnd = ++i;
+      if (i < bufferSize && buffer[i] == '=') {
+          new->code = new->rawCode = NE_OP;
+          tokenEnd = ++i;
+      }
+      break;
+    case ':': // : or :> == ]
+      new->code = new->rawCode = ':';
+      tokenEnd = ++i;
+      if (i < bufferSize && buffer[i] == '>') {
+          new->code = new->rawCode = ']';
+          tokenEnd = ++i;
+      }
+      break;
+    case ';': // ;
+    case '{': // {
+    case '}': // }
+    case ',': // ,
+    case '(': // (
+    case ')': // )
+    case '[': // [
+    case ']': // ]
+    case '~': // ~
+    case '?': // ?
+      new->code = new->rawCode = buffer[i];
+      tokenEnd = ++i;
+      break;
+    case '#': // # or ##
+      new->code = new->rawCode = '#';
+      tokenEnd = ++i;
+      if (i < bufferSize && buffer[i] == '#') {
+          new->code = new->rawCode = DSHARP;
+          tokenEnd = ++i;
+      }
+      break;
+    case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G':
+    case 'H': case 'I': case 'J': case 'K':    /*'L'*/case 'M': case 'N':
+    case 'O': case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U':
+    case 'V': case 'W': case 'X': case 'Y': case 'Z':
+    case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g':
+    case 'h': case 'i': case 'j': case 'k': case 'l': case 'm': case 'n':
+    case 'o': case 'p': case 'q': case 'r': case 's': case 't': case 'u':
+    case 'v': case 'w': case 'x': case 'y': case 'z':
+    case '_': // identifier
+    lexID:
+      i += lexIdentifier(ctx, new, &buffer[i], bufferSize - tokenStart);
+      tokenEnd = i;
+      break;
+    default: // bad character
+      tokenEnd = ++i;
+      new->code = new->rawCode = BAD_CHARACTER;
+      break;
+  }
+
+  lexState->fileContext.pos = tokenEnd;
+
+  return FALSE;
+}
+
+LexerState *popLexerState(ParserContext *ctx) {
+  LexerState *state = ctx->lexerState;
+  assert(state);
+
+  if (state->state == LS_FILE) {
+      PPConditionFrame *frame = state->fileContext.conditionStack;
+      while (frame) {
+          Coordinates coords = { frame->ifDirective, frame->ifDirective };
+          reportDiagnostic(ctx, DIAG_PP_UNTERMINATED_COND_DIRECTIVE, &coords);
+          PPConditionFrame *prev = frame->prev;
+          releaseHeap(frame);
+          frame = prev;
+      }
+  } else {
+    assert(state->state == LS_MACRO);
+    if (state->macroContext.definition) {
+        state->macroContext.definition->isEnabled = 1;
+    }
+  }
+
+  LexerState *prev = state->prev;
+  releaseHeap(state);
+  ctx->lexerState = prev;
+
+  return prev;
+}
+
+// lex transparently through lexer stack without macro substitution
+Token *lexNonExpand(ParserContext *ctx, Boolean shadowNL) {
+  for (;;) {
+      Token *t = lexTokenNoSubstitute(ctx);
+      if (t->rawCode == NEWLINE && shadowNL) continue;
+      if (t->rawCode == END_OF_FILE) {
+          if (popLexerState(ctx)) continue;
+      }
+      t->next = NULL;
+      return t;
+  }
+  unreachable("infinite loop");
+}
+
+Token *concatTokens(ParserContext *ctx, Token *macro, Token *l, Token *r);
+
+// lex raw token from file lexer into *token and fills token tech infomation
+Boolean lexTokenRaw(ParserContext *ctx, Token *token) {
+
+  LexerState *lex = ctx->lexerState;
+  unsigned start = lex->fileContext.pos;
+
+  Boolean r = lexTokenRaw2(ctx, token);
+
+  const char *buffer = lex->fileContext.locInfo->buffer;
+
+  token->pos = &buffer[start];
+  token->length = lex->fileContext.pos - start;
+
+  ctx->stateFlags.lastLexCode = token->rawCode;
+
+  return r;
+}
+
+// lex token from top of lexer stack
+Token *lexTokenNoSubstitute(ParserContext *ctx) {
+  LexerState *lexState = ctx->lexerState;
+
+  if (lexState->state == LS_FILE) {
+    LocationInfo *locInfo = lexState->fileContext.locInfo;
+    Token *token = allocToken2(ctx, locInfo);
+    unsigned start = lexState->fileContext.pos;
+    const char *buffer = locInfo->buffer;
+    size_t size = locInfo->bufferSize;
+    token->startOfLine = lexState->fileContext.atLineStart;
+    lexState->fileContext.atLineStart = 0;
+
+    while (lexTokenRaw(ctx, token)) {
+        start = lexState->fileContext.pos;
+    }
+
+    return token;
+  }
+
+  assert(lexState->state == LS_MACRO);
+
+  Token *t = lexState->macroContext.bodyPtr;
+  if (t) {
+      Token *next = t->next;
+      if (lexState->macroContext.definition && next && next->rawCode == DSHARP) {
+          do {
+              Token *lhs = t;
+              Token *rhs = next->next;
+              assert(rhs);
+
+              next = rhs->next;
+
+              lhs->next = NULL;
+              rhs->next = NULL;
+
+              t = concatTokens(ctx, lexState->macroContext.trigger, lhs, rhs);
+
+              if (t->rawCode == DSHARP) {
+                  // it's a hack for #define x # ## #
+                  t->rawCode = t->code = BAD_CHARACTER;
+              }
+
+          } while (next && next->rawCode == DSHARP);
+      }
+      lexState->macroContext.bodyPtr = next;
+  } else {
+      t = allocToken(ctx);
+      t->code = t->rawCode = END_OF_FILE;
+  }
+
+  return t;
+}
+
+void skipUntilEoL(ParserContext *ctx) {
+  int lastCode = ctx->stateFlags.lastLexCode;
+
+  Token t = { 0 };
+
+  while (lastCode != NEWLINE && lastCode != END_OF_FILE) {
+      lexTokenRaw(ctx, &t);
+      lastCode = t.rawCode;
+  }
+}
+
+static Boolean checkNextTokenInState(ParserContext *ctx, LexerState *state, int code) {
+  if (state == NULL) return code == END_OF_FILE;
+
+  Token *t = NULL;
+
+  if (state->state == LS_FILE) {
+      unsigned pos = state->fileContext.pos;
+      unsigned vline = state->fileContext.visibleLine;
+      unsigned line = state->fileContext.locInfo->fileInfo.lineno;
+
+      LexerState *oldState = ctx->lexerState;
+      ctx->lexerState = state;
+
+      do {
+        t = lexTokenNoSubstitute(ctx);
+      } while (t->rawCode == NEWLINE && code != NEWLINE);
+
+      ctx->lexerState = oldState;
+      state->fileContext.pos = pos;
+      state->fileContext.visibleLine = vline;
+      state->fileContext.locInfo->fileInfo.lineno = line;
+  } else {
+      assert(state->state == LS_MACRO);
+      Token *saved = state->macroContext.bodyPtr;
+      LexerState *oldState = ctx->lexerState;
+      ctx->lexerState = state;
+
+      t = lexTokenNoSubstitute(ctx);
+
+      ctx->lexerState = oldState;
+      state->macroContext.bodyPtr = saved;
+  }
+
+  if (t->rawCode != END_OF_FILE) {
+      return t->rawCode == code;
+  } else {
+      return checkNextTokenInState(ctx, state->prev, code);
+  }
+}
+
+Boolean isNextToken(ParserContext *ctx, int code) {
+  return checkNextTokenInState(ctx, ctx->lexerState, code);
+}
+
+// fetch next token with macro expansion
+Token *lexToken(ParserContext *ctx) {
+
+  for (;;) {
+    Token *token = lexTokenNoSubstitute(ctx);
+    token->next = NULL;
+
+    int rawCode = token->rawCode;
+
+    if (token->startOfLine && rawCode == '#') {
+        // looks like a PP directive
+        unsigned l = ctx->lexerState->fileContext.locInfo->fileInfo.lineno;
+        Token *directive = lexTokenNoSubstitute(ctx);
+        if (l != ctx->lexerState->fileContext.locInfo->fileInfo.lineno) {
+            // it's not a directive, just return it
+            return directive;
+        }
+
+        handleDirective(ctx, directive);
+
+        continue;
+    } else if (rawCode == IDENTIFIER) {
+        // could be a macro to expand
+        Token *exp = handleIdentifier(ctx, token);
+        if (exp) return exp;
+        continue;
+    } else if (rawCode == END_OF_FILE) {
+        if (popLexerState(ctx)) continue;
+    } else if (rawCode != '(') {
+        // defined 3
+        ctx->stateFlags.afterPPDefined = 0;
+        ctx->stateFlags.afterPPParen = 0;
+    } else { // rawCode == '('
+        if (!ctx->stateFlags.afterPPParen && ctx->stateFlags.afterPPDefined) {
+          // defined( ... )
+          //        ^
+          ctx->stateFlags.afterPPParen = 1;
+        } else {
+          // defined (  (
+          //            ^
+          ctx->stateFlags.afterPPDefined = 0;
+          ctx->stateFlags.afterPPParen = 0;
+        }
+    }
+
+    return token;
+  }
+}
+
+
+// lex next token and clean it up from new lines, comments and other technical tokens
+static Token *lexCleanToken(ParserContext *ctx) {
+
+  for (;;) {
+      Token *t = lexToken(ctx);
+      if (isTechnicalToken(t->rawCode)) continue;
+      return t;
+  }
+
+  unreachable("infinite loop");
+}
+
+Token *tokenizeBuffer(ParserContext *ctx) {
 
   unsigned int i = 0;
 
   unsigned startOfLine = 1;
   unsigned lineCounter = 0;
 
-  linePos[lineCounter++] = 0;
+  LexerState *lexState = ctx->lexerState;
+
+  LocationInfo *locInfo = lexState->fileContext.locInfo;
+
+  unsigned *linePos = locInfo->fileInfo.linesPos;
+
+  if (linePos) {
+    linePos[lineCounter++] = 0;
+  }
 
   const char *buffer = locInfo->buffer;
 
@@ -1037,307 +1625,12 @@ Token *tokenizeBuffer(ParserContext *ctx, LocationInfo *locInfo, unsigned *lineP
   const size_t bufferSize = locInfo->bufferSize - 1;
   Coordinates coords = { &head, &head };
 
+  for (;;) {
+      current = current->next = lexCleanToken(ctx);
+      i = lexState->fileContext.pos;
 
-  while (i < bufferSize) {
-
-      new->startOfLine = startOfLine;
-
-      head.pos = &buffer[i];
-
-      unsigned tokenStart = i;
-      unsigned tokenEnd;
-
-      int code;
-
-      Boolean isWide = FALSE;
-      char c = buffer[i];
-
-      switch (c) {
-        case '\\': { // escaping
-            unsigned skipped = skipWhiteSpace(&buffer[i], bufferSize - i);
-            if ((i + skipped + 1) < bufferSize) {
-                if (buffer[i + skipped + 1] == '\n') {
-                    i += (skipped + 2);
-                    linePos[lineCounter++] = i;
-                    locInfo->fileInfo.lineno = lineCounter;
-                    if (skipped) {
-                        head.length = &buffer[i] - head.pos;
-                        reportDiagnostic(ctx, DIAG_SPACE_SEPARATED, &coords);
-                    }
-                    continue;
-                }
-            }
-          }
-          new->code = new->rawCode = '\\';
-          tokenEnd = ++i;
-          break;
-        case '\r':
-        case '\n':
-          ++i;
-          linePos[lineCounter++] = i;
-          locInfo->fileInfo.lineno = lineCounter;
-          startOfLine = 1;
-          new->hasLeadingSpace = 0;
-          continue;
-        case ' ':
-        case '\t':
-        case '\f':
-        case '\v':
-          new->hasLeadingSpace = 1;
-          ++i;
-          continue;
-        case '0': case '1': case '2': case '3': case '4':
-        case '5': case '6': case '7': case '8': case '9':
-          i += lexNumber(ctx, new, &buffer[i], bufferSize - tokenStart);
-          tokenEnd = i;
-          break;
-        case 'L': // wide char or identifier or wide string
-          if ((i + 1) == bufferSize || buffer[i + 1] != '\'') {
-              goto lexID;
-          }
-        case '\'':
-          i += lexChar(ctx, new, &buffer[i], bufferSize - tokenStart);
-          tokenEnd = i;
-          break;
-        case '"':
-          i += lexStringLiteral(ctx, new, locInfo, &buffer[i], bufferSize - tokenStart);
-          tokenEnd = i;
-          break;
-        case '/': // or /* or /= or /
-          code = '/';
-          if ((i + 1) < bufferSize) {
-            char c = buffer[i+1];
-            if (c == '/') {
-                i += skipLineComment(&buffer[i], bufferSize - i);
-                continue;
-            } else if (c == '*') {
-                i = skipBlockComment(ctx, locInfo, buffer, i, bufferSize);
-                continue;
-            } else if (c == '=') {
-                code = DIV_ASSIGN;
-                ++i;
-            }
-          }
-          tokenEnd = ++i;
-          new->code = new->rawCode = code;
-          break;
-        case '.': // ... or .. or x.y or .1
-          new->code = new->rawCode = '.';
-          tokenEnd = ++i;
-          if (i < bufferSize) {
-              if ('0' <= buffer[i] && buffer[i] <= '9') { // .1
-                --i;
-                i += lexNumber(ctx, new, &buffer[i], bufferSize - i);
-                tokenEnd = i;
-              } else if (buffer[i] == '.') { // .. or ...
-                  new->code = new->rawCode = DDOT; // ..
-                  tokenEnd = ++i;
-                  if (i < bufferSize && buffer[i] == '.') {
-                      new->code = new->rawCode = ELLIPSIS; // ...
-                      tokenEnd = ++i;
-                  }
-              }
-          }
-          break;
-        case '>': // >>= or >> or >= or >
-          new->code = new->rawCode = '>';
-          tokenEnd = ++i;
-          if (i < bufferSize) {
-              if (buffer[i] == '=') { // >=
-                new->code = new->rawCode = GE_OP;
-                tokenEnd = ++i;
-              } else if (buffer[i] == '>') { // >> or >>=
-                  new->code = new->rawCode = RIGHT_OP;
-                  tokenEnd = ++i;
-                  if (i < bufferSize && buffer[i] == '=') {
-                      new->code = new->rawCode = RIGHT_ASSIGN;
-                      tokenEnd = ++i;
-                  }
-              }
-          }
-          break;
-        case '<': // <<= or << or <% == { or <: == [ or <= or <
-          new->code = new->rawCode = '<';
-          tokenEnd = ++i;
-          if (i < bufferSize) {
-              if (buffer[i] == '=') { // <=
-                new->code = new->rawCode = LE_OP;
-                tokenEnd = ++i;
-              } else if (buffer[i] == ':') { // :
-                  new->code = new->rawCode = '[';
-                  tokenEnd = ++i;
-              } else if (buffer[i] == '%') { // %
-                  new->code = new->rawCode = '{';
-                  tokenEnd = ++i;
-              } else if (buffer[i] == '<') { // << or <<=
-                  new->code = new->rawCode = LEFT_OP;
-                  tokenEnd = ++i;
-                  if (i < bufferSize && buffer[i] == '=') {
-                      new->code = new->rawCode = LEFT_ASSIGN;
-                      tokenEnd = ++i;
-                  }
-              }
-          }
-          break;
-        case '+': // += or ++ or +
-          new->code = new->rawCode = '+';
-          tokenEnd = ++i;
-          if (i < bufferSize) {
-              if (buffer[i] == '=') {
-                new->code = new->rawCode = ADD_ASSIGN;
-                tokenEnd = ++i;
-              } else if (buffer[i] == '+') {
-                  new->code = new->rawCode = INC_OP;
-                  tokenEnd = ++i;
-              }
-          }
-          break;
-        case '-': // -= or -- or -> or -
-          new->code = new->rawCode = '-';
-          tokenEnd = ++i;
-          if (i < bufferSize) {
-              if (buffer[i] == '=') {
-                new->code = new->rawCode = SUB_ASSIGN;
-                tokenEnd = ++i;
-              } else if (buffer[i] == '>') {
-                  new->code = new->rawCode = PTR_OP;
-                  tokenEnd = ++i;
-              } else if (buffer[i] == '-') {
-                  new->code = new->rawCode = DEC_OP;
-                  tokenEnd = ++i;
-              }
-          }
-          break;
-        case '*': // *= or *
-          new->code = new->rawCode = '*';
-          tokenEnd = ++i;
-          if (i < bufferSize && buffer[i] == '=') {
-              new->code = new->rawCode = MUL_ASSIGN;
-              tokenEnd = ++i;
-          }
-          break;
-        case '%': // %= or %> == } or %
-          new->code = new->rawCode = '%';
-          tokenEnd = ++i;
-          if (i < bufferSize) {
-              if (buffer[i] == '=') {
-                new->code = new->rawCode = MOD_ASSIGN;
-                tokenEnd = ++i;
-              } else if (buffer[i] == '>') {
-                  new->code = new->rawCode = '}';
-                  tokenEnd = ++i;
-              }
-          }
-          break;
-        case '&': // &= or && or &
-          new->code = new->rawCode = '&';
-          tokenEnd = ++i;
-          if (i < bufferSize) {
-              if (buffer[i] == '=') {
-                new->code = new->rawCode = AND_ASSIGN;
-                tokenEnd = ++i;
-              } else if (buffer[i] == '&') {
-                  new->code = new->rawCode = AND_OP;
-                  tokenEnd = ++i;
-              }
-          }
-          break;
-        case '^': // ^= or ^
-          new->code = new->rawCode = '^';
-          tokenEnd = ++i;
-          if (i < bufferSize && buffer[i] == '=') {
-              new->code = new->rawCode = XOR_ASSIGN;
-              tokenEnd = ++i;
-          }
-          break;
-        case '|': // |= or || or |
-          new->code = new->rawCode = '|';
-          tokenEnd = ++i;
-          if (i < bufferSize) {
-              if (buffer[i] == '=') {
-                new->code = new->rawCode = OR_ASSIGN;
-                tokenEnd = ++i;
-              } else if (buffer[i] == '|') {
-                  new->code = new->rawCode = OR_OP;
-                  tokenEnd = ++i;
-              }
-          }
-          break;
-        case '=': // '==' or '='
-          new->code = new->rawCode = '=';
-          tokenEnd = ++i;
-          if (i < bufferSize && buffer[i] == '=') {
-              new->code = new->rawCode = EQ_OP;
-              tokenEnd = ++i;
-          }
-          break;
-        case '!': // != or !
-          new->code = new->rawCode = '!';
-          tokenEnd = ++i;
-          if (i < bufferSize && buffer[i] == '=') {
-              new->code = new->rawCode = NE_OP;
-              tokenEnd = ++i;
-          }
-          break;
-        case ':': // : or :> == ]
-          new->code = new->rawCode = ':';
-          tokenEnd = ++i;
-          if (i < bufferSize && buffer[i] == '>') {
-              new->code = new->rawCode = ']';
-              tokenEnd = ++i;
-          }
-          break;
-        case ';': // ;
-        case '{': // {
-        case '}': // }
-        case ',': // ,
-        case '(': // (
-        case ')': // )
-        case '[': // [
-        case ']': // ]
-        case '~': // ~
-        case '?': // ?
-          new->code = new->rawCode = buffer[i];
-          tokenEnd = ++i;
-          break;
-        case '#': // # or ##
-          new->code = new->rawCode = '#';
-          tokenEnd = ++i;
-          if (i < bufferSize && buffer[i] == '#') {
-              new->code = new->rawCode = DSHARP;
-              tokenEnd = ++i;
-          }
-          break;
-        case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G':
-        case 'H': case 'I': case 'J': case 'K':    /*'L'*/case 'M': case 'N':
-        case 'O': case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U':
-        case 'V': case 'W': case 'X': case 'Y': case 'Z':
-        case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g':
-        case 'h': case 'i': case 'j': case 'k': case 'l': case 'm': case 'n':
-        case 'o': case 'p': case 'q': case 'r': case 's': case 't': case 'u':
-        case 'v': case 'w': case 'x': case 'y': case 'z':
-        case '_': // identifier
-        lexID:
-          i += lexIdentifier(ctx, new, &buffer[i], bufferSize - tokenStart);
-          tokenEnd = i;
-          break;
-        default: // bad character
-          tokenEnd = ++i;
-          new->code = new->rawCode = BAD_CHARACTER;
-          break;
-      }
-
-      new->pos = &buffer[tokenStart];
-      new->length = tokenEnd - tokenStart;
-
-      current = current->next = new;
-
-      new = allocToken2(ctx, locInfo);
-      startOfLine = 0;
+      if (current->rawCode == END_OF_FILE) break;
   }
-
-
-  current->next = tail;
 
   return head.next;
 }
@@ -1638,13 +1931,21 @@ static void maybeSetupKeyword(Token *token) {
   }
 }
 
-Token *nextToken(ParserContext *ctx) {
-  Token *cur = ctx->token;
-  Token *next = cur ? cur->next : ctx->firstToken;
-  Token *prev = cur;
 
-  if (!next) {
-      return prev;
+Token *nextToken(ParserContext *ctx) {
+
+  Token *cur = ctx->token;
+  Token *next = NULL;
+
+  if (cur == NULL) {
+    ctx->firstToken = next = lexCleanToken(ctx);
+  } else if (cur->next) {
+    next = cur->next;
+  } else if (cur->code == END_OF_FILE) {
+      return cur;
+  } else {
+    assert(!ctx->stateFlags.inPP && "PP parsing has to be terminated early");
+    cur->next = next = lexCleanToken(ctx);
   }
 
   if (next->rawCode == IDENTIFIER && !ctx->stateFlags.inPP) {

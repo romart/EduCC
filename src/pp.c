@@ -19,30 +19,7 @@ extern char *ctime_r (const time_t *__timer, char *__buf);
 
 static int counterState = 0;
 
-static Boolean expandMacro(ParserContext *ctx, Token *macro, Token **next, Boolean evalDefined);
-
-typedef struct _MacroParam {
-  const char *name;
-
-  unsigned isVararg : 1;
-
-  struct _MacroParam *next;
-} MacroParam;
-
-typedef Token *(macroHandler)(ParserContext *, Token *);
-
-typedef struct _MacroDefinition {
-  const char *name;
-  MacroParam *params;
-  Token *body;
-
-  macroHandler *handler;
-
-  Boolean isVararg;
-  Boolean isFunctional;
-} MacroDefinition;
-
-static MacroDefinition *allocateMacroDef(ParserContext *ctx, const char *name, MacroParam *params, Token *body, Boolean isVararg, Boolean isFunc) {
+MacroDefinition *allocateMacroDef(ParserContext *ctx, const char *name, MacroParam *params, Token *body, Boolean isVararg, Boolean isFunc) {
   MacroDefinition *d = areanAllocate(ctx->memory.macroArena, sizeof(MacroDefinition));
 
   d->name = name;
@@ -50,6 +27,7 @@ static MacroDefinition *allocateMacroDef(ParserContext *ctx, const char *name, M
   d->body = body;
   d->isVararg = isVararg;
   d->isFunctional = isFunc;
+  d->isEnabled = 1;
 
   return d;
 }
@@ -61,12 +39,7 @@ typedef struct _MacroArg {
   struct _MacroArg *next;
 } MacroArg;
 
-typedef struct _Hideset {
-  const char *name;
-  struct _Hideset *next;
-} Hideset;
-
-static MacroParam *allocateMacroParam(ParserContext *ctx, const char *name) {
+MacroParam *allocateMacroParam(ParserContext *ctx, const char *name) {
   MacroParam *p = areanAllocate(ctx->memory.macroArena, sizeof(MacroParam));
   p->name = name;
 
@@ -79,13 +52,6 @@ static MacroArg *allocateMacroArg(ParserContext *ctx, MacroParam *p, Token *v) {
   a->value = v;
   return a;
 }
-
-static Hideset *allocateHideset(ParserContext *ctx, const char *name) {
-  Hideset *hs = areanAllocate(ctx->memory.macroArena, sizeof(Hideset));
-  hs->name = name;
-  return hs;
-}
-
 
 static Token *copyToken(ParserContext *ctx, const Token *t) {
   Token *n = allocToken(ctx);
@@ -109,57 +75,6 @@ static Token *copySequence(ParserContext *ctx, const Token *s) {
   return head.next;
 }
 
-
-static Boolean hidesetContains(Hideset *hs, const char *name) {
-  while (hs) {
-      if (strcmp(name, hs->name) == 0) return TRUE;
-      hs = hs->next;
-  }
-
-  return FALSE;
-}
-
-static Hideset *hidesetUnion(ParserContext *ctx, Hideset *hs1, Hideset *hs2) {
-  Hideset head = { 0 };
-  Hideset *cur = &head;
-
-  for (; hs1; hs1 = hs1->next) {
-      cur = cur->next = allocateHideset(ctx, hs1->name);
-  }
-
-  cur->next = hs2;
-
-  return head.next;
-}
-
-static Hideset *hidesetIntersection(ParserContext *ctx, Hideset *hs1, Hideset *hs2) {
-  Hideset head = { 0 };
-  Hideset *cur = &head;
-
-  for (; hs1; hs1 = hs1->next) {
-    if (hidesetContains(hs2, hs1->name)) {
-        cur = cur->next = allocateHideset(ctx, hs1->name);
-    }
-  }
-
-  cur->next = hs2;
-
-  return head.next;
-}
-
-static Token *skipPPTokens(ParserContext *ctx, Token *token) {
-  while (token) {
-      if (token->startOfLine){
-          return token;
-      } else {
-          token = token->next;
-      }
-  }
-
-  return token;
-}
-
-
 static void joinToString(char *buffer, size_t size, Token *b, Token *e) {
   unsigned ptr = 0;
   --size;
@@ -180,34 +95,35 @@ static void joinToString(char *buffer, size_t size, Token *b, Token *e) {
   buffer[ptr] = '\0';
 }
 
-static Token *findLastPPToken(ParserContext *ctx, Token *token) {
-  Token *cur = token, *last = token;
-
-  for (; cur; cur = cur->next) {
-      if (cur->startOfLine) {
-          return last;
-      }
-      last = cur;
-  }
-  return last;
-}
-
-static Boolean isMacro(ParserContext *ctx, Token *id) {
+Boolean isMacro(ParserContext *ctx, Token *id) {
   return isInHashMap(ctx->macroMap, (intptr_t)id->id);
 }
 
-static Boolean isVarargPosition(const Token *t) {
-  return t->rawCode == IDENTIFIER && strcmp("__VA_ARGS__", t->id) == 0;
+MacroDefinition *findMacro(ParserContext *ctx, const char *name) {
+  return (MacroDefinition*)getFromHashMap(ctx->macroMap, (intptr_t)name);
 }
 
 static Token *tokenizeString(ParserContext *ctx, Token *p, const char *buffer, size_t l, Boolean isConstantBuffer) {
   LocationInfo *info = allocateMacroLocationInfo(buffer, l, isConstantBuffer);
 
+  LexerState *oldState = ctx->lexerState;
+
   info->next = ctx->locationInfo;
   ctx->locationInfo = info;
+  ctx->lexerState = allocateFileLexerState(info);
 
-  unsigned pos;
-  return tokenizeBuffer(ctx, info, &pos, NULL);
+  Token head = { 0 };
+  Token *current = &head;
+
+  for (;;) {
+      current = current->next = lexNonExpand(ctx, TRUE);
+
+      if (current->rawCode == END_OF_FILE) break;
+  }
+
+  ctx->lexerState = oldState;
+
+  return head.next;
 }
 
 static Token *stringToken(ParserContext *ctx, Token *p, const char *s) {
@@ -260,15 +176,6 @@ Token *stringifySequence(ParserContext *ctx, Token *s) {
   return r;
 }
 
-Token *findLastToken(Token *t) {
-  Token *n = t;
-  while (n) {
-      t = n;
-      n = n->next;
-  }
-  return t;
-}
-
 static size_t renderTokenToBuffer(char *buffer, Token *t) {
   strncpy(buffer, t->pos, t->length);
   return t->length;
@@ -317,7 +224,10 @@ Token *concatTokens(ParserContext *ctx, Token *macro, Token *l, Token *r) {
       pl->next = s;
   }
 
-  s->next = r->next;
+  for (l = s; l->next->rawCode != END_OF_FILE; l = l->next)
+    ;
+
+  l->next = r->next;
 
   return s;
 }
@@ -333,60 +243,6 @@ static MacroArg *findArgument(const Token *arg, MacroArg *args) {
   }
 
   return NULL;
-}
-
-static Boolean isTokenConcat(const Token *t) {
-  Token *n = t->next;
-
-  return n && n->rawCode == DSHARP;
-}
-
-static Token* expandSequence(ParserContext *ctx, Token* s, Boolean evalDefined) {
-  Token *t = s;
-
-  Token head = { 0 }, *current = &head;
-
-  while (t) {
-      if (expandMacro(ctx, t, &t, evalDefined)) continue;
-      current = current->next = t;
-      t = t->next;
-  }
-
-  return head.next;
-}
-
-static MacroArg *readMacroArgument(ParserContext *ctx, Token *s, MacroParam *p, Token **tail) {
-  Token *argStart = NULL, *argEnd = NULL;
-
-  Token *n = s;
-  int depth = 0;
-
-
-  while (n) {
-    if (depth == 0 && (!p->isVararg && n->rawCode == ',' || n->rawCode == ')'))  {
-        break;
-    }
-
-    if (depth && n->rawCode == ')') {
-        --depth;
-    } else if (n->rawCode == '(') {
-        ++depth;
-    }
-
-    if (argStart == NULL) {
-        argStart = n;
-    }
-
-    argEnd = n;
-    n = n->next;
-  }
-
-  *tail = n;
-  if (argEnd) {
-      argEnd->next = NULL;
-  }
-
-  return allocateMacroArg(ctx, p, argStart);
 }
 
 static Token *constToken(ParserContext *ctx, int64_t v, Token *token) {
@@ -430,7 +286,7 @@ static Token *evaluateDefinedOp(ParserContext *ctx, Token *token, Boolean relaxe
   if (!relaxed) {
     Coordinates coords;
     coords.left = coords.right = n ? n : token;
-    reportDiagnostic(ctx, DIAG_MACRO_NAME_IS_ID, &coords);
+    reportDiagnostic(ctx, DIAG_PP_MACRO_NAME_IS_ID, &coords);
     *next = n;
     Token *r = tokenizeString(ctx, token, "0", 2, TRUE);
     r->hasLeadingSpace = token->hasLeadingSpace;
@@ -442,459 +298,9 @@ static Token *evaluateDefinedOp(ParserContext *ctx, Token *token, Boolean relaxe
   return NULL;
 }
 
-static Boolean expandMacro(ParserContext *ctx, Token *macro, Token **next, Boolean evalDefined) {
-
-  if (macro->rawCode != IDENTIFIER) return FALSE;
-
-  MacroDefinition *def = (MacroDefinition *)getFromHashMap(ctx->macroMap, (intptr_t)macro->id);
-
-  if (def == NULL) {
-      if (evalDefined && strcmp("defined", macro->id) == 0) {
-        Token *next2;
-        Token *e = evaluateDefinedOp(ctx, macro, TRUE, &next2);
-        if (e) {
-          e->next = next2;
-          *next = e;
-          return TRUE;
-        }
-      }
-      return FALSE;
-  }
-
-  if (def->handler) {
-      Token *r = def->handler(ctx, macro);
-      r->next = macro->next;
-      r->startOfLine = macro->startOfLine;
-      r->hasLeadingSpace = macro->hasLeadingSpace;
-
-      *next = r;
-      return TRUE;
-  }
-
-  if (hidesetContains(macro->hs, def->name)) return FALSE;
-
-  Coordinates macroCoords = { macro, macro };
-  Token *n = macro->next;
-  Token *macroNext = macro->next;
-
-  if (def->isFunctional && (!n || n->rawCode != '(')) {
-    // #define f(x) x
-    // b = foo 10
-    // b = foo <EOF>
-
-    return FALSE;
-  }
-
-  MacroArg argHead = { 0 };
-  MacroArg *arg = &argHead;
-  MacroArg *vararg = NULL;
-
-  if (def->isFunctional) {
-      MacroParam *p = def->params;
-      Token *argStart = NULL, *argEnd = NULL;
-      int depth = 0;
-      n = n->next;
-
-      while (p && !p->isVararg) {
-          arg = arg->next = readMacroArgument(ctx, n, p, &n);
-          p = p->next;
-          if (!n || n->rawCode == ')') break;
-          n = n->next;
-      }
-
-      if (p && !p->isVararg) {
-          reportDiagnostic(ctx, DIAG_PP_TOO_FEW_ARGUMENTS, &macroCoords);
-      }
-
-      if (n && n->rawCode != ')') {
-          if (!p) {
-              Coordinates argCoords = { argStart, argStart };
-              reportDiagnostic(ctx, DIAG_PP_TOO_MANY_ARGUMENTS, &argCoords);
-              while (n && n->rawCode != ')') n = n->next;
-          } else {
-            arg = arg->next = readMacroArgument(ctx, n, p, &n);
-          }
-      } else if (p) {
-          arg = arg->next = allocateMacroArg(ctx, p, NULL);
-      }
-
-      assert(!n || n->rawCode == ')');
-      macroNext = n ? n->next : n;
-  }
-
-
-  Hideset *macrohs = macro->hs;
-  if (def->isFunctional) {
-      macrohs = hidesetIntersection(ctx, macrohs, macroNext ? macroNext->hs : NULL);
-  }
-
-  Hideset *evalhs = hidesetUnion(ctx, macrohs, allocateHideset(ctx, def->name));
-
-  Token *body = def->body;
-
-  Token evalHead = { 0 };
-  Token *evalCur = &evalHead;
-
-  Boolean isFuncional = def->isFunctional;
-
-  Token *b = body;
-
-  while (b) {
-      assert(b->hs == NULL);
-
-      if (evalDefined && b->rawCode == IDENTIFIER && strcmp("defined", b->id) == 0) {
-        Token *e = evaluateDefinedOp(ctx, b, TRUE, &b);
-        if (e) {
-          e->hs = evalhs;
-          e->expanded = macro;
-          evalCur = evalCur->next = e;
-          continue;
-        }
-      }
-
-      if (isFuncional && b->rawCode == '#') {
-        Token *next = b->next;
-        if (next) {
-          MacroArg *arg = findArgument(next, argHead.next);
-          if (arg) {
-            Token *argValue = arg->value;
-            Token *evaluated = argValue ? stringifySequence(ctx, argValue) : stringToken(ctx, next, "");
-            evalCur = evalCur->next = evaluated;
-
-            for (; evaluated; evaluated = evaluated->next) {
-                evaluated->hs = evalhs;
-                evaluated->expanded = macro;
-                evalCur = evaluated;
-            }
-
-            b = next->next;
-            continue;
-          }
-        }
-      }
-
-      if (b->rawCode == ',' && b->next && b->next->rawCode == DSHARP) {
-          // GNU COMMA ,##__VA_ARGS__
-          Token *comma = b;
-          Token *dsh = comma->next;
-          Token *next = dsh->next;
-          if (next) {
-              MacroArg *arg = findArgument(next, argHead.next);
-              if (arg && arg->param->isVararg) {
-                  if (arg->value == NULL) {
-                      // expand to empty list
-                      b = next->next;
-                  } else {
-                      Token *evaluated = copyToken(ctx, b);
-                      evaluated->hs = evalhs;
-                      evaluated->expanded = macro;
-                      evalCur = evalCur->next = evaluated;
-                      b = next;
-                  }
-                  continue;
-              }
-          }
-      }
-
-      if (b->next && b->next->rawCode == DSHARP) {
-
-        MacroArg *lhsA = findArgument(b, argHead.next);
-        Token *lhs = NULL;
-
-        if (lhsA == NULL) {
-            lhs = copyToken(ctx, b);
-        } else {
-            lhs = lhsA->value ? copySequence(ctx, lhsA->value) : NULL;
-        }
-
-        Token *sharpsharp = b->next;
-        Token *origRhs = sharpsharp->next;
-
-        if (origRhs) {
-          MacroArg *rhsA = findArgument(origRhs, argHead.next);
-          Token *rhs = NULL;
-          if (rhsA == NULL) {
-              rhs = copyToken(ctx, origRhs);
-          } else {
-              rhs = rhsA->value ? copySequence(ctx, rhsA->value) : NULL;
-          }
-
-          Token *evaluated = NULL;
-          if (rhs == NULL && lhs == NULL) {
-              b = origRhs->next;
-              continue;
-          } else if (rhs == NULL) {
-              evaluated = lhs;
-          } else if (lhs == NULL) {
-              evaluated = rhs;
-          } else {
-              evaluated = concatTokens(ctx, macro, lhs, rhs);
-          }
-
-          evalCur->next = evaluated;
-          for (evalCur = evaluated; evaluated; evaluated = evaluated->next) {
-              evaluated->hs = hidesetUnion(ctx, evaluated->hs, evalhs);
-              evaluated->expanded = macro;
-              evalCur = evaluated;
-          }
-
-          b = origRhs->next;
-          continue;
-        } else {
-            reportDiagnostic(ctx, DIAG_PP_WRONG_CONCAT_OP_PLACE, &macroCoords);
-            break;
-        }
-      }
-      if (b->rawCode == DSHARP) {
-          // a##b##c
-          Token *next = b->next;
-
-          if (next == NULL) {
-            reportDiagnostic(ctx, DIAG_PP_WRONG_CONCAT_OP_PLACE, &macroCoords);
-            break;
-          }
-
-          if (b == body) {
-            reportDiagnostic(ctx, DIAG_PP_WRONG_CONCAT_OP_PLACE, &macroCoords);
-            break;
-          }
-
-          Token *lhs = evalCur;
-          MacroArg *rhsA = findArgument(next, argHead.next);
-          Token *rhs = NULL;
-
-          if (rhsA == NULL) {
-              rhs = copyToken(ctx, next);
-          } else {
-              rhs = copySequence(ctx, rhsA->value);
-          }
-
-          Token *evaluated = NULL;
-          if (rhs == NULL && lhs == &evalHead) {
-              b = next->next;
-              continue;
-          } else if (lhs == &evalHead) {
-              evaluated = rhs;
-          } else  if (rhs == NULL) {
-              evaluated = lhs;
-          } else {
-              evaluated = concatTokens(ctx, macro, lhs, rhs);
-          }
-
-          Token *i = &evalHead;
-
-          while (i->next) {
-              if (i->next == evalCur) break;
-              i = i->next;
-          }
-
-          i->next = evaluated;
-          for (evalCur = evaluated; evaluated; evaluated = evaluated->next) {
-              evaluated->hs = hidesetUnion(ctx, evaluated->hs, evalhs);
-              evaluated->expanded = macro;
-              evalCur = evaluated;
-          }
-
-          b = next->next;
-
-          continue;
-      }
-
-      MacroArg *arg = findArgument(b, argHead.next);
-
-      Token *evaluated = NULL;
-      Token *next = NULL;
-      if (arg) {
-        Token *argValue = arg->value;
-        if (arg->evaluated) {
-          // prevent multiple evaluation of the same argument
-          // see pp-counter.c test for more details
-          evaluated = copySequence(ctx, arg->evaluated);
-          next = findLastToken(evaluated);
-        } else if (arg->value) {
-          evaluated = expandSequence(ctx, copySequence(ctx, argValue), evalDefined);
-          evaluated->hasLeadingSpace = b->hasLeadingSpace;
-          evaluated->startOfLine = b->startOfLine;
-
-          Token *p = evaluated;
-          Token copyHead = { 0 }, *copyCur = &copyHead;
-          for (; p; p = p->next) {
-              p->hs = hidesetUnion(ctx, p->hs, evalhs);
-              p->expanded = macro;
-              next = p;
-              copyCur = copyCur->next = copyToken(ctx, p);
-          }
-
-          arg->evaluated = copyHead.next;
-        } else {
-          b = b->next;
-          continue;
-        }
-      } else {
-        evaluated = copyToken(ctx, b);
-        evaluated->hs = evalhs;
-        evaluated->expanded = macro;
-        next = evaluated;
-      }
-
-      evalCur->next = evaluated;
-      evalCur = next;
-
-      b = b->next;
-  }
-
-  if (evalHead.next) {
-    evalCur->next = macroNext;
-    evalHead.next->hasLeadingSpace = macro->hasLeadingSpace;
-    evalHead.next->startOfLine = macro->startOfLine;
-    *next = evalHead.next;
-  } else {
-    *next = macroNext;
-  }
-
-  return TRUE;
-}
-
-static const char *findIncludePath(ParserContext *ctx, Token *include, const char *includeName, Boolean isdquoted) {
-  if (isdquoted && includeName[0] != '/') {
-      Token *original = originaToken(include);
-      assert(original->locInfo && original->locInfo->kind == LIK_FILE);
-      char *copy = strdup(original->locInfo->fileInfo.fileName);
-      char *dir = dirname(copy);
-      size_t l = strlen(dir) + 1 + strlen(includeName) + 1;
-      char *path = heapAllocate(l);
-      snprintf(path, l, "%s/%s", dir, includeName);
-      free(copy);
-      if (access(path, F_OK) == 0) {
-          char *result = allocateString(ctx, l);
-          strncpy(result, path, l);
-          releaseHeap(path);
-          return result;
-      }
-      releaseHeap(path);
-  }
-
-  if (includeName[0] == '/') return includeName;
-
-
-  static char pathBuffer[PATH_MAX] = { 0 };
-
-  IncludePath *includePath = ctx->config->includePath;
-
-  while (includePath) {
-      int len = snprintf(pathBuffer, PATH_MAX, "%s/%s", includePath->path, includeName);
-      if (access(pathBuffer, F_OK) == 0) {
-          char *result = allocateString(ctx, len + 1);
-          strncpy(result, pathBuffer, len + 1);
-          return result;
-      }
-
-      includePath = includePath->next;
-  }
-
-  return NULL;
-}
-
-static Token *parseInclude(ParserContext *ctx, Token *token) {
-  const char *fileName = NULL;
-  Token *tail = NULL;
-  char b[1024];
-  Boolean dquoted = FALSE;
-  Coordinates coords = { token, token };
-  if (token->rawCode == STRING_LITERAL) {
-    fileName = token->value.text.v;
-    tail = skipPPTokens(ctx, token->next);
-    dquoted = TRUE;
-  } else if (token->rawCode == '<') {
-    Token *last = token;
-    Token *tmp = token;
-
-    while (tmp->rawCode && tmp->rawCode != NEWLINE && tmp->rawCode != '>') {
-      last = tmp;
-      tmp = tmp->next;
-    }
-
-    if (tmp->rawCode != '>') {
-        return last;
-    }
-
-    joinToString(b, sizeof b, token->next, tmp);
-
-    fileName = b;
-
-    tail = skipPPTokens(ctx, last->next);
-  } else if (token->rawCode == IDENTIFIER) {
-    if (isMacro(ctx, token)) {
-      Token *rToken = NULL;
-      expandMacro(ctx, token, &rToken, FALSE);
-      return parseInclude(ctx, rToken);
-    } else {
-      reportDiagnostic(ctx, DIAG_EXPECTED_FILENAME, &coords);
-      return token;
-    }
-  } else {
-    reportDiagnostic(ctx, DIAG_EXPECTED_FILENAME, &coords);
-    return token;
-  }
-
-  const char *foundFile = findIncludePath(ctx, token, fileName, dquoted);
-
-  if (foundFile && isInHashMap(ctx->pragmaOnceMap, (intptr_t)foundFile)) {
-      return tail;
-  }
-
-  Token eof = { 0 };
-  Token *includeTokens = foundFile ? tokenizeFile(ctx, foundFile, &eof) : NULL;
-  if (includeTokens == NULL) {
-    reportDiagnostic(ctx, DIAG_INCLUDE_FILE_NOT_FOUND, &coords, foundFile ? foundFile : fileName);
-    return tail;
-  }
-
-  Token *t = includeTokens, *p = NULL;
-  while (t->rawCode) {
-      p = t;
-      t = t->next;
-  }
-
-  if (p) {
-    p->next = tail;
-    return includeTokens;
-  } else {
-    return tail;
-  }
-}
-
 static const char defaultVarargName[] = "__VA_ARGS__";
 
-static MacroParam *parseVarargParam(ParserContext *ctx, Token *n, Token **next) {
-
-  Token *elipsis = n;
-  const char *varargName = defaultVarargName;
-  size_t nameSize = sizeof(defaultVarargName) - 1;
-
-  if (n->rawCode == IDENTIFIER) {
-      varargName = n->id;
-      elipsis = n->next;
-      assert(elipsis && elipsis->rawCode == ELLIPSIS);
-  }
-
-  MacroParam* p = allocateMacroParam(ctx, varargName);
-  p->isVararg = 1;
-
-  Token *nn = elipsis->next;
-  if (!nn || nn->rawCode != ')') {
-    Coordinates coords = { nn, nn };
-    reportDiagnostic(ctx, DIAG_PP_MISSING_PAREN_IN_PARAMS, &coords);
-  }
-
-  while (n && n->rawCode != ')') n = n->next;
-
-  *next = n;
-
-  return p;
-}
-
-static Boolean cmpMacroses(MacroDefinition *old, MacroDefinition *new) {
+Boolean cmpMacroses(MacroDefinition *old, MacroDefinition *new) {
   if (old->isFunctional != new->isFunctional) return TRUE;
   if (old->isVararg != new->isVararg) return TRUE;
   if (old->body && !new->body || !old->body && new->body) return TRUE;
@@ -928,7 +334,7 @@ static Boolean cmpMacroses(MacroDefinition *old, MacroDefinition *new) {
           // #define x(y) y + y
           //   vs
           // #define x(y) y   +   y
-          // gcc/clang say they are different
+          // gcc/clang says they are different
           ptrdiff_t oldD = oldB->pos - oldPtr;
           ptrdiff_t newD = newB->pos - newPtr;
 
@@ -947,499 +353,34 @@ static Boolean cmpMacroses(MacroDefinition *old, MacroDefinition *new) {
   return oldB != newB;
 }
 
-static Token *defineMacro(ParserContext *ctx, Token *token) {
-
-  Coordinates coords = { token, token };
-
-  if (token->rawCode != IDENTIFIER) {
-      reportDiagnostic(ctx, DIAG_MACRO_NAME_IS_ID, &coords);
-      return token;
-  }
-
-  if (strcmp("defined", token->id) == 0) {
-      reportDiagnostic(ctx, DIAG_PP_DEFINED_NOT_A_NAME, &coords);
-      return token;
-  }
-
-  Token *last = findLastPPToken(ctx, token);
-
-  Token *tail = last->next;
-  last->next = NULL;
-
-  const char *macroName = token->id;
-
-  Token *n = token->next;
-  Token *body = NULL;
-
-  MacroParam head = { };
-  MacroParam *cur = &head;
-
-  Boolean isVarags = FALSE;
-  Boolean isFunctional = FALSE;
-
-  if (n && n->rawCode == '(' && !n->hasLeadingSpace) { // it's functional macro
-
-    isFunctional = TRUE;
-    n = n->next;
-
-    while (n) {
-      if (n->rawCode == IDENTIFIER) {
-
-          if (n->next && n->next->rawCode == ELLIPSIS) {
-              // #define x(y...) aka GNU comma
-
-              MacroParam *p = parseVarargParam(ctx, n, &n);
-              cur = cur->next = p;
-              isVarags = TRUE;
-
-              continue;
-          } else {
-            MacroParam *tmp = allocateMacroParam(ctx, n->id);
-
-            cur = cur->next = tmp;
-
-            Token *nn = n->next;
-            if (!nn || nn->rawCode != ',' && nn->rawCode != ')') {
-                coords.left = coords.right = nn;
-                reportDiagnostic(ctx, DIAG_PP_INVALID_TOKEN_MACRO_PARAM, &coords);
-            } else if (nn->rawCode == ',') {
-                n = n->next; // skip ','
-            }
-          }
-      } else if (n->rawCode == ELLIPSIS) {
-          MacroParam *p = parseVarargParam(ctx, n, &n);
-          cur = cur->next = p;
-          isVarags = TRUE;
-
-          continue;
-      } else if (n->rawCode == ')') {
-          body = n->next;
-          break;
-      } else {
-        coords.left = coords.right = n;
-        reportDiagnostic(ctx, DIAG_PP_INVALID_TOKEN_MACRO_PARAM, &coords);
-      }
-      n = n->next;
-    }
-  } else {
-      body = n;
-  }
-
-
-  if (body) {
-    body->startOfLine = 0;
-    body->hasLeadingSpace = 0;
-  }
-
-  MacroDefinition *def = allocateMacroDef(ctx, macroName, head.next, body, isVarags, isFunctional);
-
-  intptr_t old = putToHashMap(ctx->macroMap, (intptr_t)macroName, (intptr_t)def);
-  if (old) {
-      if (cmpMacroses((MacroDefinition*)old, def)) {
-        reportDiagnostic(ctx, DIAG_PP_MACRO_REDEFINED, &coords, macroName);
-      }
-  }
-
-  return tail;
-}
-
-
-static Token *undefMacro(ParserContext *ctx, Token *token) {
-    if (token->rawCode != IDENTIFIER) {
-        Coordinates coords = { token, token };
-        reportDiagnostic(ctx, DIAG_MACRO_NAME_IS_ID, &coords);
-    } else {
-        removeFromHashMap(ctx->macroMap, (intptr_t)token->id);
-    }
-    return token->next;
-}
-
-static Token *takeBranch(ParserContext *ctx, Token *start, int condition);
-
-
-void parseNumber(ParserContext *ctx, Token *token);
-
 static Token *eofToken(ParserContext *ctx) {
   Token *t = allocToken(ctx);
-  t->code = t->rawCode = 0;
+  t->code = t->rawCode = END_OF_FILE;
 
   return t;
 }
 
-static Token *simplifyTokenSequence(ParserContext *ctx, Token *token) {
-  Token head = { 0 };
-  Token *cur = &head;
-  while (token) {
-      if (token->rawCode == IDENTIFIER && strcmp("defined", token->id) == 0) {
-          cur = cur->next = evaluateDefinedOp(ctx, token, FALSE, &token);
-          continue;
-      } else if (token->rawCode == IDENTIFIER) {
-          Token *o = token;
-
-          if (!expandMacro(ctx, token, &token, TRUE)) {
-              // https://gcc.gnu.org/onlinedocs/cpp/If.html#If
-              // Identifiers that are not macros, which are all considered to be the number zero.
-              cur = cur->next = constToken(ctx, 0, token);
-              token = token->next;
-          }
-          continue;
-      } else {
-          cur = cur->next = token;
-      }
-      token = token->next;
-  }
-
-  cur = cur->next = eofToken(ctx);
-
-  return head.next;
-}
 
 static AstExpression *parsePPExpression(ParserContext *ctx, Token *start) {
 
   Token head;
-  Token *ctxToken = ctx->token;
+
+  ctx->stateFlags.inPP = 1;
+
   head.next = start;
   ctx->token = &head;
   nextToken(ctx);
 
   AstExpression *expr = parseConditionalExpression(ctx);
 
-  ctx->token = ctxToken;
+  ctx->token = NULL;
+
+  ctx->stateFlags.inPP = 0;
 
   return expr;
 }
 
-static int evaluateTokenSequence(ParserContext *ctx, Token *token) {
-  token = simplifyTokenSequence(ctx, token);
-
-  AstExpression *expr = parsePPExpression(ctx, token);
-  AstConst *e = eval(ctx, expr);
-
-  if (e) {
-      return e->i;
-  }
-
-  reportDiagnostic(ctx, DIAG_PP_CANNOT_EVALUATE, &expr->coordinates);
-
-  return 0;
-}
-
-
-static Token *elif(ParserContext *ctx, Token *token) {
-    Token *last = findLastPPToken(ctx, token);
-    Token *tail = last->next;
-    last->next = NULL;
-
-    int v = evaluateTokenSequence(ctx, token);
-
-    return takeBranch(ctx, tail, v);
-}
-
-static Token *takeBranch(ParserContext *ctx, Token *start, int condition) {
-  int depth = 0;
-
-  Token *prev = NULL;
-  Token *token  = start;
-
-  Token head = { 0 };
-  Token *cur = &head;
-
-  Boolean isTaking = condition;
-  Boolean isTaken = FALSE;
-
-  if (isTaking) {
-      cur->next = start;
-  }
-
-  while (token->rawCode) {
-      if (token->rawCode == '#' && token->startOfLine) {
-          Token *directive = token->next;
-          if (directive == NULL) break;
-
-          if (!strcmp("if", directive->id) || !strcmp("ifdef", directive->id) || !strcmp("ifndef", directive->id)) {
-              ++depth;
-          } else if (depth == 0 && !strcmp("else", directive->id)) {
-              Token *last = findLastPPToken(ctx, directive);
-              if (last != directive) {
-                  Coordinates coords = { directive->next, last };
-                  reportDiagnostic(ctx, DIAG_PP_EXTRA_TOKEN_ENDOF_DIRECTIVE, &coords, "else");
-                  // report warning
-              }
-              if (isTaking) {
-                  assert(!isTaken);
-                  isTaken = TRUE;
-                  isTaking = FALSE;
-              } else {
-                  isTaking = !isTaken;
-              }
-
-              token = last->next;
-              continue;
-          } else if (depth == 0 && !strcmp("elif", directive->id)) {
-              Token *cond = directive->next;
-              Token *last = findLastPPToken(ctx, cond);
-              Token *tail = last->next;
-              last->next = NULL;
-
-              if (isTaking) {
-                  isTaken = TRUE;
-              }
-
-              isTaking = !isTaken ? evaluateTokenSequence(ctx, cond) : FALSE;
-
-              token = tail;
-              continue;
-          } else if (!strcmp("endif", directive->id)) {
-              if (depth) --depth;
-              else {
-                  Token *last = findLastPPToken(ctx, directive);
-                  if (last != directive) {
-                      Coordinates coords = { directive->next, last };
-                      reportDiagnostic(ctx, DIAG_PP_EXTRA_TOKEN_ENDOF_DIRECTIVE, &coords, "endif");
-                      // report warning
-                  }
-                  if (!isTaking && !isTaken) {
-                    return last->next;
-                  } else {
-                    cur->next = last->next;
-                    return head.next;
-                  }
-              }
-          }
-      }
-
-      if (isTaking) {
-        cur  = cur->next = token;
-      }
-
-      token = token->next;
-  }
-
-
-  Coordinates coords = { start, start };
-  reportDiagnostic(ctx, DIAG_PP_UNTERMINATED_COND_DIRECTIVE, &coords);
-
-  return head.next;
-}
-
-static Token *_if(ParserContext *ctx, Token *token) {
-    Token *last = findLastPPToken(ctx, token);
-    Token *tail = last->next;
-    last->next = NULL;
-
-    int v = evaluateTokenSequence(ctx, token);
-
-    return takeBranch(ctx, tail, v);
-}
-
-static Token *ifdef(ParserContext *ctx, Token *token) {
-
-  if (token->rawCode != IDENTIFIER) {
-      Coordinates coords = { token, token };
-      reportDiagnostic(ctx, DIAG_MACRO_NAME_IS_ID, &coords);
-      return token ? token->next : token;
-  }
-
-  Boolean isDefined = isMacro(ctx, token);
-
-  return takeBranch(ctx, token->next, isDefined);
-}
-
-static Token *ifndef(ParserContext *ctx, Token *token) {
-  if (token->rawCode != IDENTIFIER) {
-      Coordinates coords = { token, token };
-      reportDiagnostic(ctx, DIAG_MACRO_NAME_IS_ID, &coords);
-      return token ? token->next : token;
-  }
-
-  Boolean isDefined = isMacro(ctx, token);
-
-  return takeBranch(ctx, token->next, !isDefined);
-}
-
-static Token *_else(ParserContext *ctx, Token *token) {
-  Coordinates coords = { token, token };
-  reportDiagnostic(ctx, DIAG_PP_WITHOUT_IF, &coords, "else");
-  return token;
-}
-
-static Token *endif(ParserContext *ctx, Token *token) {
-  Coordinates coords = { token, token };
-  reportDiagnostic(ctx, DIAG_PP_WITHOUT_IF, &coords, "endif");
-  return token;
-}
-
-static Token *diagnosticDirective(ParserContext *ctx, Token *start, enum DiagnosticId id) {
-  Token *last = findLastPPToken(ctx, start->next);
-
-  Token *next = last->next;
-  last->next = NULL;
-
-  Token *messageToken = expandSequence(ctx, start->next, FALSE);
-
-  const char *message = joinToStringTokenSequence(ctx, messageToken);
-  Coordinates coords = { start->next, last };
-
-  reportDiagnostic(ctx, id, &coords, message);
-
-  return next;
-}
-
-static LineChunk *newLineChunk(const char *file, unsigned newLineNumber, Token *orig) {
-  assert(orig->expanded == NULL);
-
-  unsigned rawLine = tokenRawLine(orig);
-
-  LineChunk *newChunk = heapAllocate(sizeof(LineChunk));
-
-  newChunk->overrideFileName = file;
-  newChunk->overrideLineNumber = newLineNumber;
-  newChunk->posLineNumber = rawLine;
-
-  return newChunk;
-}
-
-static Token *lineDirective(ParserContext *ctx, Token *start) {
-  Token *last = findLastPPToken(ctx, start->next);
-
-  Token *next = last->next;
-  last->next = NULL;
-
-  Token *expanded = expandSequence(ctx, start->next, FALSE);
-
-  assert(start->rawCode == '#');
-  Token *directive = start->next;
-  assert(directive->rawCode == IDENTIFIER);
-
-  Token *lineNum = directive->next;
-
-  if (lineNum == NULL) {
-      Coordinates coords = { start, directive };
-      reportDiagnostic(ctx, DIAG_PP_LINE_UNEXPECTED_EOL, &coords);
-      return next;
-  }
-
-  if (lineNum->rawCode != I_CONSTANT_RAW) {
-      Coordinates coords = { lineNum, lineNum };
-      char *copy = strndup(lineNum->pos, lineNum->length);
-      reportDiagnostic(ctx, DIAG_PP_LINE_NOT_POSITIVE_INT, &coords, copy);
-      free(copy);
-      return next;
-  }
-
-  unsigned newLineNumber = lineNum->value.iv;
-
-  Token *fileName = lineNum->next;
-  const char *newFileName = NULL;
-  if (fileName) {
-      if (fileName->rawCode != STRING_LITERAL) {
-          Coordinates coords = { fileName, fileName };
-          char *copy = strndup(fileName->pos, fileName->length);
-          reportDiagnostic(ctx, DIAG_PP_LINE_NOT_FILE_NAME, &coords, copy);
-          free(copy);
-          return next;
-      }
-      newFileName = fileName->value.text.v;
-      if (fileName->next) {
-          Coordinates coords = { fileName->next, fileName->next };
-          char *copy = strndup(fileName->next->pos, fileName->next->length);
-          reportDiagnostic(ctx, DIAG_PP_LINE_EXTRA_TOKEN_AT_END, &coords, copy);
-          free(copy);
-      }
-  }
-
-
-  Token *original = originaToken(directive);
-  LocationInfo *locInfo = original->locInfo;
-
-  assert(locInfo->kind == LIK_FILE);
-
-  LineChunk *chunk = newLineChunk(newFileName, newLineNumber, original);
-  chunk->next = locInfo->fileInfo.chunks;
-  locInfo->fileInfo.chunks = chunk;
-
-  return next;
-}
-
-static Token *pragmaDirective(ParserContext *ctx, Token *start) {
-  Token *last = findLastPPToken(ctx, start->next);
-
-  Token *next = last->next;
-  last->next = NULL;
-
-  assert(start->rawCode == '#');
-  Token *directive = start->next;
-  assert(directive->rawCode == IDENTIFIER);
-
-  Token *arg1 = directive->next;
-  if (arg1 && arg1->rawCode == IDENTIFIER) {
-      if (strcmp("once", arg1->id) == 0) {
-          Token * orig = originaToken(arg1);
-          const char *f = orig->locInfo->fileInfo.fileName;
-          putToHashMap(ctx->pragmaOnceMap, (intptr_t)f, (intptr_t)f);
-      }
-  }
-
-  return next;
-}
-
-static Token *handleDirecrive(ParserContext *ctx, Token *token) {
-
-  unsigned bOffset = 0;
-
-  assert(token->rawCode == '#');
-
-  Token *directiveToken = token->next;
-
-  // TODO: fix this ugly hack bellow
-  Coordinates coords = { directiveToken, directiveToken };
-  if (directiveToken->rawCode != IDENTIFIER && directiveToken->rawCode != I_CONSTANT_RAW) {
-    reportDiagnostic(ctx, DIAG_INVALID_PP_DIRECTIVE, &coords, directiveToken);
-    return ctx->token = directiveToken;
-  }
-
-  if (directiveToken->rawCode == I_CONSTANT_RAW) {
-      return ctx->token = skipPPTokens(ctx, directiveToken);
-  }
-
-  const char *directive = directiveToken->id;
-
-  if (!strcmp("include", directive)) {
-    return parseInclude(ctx, directiveToken->next);
-  } else if (!strcmp("define", directive)) {
-    return defineMacro(ctx, directiveToken->next);
-  } else if (!strcmp("undef", directive)) {
-    return undefMacro(ctx, directiveToken->next);
-  } else if (!strcmp("if", directive)) {
-    return _if(ctx, directiveToken->next);
-  } else if (!strcmp("ifdef", directive)) {
-    return ifdef(ctx, directiveToken->next);
-  } else if (!strcmp("ifndef", directive)) {
-    return ifndef(ctx, directiveToken->next);
-  } else if (!strcmp("elif", directive)) {
-    reportDiagnostic(ctx, DIAG_PP_WITHOUT_IF, &coords, "elif");
-    return directiveToken->next;
-  } else if (!strcmp("else", directive)) {
-    reportDiagnostic(ctx, DIAG_PP_WITHOUT_IF, &coords, "else");
-    return directiveToken->next;
-  } else if (!strcmp("endif", directive)) {
-    reportDiagnostic(ctx, DIAG_PP_WITHOUT_IF, &coords, "endif");
-    return directiveToken->next;
-  } else if (!strcmp("line", directive)) {
-    return lineDirective(ctx, token);
-  } else if (!strcmp("error", directive)) {
-    return diagnosticDirective(ctx, token, DIAG_PP_ERROR);
-  } else if (!strcmp("warning", directive)) {
-    return diagnosticDirective(ctx, token, DIAG_PP_WARNING);
-  } else if (!strcmp("pragma", directive)) {
-    return pragmaDirective(ctx, token);
-  } else {
-    reportDiagnostic(ctx, DIAG_INVALID_PP_DIRECTIVE, &coords, directiveToken);
-    return directiveToken;
-  }
-}
-
-Token *originaToken(Token *t) {
+Token *originalToken(Token *t) {
   while (t->expanded) {
       t = t->expanded;
   }
@@ -1447,10 +388,9 @@ Token *originaToken(Token *t) {
   return t;
 }
 
-
 static Token *fileMacroHandler(ParserContext *ctx, Token *t) {
 
-  Token *origToken = originaToken(t);
+  Token *origToken = originalToken(t);
 
   unsigned line = 0;
   const char *file = NULL;
@@ -1462,7 +402,7 @@ static Token *fileMacroHandler(ParserContext *ctx, Token *t) {
 
 static Token *lineMacroHandler(ParserContext *ctx, Token *t) {
 
-  t = originaToken(t);
+  t = originalToken(t);
 
   unsigned lineNum = 0;
   const char *file = NULL;
@@ -1493,7 +433,7 @@ static Token *counterMacroHandler(ParserContext *ctx, Token *t) {
 static Token *timestampMacroHandler(ParserContext *ctx, Token *t) {
   struct stat st;
 
-  LocationInfo *info = originaToken(t)->locInfo;
+  LocationInfo *info = originalToken(t)->locInfo;
 
   if (stat(info->fileInfo.fileName, &st) != 0)
     return stringToken(ctx, t, "??? ??? ?? ??:??:?? ????");
@@ -1520,17 +460,17 @@ static Token *constLongToken(ParserContext *ctx, int64_t v, Token *t) {
 }
 
 
-static MacroDefinition __file_macro = { "__FILE__", NULL, NULL, &fileMacroHandler, FALSE, FALSE };
-static MacroDefinition __line_macro = { "__LINE__", NULL, NULL, &lineMacroHandler, FALSE, FALSE };
-static MacroDefinition __counter_macro = { "__COUNTER__", NULL, NULL, &counterMacroHandler, FALSE, FALSE };
-static MacroDefinition __timestamt_macro = { "__TIMESTAMP__", NULL, NULL, &timestampMacroHandler, FALSE, FALSE };
+static MacroDefinition __file_macro = { "__FILE__", NULL, NULL, &fileMacroHandler, 0, 0, 1, 0 };
+static MacroDefinition __line_macro = { "__LINE__", NULL, NULL, &lineMacroHandler, 0, 0, 1, 0 };
+static MacroDefinition __counter_macro = { "__COUNTER__", NULL, NULL, &counterMacroHandler, 0, 0, 1, 0 };
+static MacroDefinition __timestamt_macro = { "__TIMESTAMP__", NULL, NULL, &timestampMacroHandler, 0, 0, 1, 0 };
 
 
 static MacroDefinition *defineBuiltinMacro(ParserContext *ctx, const char *name, Token *t) {
   MacroDefinition *def = allocateMacroDef(ctx, name, NULL, t, FALSE, FALSE);
+  def->isEnabled = 1;
 
   putToHashMap(ctx->macroMap, (intptr_t)name, (intptr_t)def);
-
 }
 
 static const char *dateString() {
@@ -1669,23 +609,1249 @@ void initializeProprocessor(ParserContext *ctx) {
   }
 }
 
-Token *preprocessFile(ParserContext *ctx, Token *s, Token *tail) {
-  Token head = { 0 }, *current = &head;
-  Token *t = s, *p = NULL;
+// returns the file being parsed
+static const char *getFileName(ParserContext *ctx) {
+  LexerState *lex = ctx->lexerState;
 
-  while (t) {
-    if (t->rawCode == '#' && t->startOfLine) {
-      t = handleDirecrive(ctx, t);
-      continue;
-    } else if (expandMacro(ctx, t, &t, FALSE)) {
-      continue;
+  while (lex->state != LS_FILE) lex = lex->virtPrev;
+
+  assert(lex);
+  return lex->fileContext.locInfo->fileInfo.fileName;
+}
+
+// returns the file being compiled
+static const char *getBaseFileName(ParserContext *ctx) {
+  LexerState *lex = ctx->lexerState;
+
+  while (lex->virtPrev) lex = lex->virtPrev;
+
+  assert(lex->state == LS_FILE);
+  return lex->fileContext.locInfo->fileInfo.fileName;
+}
+
+static const char *findIncludePath(ParserContext *ctx, const char *includeName, Boolean dquoted) {
+  if (dquoted && includeName[0] != '/') {
+    const char *baseFileName = getFileName(ctx);
+    char *copy = strdup(baseFileName);
+    char *dir = dirname(copy);
+    size_t l = strlen(dir) + 1 + strlen(includeName) + 1;
+    char *path = heapAllocate(l);
+    snprintf(path, l, "%s/%s", dir, includeName);
+    free(copy);
+    if (access(path, F_OK) == 0) {
+        char *result = allocateString(ctx, l);
+        strncpy(result, path, l);
+        releaseHeap(path);
+        return result;
     }
-
-    current = current->next = t;
-    t = t->next;
+    releaseHeap(path);
   }
 
-  current->next = tail;
+  if (includeName[0] == '/') return includeName;
+
+  IncludePath *includePath = ctx->config->includePath;
+  static char pathBuffer[PATH_MAX] = { 0 };
+
+  while (includePath) {
+      int len = snprintf(pathBuffer, PATH_MAX, "%s/%s", includePath->path, includeName);
+      if (access(pathBuffer, F_OK) == 0) {
+          char *result = allocateString(ctx, len + 1);
+          strncpy(result, pathBuffer, len + 1);
+          return result;
+      }
+
+      includePath = includePath->next;
+  }
+
+  return NULL;
+}
+
+static void handleIncludeDirective(ParserContext *ctx, Token *d) {
+  LocationInfo *locInfo = ctx->lexerState->fileContext.locInfo;
+  Token *next = lexTokenNoSubstitute(ctx);
+  Boolean dquoted = FALSE, err = FALSE;
+  const char *fileName = NULL;
+  char b[1024] = { 0 };
+  Coordinates coords = { d, next };
+
+  if (next->rawCode == STRING_LITERAL) {
+     fileName = next->value.text.v;
+     skipUntilEoL(ctx);
+     dquoted = TRUE;
+  } else if (next->rawCode == '<') {
+      next = lexTokenNoSubstitute(ctx);
+      size_t ptr = 0;
+      size_t size = sizeof b / sizeof b[0];
+      while (ptr < size && next->rawCode != '>' && next->rawCode != NEWLINE) {
+        if (next->rawCode != '>') {
+          memcpy(b + ptr, next->pos, next->length);
+          ptr += next->length;
+        }
+        next = lexTokenNoSubstitute(ctx);
+      }
+
+      if (next->rawCode != '>') {
+          reportDiagnostic(ctx, DIAG_PP_EXPECTED_FILENAME, &coords);
+          err = TRUE;
+      }
+
+      if (ptr >= size) {
+          reportDiagnostic(ctx, DIAG_PP_FILE_NAME_TOO_LONG, &coords);
+          err = TRUE;
+      }
+
+      skipUntilEoL(ctx);
+
+      if (err) return;
+
+      fileName = b;
+  } else if (next->rawCode == IDENTIFIER) {
+      // include name might be substituted as well
+      Token *r = handleIdentifier(ctx, next);
+      if (!r) return handleIncludeDirective(ctx, d);
+      coords.left = coords.right = next;
+      reportDiagnostic(ctx, DIAG_PP_EXPECTED_FILENAME, &coords);
+      skipUntilEoL(ctx);
+      return;
+  } else {
+      reportDiagnostic(ctx, DIAG_PP_EXPECTED_FILENAME, &coords);
+      skipUntilEoL(ctx);
+      return;
+  }
+
+  const char *includePath = findIncludePath(ctx, fileName, dquoted);
+
+  if (includePath == NULL) {
+      reportDiagnostic(ctx, DIAG_PP_INCLUDE_FILE_NOT_FOUND, &coords, includePath);
+      return;
+  }
+
+  if (isInHashMap(ctx->pragmaOnceMap, (intptr_t)includePath)) {
+      return;
+  }
+
+  LexerState *newLex = loadFile(includePath, ctx->lexerState);
+
+  if (newLex == NULL) {
+      reportDiagnostic(ctx, DIAG_PP_INCLUDE_FILE_NOT_FOUND, &coords, includePath);
+      return;
+  }
+
+  newLex->fileContext.locInfo->next = ctx->locationInfo;
+  ctx->locationInfo = newLex->fileContext.locInfo;
+  ctx->lexerState = newLex;
+}
+
+static Boolean checkIsMacroParam(MacroParam *params, Token *t) {
+   if (t->rawCode != IDENTIFIER) return FALSE;
+
+   while (params) {
+       if (!strcmp(params->name, t->id)) {
+           return TRUE;
+       }
+       params = params->next;
+   }
+
+   return FALSE;
+}
+
+static MacroParam *parseVarargParam(ParserContext *ctx, const char *name) {
+  MacroParam *p = NULL;
+  Token *nn = lexTokenNoSubstitute(ctx);
+
+  if (nn->rawCode != ')') {
+    Coordinates coords = { nn, nn };
+    reportDiagnostic(ctx, DIAG_PP_MISSING_PAREN_IN_PARAMS, &coords);
+  } else {
+    p = allocateMacroParam(ctx, name);
+    p->isVararg = 1;
+  }
+
+  return p;
+}
+
+static MacroParam *parseMacroParam(ParserContext *ctx, Boolean *isVararg, Boolean *hasError) {
+  Token *t = lexTokenNoSubstitute(ctx);
+  MacroParam head = { 0 };
+  MacroParam *cur = &head;
+
+  Coordinates coords = { 0 };
+
+  while (t->rawCode != ')') {
+      if (t->rawCode == IDENTIFIER) {
+          Token *n = lexTokenNoSubstitute(ctx);
+          if (n->rawCode == ELLIPSIS) {
+              *isVararg = TRUE;
+              MacroParam *p = parseVarargParam(ctx, t->id);
+              if (!p) *hasError = TRUE;
+              cur = cur->next = p;
+              break;
+          } else {
+
+              MacroParam *p = allocateMacroParam(ctx, t->id);
+              cur = cur->next = p;
+
+              if (n->rawCode != ',' && n->rawCode != ')') {
+                  coords.left = coords.right = n;
+                  reportDiagnostic(ctx, DIAG_PP_INVALID_TOKEN_MACRO_PARAM, &coords);
+                  *hasError = TRUE;
+                  return NULL;
+              }
+              t = n;
+          }
+      } else if (t->rawCode == ELLIPSIS) {
+          *isVararg = TRUE;
+          MacroParam *p = parseVarargParam(ctx, defaultVarargName);
+          if (!p) *hasError = TRUE;
+          cur = cur->next = p;
+          break;
+      } else {
+          coords.left = coords.right = t;
+          reportDiagnostic(ctx, DIAG_PP_INVALID_TOKEN_MACRO_PARAM, &coords);
+          *hasError = TRUE;
+          return NULL;
+      }
+      if (t->rawCode == ',') {
+        t = lexTokenNoSubstitute(ctx);
+      }
+  }
 
   return head.next;
+}
+
+static MacroDefinition *parseMacro(ParserContext *ctx, const char *name) {
+
+  Boolean isVararg = FALSE;
+  Boolean isFunctional = FALSE;
+  Boolean hasError = FALSE;
+  MacroParam *p = NULL;
+
+  Token *token = lexTokenNoSubstitute(ctx);
+
+  if (token->rawCode == '(' && !token->hasLeadingSpace) {
+    isFunctional = TRUE;
+    p = parseMacroParam(ctx, &isVararg, &hasError);
+  }
+
+  if (hasError) {
+      // error somewhere in params
+      skipUntilEoL(ctx);
+      return NULL;
+  } else if (isFunctional) {
+      // consume ')'
+      token = lexTokenNoSubstitute(ctx);
+  }
+
+  Token bodyHead = { 0 };
+  Token *b = &bodyHead;
+
+  unsigned used = 0;
+
+  unsigned prevIsHash = 0;
+
+  Coordinates coords = { token, token };
+
+  while (token->rawCode != NEWLINE && token->rawCode != END_OF_FILE) {
+      coords.left = coords.right = token;
+      if (checkIsMacroParam(p, token)) {
+          token->isMacroParam = 1;
+          used = 1;
+      } else if (prevIsHash && isFunctional) {
+          //#define x(y) # z
+          reportDiagnostic(ctx, DIAG_PP_HASH_NOT_FOLLOWED_BY_PARAM, &coords);
+          skipUntilEoL(ctx);
+          return NULL;
+      }
+
+      if (b == &bodyHead && token->rawCode == DSHARP) {
+        // #define x(y) ## y
+        reportDiagnostic(ctx, DIAG_PP_WRONG_CONCAT_OP_PLACE, &coords);
+        skipUntilEoL(ctx);
+        return NULL;
+      }
+
+      prevIsHash = token->rawCode == '#';
+
+      b = b->next = token;
+      token = lexTokenNoSubstitute(ctx);
+  }
+
+  coords.left = coords.right = b;
+
+  if (prevIsHash && isFunctional) {
+      //#define x(y) #
+      reportDiagnostic(ctx, DIAG_PP_HASH_NOT_FOLLOWED_BY_PARAM, &coords);
+      return NULL;
+  }
+
+  if (b && b->rawCode == DSHARP) {
+      // #define x(y) y ##
+      reportDiagnostic(ctx, DIAG_PP_WRONG_CONCAT_OP_PLACE, &coords);
+      return NULL;
+  }
+
+  MacroDefinition *def = allocateMacroDef(ctx, name, p, bodyHead.next, isVararg, isFunctional);
+  def->isParamsUsed = used;
+
+  return def;
+}
+
+static void handleDefineDirective(ParserContext *ctx, Token *directive) {
+  LocationInfo *locInfo = ctx->lexerState->fileContext.locInfo;
+  unsigned ln = locInfo->fileInfo.lineno;
+  Token *token = lexTokenNoSubstitute(ctx);
+
+  Coordinates coords = { directive, directive };
+
+  if (token->rawCode != IDENTIFIER) {
+      reportDiagnostic(ctx, DIAG_PP_MACRO_NAME_MISSING, &coords);
+      skipUntilEoL(ctx);
+      return;
+  }
+
+  if (strcmp("defined", token->id) == 0) {
+      reportDiagnostic(ctx, DIAG_PP_DEFINED_NOT_A_NAME, &coords);
+      skipUntilEoL(ctx);
+      return;
+  }
+
+  const char *macroName = token->id;
+
+  MacroDefinition *def = parseMacro(ctx, macroName);
+
+  intptr_t old = putToHashMap(ctx->macroMap, (intptr_t)macroName, (intptr_t)def);
+  if (old) {
+      if (cmpMacroses((MacroDefinition*)old, def)) {
+        reportDiagnostic(ctx, DIAG_PP_MACRO_REDEFINED, &coords, macroName);
+      }
+  }
+}
+
+static void handleUndefDirective(ParserContext *ctx, Token *directive) {
+  Token *token = lexTokenNoSubstitute(ctx);
+
+  if (token->rawCode != IDENTIFIER) {
+      Coordinates coords = { directive, token };
+      reportDiagnostic(ctx, DIAG_PP_MACRO_NAME_MISSING, &coords);
+  } else {
+      removeFromHashMap(ctx->macroMap, (intptr_t)token->id);
+  }
+
+  skipUntilEoL(ctx);
+  return;
+}
+
+#define BUFFER_SIZE 4096
+
+static void handleDiagnosticDirective(ParserContext *ctx, Token *directive, enum DiagnosticId diag) {
+
+  Token tok = { 0 };
+
+  static char buffer[BUFFER_SIZE];
+  unsigned ptr = 0;
+
+  unsigned skipWhitespace = 1;
+
+  ctx->stateFlags.silentMode = 1;
+
+  for (;;) {
+    lexTokenRaw(ctx, &tok);
+
+    if (tok.rawCode == NEWLINE || tok.rawCode == END_OF_FILE) break;
+
+    if (ptr == BUFFER_SIZE - 1) break;
+
+    int code = tok.rawCode;
+
+    if (code == DANGLING_NEWLINE) {
+        continue;
+    }
+
+    if (isspace(code)) {
+        if (!skipWhitespace) {
+          buffer[ptr++] = code;
+        }
+        continue;
+    }
+
+    if (ptr + tok.length > BUFFER_SIZE) break;
+
+    memcpy(buffer + ptr, tok.pos, tok.length);
+    ptr += tok.length;
+    skipWhitespace = 0;
+  }
+
+  skipUntilEoL(ctx);
+
+  ctx->stateFlags.silentMode = 0;
+
+  buffer[ptr] = '\0';
+
+  Coordinates coords = { directive, directive };
+  reportDiagnostic(ctx, diag, &coords, buffer);
+}
+
+static PPConditionFrame *allocateConditionFrame(ParserContext *ctx, Token *open, PPConditionFrame *prev, enum PPConditionState state) {
+  PPConditionFrame *r = heapAllocate(sizeof (PPConditionFrame));
+
+  r->prev = prev;
+  r->ifDirective = open;
+  r->state = state;
+
+  return r;
+}
+
+static void skipConditionalBlock(ParserContext *ctx) {
+
+  int depth = 0;
+
+  Token *t = NULL;
+  LexerState *lex = ctx->lexerState;
+  assert(lex->state == LS_FILE);
+
+  ctx->stateFlags.silentMode = 1;
+
+  for (;;) {
+      unsigned pos = lex->fileContext.pos;
+      unsigned vline = lex->fileContext.visibleLine;
+      unsigned lineno = lex->fileContext.locInfo->fileInfo.lineno;
+      unsigned ls = lex->fileContext.atLineStart;
+
+      t = lexTokenNoSubstitute(ctx);
+
+      if (t->rawCode == END_OF_FILE) break;
+      if (t->rawCode == NEWLINE) continue;
+
+      if (t->startOfLine && t->rawCode == '#') {
+          Token *next = lexTokenNoSubstitute(ctx);
+          if (next->rawCode == IDENTIFIER) {
+              const char *id = next->id;
+              if (strcmp("if", id) == 0 || strcmp("ifdef", id) == 0 || strcmp("ifndef", id) == 0) {
+                  ++depth;
+              } else if (depth && strcmp("endif", id) == 0) {
+                  --depth;
+              } else if (depth == 0) {
+                  if (strcmp("elif", id) == 0 ||
+                      strcmp("else", id) == 0 ||
+                      strcmp("endif", id) == 0) {
+                      lex->fileContext.pos = pos;
+                      lex->fileContext.visibleLine = vline;
+                      lex->fileContext.locInfo->fileInfo.lineno = lineno;
+                      lex->fileContext.atLineStart = ls;
+                      goto done;
+                  }
+              }
+          }
+      }
+      skipUntilEoL(ctx);
+  }
+
+
+  popLexerState(ctx);
+
+done:
+
+  ctx->stateFlags.silentMode = 0;
+}
+
+static Token *simplifyTokenSequence(ParserContext *ctx, Token *token) {
+  Token head = { 0 };
+  Token *cur = &head;
+  while (token->rawCode != END_OF_FILE) {
+      if (token->rawCode == IDENTIFIER && strcmp("defined", token->id) == 0) {
+          cur = cur->next = evaluateDefinedOp(ctx, token, FALSE, &token);
+          continue;
+      } else if (token->rawCode == IDENTIFIER) {
+          // Identifiers that are not macros, which are all considered to be the number zero.
+          cur = cur->next = constToken(ctx, 0, token);
+      } else {
+          cur = cur->next = token;
+      }
+      token = token->next;
+  }
+
+  return head.next;
+}
+
+static int evaluateTokenSequence(ParserContext *ctx, Token *token, int *err) {
+  token = simplifyTokenSequence(ctx, token);
+
+  AstExpression *expr = parsePPExpression(ctx, token);
+  AstConst *e = eval(ctx, expr);
+
+  if (e) {
+      return e->i;
+  }
+
+  *err = 1;
+
+  reportDiagnostic(ctx, DIAG_PP_CANNOT_EVALUATE, &expr->coordinates);
+
+  return 0;
+}
+
+static Token *fetchConditionExpression(ParserContext *ctx, Token *directive) {
+
+  Token exprHead = { 0 };
+  Token *expr = &exprHead;
+  Token *t = NULL;
+
+  ctx->stateFlags.inPPExpression = 1;
+
+  for (t = lexToken(ctx);
+       t->rawCode != NEWLINE && t->rawCode != END_OF_FILE;
+       t = lexToken(ctx)) {
+      expr = expr->next = t;
+  }
+
+  ctx->stateFlags.inPPExpression = 0;
+
+  if (expr == &exprHead) {
+    // #if
+    Coordinates coords = { directive, directive };
+    reportDiagnostic(ctx, DIAG_PP_EXPECTED_VALUE_IN_EXPRESSION, &coords);
+    return;
+  }
+
+  expr->next = eofToken(ctx);
+
+  return exprHead.next;
+}
+
+static void handleIfDirective(ParserContext *ctx, Token *directive) {
+  assert(directive->rawCode == IDENTIFIER && strcmp("if", directive->id) == 0);
+
+  LexerState *lex = ctx->lexerState;
+  assert(lex->state == LS_FILE);
+
+  Token *expr = fetchConditionExpression(ctx, directive);
+
+  int err = 0;
+  int cond = evaluateTokenSequence(ctx, expr, &err);
+
+  if (err) {
+      skipUntilEoL(ctx);
+      return;
+  }
+
+  PPConditionFrame *frame = allocateConditionFrame(ctx, directive, lex->fileContext.conditionStack, IN_IF);
+
+  frame->isTaking = cond;
+  lex->fileContext.conditionStack = frame;
+
+  if (!cond) {
+    skipConditionalBlock(ctx);
+  }
+}
+
+void handleElifDirective(ParserContext *ctx, Token *directive) {
+  assert(directive->rawCode == IDENTIFIER && strcmp("elif", directive->id) == 0);
+
+  LexerState *lex = ctx->lexerState;
+  assert(lex->state == LS_FILE);
+
+  Coordinates coords = { directive, directive };
+
+  PPConditionFrame *frame = lex->fileContext.conditionStack;
+
+  if (frame == NULL) {
+      reportDiagnostic(ctx, DIAG_PP_WITHOUT_IF, &coords, "elif");
+      skipUntilEoL(ctx);
+      return;
+  }
+
+  if (frame->seenElse) {
+      reportDiagnostic(ctx, DIAG_PP_AFTER_ELSE, &coords, "elif");
+      skipUntilEoL(ctx);
+      return;
+  }
+
+  if (frame->isTaking) {
+      frame->isTaken = 1;
+      frame->isTaking = 0;
+  }
+
+  Token *expr = fetchConditionExpression(ctx, directive);
+
+  int cond = !frame->isTaken;
+
+  if (cond) {
+    int err = 0;
+    cond = evaluateTokenSequence(ctx, expr, &err);
+
+    if (err) {
+        skipUntilEoL(ctx);
+        return;
+    }
+  }
+
+  frame->isTaking = cond;
+  frame->state = IN_ELIF;
+
+  if (!cond) {
+      skipConditionalBlock(ctx);
+  }
+}
+
+static void handleElseDirective(ParserContext *ctx, Token *directive) {
+  assert(directive->rawCode == IDENTIFIER && strcmp("else", directive->id) == 0);
+
+  LexerState *lex = ctx->lexerState;
+  assert(lex->state == LS_FILE);
+
+  Token exprHead = { 0 };
+  Token *expr = &exprHead;
+  Token *t = NULL;
+
+  Coordinates coords = { directive, directive };
+
+  PPConditionFrame *frame = lex->fileContext.conditionStack;
+
+  if (frame == NULL) {
+      reportDiagnostic(ctx, DIAG_PP_WITHOUT_IF, &coords, "else");
+      skipUntilEoL(ctx);
+      return;
+  }
+
+  if (frame->seenElse) {
+      reportDiagnostic(ctx, DIAG_PP_AFTER_ELSE, &coords, "else");
+      skipUntilEoL(ctx);
+      return;
+  }
+
+  Token *nl = lexToken(ctx); // consume NEW_LINE
+  if (nl->rawCode != NEWLINE && nl->rawCode != END_OF_FILE) {
+      coords.left = coords.right = nl;
+      reportDiagnostic(ctx, DIAG_PP_EXTRA_TOKEN_ENDOF_DIRECTIVE, &coords, "else");
+      skipUntilEoL(ctx);
+  }
+
+  if (frame->isTaking) {
+      frame->isTaken = 1;
+      frame->isTaking = 0;
+  }
+
+  frame->seenElse = 1;
+
+  frame->state = IN_ELSE;
+
+  if (frame->isTaken) {
+      skipConditionalBlock(ctx);
+  } else {
+      frame->isTaking = 1;
+  }
+}
+
+static void handleEndifDirective(ParserContext *ctx, Token *directive) {
+  assert(directive->rawCode == IDENTIFIER && strcmp("endif", directive->id) == 0);
+
+  LexerState *lex = ctx->lexerState;
+  assert(lex->state == LS_FILE);
+
+  Token exprHead = { 0 };
+  Token *expr = &exprHead;
+  Token *t = NULL;
+
+  Coordinates coords = { directive, directive };
+
+  PPConditionFrame *frame = lex->fileContext.conditionStack;
+
+  if (frame == NULL) {
+      reportDiagnostic(ctx, DIAG_PP_WITHOUT_IF, &coords, "endif");
+      skipUntilEoL(ctx);
+      return;
+  }
+
+  Token *nl = lexToken(ctx); // consume NEW_LINE
+  if (nl->rawCode != NEWLINE && nl->rawCode != END_OF_FILE) {
+      coords.left = coords.right = nl;
+      reportDiagnostic(ctx, DIAG_PP_EXTRA_TOKEN_ENDOF_DIRECTIVE, &coords, "endif");
+      skipUntilEoL(ctx);
+  }
+
+  // pop off and release current if-endif block
+  lex->fileContext.conditionStack = frame->prev;
+  releaseHeap(frame);
+}
+
+void handleIfdefDirective(ParserContext *ctx, Token *directive, Boolean invert) {
+
+  assert(directive->rawCode == IDENTIFIER && strcmp(invert ? "ifndef" : "ifdef", directive->id) == 0);
+
+  LexerState *lex = ctx->lexerState;
+  assert(lex->state == LS_FILE);
+
+  Token *id = lexNonExpand(ctx, FALSE);
+
+  Coordinates coords = { directive, directive };
+
+  if (id->rawCode == NEWLINE || id->rawCode == END_OF_FILE) {
+    reportDiagnostic(ctx, DIAG_PP_MACRO_NAME_MISSING, &coords);
+    return;
+  }
+
+  coords.left = coords.right = id;
+
+  if (id->rawCode != IDENTIFIER) {
+    reportDiagnostic(ctx, DIAG_PP_MACRO_NAME_IS_ID, &coords);
+    skipUntilEoL(ctx);
+    return;
+  }
+
+  Token *nl = lexToken(ctx);
+
+  coords.left = coords.right = nl;
+
+  if (nl->rawCode != NEWLINE && nl->rawCode != END_OF_FILE) {
+      reportDiagnostic(ctx, DIAG_PP_EXTRA_TOKEN_ENDOF_DIRECTIVE, &coords, invert ? "ifndef" : "ifdef");
+      skipUntilEoL(ctx);
+  }
+
+  int cond = isMacro(ctx, id) != invert;
+
+  PPConditionFrame *frame = allocateConditionFrame(ctx, directive, lex->fileContext.conditionStack, IN_IF);
+
+  frame->isTaking = cond;
+
+  lex->fileContext.conditionStack = frame;
+
+  if (!cond) {
+      skipConditionalBlock(ctx);
+  }
+}
+
+static void handlePragmaDirective(ParserContext *ctx, Token *directive) {
+  assert(directive->rawCode == IDENTIFIER && strcmp("pragma", directive->id) == 0);
+
+  Token *arg = lexNonExpand(ctx, FALSE);
+
+  if (arg->rawCode == IDENTIFIER && strcmp("once", arg->id) == 0) {
+      const char *f = getFileName(ctx);
+      putToHashMap(ctx->pragmaOnceMap, (intptr_t)f, (intptr_t)f);
+  }
+
+  skipUntilEoL(ctx);
+}
+
+static LexerState *findFileLexer(ParserContext *ctx) {
+  LexerState *lex = ctx->lexerState;
+  while (lex) {
+      if (lex->state == LS_FILE) return lex;
+      lex = lex->prev;
+  }
+
+  unreachable("No file state found in stack");
+  return NULL;
+}
+
+static LineChunk *newLineChunk(const char *file, unsigned newLineNumber, unsigned rawLine) {
+  LineChunk *newChunk = heapAllocate(sizeof(LineChunk));
+
+  newChunk->overrideFileName = file;
+  newChunk->overrideLineNumber = newLineNumber;
+  newChunk->posLineNumber = rawLine;
+
+  return newChunk;
+}
+
+#define TMP_SIZE 1024
+static void handleLineDirective(ParserContext *ctx, Token *directive) {
+  Token *line = lexNonExpand(ctx, FALSE);
+
+  if (line->rawCode != I_CONSTANT_RAW || line->value.iv < 0) {
+      Coordinates coords = { line, line };
+      char c[TMP_SIZE] = { 0 };
+      memcpy(c, line->pos, min(TMP_SIZE - 1, line->length));
+      reportDiagnostic(ctx, DIAG_PP_LINE_NOT_POSITIVE_INT, &coords, c);
+      skipUntilEoL(ctx);
+      return;
+  }
+
+  Token *fileNameToken = lexNonExpand(ctx, FALSE);
+  const char *fileName = NULL;
+  if (fileNameToken->rawCode != STRING_LITERAL) {
+      if (fileNameToken->rawCode != END_OF_FILE && fileNameToken->rawCode != NEWLINE) {
+        Coordinates coords = { line, line };
+        reportDiagnostic(ctx, DIAG_PP_INVALID_FILE_LINE, &coords);
+        skipUntilEoL(ctx);
+        return;
+      }
+  } else {
+      fileName = fileNameToken->value.text.v;
+  }
+
+  Token *el = lexNonExpand(ctx, FALSE); // consume \n
+
+  if (el->rawCode != NEWLINE && el->rawCode != END_OF_FILE) {
+      Coordinates coords = { el, el };
+      reportDiagnostic(ctx, DIAG_PP_EXTRA_TOKEN_ENDOF_DIRECTIVE, &coords, "line");
+      skipUntilEoL(ctx);
+  }
+
+  LexerState *lex = findFileLexer(ctx);
+  LocationInfo *locInfo = lex->fileContext.locInfo;
+
+  assert(locInfo->kind == LIK_FILE);
+
+  LineChunk *chunk = newLineChunk(fileName, line->value.iv, locInfo->fileInfo.lineno - 1);
+  chunk->next = locInfo->fileInfo.chunks;
+  locInfo->fileInfo.chunks = chunk;
+}
+
+void handleDirective(ParserContext *ctx, Token *directive) {
+  LexerState *lexState = ctx->lexerState;
+  LocationInfo *locInfo = lexState->fileContext.locInfo;
+  Token tok = { 0 };
+  tok.locInfo = locInfo;
+
+  if (directive->rawCode == IDENTIFIER) {
+    if (!strcmp("include", directive->id)) {
+        return handleIncludeDirective(ctx, directive);
+    } else if (!strcmp("include_next", directive->id)) {
+        Coordinates coords = { directive, directive };
+        reportDiagnostic(ctx, DIAG_PP_UNSUPPORTED_DIRECTIVE, &coords, directive->id);
+    } else if (!strcmp("define", directive->id)) {
+        return handleDefineDirective(ctx, directive);
+    } else if (!strcmp("undef", directive->id)) {
+        return handleUndefDirective(ctx, directive);
+    } else if (!strcmp("if", directive->id)) {
+        return handleIfDirective(ctx, directive);
+    } else if (!strcmp("elif", directive->id)) {
+        return handleElifDirective(ctx, directive);
+    } else if (!strcmp("else", directive->id)) {
+        return handleElseDirective(ctx, directive);
+    } else if (!strcmp("endif", directive->id)) {
+        return handleEndifDirective(ctx, directive);
+    } else if (!strcmp("ifdef", directive->id)) {
+        return handleIfdefDirective(ctx, directive, FALSE);
+    } else if (!strcmp("ifndef", directive->id)) {
+        return handleIfdefDirective(ctx, directive, TRUE);
+    } else if (!strcmp("pragma", directive->id)) {
+        return handlePragmaDirective(ctx, directive);
+    } else if (!strcmp("line", directive->id)) {
+        return handleLineDirective(ctx, directive);
+    } else if (!strcmp("error", directive->id)) {
+        return handleDiagnosticDirective(ctx, directive, DIAG_PP_ERROR);
+    } else if (!strcmp("warning", directive->id)) {
+        return handleDiagnosticDirective(ctx, directive, DIAG_PP_WARNING);
+    } else {
+        Coordinates coords = { directive, directive };
+        reportDiagnostic(ctx, DIAG_PP_INVALID_PP_DIRECTIVE, &coords, directive);
+    }
+  }
+
+  // invalid pp directive
+  skipUntilEoL(ctx);
+}
+
+MacroArg *readMacroArg(ParserContext *ctx, MacroParam *p, Token **n) {
+  Token *t = *n = lexNonExpand(ctx, TRUE);
+
+  Token head = { 0 };
+  Token *cur = &head;
+  Token *argStart = NULL;
+  Token *argEnd = NULL;
+  int depth = 0;
+
+  while (t->rawCode != END_OF_FILE) {
+      if (depth == 0 && (!p->isVararg && t->rawCode == ',' || t->rawCode == ')'))  {
+          break;
+      }
+
+      if (depth && t->rawCode == ')') {
+          --depth;
+      } else if (t->rawCode == '(') {
+          ++depth;
+      }
+
+      if (t->rawCode == IDENTIFIER) {
+          MacroDefinition *def = findMacro(ctx, t->id);
+          if (def && !def->isEnabled) {
+              t->disabledExpansion = 1;
+          }
+      }
+
+
+      cur = cur->next = t;
+      *n = t = lexNonExpand(ctx, TRUE);
+  }
+
+  return allocateMacroArg(ctx, p, head.next);
+}
+
+MacroArg *parseMacroArgs(ParserContext *ctx, Token *macro, MacroDefinition *def) {
+  MacroParam *p = def->params;
+
+  MacroArg argHead = { 0 };
+  MacroArg *arg = &argHead;
+  MacroArg *vararg = NULL;
+
+  Token *t = NULL;
+
+  lexNonExpand(ctx, TRUE); // consume '('
+
+  while (p && !p->isVararg) {
+    arg = arg->next = readMacroArg(ctx, p, &t);
+    p = p->next;
+  }
+
+  if (!t && !p) {
+      // #define x() y
+      // x()
+      //  ^
+      t = lexNonExpand(ctx, TRUE); // consume ')'
+  }
+
+  Coordinates coords = { macro, macro };
+  if (p && !p->isVararg) {
+      // #define x(y) z
+      // x()
+      //   ^
+      reportDiagnostic(ctx, DIAG_PP_TOO_FEW_ARGUMENTS, &coords);
+      while (t->rawCode != ')') t = lexTokenNoSubstitute(ctx);
+  } else if (!p && t->rawCode != ')') {
+      // #define x(y) z
+      // x(a, b)
+      //      ^
+      reportDiagnostic(ctx, DIAG_PP_TOO_MANY_ARGUMENTS, &coords);
+      while (t->rawCode != ')') t = lexTokenNoSubstitute(ctx);
+  } else if (p) {
+      if (t && t->rawCode == ')') {
+        // #define x(...)
+        // x( )
+        //    ^
+        arg = arg->next = allocateMacroArg(ctx, p, NULL);
+      } else {
+        // #define x(...)
+        // x( ) | x(a)
+        //    ^ |   ^
+        arg = arg->next = readMacroArg(ctx, p, &t);
+        if (t->rawCode != ')') {
+            // #define x(...)
+            // x(a, b, c,
+            // report ...
+            reportDiagnostic(ctx, DIAG_PP_UNTERMINATED_MACRO_INVOCATION, &coords);
+        }
+      }
+  }
+
+  return argHead.next;
+}
+
+static Boolean needExpansion(ParserContext *ctx, Token *arg) {
+  while (arg) {
+      if (arg->rawCode == IDENTIFIER) {
+          if (isMacro(ctx, arg)) return TRUE;
+      }
+      arg = arg->next;
+  }
+  return FALSE;
+}
+
+static Token *expandArgument(ParserContext *ctx, MacroDefinition *def, MacroArg *arg, Token *macro) {
+
+  Token *evaluated = arg->evaluated;
+
+  if (!evaluated) {
+    LexerState *state = allocateMacroLexerState(NULL, macro);
+    Token *bodyCopy = arg->value;
+    state->macroContext.bodyStart = state->macroContext.bodyPtr = bodyCopy;
+
+    LexerState *old = state->virtPrev = ctx->lexerState;
+    ctx->lexerState = state;
+
+    MacroState *ms = &state->macroContext;
+
+    Token head = { 0 };
+    Token *cur = &head;
+    Token *t;
+
+    for (t = lexToken(ctx); t->rawCode != END_OF_FILE; t = lexToken(ctx)) {
+        cur = cur->next = t;
+    }
+
+    ctx->lexerState = old;
+
+    evaluated = arg->evaluated = head.next;
+  }
+
+  return evaluated;
+}
+
+static Token* expandArguments(ParserContext *ctx, MacroDefinition *def, MacroArg *args, Token *macro) {
+
+  Token *body = def->body;
+
+  Token head = { 0 };
+  Token *cur = &head;
+
+  Coordinates coords = { macro, macro };
+
+  while (body) {
+      if (body->rawCode == '#') {
+          // stringify
+          Token *next = body->next;
+          if (next) {
+              MacroArg *arg = findArgument(next, args);
+              if (arg) {
+                  Token *argValue = arg->value;
+                  Token *evaluated = argValue ? stringifySequence(ctx, argValue) : stringToken(ctx, next, "");
+
+                  cur = cur->next = evaluated;
+
+                  evaluated->hasLeadingSpace = body->hasLeadingSpace;
+
+                  for (; evaluated->rawCode != END_OF_FILE; evaluated = evaluated->next) {
+                      cur = evaluated;
+                  }
+
+                  cur->next = NULL;
+
+                  body = next->next;
+                  continue;
+              }
+          }
+      }
+
+      if (body->rawCode == ',' && body->next && body->next->rawCode == DSHARP) {
+          // GNU COMMA ,##__VA_ARGS__
+          Token *comma = body;
+          Token *dsh = comma->next;
+          Token *next = dsh->next;
+
+          if (next && next->isMacroParam) {
+              MacroArg *arg = findArgument(next, args);
+              if (arg && arg->param->isVararg) {
+                  if (arg->value == NULL) {
+                      // expand to empty list
+                      body = next->next;
+                  } else {
+                      // TODO: check this
+                      Token *evaluated = copyToken(ctx, body);
+                      cur = cur->next = evaluated;
+                      body = next;
+                  }
+                  continue;
+              }
+          }
+
+      }
+
+      if (body->next && body->next->rawCode == DSHARP) {
+          MacroArg *lhsA = findArgument(body, args);
+          Token *lhs = NULL;
+
+          if (lhsA == NULL) {
+              lhs = copyToken(ctx, body);
+          } else {
+              lhs = lhsA->value ? copySequence(ctx, lhsA->value) : NULL;
+          }
+
+          Token *sharpsharp = body->next;
+          Token *origRhs = sharpsharp->next;
+
+          if (origRhs) {
+            MacroArg *rhsA = findArgument(origRhs, args);
+            Token *rhs = NULL;
+            if (rhsA == NULL) {
+                rhs = copyToken(ctx, origRhs);
+            } else {
+                rhs = rhsA->value ? copySequence(ctx, rhsA->value) : NULL;
+            }
+
+            Token *evaluated = NULL;
+            if (rhs == NULL && lhs == NULL) {
+                body = origRhs->next;
+                continue;
+            } else if (rhs == NULL) {
+                evaluated = lhs;
+            } else if (lhs == NULL) {
+                evaluated = rhs;
+            } else {
+                evaluated = concatTokens(ctx, macro, lhs, rhs);
+            }
+
+            cur->next = evaluated;
+            for (cur = evaluated; evaluated; evaluated = evaluated->next) {
+                evaluated->expanded = macro;
+                cur = evaluated;
+            }
+
+            body = origRhs->next;
+            continue;
+          } else {
+              reportDiagnostic(ctx, DIAG_PP_WRONG_CONCAT_OP_PLACE, &coords);
+              break;
+          }
+
+      }
+
+      if (body->rawCode == DSHARP) { // pasting
+          // a##b##c
+          Token *next = body->next;
+
+          if (next == NULL) {
+            reportDiagnostic(ctx, DIAG_PP_WRONG_CONCAT_OP_PLACE, &coords);
+            break;
+          }
+
+          if (body == def->body) {
+            reportDiagnostic(ctx, DIAG_PP_WRONG_CONCAT_OP_PLACE, &coords);
+            break;
+          }
+
+          Token *lhs = cur;
+          MacroArg *rhsA = findArgument(next, args);
+          Token *rhs = NULL;
+
+          if (rhsA == NULL) {
+              rhs = copyToken(ctx, next);
+          } else {
+              rhs = copySequence(ctx, rhsA->value);
+          }
+
+          Token *evaluated = NULL;
+          if (rhs == NULL && lhs == &head) {
+              body = next->next;
+              continue;
+          } else if (lhs == &head) {
+              evaluated = rhs;
+          } else  if (rhs == NULL) {
+              evaluated = lhs;
+          } else {
+              evaluated = concatTokens(ctx, macro, lhs, rhs);
+          }
+
+          Token *i = &head;
+
+          while (i->next) {
+              if (i->next == cur) break;
+              i = i->next;
+          }
+
+          i->next = evaluated;
+          for (cur = evaluated; evaluated; evaluated = evaluated->next) {
+              evaluated->expanded = macro;
+              cur = evaluated;
+          }
+
+          body = next->next;
+
+          continue;
+      }
+
+      if (body->isMacroParam) {
+          MacroArg *arg = findArgument(body, args);
+          if (arg->value) {
+            if (needExpansion(ctx, arg->value)) {
+              Token *expanded = expandArgument(ctx, def, arg, macro);
+              cur = cur->next = copySequence(ctx, expanded);
+            } else {
+              cur = cur->next = copySequence(ctx, arg->value);
+            }
+
+            cur->hasLeadingSpace = body->hasLeadingSpace;
+            cur->startOfLine = body->startOfLine;
+
+            for (; cur->next; cur = cur->next) {
+                if (cur->rawCode == DSHARP) {
+                    // #define x(y) y
+                    // x(a##b) expands into 'a##b', not 'ab'
+                    cur->rawCode = cur->code = BAD_CHARACTER;
+                }
+            }
+          }
+
+          body = body->next;
+          continue;
+      }
+
+      cur = cur->next = copyToken(ctx, body);
+      body = body->next;
+  }
+
+  return head.next;
+
+}
+
+void skipMacroArgs(ParserContext *ctx) {
+  int depth = 0;
+  Token *t = lexTokenNoSubstitute(ctx);
+
+  assert(t->rawCode == '(');
+
+  for (t = lexTokenNoSubstitute(ctx); t->rawCode != END_OF_FILE; t = lexTokenNoSubstitute(ctx)) {
+      if (t->rawCode == '(') ++depth;
+      if (depth && t->rawCode == ')') --depth;
+      if (t->rawCode == ')') break;
+  }
+}
+
+static void expandMacro(ParserContext *ctx, Token *t, MacroDefinition *def) {
+
+  Token *body = NULL;
+
+  if (def->isFunctional) {
+      MacroArg *args = parseMacroArgs(ctx, t, def);
+      if (def->isParamsUsed) {
+          body = expandArguments(ctx, def, args, t);
+      } else {
+          body = copySequence(ctx, def->body);
+      }
+  } else {
+      body = copySequence(ctx, def->body);
+  }
+
+  if (!body) return;
+
+  body->hasLeadingSpace = t->hasLeadingSpace;
+  body->startOfLine = t->startOfLine;
+
+  LexerState *lex = allocateMacroLexerState(def, t);
+  lex->macroContext.bodyStart = lex->macroContext.bodyPtr = body;
+
+  def->isEnabled = 0;
+  lex->prev = lex->virtPrev = ctx->lexerState;
+  ctx->lexerState = lex;
+
+  for (; body; body = body->next)
+    body->expanded = t;
+}
+
+// returns NULL if macro enqueued into expansion stack
+Token *handleIdentifier(ParserContext *ctx, Token *token) {
+
+  if (ctx->stateFlags.inPPExpression) {
+      if (token->rawCode == IDENTIFIER && strcmp("defined", token->id) == 0) {
+          ctx->stateFlags.afterPPDefined = 1;
+          return token;
+      }
+  }
+
+  if (ctx->stateFlags.afterPPDefined) {
+      ctx->stateFlags.afterPPDefined = 0;
+      ctx->stateFlags.afterPPParen = 0;
+      return token;
+  }
+
+  MacroDefinition *def = findMacro(ctx, token->id);
+  if (def) {
+    if (def->isEnabled && !token->disabledExpansion) {
+      if (def->handler) {
+          Token *r = def->handler(ctx, token);
+          r->startOfLine = token->startOfLine;
+          r->hasLeadingSpace = token->hasLeadingSpace;
+          assert(r->next->rawCode == END_OF_FILE);
+          r->next = NULL;
+          return r;
+      }
+      if (!def->isFunctional || isNextToken(ctx, '(')) {
+          expandMacro(ctx, token, def);
+          return NULL;
+      }
+    } else {
+        token->disabledExpansion = 1;
+    }
+  }
+  return token;
 }
