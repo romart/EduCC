@@ -39,14 +39,14 @@ static void reportUnexpectedToken(ParserContext *ctx, int expected) {
 
 static void expect(ParserContext *ctx, int token) {
     int next = nextToken(ctx)->code;
-    if (next && token != next) {
+    if (next != END_OF_FILE && token != next) {
         reportUnexpectedToken(ctx, token);
     }
 }
 
 static Boolean consume(ParserContext *ctx, int expected) {
     int token = ctx->token->code;
-    if (token && token != expected) {
+    if (token != END_OF_FILE && token != expected) {
         reportUnexpectedToken(ctx, expected);
         return FALSE;
     }
@@ -56,7 +56,7 @@ static Boolean consume(ParserContext *ctx, int expected) {
 
 static void consumeRaw(ParserContext *ctx, int expected) {
     int token = ctx->token->rawCode;
-    if (token && token != expected) {
+    if (token != END_OF_FILE && token != expected) {
         reportUnexpectedToken(ctx, expected);
     }
     nextToken(ctx);
@@ -65,7 +65,7 @@ static void consumeRaw(ParserContext *ctx, int expected) {
 static void skipUntil(ParserContext *ctx, int until) {
   int code = ctx->token->code;
 
-  while (code && code != until) {
+  while (code != END_OF_FILE && code != until) {
       code = nextToken(ctx)->code;
   }
   nextToken(ctx);
@@ -1196,7 +1196,7 @@ static void skipAttributeArgs(ParserContext *ctx) {
   int depth = 0;
   Token *t;
 
-  for (t = ctx->token; t->code && t->code != ';'; t = nextToken(ctx)) {
+  for (t = ctx->token; t->code != END_OF_FILE && t->code != ';'; t = nextToken(ctx)) {
       if (t->code == '(') ++depth;
       if (t->code == ')' && depth == 0) return;
   }
@@ -3496,7 +3496,7 @@ static AstFile *parseFile(ParserContext *ctx) {
   astFile->fileName = ctx->config->fileToCompile;
   nextToken(ctx);
 
-  while (ctx->token->code) {
+  while (ctx->token->code != END_OF_FILE) {
       parseExternalDeclaration(ctx, astFile);
   }
 
@@ -3548,25 +3548,24 @@ void compileFile(Configuration * config) {
 
   initializeContext(&context);
 
-  context.stateFlags.inPP = 1;
-
   Token eof = { 0 };
-  Token *startToken = tokenizeFileAndPP(&context, config->fileToCompile, &eof);
 
-  if (!startToken) {
-      fprintf(stderr, "Cannot open file %s\n", config->fileToCompile);
+  LexerState *lex = loadFile(config->fileToCompile, NULL);
+
+  if (!lex) {
+      fprintf(stderr, "Cannot open file %s, %p\n", config->fileToCompile, lex);
       return;
   }
 
-  context.stateFlags.inPP = 0;
-  context.firstToken = startToken;
+  context.locationInfo = lex->fileContext.locInfo;
+  context.lexerState = lex;
 
   if (config->ppOutput) {
+      context.firstToken = tokenizeBuffer(&context);
       printDiagnostics(&context.diagnostics, config->verbose);
       printPPOutput(&context);
       return;
   }
-
 
   AstFile *astFile = parseFile(&context);
 

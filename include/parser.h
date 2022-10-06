@@ -6,6 +6,7 @@
 #include "tree.h"
 #include "mem.h"
 #include "diagnostics.h"
+#include "pp.h"
 
 typedef struct _IncludePath {
   const char *path;
@@ -45,8 +46,8 @@ struct _Hideset;
 typedef struct _Token {
     struct _LocationInfo *locInfo;
 
-    int code;
-    int rawCode;
+    int code;    // gets promoted later in parser if applicable into language key word like 'for', 'int', 'if', etc
+    int rawCode; // actual lexed token code
 
     const char *pos; // startOffset = pos - coords->buffer
     size_t length;   // endOffset = startOffset + length
@@ -65,9 +66,10 @@ typedef struct _Token {
     unsigned hasLeadingSpace: 1;
     unsigned startOfLine: 1;
     unsigned macroStringitize: 1;
+    unsigned isMacroParam : 1;
+    unsigned disabledExpansion : 1;
 
     struct _Token *expanded;
-    struct _Hideset *hs;  // used in macro expansion
     struct _Token *next;
 } Token;
 
@@ -123,6 +125,56 @@ typedef struct _LocationInfo {
   struct _LocationInfo *next;
 } LocationInfo;
 
+enum LexState {
+  LS_MACRO,
+  LS_FILE
+};
+
+typedef struct _MacroState {
+  MacroDefinition *definition;
+  Token *trigger; // token which is being expanded
+  Token *bodyStart;  // macro body with replaced params
+  Token *bodyPtr;
+} MacroState;
+
+enum PPConditionState {
+  IN_IF, IN_ELIF, IN_ELSE
+};
+
+typedef struct _PPConditionFrame {
+  struct _PPConditionFrame *prev;
+  Token *ifDirective;
+
+  enum PPConditionState state;
+  unsigned isTaken : 1;
+  unsigned isTaking : 1;
+  unsigned seenElse : 1;
+
+} PPConditionFrame;
+
+typedef struct _LexerState {
+  enum LexState state;
+
+  struct _LexerState *prev; // include/macro stack
+  struct _LexerState *virtPrev; // to find current/base files
+
+  union {
+    struct {
+      LocationInfo *locInfo;
+
+      unsigned visibleLine;
+      unsigned pos;
+
+      PPConditionFrame *conditionStack;
+
+      unsigned atLineStart;
+    } fileContext;
+
+    MacroState macroContext;
+  };
+
+} LexerState;
+
 typedef struct _ParserContext {
     Configuration *config;
 
@@ -132,6 +184,8 @@ typedef struct _ParserContext {
     struct _Scope* currentScope;
 
     struct _Scope* scopeList; // used to release scope memory
+
+    LexerState *lexerState;
 
     Token *firstToken;
     Token *token;
@@ -158,9 +212,14 @@ typedef struct _ParserContext {
       unsigned hasDefault: 1;
       unsigned hasSmallStructs: 1;
       unsigned inPP : 1;
+      unsigned inPPExpression : 1;
+      unsigned afterPPDefined : 1;
+      unsigned afterPPParen : 1;
       unsigned inStaticScope : 1;
+      unsigned silentMode : 1; // in this mode diagnostics are not being issued
       unsigned caseCount;
       unsigned returnStructBuffer;
+      int lastLexCode;
     } stateFlags;
 
     struct {
@@ -202,12 +261,12 @@ typedef struct _ParsedInitializer {
 
 Token *nextToken(ParserContext *ctx);
 
-Token *tokenizeFile(ParserContext *ctx, const char *fileName, Token *tail);
-Token *tokenizeFileAndPP(ParserContext *ctx, const char *fileName, Token *tail);
-Token *tokenizeBuffer(ParserContext *ctx, LocationInfo *locInfo, unsigned *linePos, Token *tail);
+Token *tokenizeBuffer(ParserContext *ctx);
 
 LocationInfo *allocateFileLocationInfo(const char *fileName, const char *buffer, size_t buffeSize, unsigned lineCount);
 LocationInfo *allocateMacroLocationInfo(const char *buffer, size_t buffeSize, Boolean isConst);
+
+LexerState *allocateFileLexerState(LocationInfo *locInfo);
 
 const char *joinToStringTokenSequence(ParserContext *ctx, Token *s);
 
