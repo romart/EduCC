@@ -54,4 +54,7 @@ typedef struct {
 
 void putSymbol(StringBuffer *b, char c);
 
+unsigned countLinesInBuffer(const char *buffer);
+char *readFileToBuffer(const char *fileName, size_t *bufferSize);
+
 #endif // __UTILS_H__

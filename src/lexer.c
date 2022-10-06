@@ -117,45 +117,6 @@ const char *joinToStringTokenSequence(ParserContext *ctx, Token *s) {
   return sb.ptr;
 }
 
-
-static char *readFileToBuffer(const char *fileName, size_t *bufferSize) {
-
-  FILE* opened = fopen(fileName, "r");
-
-  if (opened == NULL) return NULL;
-
-  fseek(opened, 0L, SEEK_END);
-  size_t size = ftell(opened);
-
-  rewind(opened);
-
-  char *b = heapAllocate(size + 1);
-
-  size_t readed = fread(b, 1, size, opened);
-
-  assert(readed == size);
-
-  fclose(opened);
-
-  *bufferSize = size + 1;
-
-  return b;
-}
-
-static unsigned countLinesInBuffer(const char *buffer) {
-  unsigned result = 1;
-  unsigned idx = 0;
-
-  while (buffer[idx]) {
-    int ch = buffer[idx++];
-    if(ch == '\n') {
-      result++;
-    }
-  }
-
-  return result;
-}
-
 LocationInfo *allocateFileLocationInfo(const char *fileName, const char *buffer, size_t buffeSize, unsigned lineCount) {
   LocationInfo *locInfo = heapAllocate(sizeof(LocationInfo));
 
