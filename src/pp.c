@@ -241,8 +241,10 @@ Token *stringifySequence(ParserContext *ctx, Token *s) {
       unsigned i = 0;
       for (; i < t->length; ++i) {
           char c = t->pos[i];
-          if (c == '\\' || c == '"') {
-             putSymbol(&sb, '\\');
+          if (c == '"') {
+              putSymbol(&sb, '\\');
+          } else if (c == '\\' && t->rawCode != '\\') {
+              putSymbol(&sb, '\\');
           }
           putSymbol(&sb, c);
       }
