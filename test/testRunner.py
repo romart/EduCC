@@ -201,12 +201,14 @@ def runTestForData(filePath, compiler, workingDir, testMode):
     # print(f"dirname: {dirname}, baseName: {basename}, suffix: {suffix}")
     name = basename[:index_of_dot]
     if (suffix == "c"):
-        if (testMode == 'p'):
+        if (testMode == 'parser'):
             runParserTest(compiler, workingDir, dirname, name)
-        elif testMode == 'pp':
+        elif testMode == 'preprocessor':
             runPPTest(compiler, workingDir, dirname, name)
-        else:
+        elif testMode == 'codegen':
             runCodegenTest(compiler, workingDir, dirname, name)
+        else:
+            raise Exception(f"Unknown test mode {testMode}")
 
 
 
@@ -219,47 +221,28 @@ def walkDirectory(path, indent, block):
             block(file)
 
 
+def parseArguments():
+    parser = argparse.ArgumentParser(description="Runs all or a subset of the ART test suite.")
+    parser.add_argument('-c', '--compiler', type=str, required=True, help="specify path to compiler")
+    parser.add_argument('-wd', '--working-dir', type=str, required=True, help="specify working dir for tests")
+    parser.add_argument('-p', '--test-path', type=str, required=True, action='append', help='path to test')
+    parser.add_argument('-m', '--mode', choices=['parser', 'preprocessor', 'codegen'], default='parser', help='Which substystem to be tested')
+
+    return parser.parse_args()
+
 def main():
     global numOfFailedTests
-    arguments = len(sys.argv) - 1
-    position = 1
     compiler = ''
     workingDir = ''
     testPaths = []
 
     testMode = ''
 
-    while (arguments >= position):
-        arg = sys.argv[position]
-        if arg == '-comp':
-            compiler = sys.argv[position + 1]
-            position = position + 1
-        elif arg == '-workDir':
-            workingDir = sys.argv[position + 1]
-            position = position + 1
-        elif arg == '-p':
-            testPaths.append(sys.argv[position + 1])
-            position = position + 1
-        elif arg == '-m':
-            testMode = sys.argv[position + 1];
-            position = position + 1
-        else:
-            print(f"Unknown option \'${arg}\' at position {position:>6}")
-        position = position + 1
-    if compiler == '':
-        print(f"compiler is not specified")
-        exit(-1)
-    elif workingDir =='':
-        print(f"working dir is not specified")
-        exit(-1)
-    elif not testPaths:
-        print(f"no test dir provided")
-        exit(-1)
-    
-    if testMode == '':
-        testMode = 'p';
-
-    # print(f"compiler = {compiler}, workind dir = {workingDir}")
+    args = parseArguments()
+    testMode = args.mode
+    testPaths = args.test_path
+    workingDir = args.working_dir
+    compiler = args.compiler
 
     for testPath in testPaths:
         path = Path(testPath)
