@@ -105,7 +105,10 @@ static void runLinker(const char *outputFile, StringList *compiledObjs, StringLi
   // -m elf_x86_64
   argc += 2;
 
-  // -dynamic-linker /lib/ld-linux-x86-64.so.2
+  // -z noexecstack
+  argc += 2;
+
+  // -dynamic-linker /lib64/ld-linux-x86-64.so.2
   argc += 2;
 
   // crt1.o, crti.o, crtbegin.o
@@ -139,6 +142,7 @@ static void runLinker(const char *outputFile, StringList *compiledObjs, StringLi
   for (n = compiledObjs; n; n = n->next) {
       ++argc;
   }
+
   for (n = cliObjs; n; n = n->next) {
       ++argc;
   }
@@ -159,15 +163,18 @@ static void runLinker(const char *outputFile, StringList *compiledObjs, StringLi
 
   unsigned i = 0;
   argv[i++] = strdup("ld");
+
   argv[i++] = strdup("-o");
   argv[i++] = strdup(outputFile);
 
   argv[i++] = strdup("-m");
   argv[i++] = strdup("elf_x86_64");
 
-  argv[i++] = strdup("-dynamic-linker");
+  argv[i++] = strdup("-z");
+  argv[i++] = strdup("noexecstack");
 
-  argv[i++] = strdup("/lib/ld-linux-x86-64.so.2");
+  argv[i++] = strdup("-dynamic-linker");
+  argv[i++] = strdup("/lib64/ld-linux-x86-64.so.2");
 
   sprintf(buffer, "%s/crt1.o", lPath);
   argv[i++] = strdup(buffer);
