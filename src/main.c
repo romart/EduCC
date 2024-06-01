@@ -288,6 +288,7 @@ int main(int argc, char** argv) {
   config.includePath = allocIncludePath("/usr/include/x86_64-linux-gnu", config.includePath);
 
   config.verbose = 1;
+  config.arch = X86_64;
 
   StringList chead = { 0 }, *ccur = &chead;
   StringList ohead = { 0 }, *ocur = &ohead;
@@ -308,6 +309,7 @@ int main(int argc, char** argv) {
           config.dumpFileName = argv[idx];
         } else {
           fprintf(stderr, "file name expected after '-astDump' option");
+          return 2;
         }
     } else if (strcmp("-astCanonDump", arg) == 0) {
         unsigned idx = ++i;
@@ -315,6 +317,7 @@ int main(int argc, char** argv) {
           config.canonDumpFileName = argv[idx];
         } else {
           fprintf(stderr, "file name expected after '-astCanonDump' option");
+          return 2;
         }
     } else if (strcmp("-oneline", arg) == 0) {
       config.verbose = 0;
@@ -335,6 +338,19 @@ int main(int argc, char** argv) {
         continue;
     } else if (strcmp("-o", arg) == 0) {
         config.outputFile = argv[++i];
+    } else if (strcmp("-march", arg) == 0) {
+        const char *march = argv[++i];
+        if (strcmp(march, "x86_64") == 0) {
+            config.arch = X86_64;
+        } else if (strcmp(march, "riscv64") == 0) {
+            config.arch = RISCV64;
+        } else {
+            fprintf(stderr, "Unknown march kind '%s'", march);
+            return 2;
+        }
+    } else if (strcmp("-help", arg) == 0) {
+        // TODO: add help & version options
+        continue;
     } else if (strcmp("-g", arg) == 0) {
         // we do not generate debug info yet
         continue;
