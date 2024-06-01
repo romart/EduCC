@@ -9,6 +9,7 @@
 #include "mem.h"
 #include "parser.h"
 #include "sema.h"
+#include "instructions_x86_64.h"
 
 static void disassemble(FILE *output, uint8_t *buffer, size_t size) {
   ud_t ud_obj;
@@ -70,62 +71,6 @@ void emitPopRegF(GeneratedFunction *f, enum Registers r) {
 
   emitMovfpAR(f, &addr, r, size);
   emitArithConst(f, OP_ADD, R_ESP, size, T_S8);
-}
-
-void emitByte(GeneratedFunction *f, uint8_t b) {
-  emitSectionByte(f->section, b);
-}
-
-void emitWord(GeneratedFunction *f, uint16_t w) {
-   emitByte(f, (uint8_t)w);
-
-   if ((uint16_t)(uint8_t)w != w) {
-       emitByte(f, (uint8_t)(w >> 8));
-   }
-}
-
-
-void emitDouble(GeneratedFunction *f, uint32_t w) {
-    emitByte(f, (uint8_t)(w));
-    emitByte(f, (uint8_t)(w >> 8));
-    emitByte(f, (uint8_t)(w >> 16));
-    emitByte(f, (uint8_t)(w >> 24));
-}
-
-void emitDisp32(GeneratedFunction *f, uint32_t w) {
-  if ((uint32_t)(uint16_t)w != w) {
-      emitWord(f, (uint16_t) w);
-
-      uint16_t high = (uint16_t)(w >> 16);
-      emitByte(f, (uint8_t)high);
-      emitByte(f, (uint8_t)(high >> 8));
-  } else {
-      if ((uint32_t)(uint8_t)w != w) {
-          emitWord(f, w);
-      } else {
-          emitByte(f, (uint8_t)w);
-          emitByte(f, 0);
-      }
-      emitByte(f, 0);
-      emitByte(f, 0);
-  }
-}
-
-void emitQuad(GeneratedFunction *f, uint64_t w) {
-  emitDouble(f, (uint32_t) w);
-
-  if ((uint64_t)(uint32_t)w != w) {
-      emitDouble(f, (uint32_t)(w >> 32));
-  }
-}
-
-void emitQuadOrDouble(GeneratedFunction *f, uint64_t w) {
-  if ((uint64_t)(uint32_t)w == w) {
-    emitDisp32(f, w);
-  } else {
-    emitDouble(f, (uint32_t) w);
-    emitDouble(f, (uint32_t)(w >> 32));
-  }
 }
 
 static Boolean isBinOp(ExpressionType op) {

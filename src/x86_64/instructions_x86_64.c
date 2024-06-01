@@ -6,7 +6,7 @@
 
 #include "common.h"
 #include "mem.h"
-#include "instructions.h"
+#include "instructions_x86_64.h"
 #include "_elf.h"
 #include "sema.h"
 #include "codegen.h"

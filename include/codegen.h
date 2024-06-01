@@ -147,6 +147,10 @@ void initArchCodegen_x86_64(ArchCodegen *cg);
 void initArchCodegen_riscv64(ArchCodegen *cg);
 
 void emitByte(GeneratedFunction *f, uint8_t b);
+void emitShort(GeneratedFunction *f, uint16_t b);
+void emitDWord(GeneratedFunction *f, uint32_t b);
+void emitQWord(GeneratedFunction *f, uint64_t b);
+
 void emitWord(GeneratedFunction *f, uint16_t w);
 void emitDouble(GeneratedFunction *f, uint32_t w);
 void emitDisp32(GeneratedFunction *f, uint32_t w);

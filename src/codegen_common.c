@@ -280,3 +280,81 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, ArchCodegen *archCodegen
 
     return NULL;
 }
+
+void emitByte(GeneratedFunction *f, uint8_t b) {
+  emitSectionByte(f->section, b);
+}
+
+void emitShort(GeneratedFunction *f, uint16_t b) {
+  emitByte(f, (uint8_t)b);
+  emitByte(f, (uint8_t)(b >> 8));
+}
+
+void emitDWord(GeneratedFunction *f, uint32_t b) {
+  emitByte(f, (uint8_t)b);
+  emitByte(f, (uint8_t)(b >> 8));
+  emitByte(f, (uint8_t)(b >> 16));
+  emitByte(f, (uint8_t)(b >> 24));
+}
+
+void emitQWord(GeneratedFunction *f, uint64_t b) {
+  emitByte(f, (uint8_t)b);
+  emitByte(f, (uint8_t)(b >> 8));
+  emitByte(f, (uint8_t)(b >> 16));
+  emitByte(f, (uint8_t)(b >> 24));
+  emitByte(f, (uint8_t)(b >> 32));
+  emitByte(f, (uint8_t)(b >> 40));
+  emitByte(f, (uint8_t)(b >> 48));
+  emitByte(f, (uint8_t)(b >> 56));
+}
+
+void emitWord(GeneratedFunction *f, uint16_t w) {
+   emitByte(f, (uint8_t)w);
+
+   if ((uint16_t)(uint8_t)w != w) {
+       emitByte(f, (uint8_t)(w >> 8));
+   }
+}
+
+void emitDouble(GeneratedFunction *f, uint32_t w) {
+    emitByte(f, (uint8_t)(w));
+    emitByte(f, (uint8_t)(w >> 8));
+    emitByte(f, (uint8_t)(w >> 16));
+    emitByte(f, (uint8_t)(w >> 24));
+}
+
+void emitDisp32(GeneratedFunction *f, uint32_t w) {
+  if ((uint32_t)(uint16_t)w != w) {
+      emitWord(f, (uint16_t) w);
+
+      uint16_t high = (uint16_t)(w >> 16);
+      emitByte(f, (uint8_t)high);
+      emitByte(f, (uint8_t)(high >> 8));
+  } else {
+      if ((uint32_t)(uint8_t)w != w) {
+          emitWord(f, w);
+      } else {
+          emitByte(f, (uint8_t)w);
+          emitByte(f, 0);
+      }
+      emitByte(f, 0);
+      emitByte(f, 0);
+  }
+}
+
+void emitQuad(GeneratedFunction *f, uint64_t w) {
+  emitDouble(f, (uint32_t) w);
+
+  if ((uint64_t)(uint32_t)w != w) {
+      emitDouble(f, (uint32_t)(w >> 32));
+  }
+}
+
+void emitQuadOrDouble(GeneratedFunction *f, uint64_t w) {
+  if ((uint64_t)(uint32_t)w == w) {
+    emitDisp32(f, w);
+  } else {
+    emitDouble(f, (uint32_t) w);
+    emitDouble(f, (uint32_t)(w >> 32));
+  }
+}
