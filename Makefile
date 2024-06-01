@@ -22,12 +22,12 @@ SOURCES=\
     $(SRCDIR)/memory.c \
     $(SRCDIR)/diagnostics.c \
     $(SRCDIR)/evaluate.c \
-    $(SRCDIR)/instructions.c \
     $(SRCDIR)/cannonization.c \
-    $(SRCDIR)/codegen.c \
     $(SRCDIR)/elf.c \
     $(SRCDIR)/lexer.c \
     $(SRCDIR)/pp.c \
+    $(SRCDIR)/x86_64/instructions.c \
+    $(SRCDIR)/x86_64/codegen_x86_64.c \
 
 OBJ=$(patsubst %.c,%.o,$(subst $(SRCDIR)/,$(OBJDIR)/, $(SOURCES)))
 
@@ -40,6 +40,7 @@ directories:
 	mkdir -p $(BUILDDIR)
 	mkdir -p $(OBJDIR)
 	mkdir -p $(BINDIR)
+	mkdir -p $(OBJDIR)/x86_64
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(DEPS)
 	$(CC) $(CFLAGS) -c -o $@ $<
