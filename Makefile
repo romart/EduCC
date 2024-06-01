@@ -26,8 +26,10 @@ SOURCES=\
     $(SRCDIR)/elf.c \
     $(SRCDIR)/lexer.c \
     $(SRCDIR)/pp.c \
+    $(SRCDIR)/codegen_common.c \
     $(SRCDIR)/x86_64/instructions.c \
     $(SRCDIR)/x86_64/codegen_x86_64.c \
+    $(SRCDIR)/riscv64/codegen_riscv64.c \
 
 OBJ=$(patsubst %.c,%.o,$(subst $(SRCDIR)/,$(OBJDIR)/, $(SOURCES)))
 
@@ -41,6 +43,7 @@ directories:
 	mkdir -p $(OBJDIR)
 	mkdir -p $(BINDIR)
 	mkdir -p $(OBJDIR)/x86_64
+	mkdir -p $(OBJDIR)/riscv64
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(DEPS)
 	$(CC) $(CFLAGS) -c -o $@ $<

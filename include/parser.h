@@ -18,6 +18,11 @@ typedef struct _StringList {
   struct _StringList *next;
 } StringList;
 
+enum Arch {
+    X86_64,
+    RISCV64
+};
+
 typedef struct _Configuration {
 
   const char *fileToCompile;
@@ -27,6 +32,8 @@ typedef struct _Configuration {
 
   IncludePath *includePath;
   StringList *macroses;
+
+  enum Arch arch;
 
   unsigned errWarns: 1;
   unsigned logTokens: 1;
