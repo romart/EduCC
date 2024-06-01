@@ -3586,7 +3586,15 @@ void compileFile(Configuration * config) {
     }
 
     if (!config->skipCodegen) {
-      GeneratedFile *genFile = generateCodeForFile(&context, astFile);
+      ArchCodegen cg = {0};
+      if (config->arch == X86_64) {
+        initArchCodegen_x86_64(&cg);
+      } else if (config->arch == RISCV64) {
+        initArchCodegen_riscv64(&cg);
+      } else {
+        unreachable("Unknown arch");
+      }
+      GeneratedFile *genFile = generateCodeForFile(&context, &cg, astFile);
     }
   }
 
