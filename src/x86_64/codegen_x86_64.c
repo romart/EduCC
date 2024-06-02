@@ -821,7 +821,7 @@ static Boolean hasRelocationsInit(AstInitializer *init) {
 }
 
 
-static GeneratedVariable *generateVaribale(GenerationContext *ctx, AstValueDeclaration *d) {
+static GeneratedVariable *generateVaribale_x86_64(GenerationContext *ctx, AstValueDeclaration *d) {
   if (d->flags.bits.isExternal) return NULL; // no declaration is needed
 
   Section *section = NULL;
@@ -3067,7 +3067,7 @@ static Boolean generateStatement(GeneratedFunction *f, AstStatement *stmt) {
             }
         } else {
           assert(v->flags.bits.isStatic);
-          GeneratedVariable *gv = generateVaribale(ctx, v);
+          GeneratedVariable *gv = generateVaribale_x86_64(ctx, v);
           v->gen = gv;
           gv->next = ctx->file->staticVariables;
           ctx->file->staticVariables = gv;
@@ -3347,7 +3347,7 @@ static size_t allocateLocalSlots(GeneratedFunction *g, AstFunctionDefinition *f)
   return frameSize;
 }
 
-static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDefinition *f) {
+static GeneratedFunction *generateFunction_x86_64(GenerationContext *ctx, AstFunctionDefinition *f) {
   HashMap *labelMap = createHashMap(DEFAULT_MAP_CAPACITY, &stringHashCode, &stringCmp);
   ctx->labelMap = labelMap;
 
@@ -3411,6 +3411,6 @@ static GeneratedFunction *generateFunction(GenerationContext *ctx, AstFunctionDe
 
 
 void initArchCodegen_x86_64(ArchCodegen *cg) {
-  cg->generateFunction = &generateFunction;
-  cg->generateVaribale = &generateVaribale;
+  cg->generateFunction = &generateFunction_x86_64;
+  cg->generateVaribale = &generateVaribale_x86_64;
 }
