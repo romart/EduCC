@@ -7,88 +7,90 @@
 enum XRegister {
   X_BAD = -1,
 
-  Zero = 0,
-  RA = 1,    // X1, return address
-  SP = 2,    // X2, stack pointer
-  GP = 3,    // X3, global pointer (unavailable, used for shadow stack by the compiler / libc)
-  TP = 4,    // X4, thread pointer (points to TLS area, not ART-internal thread)
+  X_ZERO = 0,
+  X_RA = 1,    // X1, return address
+  X_SP = 2,    // X2, stack pointer
+  X_GP = 3,    // X3, global pointer
+  X_TP = 4,    // X4, thread pointer
 
-  T0 = 5,  // X5, temporary 0
-  T1 = 6,  // X6, temporary 1
-  T2 = 7,  // X7, temporary 2
+  X_T0 = 5,  // X5, temporary 0
+  X_T1 = 6,  // X6, temporary 1
+  X_T2 = 7,  // X7, temporary 2
 
-  S0 = 8,  // X8/FP, callee-saved 0 / frame pointer
-  S1 = 9,  // X9, callee-saved 1 / ART thread register
+  X_S0 = 8,  // X8, callee-saved 0
+  X_S1 = 9,  // X9, callee-saved 1
 
-  A0 = 10,  // X10, argument 0 / return value 0
-  A1 = 11,  // X11, argument 1 / return value 1
-  A2 = 12,  // X12, argument 2
-  A3 = 13,  // X13, argument 3
-  A4 = 14,  // X14, argument 4
-  A5 = 15,  // X15, argument 5
-  A6 = 16,  // X16, argument 6
-  A7 = 17,  // X17, argument 7
+  X_A0 = 10,  // X10, argument 0 / return value 0
+  X_A1 = 11,  // X11, argument 1 / return value 1
+  X_A2 = 12,  // X12, argument 2
+  X_A3 = 13,  // X13, argument 3
+  X_A4 = 14,  // X14, argument 4
+  X_A5 = 15,  // X15, argument 5
+  X_A6 = 16,  // X16, argument 6
+  X_A7 = 17,  // X17, argument 7
 
-  S2 = 18,   // X18, callee-saved 2
-  S3 = 19,   // X19, callee-saved 3
-  S4 = 20,   // X20, callee-saved 4
-  S5 = 21,   // X21, callee-saved 5
-  S6 = 22,   // X22, callee-saved 6
-  S7 = 23,   // X23, callee-saved 7
-  S8 = 24,   // X24, callee-saved 8
-  S9 = 25,   // X25, callee-saved 9
-  S10 = 26,  // X26, callee-saved 10
-  S11 = 27,  // X27, callee-saved 11
+  X_S2 = 18,   // X18, callee-saved 2
+  X_S3 = 19,   // X19, callee-saved 3
+  X_S4 = 20,   // X20, callee-saved 4
+  X_S5 = 21,   // X21, callee-saved 5
+  X_S6 = 22,   // X22, callee-saved 6
+  X_S7 = 23,   // X23, callee-saved 7
+  X_S8 = 24,   // X24, callee-saved 8
+  X_S9 = 25,   // X25, callee-saved 9
+  X_S10 = 26,  // X26, callee-saved 10
+  X_S11 = 27,  // X27, callee-saved 11
 
-  T3 = 28,  // X28, temporary 3
-  T4 = 29,  // X29, temporary 4
-  T5 = 30,  // X30, temporary 5
-  T6 = 31,  // X31, temporary 6
+  X_T3 = 28,  // X28, temporary 3
+  X_T4 = 29,  // X29, temporary 4
+  X_T5 = 30,  // X30, temporary 5
+  X_T6 = 31,  // X31, temporary 6
 
-  X_COUNT
+  X_COUNT,
+  X_GP_PARAM_COUNT = 8
 };
 
 enum FRegister {
   F_BAD = -1,
 
-  FT0 = 0,  // F0, temporary 0
-  FT1 = 1,  // F1, temporary 1
-  FT2 = 2,  // F2, temporary 2
-  FT3 = 3,  // F3, temporary 3
-  FT4 = 4,  // F4, temporary 4
-  FT5 = 5,  // F5, temporary 5
-  FT6 = 6,  // F6, temporary 6
-  FT7 = 7,  // F7, temporary 7
+  F_T0 = 0,  // F0, temporary 0
+  F_T1 = 1,  // F1, temporary 1
+  F_T2 = 2,  // F2, temporary 2
+  F_T3 = 3,  // F3, temporary 3
+  F_T4 = 4,  // F4, temporary 4
+  F_T5 = 5,  // F5, temporary 5
+  F_T6 = 6,  // F6, temporary 6
+  F_T7 = 7,  // F7, temporary 7
 
-  FS0 = 8,  // F8, callee-saved 0
-  FS1 = 9,  // F9, callee-saved 1
+  F_S0 = 8,  // F8, callee-saved 0
+  F_S1 = 9,  // F9, callee-saved 1
 
-  FA0 = 10,  // F10, argument 0 / return value 0
-  FA1 = 11,  // F11, argument 1 / return value 1
-  FA2 = 12,  // F12, argument 2
-  FA3 = 13,  // F13, argument 3
-  FA4 = 14,  // F14, argument 4
-  FA5 = 15,  // F15, argument 5
-  FA6 = 16,  // F16, argument 6
-  FA7 = 17,  // F17, argument 7
+  F_A0 = 10,  // F10, argument 0 / return value 0
+  F_A1 = 11,  // F11, argument 1 / return value 1
+  F_A2 = 12,  // F12, argument 2
+  F_A3 = 13,  // F13, argument 3
+  F_A4 = 14,  // F14, argument 4
+  F_A5 = 15,  // F15, argument 5
+  F_A6 = 16,  // F16, argument 6
+  F_A7 = 17,  // F17, argument 7
 
-  FS2 = 18,   // F18, callee-saved 2
-  FS3 = 19,   // F19, callee-saved 3
-  FS4 = 20,   // F20, callee-saved 4
-  FS5 = 21,   // F21, callee-saved 5
-  FS6 = 22,   // F22, callee-saved 6
-  FS7 = 23,   // F23, callee-saved 7
-  FS8 = 24,   // F24, callee-saved 8
-  FS9 = 25,   // F25, callee-saved 9
-  FS10 = 26,  // F26, callee-saved 10
-  FS11 = 27,  // F27, callee-saved 11
+  F_S2 = 18,   // F18, callee-saved 2
+  F_S3 = 19,   // F19, callee-saved 3
+  F_S4 = 20,   // F20, callee-saved 4
+  F_S5 = 21,   // F21, callee-saved 5
+  F_S6 = 22,   // F22, callee-saved 6
+  F_S7 = 23,   // F23, callee-saved 7
+  F_S8 = 24,   // F24, callee-saved 8
+  F_S9 = 25,   // F25, callee-saved 9
+  F_S10 = 26,  // F26, callee-saved 10
+  F_S11 = 27,  // F27, callee-saved 11
 
-  FT8 = 28,   // F28, temporary 8
-  FT9 = 29,   // F29, temporary 9
-  FT10 = 30,  // F30, temporary 10
-  FT11 = 31,  // F31, temporary 11
+  F_T8 = 28,   // F28, temporary 8
+  F_T9 = 29,   // F29, temporary 9
+  F_T10 = 30,  // F30, temporary 10
+  F_T11 = 31,  // F31, temporary 11
 
-  F_COUNT
+  F_COUNT,
+  F_FP_PARAM_COUNT = 8
 };
 
 enum VRegister {
