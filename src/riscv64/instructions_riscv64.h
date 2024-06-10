@@ -46,7 +46,9 @@ enum XRegister {
   X_T6 = 31,  // X31, temporary 6
 
   X_COUNT,
-  X_GP_PARAM_COUNT = 8
+  X_GP_PARAM_COUNT = 8,
+  X_ACC = X_A0,
+  X_ACC2 = X_A1
 };
 
 enum FRegister {
@@ -134,5 +136,16 @@ enum VRegister {
 
   V_COUNT
 };
+
+struct _GeneratedFunction;
+
+void emitLoadImmediate(struct _GeneratedFunction *f, int64_t c, enum XRegister to);
+
+void emitAuipc(struct _GeneratedFunction *f, enum XRegister rd, uint32_t imm20);
+void emitLiu(struct _GeneratedFunction *f, enum XRegister rd, uint32_t imm20);
+
+void emitAddi(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12);
+void emitAddiw(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12);
+void emitSlli(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t shamt);
 
 #endif // __INSTR_RISCV64_H__
