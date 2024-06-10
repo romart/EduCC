@@ -157,5 +157,11 @@ void emitDisp32(GeneratedFunction *f, uint32_t w);
 void emitQuad(GeneratedFunction *f, uint64_t w);
 void emitQuadOrDouble(GeneratedFunction *f, uint64_t w);
 
+ptrdiff_t emitStringWithEscaping(GenerationContext *ctx, Section *section, AstConst *_const);
+
+Boolean hasRelocationsInit(AstInitializer *init);
+size_t fillInitializer(GenerationContext *ctx, Section *section, AstInitializer *init, int32_t startOffset, size_t size);
+
+
 
 #endif // __CODEGEN_H__

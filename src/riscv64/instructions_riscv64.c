@@ -47,7 +47,7 @@ int isShortReg(enum XRegister reg) {
 //   [ . . . . . . . . . . . | . . . . | . . | . . . . | . . . . . . ]
 //   [        imm11:0            rs1   funct3     rd        opcode   ]
 //   -----------------------------------------------------------------
-void emitI(GeneratedFunction *f, int32_t imm12, uint32_t rs1, uint32_t funct3, uint32_t rd, uint32_t opcode) {
+void EmitI(GeneratedFunction *f, int32_t imm12, uint32_t rs1, uint32_t funct3, uint32_t rd, uint32_t opcode) {
   assert(isInt(imm12, 12));
   assert(isUint((uint32_t)(rs1), 5));
   assert(isUint(funct3, 3));
@@ -410,4 +410,36 @@ void EmitCJ(GeneratedFunction *f, uint32_t funct3, int32_t offset, uint32_t opco
 
   uint32_t encoding = funct3 << 13 | jumpt << 2 | opcode;
   emit16(f, encoding);
+}
+
+
+
+void emitLiu(GeneratedFunction *f, enum XRegister rd, uint32_t imm20) {
+  // TODO: C
+  EmitU(f, imm20, rd, 0x37);
+}
+
+void emitAuipc(GeneratedFunction *f, enum XRegister rd, uint32_t imm20) {
+  EmitU(f, imm20, rd, 0x17);
+}
+
+void emitAddi(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12) {
+  EmitI(f, imm12, rs1, 0x0, rd, 0x13);
+}
+
+void emitAddiw(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12) {
+  EmitI(f, imm12, rs1, 0x0, rd, 0x1b);
+}
+
+void emitSlli(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t shamt) {
+  // TODO: C
+  EmitI6(f, 0x0, shamt, rs1, 0x1, rd, 0x13);
+}
+
+static Boolean isSimpleLiValue(int64_t value) {
+  return value >= INT64_C(-0x80000800) && value <= INT64_C(0x7fffffff);
+}
+
+void emitLoadImmediate(GeneratedFunction *f, int64_t c, enum XRegister to) {
+
 }
