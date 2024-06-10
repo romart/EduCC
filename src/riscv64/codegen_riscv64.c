@@ -24,6 +24,10 @@ const static enum FRegister calleeSavedFRegs[] = { F_S0, F_S1, F_S2, F_S3, F_S4,
                                                  };
 
 
+static Boolean generateBlock(GeneratedFunction *f, AstBlock *block);
+static Boolean generateStatement(GeneratedFunction *f, AstStatement *stmt);
+static void generateExpression(GeneratedFunction *f, AstExpression *expression);
+
 #define CALLEE_SAVED_XREGS_COUNT 12u
 #define CALLEE_SAVED_FREGS_COUNT 12u
 
@@ -35,7 +39,7 @@ int32_t isUsedF(enum FRegister reg) {
     return 0;
 }
 
-static size_t allocateLocalSlots(GeneratedFunction *g, AstFunctionDefinition *f) {
+static size_t allocateFrame(GeneratedFunction *g, AstFunctionDefinition *f) {
     AstValueDeclaration *param = f->declaration->parameters;
     AstValueDeclaration *local = f->locals;
     TypeRef *returnType = f->declaration->returnType;
@@ -189,6 +193,365 @@ static size_t allocateLocalSlots(GeneratedFunction *g, AstFunctionDefinition *f)
     return frameSize;
 }
 
+static GeneratedVariable *generateVaribale_riscv64(GenerationContext *ctx, AstValueDeclaration *d) {
+  if (d->flags.bits.isExternal) return NULL; // no declaration is needed
+
+  Section *section = NULL;
+
+  if (d->initializer) {
+      if (hasRelocationsInit(d->initializer)) {
+          section = d->flags.bits.isConst ? ctx->rodataLocal : ctx->dataLocal;
+      } else {
+          section = d->flags.bits.isConst ? ctx->rodata : ctx->data;
+      }
+  } else {
+      section = ctx->bss;
+  }
+
+  int32_t align = typeAlignment(d->type);
+  alignSection(section, align);
+
+  size_t objectSize = computeTypeSize(d->type);
+
+  ptrdiff_t offset = section->pc - section->start;
+
+  if (d->initializer) {
+    fillInitializer(ctx, section, d->initializer, offset, objectSize);
+  } else {
+    size_t filled = 0;
+    while (filled < objectSize) {
+        emitSectionByte(section, 0x00);
+        ++filled;
+    }
+  }
+
+  GeneratedVariable *v = allocateGenVarialbe(ctx, d);
+  v->section = section;
+  v->sectionOffset = offset;
+  v->size = objectSize;
+  return v;
+}
+
+static void emitConst(GeneratedFunction *f, AstConst *_const, TypeId tid) {
+  // movq #const, %rax
+  int64_t c = 0;
+  switch (_const->op) {
+  case CK_FLOAT_CONST: {
+//        Address addr = { 0 };
+//        if (emitFloatConst(f, _const, tid, &addr)) {
+//          switch (tid) {
+//            case T_F4: emitMovfpAR(f, &addr, R_FACC, 4); break;
+//            case T_F8: emitMovfpAR(f, &addr, R_FACC, 8); break;
+//            case T_F10: emitFPLoad(f, &addr, T_F10); break;
+//            default: unreachable("Unknown FP type ID");
+//          }
+//        }
+        break;
+      }
+  case CK_INT_CONST:
+      emitLoadImmediate(f, _const->i, X_ACC);
+      break;
+  case CK_STRING_LITERAL: {
+//        GenerationContext *ctx = f->context;
+//        Section *rodata = ctx->rodata;
+//        ptrdiff_t literalSectionOffset = emitStringWithEscaping(ctx, rodata, _const);
+
+//        Relocation *reloc = allocateRelocation(ctx);
+//        reloc->applySection = f->section;
+//        reloc->kind = RK_RIP;
+//        reloc->sectionData.dataSection= rodata;
+//        reloc->sectionData.dataSectionOffset = literalSectionOffset;
+//        reloc->next = f->section->reloc;
+//        f->section->reloc = reloc;
+
+//        Address addr = { R_RIP, R_BAD, 0, 0, reloc };
+
+//        emitLea(f, &addr, R_ACC);
+
+        break;
+    }
+  }
+}
+
+static void generateExpression(GeneratedFunction *f, AstExpression *expression) {
+//  Address addr = { 0 };
+  TypeId typeId = typeToId(expression->type);
+  switch (expression->op) {
+    case E_PAREN:
+      generateExpression(f, expression->parened);
+      break;
+    case E_BLOCK:
+      generateStatement(f, expression->block);
+      break;
+    case E_CONST:
+      emitConst(f, &expression->constExpr, typeId);
+      break;
+    case E_VA_ARG:
+//      generateVaArg(f, expression);
+      break;
+    case E_NAMEREF:
+//      translateAddress(f, expression, &addr);
+//      emitLea(f, &addr, R_ACC);
+      break;
+    case E_COMPOUND:
+//      generateCompoundExpression(f, expression);
+      break;
+    case E_CALL:
+//      generateCall(f, expression);
+      break;
+    case E_TERNARY: {
+//        AstTernaryExpression *ternary = &expression->ternaryExpr;
+//        struct Label elseLabel = { 0 }, endLabel = { 0 };
+//        assert(ternary->condition);
+//        enum JumpCondition cc = generateCondition(f, ternary->condition, TRUE);
+
+//        emitCondJump(f, &elseLabel, cc, FALSE);
+
+//        assert(ternary->ifTrue);
+//        generateExpression(f, ternary->ifTrue);
+//        emitJumpTo(f, &endLabel, FALSE);
+
+//        assert(ternary->ifFalse);
+//        bindLabel(f, &elseLabel);
+//        generateExpression(f, ternary->ifFalse);
+
+//        bindLabel(f, &endLabel);
+      }
+      break;
+    case E_BIT_EXTEND:
+//      generateBitExtend(f, expression);
+      break;
+    case E_CAST:
+//      generateCast(f, &expression->castExpr);
+      break;
+    case EB_ADD:
+    case EB_SUB:
+    case EB_LHS: /** << */
+    case EB_RHS: /** >> */
+    case EB_AND:
+    case EB_OR:
+    case EB_XOR:
+    case EB_MUL:
+//      generateBinary(f, expression);
+      break;
+    case EB_DIV:
+    case EB_MOD:
+//      generateDiv(f, expression);
+      break;
+    case EB_ANDAND:
+    case EB_OROR:
+//      generateLogicalBinary(f, expression);
+      break;
+    case EB_EQ:
+    case EB_NE:
+    case EB_LT:
+    case EB_LE:
+    case EB_GT:
+    case EB_GE: {
+//        enum JumpCondition cc = generateCondition(f, expression, FALSE);
+//        emitSetccR(f, cc, R_ACC);
+//        emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
+      }
+      break;
+    case EB_ASSIGN:
+    case EB_ASG_MUL:
+    case EB_ASG_ADD:
+    case EB_ASG_SUB:
+    case EB_ASG_SHL:
+    case EB_ASG_SHR:
+    case EB_ASG_AND:
+    case EB_ASG_XOR:
+    case EB_ASG_OR:
+//      generateAssign(f, expression);
+      // TODO:
+      break;
+    case EB_ASG_DIV:
+    case EB_ASG_MOD:
+//      generateAssignDiv(f, expression);
+      break;
+    case EB_COMMA:
+      generateExpression(f, expression->binaryExpr.left);
+      generateExpression(f, expression->binaryExpr.right);
+      break;
+    case EU_REF:
+//      translateAddress(f, expression->unaryExpr.argument, &addr);
+//      emitLea(f, &addr, R_ACC);
+      break;
+    case EU_DEREF:
+//      translateAddress(f, expression->unaryExpr.argument, &addr);
+//      if (isFlatType(expression->type) || expression->type->kind == TR_FUNCTION) {
+//        if (!(addr.base == R_ACC && addr.index == R_BAD && addr.imm == 0)) {
+//          emitLea(f, &addr, R_ACC);
+//        }
+//      } else {
+//        emitLoad(f, &addr, R_ACC, typeId);
+//      }
+      break;
+    case EU_PLUS:
+      generateExpression(f, expression->unaryExpr.argument);
+      break;
+    case EU_MINUS:
+      generateExpression(f, expression->unaryExpr.argument);
+//      if (isRealType(expression->type)) {
+//          emitFPNeg(f, expression->type->descriptorDesc->typeId);
+//      } else {
+//          emitNegR(f, R_ACC, typeIdSize(typeId));
+//      }
+      break;
+    case EU_TILDA:
+      generateExpression(f, expression->unaryExpr.argument);
+//      emitBitwiseNotR(f, R_ACC, computeTypeSize(expression->type));
+      break;
+    case EU_EXL:
+      generateExpression(f, expression->unaryExpr.argument);
+//      emitNot(f, R_ACC, computeTypeSize(expression->unaryExpr.argument->type));
+      break;
+
+    case E_LABEL_REF: {
+//      GenerationContext *ctx = f->context;
+//      struct Label *l = (struct Label *)getFromHashMap(ctx->labelMap, (intptr_t)expression->label);
+//      if (l == NULL) {
+//          l = allocateLabel(ctx);
+//          putToHashMap(ctx->labelMap, (intptr_t)expression->label, (intptr_t)l);
+//      }
+//      Address addr = { R_RIP, R_BAD, 0, 0, NULL, l };
+//      emitLea(f, &addr, R_ACC);
+      break;
+
+    }
+
+    default: unreachable("unexpcted expression op");
+  }
+}
+
+static Boolean generateStatement(GeneratedFunction *f, AstStatement *stmt) {
+
+  GenerationContext *ctx = f->context;
+
+  switch (stmt->statementKind) {
+  case SK_BLOCK:
+      return generateBlock(f, &stmt->block);
+  /*case SK_DECLARATION: {
+      AstDeclaration *d = stmt->declStmt.declaration;
+      if (d->kind == DK_VAR) {
+        AstValueDeclaration *v = d->variableDeclaration;
+        assert(v->kind == VD_VARIABLE);
+        const Symbol *s = v->symbol;
+        assert(s);
+        size_t typeSize = computeTypeSize(v->type);
+        size_t align = min(max(4, typeSize), sizeof(intptr_t));
+
+        if (v->flags.bits.isLocal) {
+            assert(v->gen);
+            if (v->type->kind == TR_VLA) {
+                allocateVLAMemory(f, v->gen, v->initializer, v->type);
+            } else {
+              if (v->initializer) {
+                  emitLocalInitializer(f, v->type, v->gen->baseOffset, v->initializer);
+              }
+            }
+        } else {
+          assert(v->flags.bits.isStatic);
+          GeneratedVariable *gv = generateVaribale_riscv64(ctx, v);
+          v->gen = gv;
+          gv->next = ctx->file->staticVariables;
+          ctx->file->staticVariables = gv;
+        }
+      }
+      break;
+  }*/
+  case SK_EMPTY: break;
+  case SK_EXPR_STMT:
+      generateExpression(f, stmt->exprStmt.expression);
+//      if (typeToId(stmt->exprStmt.expression->type) == T_F10) {
+//          // clean up FP processor stack
+//          emitFPPop(f, 0);
+//      }
+      break;
+  case SK_LABEL:
+//      return generateLabel(f, &stmt->labelStmt);
+  case SK_GOTO_L: {
+//      struct Label *l = (struct Label *)getFromHashMap(ctx->labelMap, (intptr_t)stmt->jumpStmt.label);
+//      if (l == NULL) {
+//          l = allocateLabel(ctx);
+//          putToHashMap(ctx->labelMap, (intptr_t)stmt->jumpStmt.label, (intptr_t)l);
+//      }
+//      emitJumpTo(f, l, FALSE);
+//      break;
+  }
+  case SK_GOTO_P: {
+//      generateExpression(f, stmt->jumpStmt.expression);
+//      emitJumpByReg(f, R_ACC);
+//      break;
+  }
+  case SK_RETURN: {
+//      AstExpression *retExpr = stmt->jumpStmt.expression;
+//      if (retExpr) {
+//          if (isCompositeType(retExpr->type)) {
+//            Address src = { 0 };
+//            assert(retExpr->op == EU_DEREF);
+//            translateAddress(f, retExpr->unaryExpr.argument, &src);
+
+//            size_t retSize = computeTypeSize(retExpr->type);
+//            if (retSize > sizeof(intptr_t)) {
+//              Address addr = { R_EBP, R_BAD, 0, f->returnStructAddressOffset, NULL, NULL };
+//              emitMoveAR(f, &addr, R_EDI, sizeof(intptr_t));
+
+//              Address dst = { R_EDI, R_BAD, 0, 0, NULL, NULL };
+//              copyStructTo(f, retExpr->type, &src, &dst);
+//              emitMoveRR(f, R_EDI, R_ACC, sizeof(intptr_t));
+//            } else {
+//              emitMoveAR(f, &src, R_ACC, retSize);
+//            }
+//          } else {
+//            generateExpression(f, retExpr);
+//          }
+//      }
+//      emitLeave(f);
+//      emitRet(f, 0);
+//      return TRUE;
+      }
+  case SK_BREAK:
+      assert(f->context->breakLabel);
+//      emitJumpTo(f, f->context->breakLabel, FALSE);
+      break;
+  case SK_CONTINUE:
+      assert(ctx->continueLabel);
+//      emitJumpTo(f, ctx->continueLabel, FALSE);
+      break;
+  case SK_IF:
+//      generateIfStatement(f, &stmt->ifStmt);
+      break;
+  case SK_SWITCH:
+//      generateSwitchStatement(f, &stmt->switchStmt);
+      break;
+  case SK_WHILE:
+  case SK_DO_WHILE:
+//      generateLoopStatement(f, &stmt->loopStmt, stmt->statementKind == SK_DO_WHILE);
+      break;
+  case SK_FOR:
+//      generateForStatement(f, &stmt->forStmt);
+      break;
+  default:
+      unreachable("Unreachable");
+      break;
+  }
+  return FALSE;
+}
+
+static Boolean generateBlock(GeneratedFunction *f, AstBlock *block) {
+
+  AstStatementList *stmt = block->stmts;
+  Boolean lastIsRet = FALSE;
+
+  while (stmt) {
+    lastIsRet = generateStatement(f, stmt->stmt);
+    stmt = stmt->next;
+  }
+
+  return lastIsRet;
+}
+
 static GeneratedFunction *generateFunction_riscv64(GenerationContext *ctx, AstFunctionDefinition *f) {
   HashMap *labelMap = createHashMap(DEFAULT_MAP_CAPACITY, &stringHashCode, &stringCmp);
   ctx->labelMap = labelMap;
@@ -202,7 +565,7 @@ static GeneratedFunction *generateFunction_riscv64(GenerationContext *ctx, AstFu
 
 //  pushFrame(gen);
 
-  size_t frameSize = allocateLocalSlots(gen, f);
+  size_t frameSize = allocateFrame(gen, f);
 
   size_t delta = frameSize;
 
@@ -212,21 +575,21 @@ static GeneratedFunction *generateFunction_riscv64(GenerationContext *ctx, AstFu
 //  Address addr = { R_EBP, R_BAD, 0, gen->allocaOffset, NULL, NULL };
 //  emitMoveRA(gen, R_ESP, &addr, sizeof(intptr_t));
 
-//  gen->stackOffset = 0;
-//  Boolean lastIsRet = generateBlock(gen, &f->body->block);
-//  assert(gen->stackOffset == 0);
+  gen->stackOffset = 0;
+  Boolean lastIsRet = generateBlock(gen, &f->body->block);
+  assert(gen->stackOffset == 0);
 
-//  if (!lastIsRet) {
-//    TypeRef * returnType = f->declaration->returnType;
-//    size_t returnTypeSize = computeTypeSize(returnType);
-//    if (isCompositeType(returnType) && returnTypeSize > sizeof(intptr_t)) {
+  if (!lastIsRet) {
+    TypeRef * returnType = f->declaration->returnType;
+    size_t returnTypeSize = computeTypeSize(returnType);
+    if (isCompositeType(returnType) && returnTypeSize > sizeof(intptr_t)) {
 //        Address addr = { R_EBP, R_BAD, 0, gen->returnStructAddressOffset, NULL, NULL };
 //        emitMoveAR(gen, &addr, R_EAX, sizeof(intptr_t));
-//    }
+    }
 
 //    popFrame(gen);
 //    emitReturn(gen);
-//  }
+  }
 
   gen->bodySize = (gen->section->pc - gen->section->start) - gen->sectionOffset;
 
@@ -253,4 +616,5 @@ static GeneratedFunction *generateFunction_riscv64(GenerationContext *ctx, AstFu
 
 void initArchCodegen_riscv64(ArchCodegen *cg) {
     cg->generateFunction = &generateFunction_riscv64;
+    cg->generateVaribale = &generateVaribale_riscv64;
 }

@@ -358,3 +358,305 @@ void emitQuadOrDouble(GeneratedFunction *f, uint64_t w) {
     emitDouble(f, (uint32_t)(w >> 32));
   }
 }
+
+static void emitIntIntoSection(Section *s, uint64_t v, size_t size) {
+  emitSectionByte(s, (uint8_t)(v));
+  if (size > 1) {
+      emitSectionByte(s, (uint8_t)(v >> 8));
+  }
+  if (size > 2) {
+      emitSectionByte(s, (uint8_t)(v >> 16));
+      emitSectionByte(s, (uint8_t)(v >> 24));
+  }
+  if (size > 4) {
+      emitSectionByte(s, (uint8_t)(v >> 32));
+      emitSectionByte(s, (uint8_t)(v >> 40));
+      emitSectionByte(s, (uint8_t)(v >> 48));
+      emitSectionByte(s, (uint8_t)(v >> 56));
+  }
+}
+
+static void emitFloatIntoSection(Section *s, TypeId tid, long double v) {
+  if (tid == T_F4) {
+      FloatBytes fb; fb.f = (float)v;
+      emitSectionByte(s, fb.bytes[0]);
+      emitSectionByte(s, fb.bytes[1]);
+      emitSectionByte(s, fb.bytes[2]);
+      emitSectionByte(s, fb.bytes[3]);
+  } else if (tid == T_F8) {
+      DoubleBytes db; db.d = (double)v;
+      emitSectionByte(s, db.bytes[0]);
+      emitSectionByte(s, db.bytes[1]);
+      emitSectionByte(s, db.bytes[2]);
+      emitSectionByte(s, db.bytes[3]);
+      emitSectionByte(s, db.bytes[4]);
+      emitSectionByte(s, db.bytes[5]);
+      emitSectionByte(s, db.bytes[6]);
+      emitSectionByte(s, db.bytes[7]);
+   } else {
+      assert(tid == T_F10);
+      LongDoubleBytes ldb = { 0 }; ldb.ld = v;
+      emitSectionByte(s, (uint8_t)(ldb.bytes[0]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[1]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[2]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[3]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[4]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[5]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[6]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[7]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[8]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[9]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[10]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[11]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[12]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[13]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[14]));
+      emitSectionByte(s, (uint8_t)(ldb.bytes[15]));
+   }
+}
+
+ptrdiff_t emitStringWithEscaping(GenerationContext *ctx, Section *section, AstConst *_const) {
+  unsigned idx = 0;
+
+  ptrdiff_t cached = getFromHashMap(ctx->constCache.literalMap, (intptr_t)_const);
+  if (cached) return cached - 1;
+
+  ptrdiff_t sectionOffset = section->pc - section->start;
+
+  size_t length = _const->l.length;
+  const char *str = _const->l.s;
+
+  for (idx = 0; idx < length;  ++idx) {
+      emitSectionByte(section, str[idx]);
+  }
+
+  putToHashMap(ctx->constCache.literalMap, (intptr_t)_const, (intptr_t)(sectionOffset + 1));
+
+  return sectionOffset;
+}
+
+static Boolean hasRelocationsExpr(AstExpression *expr) {
+  switch (expr->op) {
+  case E_CONST: return expr->constExpr.op == CK_STRING_LITERAL ? TRUE : FALSE;
+  case E_CAST: return hasRelocationsExpr(expr->castExpr.argument);
+  case E_PAREN: return hasRelocationsExpr(expr->parened);
+  case EU_DEREF:
+  case EU_REF: return hasRelocationsExpr(expr->unaryExpr.argument);
+  case E_NAMEREF: return TRUE;
+  case EU_MINUS: return FALSE;
+  case EB_ADD: return hasRelocationsExpr(expr->binaryExpr.left) || hasRelocationsExpr(expr->binaryExpr.right);
+  case E_COMPOUND: return hasRelocationsInit(expr->compound);
+  case E_BLOCK: {
+        assert(expr->block->statementKind == SK_BLOCK);
+        AstStatementList *n = expr->block->block.stmts;
+        for (; n->next; n = n->next);
+        assert(n->stmt->statementKind == SK_EXPR_STMT);
+        return hasRelocationsExpr(n->stmt->exprStmt.expression);
+    }
+  default: unreachable("unexpected expression in const initializer");
+
+  }
+
+  return FALSE;
+}
+
+Boolean hasRelocationsInit(AstInitializer *init) {
+  if (init->kind == IK_EXPRESSION) {
+      return hasRelocationsExpr(init->expression);
+  } else {
+      AstInitializerList *inits = init->initializerList;
+
+      while (inits) {
+          if (hasRelocationsInit(inits->initializer)) return TRUE;
+          inits = inits->next;
+      }
+  }
+
+  return FALSE;
+}
+
+static void collectRelocAndAdent(AstExpression *expr, Relocation *reloc) {
+  switch (expr->op) {
+  case E_CONST: reloc->addend = expr->constExpr.i; return;
+  case E_CAST: return collectRelocAndAdent(expr->castExpr.argument, reloc);
+  case E_PAREN: return collectRelocAndAdent(expr->parened, reloc);
+  case EU_DEREF:
+  case EU_REF: return collectRelocAndAdent(expr->unaryExpr.argument, reloc);
+  case E_NAMEREF:
+      reloc->symbolData.symbol = expr->nameRefExpr.s;
+      reloc->symbolData.symbolName = expr->nameRefExpr.s->name;
+      return;
+//  case EU_MINUS: return FALSE;
+  case E_BLOCK: {
+        AstStatementList *n = expr->block->block.stmts;
+        for (; n->next; n = n->next);
+        assert(n->stmt->statementKind == SK_EXPR_STMT);
+        collectRelocAndAdent(n->stmt->exprStmt.expression, reloc);
+        return;
+  }
+
+  case EB_ADD:
+      collectRelocAndAdent(expr->binaryExpr.left, reloc);
+      collectRelocAndAdent(expr->binaryExpr.right, reloc);
+      return;
+  default: unreachable("unexpected expression in const initializer");
+  }
+}
+
+static size_t fillReference(GenerationContext *ctx, Section *section, AstExpression *expr, size_t size) {
+  Relocation *reloc = allocateRelocation(ctx);
+
+  ptrdiff_t sectionOffset = section->pc - section->start;
+
+  reloc->kind = RK_SYMBOL;
+  reloc->applySection = section;
+  reloc->applySectionOffset = sectionOffset;
+  reloc->addend = 0;
+  reloc->next = section->reloc;
+  section->reloc = reloc;
+
+  collectRelocAndAdent(expr, reloc);
+
+  unsigned idx = 0;
+
+  int32_t typeSize = computeTypeSize(expr->type);
+
+  for (; idx < typeSize; ++idx) {
+      emitSectionByte(section, 0x00);
+  }
+
+  return sizeof(intptr_t);
+}
+
+#define ROL(x, y) ((x) << (y)) | ((x) >> (64 - (y)))
+
+static size_t emitStaticBitField(ParserContext *ctx, Section *section, AstInitializerList *inits, AstInitializerList **next, int32_t startOffset) {
+
+
+  int32_t slotOffset = inits->initializer->offset;
+  int32_t storageSize = computeTypeSize(inits->initializer->slotType->bitFieldDesc.storageType);
+
+  uint64_t r = 0;
+
+
+  for (;inits; inits = inits->next) {
+      AstInitializer *init = inits->initializer;
+      if (init->offset != slotOffset) {
+          break;
+      }
+
+      assert(init->kind == IK_EXPRESSION);
+      TypeRef *slotType = init->slotType;
+      AstConst *cexpr = eval(ctx, init->expression);
+      assert(cexpr);
+      uint64_t v = cexpr->i;
+      unsigned w = slotType->bitFieldDesc.width;
+      unsigned s = slotType->bitFieldDesc.offset;
+      v &= (ROL(1UL, w) - 1);
+      v <<= s;
+      r |= v;
+  }
+
+  *next = inits;
+
+  int32_t sectionOffset = section->pc - section->start;
+  int32_t initOffset = sectionOffset - startOffset;
+
+  while (initOffset < slotOffset) {
+      emitSectionByte(section, 0x00);
+      ++initOffset;
+  }
+
+  emitIntIntoSection(section, r, storageSize);
+  return storageSize;
+}
+
+size_t fillInitializer(GenerationContext *ctx, Section *section, AstInitializer *init, int32_t startOffset, size_t size) {
+
+  int32_t sectionOffset = section->pc - section->start;
+  if (init->kind == IK_EXPRESSION) {
+      int32_t initOffset = sectionOffset - startOffset;
+
+      while (initOffset < init->offset) {
+          emitSectionByte(section, 0x00);
+          ++initOffset;
+      }
+
+      AstExpression *expr = init->expression;
+
+      if (expr->op == E_COMPOUND) {
+          return fillInitializer(ctx, section, expr->compound, startOffset, size);
+      }
+
+      AstConst *cexpr = eval(ctx->parserContext, expr);
+      if (cexpr == NULL) {
+          // probably it's a refernce to symbol
+          return fillReference(ctx, section, expr, size);
+      }
+
+      TypeRef *constType = expr->type;
+      TypeRef *slotType = init->slotType;
+      switch (expr->constExpr.op) {
+      case CK_INT_CONST: emitIntIntoSection(section, cexpr->i, computeTypeSize(constType)); break;
+      case CK_FLOAT_CONST: emitFloatIntoSection(section, typeToId(constType), cexpr->f); break;
+      case CK_STRING_LITERAL: {
+        Section *rodata = ctx->rodata;
+
+        ptrdiff_t literalSectionOffset = emitStringWithEscaping(ctx, rodata, cexpr);
+
+        Relocation *reloc = allocateRelocation(ctx);
+
+        ptrdiff_t sectionOffset = section->pc - section->start;
+
+        reloc->kind = RK_REF;
+        reloc->applySection = section;
+        reloc->applySectionOffset = sectionOffset;
+        reloc->sectionData.dataSection = rodata;
+        reloc->addend = literalSectionOffset;
+        reloc->sectionData.dataSectionOffset = 0;
+        reloc->next = section->reloc;
+        section->reloc = reloc;
+
+        unsigned idx = 0;
+
+        for (; idx < sizeof(intptr_t); ++idx) {
+            emitSectionByte(section, 0x00);
+        }
+
+        break;
+      }
+    }
+    int32_t finalOffset = section->pc - section->start;
+
+    return finalOffset - sectionOffset;
+  } else {
+    assert(init->kind == IK_LIST);
+    size_t result = 0;
+
+    AstInitializerList *inits = init->initializerList;
+
+    if (isUnionType(init->slotType) && init->state == IS_INIT) {
+      for (; inits; inits = inits->next) {
+        if (inits->initializer->state == IS_INIT) {
+          return fillInitializer(ctx, section, inits->initializer, startOffset, size);
+        }
+      }
+    }
+
+    while (inits) {
+        TypeRef *slotType = inits->initializer->slotType;
+        size_t thisResult = 0;
+
+        if (slotType->kind == TR_BITFIELD) {
+          thisResult = emitStaticBitField(ctx->parserContext, section, inits, &inits, startOffset);
+        } else {
+          thisResult = fillInitializer(ctx, section, inits->initializer, startOffset, size);
+          inits = inits->next;
+        }
+        size -= thisResult;
+        result += thisResult;
+    }
+
+    return result;
+  }
+}
