@@ -722,7 +722,7 @@ static void handleIncludeDirective(ParserContext *ctx, Token *d) {
   const char *includePath = findIncludePath(ctx, fileName, dquoted);
 
   if (includePath == NULL) {
-      reportDiagnostic(ctx, DIAG_PP_INCLUDE_FILE_NOT_FOUND, &coords, includePath);
+      reportDiagnostic(ctx, DIAG_PP_INCLUDE_FILE_NOT_FOUND, &coords, fileName);
       return;
   }
 
