@@ -285,6 +285,7 @@ int main(int argc, char** argv) {
   config.includePath = allocIncludePath("/usr/include", NULL);
   config.includePath = allocIncludePath("/usr/local/include", config.includePath);
   config.includePath = allocIncludePath("sdk/include", config.includePath);
+  config.includePath = allocIncludePath("/usr/include/x86_64-linux-gnu", config.includePath);
 
   config.verbose = 1;
 
