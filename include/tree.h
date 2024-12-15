@@ -234,7 +234,7 @@ typedef struct _AstLabelStatement {
     LabelKind kind;
     union {
         const char* label;
-        int caseConst;
+        int64_t caseConst;
     };
     struct _AstStatement* body;
 } AstLabelStatement;
