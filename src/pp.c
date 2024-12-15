@@ -1110,7 +1110,7 @@ static Token *fetchConditionExpression(ParserContext *ctx, Token *directive) {
     // #if
     Coordinates coords = { directive, directive };
     reportDiagnostic(ctx, DIAG_PP_EXPECTED_VALUE_IN_EXPRESSION, &coords);
-    return;
+    return NULL;
   }
 
   expr->next = eofToken(ctx);
