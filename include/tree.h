@@ -499,6 +499,7 @@ typedef struct _AstValueDeclaration {
   struct _Symbol* symbol;
 
   struct _GeneratedVariable *gen;
+  int32_t index2;
 
   union {
     struct {
