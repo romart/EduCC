@@ -129,6 +129,16 @@ intptr_t removeFromHashMap(HashMap* map, intptr_t key) {
     return 0;
 }
 
+void foreachHashMap(HashMap *map, void (*func)(intptr_t, intptr_t, void*), void *ctx) {
+    for (unsigned idx = 0; idx < map->capacity; ++idx) {
+        struct LinkedNode *node = map->storage[idx];
+        while (node != NULL) {
+            func(node->key, node->value, ctx);
+            node = node->next;
+        }
+    }
+}
+
 int isInHashMap(HashMap* map, intptr_t key) {
     unsigned hc = map->hashCode(key);
     unsigned idx = hc % map->capacity;
