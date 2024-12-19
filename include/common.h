@@ -29,5 +29,6 @@ typedef enum _Boolean {
 #define min(a, b) ((a) < (b)) ? (a) : (b)
 
 void unreachable(const char *msg);
+void unimplemented(const char *msg);
 
 #endif // __COMMON_H__

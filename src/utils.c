@@ -269,6 +269,11 @@ void unreachable(const char *msg) {
   abort();
 }
 
+void unimplemented(const char *msg) {
+  fprintf(stderr, "Unimplemented: %s\n", msg);
+  abort();
+}
+
 int fileno (FILE *stream);
 
 int isTerminal(FILE *stream) {
