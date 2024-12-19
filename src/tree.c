@@ -39,6 +39,10 @@ Boolean isCommute(ExpressionType op) {
   }
 }
 
+Boolean isUnary(ExpressionType op) {
+    return EU_PLUS <= op && op <= EU_EXL;
+}
+
 Boolean isBinary(ExpressionType op) {
   switch (op) {
   case EB_ADD:
@@ -104,6 +108,9 @@ Boolean isAssignmentOp(ExpressionType op) {
   return EB_ASSIGN <= op && op <= EB_ASG_OR;
 }
 
+Boolean isAssignmentArith(ExpressionType op) {
+  return EB_ASG_ADD <= op && op <= EB_ASG_OR;
+}
 
 DeclaratorPart *allocateDeclaratorPart(ParserContext *ctx) {
   return (DeclaratorPart *)areanAllocate(ctx->memory.tokenArena, sizeof(DeclaratorPart));
