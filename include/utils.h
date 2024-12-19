@@ -36,6 +36,8 @@ intptr_t getFromHashMap(HashMap* map, intptr_t key);
 /** returns removed value if found, NULL otherwise */
 intptr_t removeFromHashMap(HashMap* map, intptr_t key);
 
+void foreachHashMap(HashMap *map, void (*func)(intptr_t, intptr_t, void*), void *ctx);
+
 int isInHashMap(HashMap* map, intptr_t key);
 
 typedef struct _LinkedListNode {
