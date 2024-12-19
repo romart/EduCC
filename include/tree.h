@@ -82,9 +82,11 @@ typedef enum _ExpressionType {
 unsigned opPriority(ExpressionType op);
 
 Boolean isCommute(ExpressionType op);
+Boolean isUnary(ExpressionType op);
 Boolean isBinary(ExpressionType op);
 Boolean isAdditiveOp(ExpressionType op);
 Boolean isAssignmentOp(ExpressionType op);
+Boolean isAssignmentArith(ExpressionType op);
 Boolean isMultiplicative(ExpressionType op);
 Boolean isShiftOp(ExpressionType op);
 
