@@ -159,6 +159,49 @@ void releaseHashMap(HashMap *map) {
   releaseHeap(map);
 }
 
+LinkedListNode *addNodeToListHead(LinkedList *list, LinkedListNode *node) {
+    LinkedListNode *head = node->next = list->head;
+
+    if (head)
+        head->prev = node;
+
+    list->head = node;
+
+    return node;
+}
+
+LinkedListNode *addNodeToListTail(LinkedList *list, LinkedListNode *node) {
+    LinkedListNode *tail = node->prev = list->tail;
+
+    if (tail)
+        tail->next = node;
+
+    list->tail = node;
+
+    return node;
+}
+
+LinkedListNode *removeNodeFromList(LinkedList *list, LinkedListNode *node) {
+    LinkedListNode *prev = node->prev;
+    LinkedListNode *next = node->next;
+
+    if (prev)
+        prev->next = next;
+
+    if (next)
+        next->prev = prev;
+
+    node->prev = node->next = NULL;
+
+    if (list->head == node)
+        list->head = next;
+
+    if (list->tail == node)
+        list->tail = prev;
+
+    return node;
+}
+
 unsigned countLines(FILE* file) {
   unsigned result = 1;
   while(!feof(file)) {
