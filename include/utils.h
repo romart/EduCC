@@ -38,6 +38,21 @@ intptr_t removeFromHashMap(HashMap* map, intptr_t key);
 
 int isInHashMap(HashMap* map, intptr_t key);
 
+typedef struct _LinkedListNode {
+    intptr_t data;
+
+    struct _LinkedListNode *next;
+    struct _LinkedListNode *prev;
+} LinkedListNode;
+
+typedef struct _LinkedList {
+    struct _LinkedListNode *head;
+    struct _LinkedListNode *tail;
+} LinkedList;
+
+LinkedListNode *addNodeToListHead(LinkedList *list, LinkedListNode *node);
+LinkedListNode *addNodeToListTail(LinkedList *list, LinkedListNode *node);
+LinkedListNode *removeNodeFromList(LinkedList *list, LinkedListNode *node);
 
 unsigned countLines(FILE* file);
 
