@@ -83,9 +83,9 @@ static uint32_t translateBlock(IrContext *ctx, AstStatement *block);
 static uint32_t translateStatement(IrContext *ctx, AstStatement *stmt);
 static uint32_t translateDeclaration(IrContext *ctx, AstDeclaration *decl);
 static uint32_t translateExpression(IrContext* ctx, AstExpression *expr);
-static uint32_t translateLabel(IrContext* ctx, AstStatement *expr);
-static uint32_t translateGotoLabel(IrContext* ctx, AstStatement *expr);
-static uint32_t translateGotoPtr(IrContext* ctx, AstStatement *expr);
+static uint32_t translateLabel(IrContext* ctx, AstStatement *stmt);
+static uint32_t translateGotoLabel(IrContext* ctx, AstStatement *stmt);
+static uint32_t translateGotoPtr(IrContext* ctx, AstStatement *stmt);
 static uint32_t translateReturn(IrContext* ctx, AstStatement *stmt);
 static uint32_t translateBreak(IrContext* ctx, AstStatement *stmt);
 static uint32_t translateContinue(IrContext* ctx, AstStatement *stmt);
@@ -236,10 +236,12 @@ static uint32_t translateStatement(IrContext *ctx, AstStatement *stmt) {
 }
 
 static uint32_t translateBlock(IrContext *ctx, AstStatement *block) {
-    IrBasicBlock *newBlock = newBasicBlock(ctx, NULL);
-    newBlock->ast = block;
 
-    ctx->currentBB = newBlock;
+    if (ctx->currentBB->term != NULL) { // emit into existed block if it not terminated
+        IrBasicBlock *newBlock = newBasicBlock(ctx, NULL);
+        newBlock->ast = block;
+        ctx->currentBB = newBlock;
+    }
 
     AstStatementList *stmt = block->block.stmts;
 
@@ -494,6 +496,12 @@ static uint32_t translateGotoLabel(IrContext *ctx, AstStatement *stmt) {
 
     jumpToBlock(ctx, labelBlock, stmt);
     return 0;
+}
+
+static uint32_t translateGotoPtr(IrContext* ctx, AstStatement *stmt) {
+    assert(stmt->statementKind == SK_GOTO_P);
+
+
 }
 
 static uint32_t translateLabel(IrContext *ctx, AstStatement *stmt) {
