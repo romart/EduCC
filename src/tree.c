@@ -164,6 +164,7 @@ AstValueDeclaration *createAstValueDeclaration(ParserContext *ctx, Coordinates *
     } else {
       result->initializer = initializer;
     }
+    result->index2 = -1;
 
     return result;
 }
