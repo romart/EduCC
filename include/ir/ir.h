@@ -67,63 +67,11 @@ struct _IrBasicBlock {
 };
 
 enum IrIntructionKind {
-    IR_E_ADD,
-    IR_E_SUB,
-    IR_E_MUL,
-    IR_E_DIV,
-    IR_E_MOD,
-    IR_E_LHS,
-    IR_E_RHS,
-    IR_E_AND,
-    IR_E_OR,
-    IR_E_XOR,
-
-    IR_E_CMP,
-
-    IR_E_FADD,
-    IR_E_FSUB,
-    IR_E_FMUL,
-    IR_E_FDIV,
-    IR_E_FMOD,
-
-    IR_E_FCMP,
-
-    IR_E_EQ,
-    IR_E_NE,
-    IR_E_LT,
-    IR_E_LE,
-    IR_E_GT,
-    IR_E_GE,
-
-    IR_E_FEQ,
-    IR_E_FNE,
-    IR_E_FLT,
-    IR_E_FLE,
-    IR_E_FGT,
-    IR_E_FGE,
-
-    IR_U_NOT,
-    IR_U_BNOT,
-
-    IR_MOVE,
-
-    IR_M_LOAD,
-    IR_M_STORE,
-
-    IR_BLOCK_PTR,
-
-    IR_BRANCH,
-    IR_CBRANCH, // condition branch
-    IR_IBRANCH, // indirect branch
-    IR_TBRANCH, // table branch (switches) ??
-    IR_RET,
-
-    IR_CALL,
-    IR_ICALL, // indirect call
-
-    IR_PHI,
-
-    IR_BAD
+#define IR_INSTRUCTION_DEF(OP, _) IR_##OP
+#include "ir/instructionList.h"
+  INSTRUCTIONS,
+#undef IR_INSTRUCTION_DEF
+  IR_INSTRUCTION_COUNT
 };
 
 enum IrTypeKind {
@@ -144,6 +92,8 @@ enum IrTypeKind {
     IR_F80,
 
     IR_LITERAL,
+
+	IR_P_AGG, // packed aggregate
 
     IR_PTR,
     IR_LABEL,
@@ -173,6 +123,15 @@ struct _IrInstruction {
         struct _SwitchTable *switchTable;
     } meta;
 
+    union {
+        enum IrTypeKind fromCastType;
+		size_t stackSize;
+    } info;
+
+    struct {
+        unsigned local : 1; // local memory access
+    } flags;
+
     uint32_t id;
 };
 
@@ -182,11 +141,16 @@ enum IrOperandKind {
     IR_PREG,
     IR_LOCAL, // for pre-SSA stage
     IR_BLOCK,
+    IR_MEMORY,
+    IR_REFERENCE,
+    IR_FRAME_PTR,
 };
 
 struct _IrOperand {
     enum IrOperandKind kind;
     enum IrTypeKind type;
+
+    const TypeRef *astType;
 
     uint32_t flags;
     uint32_t id;
@@ -201,6 +165,11 @@ struct _IrOperand {
         uint32_t pid;
         struct _IrBasicBlock *bb;
         uint32_t literalIndex;
+        struct {
+            struct _IrOperand *base;
+            struct _IrOperand *offset;
+        } address;
+        struct _Symbol *symbol;
     } data;
 };
 
@@ -208,6 +177,11 @@ struct _SwitchTable {
     uint32_t caseCount;
     struct _CaseBlock *caseBlocks;
     struct _IrBasicBlock *defaultBB;
+};
+
+enum IrTranslationMode {
+    IR_TM_RVALUE,
+    IR_TM_LVALUE
 };
 
 struct _IrContext {
@@ -233,6 +207,10 @@ struct _IrContext {
     struct _IrBasicBlockList referencedBlocks;
     Vector *constantCache;
 
+    enum IrTranslationMode addressTM;
+
+    struct _IrOperand *frameOp;
+
     // TODO: declarations
 };
 
@@ -255,5 +233,7 @@ void initializeIrContext(struct _IrContext *ctx, struct _ParserContext* pctx);
 void releaseIrContext(struct _IrContext *ctx);
 
 struct _IrFunctionList translateAstToIr(struct _IrContext *ctx, AstFile *file);
+
+void dumpIrFunctionList(const char *fileName, const IrFunctionList *functions);
 
 #endif // __IR_IR_H__

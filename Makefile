@@ -4,7 +4,7 @@ endif
 
 
 CC=$(COMPILER)
-CFLAGS=-I./include -g -O0 -std=gnu90
+CFLAGS=-I./include -g -O0 -std=gnu99
 DEPS=$(wildcard ./include/*.h)
 SRCDIR=src
 BUILDDIR=build
@@ -31,6 +31,8 @@ SOURCES=\
     $(SRCDIR)/x86_64/codegen_x86_64.c \
     $(SRCDIR)/riscv64/codegen_riscv64.c \
     $(SRCDIR)/riscv64/instructions_riscv64.c \
+    $(SRCDIR)/ir/ir.c \
+    $(SRCDIR)/ir/irdump.c \
 
 OBJ=$(patsubst %.c,%.o,$(subst $(SRCDIR)/,$(OBJDIR)/, $(SOURCES)))
 
@@ -45,6 +47,7 @@ directories:
 	mkdir -p $(BINDIR)
 	mkdir -p $(OBJDIR)/x86_64
 	mkdir -p $(OBJDIR)/riscv64
+	mkdir -p $(OBJDIR)/ir
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(DEPS)
 	$(CC) $(CFLAGS) -c -o $@ $<

@@ -290,3 +290,27 @@ int isTerminal(FILE *stream) {
   return isatty(fileno(stream));
 }
 
+int isPowerOf2(intptr_t v) {
+    return (v & (v - 1)) == 0;
+}
+
+int log2Integer(intptr_t v) {
+    assert(isPowerOf2(v));
+
+    uintptr_t uv = *(uintptr_t *)&v;
+
+    int result = 0;
+    while (uv > 1) {
+        uv >>= 1;
+        result++;
+    }
+    return result;
+}
+
+size_t alignSize(size_t size, size_t alignment) {
+    if (alignment == 0) {
+        return size; // If alignment is zero, return the size as is
+    }
+    // Align size to the nearest higher multiple of alignment
+    return (size + alignment - 1) & ~(alignment - 1);
+}
