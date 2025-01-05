@@ -10,6 +10,7 @@
 #include "mem.h"
 #include "sema.h"
 #include "codegen.h"
+#include "ir/ir.h"
 
 #include "treeDump.h"
 #include "diagnostics.h"
@@ -3580,22 +3581,34 @@ void compileFile(Configuration * config) {
   }
 
   if (!hasError) {
-    cannonizeAstFile(&context, astFile);
-    if (config->canonDumpFileName) {
-      dumpFile(astFile, context.typeDefinitions, config->canonDumpFileName);
-    }
+	if (config->experimental) {
+	  IrContext irCtx;
+	  initializeIrContext(&irCtx, &context);
+	  IrFunctionList irFunctions = translateAstToIr(&irCtx, astFile);
 
-    if (!config->skipCodegen) {
-      ArchCodegen cg = {0};
-      if (config->arch == X86_64) {
-        initArchCodegen_x86_64(&cg);
-      } else if (config->arch == RISCV64) {
-        initArchCodegen_riscv64(&cg);
-      } else {
-        unreachable("Unknown arch");
-      }
-      GeneratedFile *genFile = generateCodeForFile(&context, &cg, astFile);
-    }
+	  if (config->irDumpFileName) {
+		dumpIrFunctionList(config->irDumpFileName, &irFunctions);
+	  }
+
+	  releaseIrContext(&irCtx);
+	} else {
+	  cannonizeAstFile(&context, astFile);
+	  if (config->canonDumpFileName) {
+		dumpFile(astFile, context.typeDefinitions, config->canonDumpFileName);
+	  }
+
+	  if (!config->skipCodegen) {
+		ArchCodegen cg = {0};
+		if (config->arch == X86_64) {
+		  initArchCodegen_x86_64(&cg);
+		} else if (config->arch == RISCV64) {
+		  initArchCodegen_riscv64(&cg);
+		} else {
+		  unreachable("Unknown arch");
+		}
+		GeneratedFile *genFile = generateCodeForFile(&context, &cg, astFile);
+	  }
+	}
   }
 
   releaseContext(&context);

@@ -61,6 +61,7 @@ static const char *libPath() {
   }
 
   unreachable("No library path found");
+  return NULL;
 }
 
 static char *find_file(char *pattern) {
@@ -319,6 +320,14 @@ int main(int argc, char** argv) {
           fprintf(stderr, "file name expected after '-astCanonDump' option");
           return 2;
         }
+    } else if (strcmp("-irDump", arg) == 0) {
+        unsigned idx = ++i;
+        if (idx < argc) {
+          config.irDumpFileName = argv[idx];
+        } else {
+          fprintf(stderr, "file name expected after '-irDump' option");
+          return 2;
+        }
     } else if (strcmp("-oneline", arg) == 0) {
       config.verbose = 0;
     } else if (strcmp("-memstat", arg) == 0) {
@@ -333,6 +342,8 @@ int main(int argc, char** argv) {
       config.includePath = allocIncludePath(arg[2] ? &arg[2] : argv[++i], config.includePath);
     } else if (strcmp("-S", arg) == 0) {
       config.asmDump = 1;
+    } else if (strcmp("-experimental", arg) == 0) {
+	  config.experimental = 1;
     } else if (strcmp("-c", arg) == 0) {
         config.objOutput = 1;
         continue;

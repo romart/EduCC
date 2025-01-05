@@ -28,6 +28,7 @@ typedef struct _Configuration {
   const char *fileToCompile;
   const char *dumpFileName;
   const char *canonDumpFileName;
+  const char *irDumpFileName;
   const char *outputFile;
 
   IncludePath *includePath;
@@ -44,6 +45,8 @@ typedef struct _Configuration {
   unsigned asmDump: 1;
 
   unsigned objOutput : 1;
+
+  unsigned experimental : 1;
 } Configuration;
 
 

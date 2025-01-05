@@ -74,4 +74,9 @@ void putSymbol(StringBuffer *b, char c);
 unsigned countLinesInBuffer(const char *buffer);
 char *readFileToBuffer(const char *fileName, size_t *bufferSize);
 
+int isPowerOf2(intptr_t v);
+int log2Integer(intptr_t v);
+
+size_t alignSize(size_t size, size_t alignment);
+
 #endif // __UTILS_H__
