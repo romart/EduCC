@@ -14,8 +14,8 @@ enum {
 };
 
 int typeIdSize(TypeId id);
-TypeId typeToId(TypeRef *type);
-int computeTypeSize(TypeRef *type);
+TypeId typeToId(const TypeRef *type);
+int computeTypeSize(const TypeRef *type);
 int32_t computeTypeDefinitionSize(ParserContext *ctx, TypeDefiniton *definition);
 AstExpression *computeVLASize(ParserContext *ctx, Coordinates *coords, TypeRef *type);
 
@@ -34,18 +34,18 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, Pars
 Boolean verifyValueType(ParserContext *ctx, Coordinates *coords, TypeRef *valueType);
 void verifyAndTransformCallAruments(ParserContext *ctx, Coordinates *coords, TypeRef *functionType, AstExpressionList *aruments);
 
-Boolean isErrorType(TypeRef *type);
-Boolean isIntegerType(TypeRef *type);
-Boolean isVoidType(TypeRef *type);
-Boolean isPointerLikeType(TypeRef *type);
-Boolean isRealType(TypeRef *type);
-Boolean isStructualType(TypeRef *type);
-Boolean isUnsignedType(TypeRef *type);
-Boolean isScalarType(TypeRef *type);
-Boolean isUnionType(TypeRef *type);
-Boolean isCompositeType(TypeRef *type);
-Boolean isFlatType(TypeRef *type);
-Boolean is_va_list_Type(TypeRef *type);
+Boolean isErrorType(const TypeRef *type);
+Boolean isIntegerType(const TypeRef *type);
+Boolean isVoidType(const TypeRef *type);
+Boolean isPointerLikeType(const TypeRef *type);
+Boolean isRealType(const TypeRef *type);
+Boolean isStructualType(const TypeRef *type);
+Boolean isUnsignedType(const TypeRef *type);
+Boolean isScalarType(const TypeRef *type);
+Boolean isUnionType(const TypeRef *type);
+Boolean isCompositeType(const TypeRef *type);
+Boolean isFlatType(const TypeRef *type);
+Boolean is_va_list_Type(const TypeRef *type);
 
 Boolean checkReturnType(ParserContext *ctx, Coordinates *coords, TypeRef *returnType, AstExpression *expr);
 
