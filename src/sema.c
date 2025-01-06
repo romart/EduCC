@@ -237,7 +237,7 @@ Boolean typesEquals(TypeRef *t1, TypeRef *t2) {
   return equality == TEK_EQUAL || equality == TEK_ALMOST_EQUAL ? TRUE : FALSE;
 }
 
-Boolean isErrorType(TypeRef *type) {
+Boolean isErrorType(const TypeRef *type) {
   if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_ERROR)
     return TRUE;
   return FALSE;
@@ -249,35 +249,35 @@ static Boolean isEnumType(TypeRef *type) {
   return FALSE;
 }
 
-Boolean isStructualType(TypeRef *type) {
+Boolean isStructualType(const TypeRef *type) {
   if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_STRUCT)
     return TRUE;
   return FALSE;
 }
 
-Boolean isUnionType(TypeRef *type) {
+Boolean isUnionType(const TypeRef *type) {
   if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_UNION)
     return TRUE;
   return FALSE;
 }
 
-Boolean isCompositeType(TypeRef *type) {
+Boolean isCompositeType(const TypeRef *type) {
   if (type->kind == TR_VALUE && (type->descriptorDesc->typeId == T_UNION || type->descriptorDesc->typeId == T_STRUCT))
     return TRUE;
   return FALSE;
 }
 
-Boolean isFlatType(TypeRef *type) {
+Boolean isFlatType(const TypeRef *type) {
   return type->kind == TR_ARRAY || isCompositeType(type);
 }
 
-Boolean isVoidType(TypeRef *type) {
+Boolean isVoidType(const TypeRef *type) {
   if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_VOID)
     return TRUE;
   return FALSE;
 }
 
-Boolean isIntegerType(TypeRef *type) {
+Boolean isIntegerType(const TypeRef *type) {
   if (type->kind == TR_VALUE) {
     TypeId typeId = type->descriptorDesc->typeId;
     if (T_VOID < typeId && typeId < T_F4 || typeId == T_ENUM)
@@ -286,7 +286,7 @@ Boolean isIntegerType(TypeRef *type) {
   return FALSE;
 }
 
-Boolean isUnsignedType(TypeRef *type) {
+Boolean isUnsignedType(const TypeRef *type) {
   if (type->kind == TR_VALUE) {
     TypeId typeId = type->descriptorDesc->typeId;
     if (T_U1 <= typeId && typeId <= T_U8)
@@ -295,7 +295,7 @@ Boolean isUnsignedType(TypeRef *type) {
   return FALSE;
 }
 
-static Boolean isPrimitiveType(TypeRef *type) {
+static Boolean isPrimitiveType(const TypeRef *type) {
   if (type->kind == TR_VALUE) {
     TypeId typeId = type->descriptorDesc->typeId;
     if (T_VOID < typeId && typeId < T_BUILT_IN_TYPES || typeId == T_ENUM)
@@ -304,15 +304,15 @@ static Boolean isPrimitiveType(TypeRef *type) {
   return FALSE;
 }
 
-Boolean isPointerLikeType(TypeRef *type) {
+Boolean isPointerLikeType(const TypeRef *type) {
   return type->kind == TR_POINTED || type->kind == TR_ARRAY || type->kind == TR_VLA;
 }
 
-Boolean isScalarType(TypeRef *type) {
+Boolean isScalarType(const TypeRef *type) {
   return type->kind == TR_POINTED || isPrimitiveType(type);
 }
 
-Boolean isRealType(TypeRef *type) {
+Boolean isRealType(const TypeRef *type) {
   if (type->kind == TR_VALUE) {
       TypeId tid = type->descriptorDesc->typeId;
       return T_F4 <= tid && tid <= T_F10 ? TRUE : FALSE;
@@ -320,11 +320,11 @@ Boolean isRealType(TypeRef *type) {
   return FALSE;
 }
 
-Boolean isCharType(TypeRef *type) {
+Boolean isCharType(const TypeRef *type) {
   return type->kind == TR_VALUE && type->descriptorDesc->typeId == T_S1 || type->descriptorDesc->typeId == T_U1;
 }
 
-Boolean is_va_list_Type(TypeRef *type) {
+Boolean is_va_list_Type(const TypeRef *type) {
   if (type->kind != TR_ARRAY) return FALSE;
 
   if (type->arrayTypeDesc.size != 1) return FALSE;
@@ -2835,7 +2835,7 @@ int typeIdSize(TypeId id) {
   return builtInTypeDescriptors[id].size;
 }
 
-TypeId typeToId(TypeRef *type) {
+TypeId typeToId(const TypeRef *type) {
  switch (type->kind) {
  case TR_VALUE: {
        TypeId tid = type->descriptorDesc->typeId;
@@ -2884,7 +2884,7 @@ AstExpression *computeVLASize(ParserContext *ctx, Coordinates *coords, TypeRef *
 }
 
 
-int computeTypeSize(TypeRef *type) {
+int computeTypeSize(const TypeRef *type) {
   if (type->kind == TR_VALUE) {
       return type->descriptorDesc->size;
   }
@@ -2898,7 +2898,7 @@ int computeTypeSize(TypeRef *type) {
   }
 
   if (type->kind == TR_ARRAY) {
-      ArrayTypeDescriptor *atype = &type->arrayTypeDesc;
+      const ArrayTypeDescriptor *atype = &type->arrayTypeDesc;
       if (atype->size != UNKNOWN_SIZE) {
         return atype->size * computeTypeSize(atype->elementType);
       }
