@@ -67,6 +67,10 @@ struct _IrBasicBlock {
     struct _IrInstruction *term;
 
     uint32_t id;
+
+    struct {
+      unsigned visited:1;
+    } flags;
 };
 
 enum IrIntructionKind {
