@@ -260,5 +260,6 @@ void releaseIrContext(struct _IrContext *ctx);
 struct _IrFunctionList translateAstToIr(struct _IrContext *ctx, AstFile *file);
 
 void dumpIrFunctionList(const char *fileName, const IrFunctionList *functions);
+void buildDotGraphForFunctionList(const char *fileName, const IrFunctionList *functions);
 
 #endif // __IR_IR_H__

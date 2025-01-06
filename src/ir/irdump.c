@@ -72,8 +72,22 @@ static int32_t dumpIrBlockHeader(FILE *stream, const IrBasicBlock *b) {
 	}
   }
 
-  if (b->sdom) {
-	r += fprintf(stream, ", strict dom #%u", b->sdom->id);
+  if (b->dominators.sdom) {
+	r += fprintf(stream, ", strict dom #%u", b->dominators.sdom->id);
+  }
+
+  if (b->dominators.dominationFrontier.head) {
+	r += fprintf(stream, ", domination frontier [");
+    Boolean first = TRUE;
+
+	for (IrBasicBlockListNode *fn = b->dominators.dominationFrontier.head; fn != NULL; fn  = fn->next) {
+      if (first)
+        first = FALSE;
+      else
+        r += fprintf(stream, ", ");
+	  r += fprintf(stream, "#%u", fn->block->id);
+	}
+    r += fputc(']', stream);
   }
 
   return r;
@@ -231,13 +245,16 @@ int32_t dumpIrFunction(FILE *stream, const IrFunction *f) {
 void dumpIrFunctionList(const char *fileName, const IrFunctionList *functions) {
   FILE *f = fopen(fileName, "w");
   if (f == NULL) {
-	fprintf(stderr, "cannot oopen ir dump file '%s'\n", fileName);
+	fprintf(stderr, "cannot open ir dump file '%s'\n", fileName);
 	return;
   }
 
   for (IrFunctionListNode *fn = functions->head; fn; fn = fn->next) {
-	fprintf(stdout, "Dump function '%s'\n", fn->function->ast->declaration->name);
-	dumpIrFunction(f, fn->function);
+    IrFunction *func = fn->function;
+    if (func->ast == NULL)
+      continue;
+	fprintf(stdout, "Dump function '%s'\n", func->ast->declaration->name);
+	dumpIrFunction(f, func);
 	fputc('\n', f);
   }
 
@@ -245,4 +262,60 @@ void dumpIrFunctionList(const char *fileName, const IrFunctionList *functions) {
 }
 
 
+static void buildDotForFunction(FILE *stream, const IrFunction *f) {
+    const char *funcName = f->ast ? f->ast->declaration->name : "__test";
+    fprintf(stream, "    label = \"%s\";\n", funcName);
+
+    for (IrBasicBlockListNode *bn = f->blocks.head; bn != NULL; bn = bn->next) {
+      const IrBasicBlock *bb = bn->block;
+      fprintf(stream, "    %s_%u [label=\"", funcName, bb->id);
+      if (bb->name) {
+        fprintf(stream, "%s", bb->name);
+      } else {
+        fprintf(stream, "%u", bb->id);
+      }
+      fprintf(stream, "\"];\n");
+    }
+
+    for (const IrBasicBlockListNode *bn = f->blocks.head; bn != NULL; bn = bn->next) {
+      const IrBasicBlock *bb = bn->block;
+      for (const IrBasicBlockListNode *sn = bb->succs.head; sn != NULL; sn = sn->next) {
+        const IrBasicBlock *succ = sn->block;
+        fprintf(stream, "    %s_%u -> %s_%u [style = \"solid\", color=\"black\"];\n", funcName, bb->id, funcName, succ->id);
+      }
+
+      if (bb->dominators.sdom) {
+        const IrBasicBlock *dom = bb->dominators.sdom;
+        fprintf(stream, "    %s_%u -> %s_%u [style = \"bold\", color = \"green\"];\n", funcName, bb->id, funcName, dom->id);
+      }
+
+      for (const IrBasicBlockListNode *fn = bb->dominators.dominationFrontier.head; fn != NULL; fn = fn->next) {
+        const IrBasicBlock *f = fn->block;
+        fprintf(stream, "    %s_%u -> %s_%u [style = \"dashed\", color = \"blue\"];\n", funcName, bb->id, funcName, f->id);
+      }
+    }
+}
+
+void buildDotGraphForFunctionList(const char *fileName, const IrFunctionList *functions) {
+
+  FILE *f = fopen(fileName, "w");
+  if (f == NULL) {
+	fprintf(stderr, "cannot open dot graph file '%s'\n", fileName);
+	return;
+  }
+
+  fprintf(f, "digraph CFG {\n");
+
+  uint32_t id = 0;
+  for (IrFunctionListNode *fn = functions->head; fn; fn = fn->next) {
+	fprintf(f, "  subgraph cluster_%u {\n", ++id);
+	buildDotForFunction(f, fn->function);
+    fprintf(f, "  }\n");
+  }
+
+  fprintf(f, "}\n");
+
+  fclose(f);
+
+}
 
