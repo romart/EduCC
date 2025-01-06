@@ -27,6 +27,9 @@ struct _IrFunction {
     struct _IrBasicBlock *exit;
 
     struct _IrOperand *retOperand;
+    
+    size_t numOfLocals;
+    struct _LocalValueInfo *localOperandMap;
 
     uint32_t id;
 };
@@ -118,8 +121,8 @@ struct _IrInstruction {
     enum IrTypeKind type;
 
     struct {
-        AstStatement *astStmt;
-        AstExpression *astExpr;
+        const AstStatement *astStmt;
+        const AstExpression *astExpr;
         struct _SwitchTable *switchTable;
     } meta;
 
@@ -156,8 +159,8 @@ struct _IrOperand {
     uint32_t id;
 
     union {
-        AstValueDeclaration *v;
-        AstExpression *e;
+        const AstValueDeclaration *v;
+        const AstExpression *e;
     } ast;
 
     union {
@@ -184,6 +187,19 @@ enum IrTranslationMode {
     IR_TM_LVALUE
 };
 
+typedef struct _LocalValueInfo {
+    AstValueDeclaration *declaration;
+    struct _IrOperand *initialOp;
+    struct _IrOperand *phiOp;
+
+    int32_t frameOffset; // using for both memory and spill
+
+    struct {
+        unsigned referenced: 1; // used for stack slots allocation
+    } flags;
+
+} LocalValueInfo;
+
 struct _IrContext {
     Arena *irArena;
     struct _ParserContext *pctx;
@@ -192,6 +208,7 @@ struct _IrContext {
     uint32_t bbCnt;
     uint32_t instrCnt;
     uint32_t opCnt;
+    uint32_t vregCnt;
 
     struct _IrBasicBlock *continueBB;
     struct _IrBasicBlock *breakBB;
@@ -210,6 +227,7 @@ struct _IrContext {
     enum IrTranslationMode addressTM;
 
     struct _IrOperand *frameOp;
+    struct _IrOperand *lastOp;
 
     // TODO: declarations
 };

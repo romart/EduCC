@@ -72,6 +72,10 @@ static int32_t dumpIrBlockHeader(FILE *stream, const IrBasicBlock *b) {
 	}
   }
 
+  if (b->sdom) {
+	r += fprintf(stream, ", strict dom #%u", b->sdom->id);
+  }
+
   return r;
 }
 
@@ -130,9 +134,9 @@ static int32_t dumpIrInstructionExtra(FILE *stream, const IrInstruction *instr) 
   switch (instr->kind) {
   case IR_E_BITCAST:
 	r += fputc('[', stream);
-	r += dumpIrType(stream, instr->info.fromCastType);
-	r += fprintf(stream, "->");
 	r += dumpIrType(stream, instr->uses.head->op->type);
+	r += fprintf(stream, "->");
+	r += dumpIrType(stream, instr->defs.head->op->type);
 	r += fputc(']', stream);
 	break;
   case IR_TBRANCH:
@@ -199,6 +203,23 @@ int32_t dumpIrBlock(FILE *stream, const IrBasicBlock *b) {
 
 int32_t dumpIrFunction(FILE *stream, const IrFunction *f) {
 	int32_t r = fprintf(stream, "Function '%s'\n", f->ast->declaration->name);
+
+	r += fprintf(stream, "Locals:\n");
+	for (size_t i = 0; i < f->numOfLocals; ++i) {
+	  const LocalValueInfo *lvi = &f->localOperandMap[i];
+	  IrOperand *op = lvi->initialOp;
+	  AstValueDeclaration *d = lvi->declaration;
+
+	  r += fprintf(stream, "  %c%c:%s = ", lvi->flags.referenced ? '&' : ' ', d->kind == VD_PARAMETER ? 'p' : 'l', d->name);
+	  r += dumpIrOperand(stream, lvi->initialOp);
+	  r += fputc('\n', stream);
+	}
+
+	if (f->retOperand) {
+	  r += fprintf(stream, "Return Operand: ");
+	  r += dumpIrOperand(stream, f->retOperand);
+	  r += fputc('\n', stream);
+	}
 
 	for (IrBasicBlockListNode *bn = f->blocks.head; bn != NULL; bn = bn->next) {
 		r += dumpIrBlock(stream, bn->block);
