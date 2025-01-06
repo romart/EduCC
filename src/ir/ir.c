@@ -2536,23 +2536,57 @@ static void buildDominatorTreeImpl(IrFunction *func, BitSet *domSets, const size
 
         if (countBits(blockDomSet) == 1) {
           assert(getBit(blockDomSet, entryBB->id));
-          bb->sdom = entryBB;
+          bb->dominators.sdom = entryBB;
         }
-    
-        bb->sdom = closestDominator(bb, blockDomSet);
+
+        bb->dominators.sdom = closestDominator(bb, blockDomSet);
     }
 }
 
-static IrFunction *buildDominatorTree(IrContext *ctx, IrFunction *func) {
-    
+
+static void buildDominationFrontier(IrContext *ctx, IrFunction *func, BitSet *bitsets, const size_t blockCount) {
+    for (size_t idx = 0; idx < blockCount; ++idx) {
+      clearAll(&bitsets[idx]);
+    }
+
+    for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
+      IrBasicBlock *bb = bn->block;
+      IrBasicBlock *dom = bb->dominators.sdom;
+      for (IrBasicBlockListNode *pn = bb->preds.head; pn != NULL; pn = pn->next) {
+        IrBasicBlock *r = pn->block;
+        while (r != dom) {
+          BitSet *df = &bitsets[r->id];
+          setBit(df, bb->id);
+          r = r->dominators.sdom;
+        }
+      }
+    }
+    // raise(SIGTRAP);
+
+    for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
+      IrBasicBlock *bb = bn->block;
+      BitSet *df = &bitsets[bb->id];
+      for (IrBasicBlockListNode *bf = func->blocks.head; bf != NULL; bf = bf->next) {
+        IrBasicBlock *f = bf->block;
+        if (getBit(df, f->id)) {
+          assert(f->dominators.sdom != bb);
+          addBBTail(ctx, &bb->dominators.dominationFrontier, f);
+        }
+      }
+    }
+}
+
+static void buildDominatorTree(IrContext *ctx, IrFunction *func) {
+
     const size_t blockCount = ctx->bbCnt;
     BitSet *dom = malloc(blockCount * sizeof(BitSet));
     for (size_t idx = 0; idx < blockCount; ++idx) {
       initBitSet(&dom[idx], blockCount);
     }
 
-    computeDominationSets(dom, blockCount, func); 
+    computeDominationSets(dom, blockCount, func);
     buildDominatorTreeImpl(func, dom, blockCount);
+    buildDominationFrontier(ctx, func, dom, blockCount);
 
     for (size_t idx = 0; idx < blockCount; ++idx) {
       releaseBitSet(&dom[idx]);
@@ -2560,7 +2594,7 @@ static IrFunction *buildDominatorTree(IrContext *ctx, IrFunction *func) {
     free(dom);
 }
 
-static IrFunction *buildSSA(IrContext *ctx, IrFunction *func) {
+static void buildSSA(IrContext *ctx, IrFunction *func) {
   buildDominatorTree(ctx, func);
 }
 

@@ -58,7 +58,10 @@ struct _IrBasicBlock {
     struct _IrBasicBlockList preds;
     struct _IrBasicBlockList succs;
 
-    struct _IrBasicBlock *sdom; // strict dominator
+    struct {
+      struct _IrBasicBlock *sdom; // strict dominator
+      struct _IrBasicBlockList dominationFrontier;
+    } dominators;
 
     const char *name;
     AstStatement *ast;
