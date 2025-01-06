@@ -212,6 +212,128 @@ LinkedListNode *removeNodeFromList(LinkedList *list, LinkedListNode *node) {
     return node;
 }
 
+// =========== BitSet ===============================//
+
+static const size_t bitsPerWord = sizeof(uintptr_t) * 8ULL;
+
+void initBitSet(BitSet *bs, size_t size) {
+  bs->size = size;
+  assert(isPowerOf2(bitsPerWord));
+  const size_t storageCount = (size + bitsPerWord) / bitsPerWord;
+  bs->wordCount = storageCount;
+  bs->bits = malloc(sizeof(uintptr_t) * storageCount);
+  clearAll(bs);
+}
+
+void releaseBitSet(BitSet *bs) {
+  free(bs->bits);
+  bs->size = bs->wordCount = 0;
+  bs->bits = NULL;
+}
+
+void setBit(BitSet *bs, size_t idx) {
+  assert(idx < bs->size);
+  const size_t wordIdx = idx / bitsPerWord;
+  const size_t bitIdx = idx % bitsPerWord;
+  const uintptr_t mask = 1ULL << bitIdx;
+  bs->bits[wordIdx] |= mask;
+}
+
+void clearBit(BitSet *bs, size_t idx) {
+  assert(idx < bs->size);
+  const size_t wordIdx = idx / bitsPerWord;
+  const size_t bitIdx = idx % bitsPerWord;
+  const uintptr_t mask = 1ULL << bitIdx;
+  bs->bits[wordIdx] &= ~mask;
+}
+
+unsigned getBit(const BitSet *bs, size_t idx) {
+  assert(idx < bs->size);
+  const size_t wordIdx = idx / bitsPerWord;
+  const size_t bitIdx = idx % bitsPerWord;
+  const uintptr_t mask = 1ULL << bitIdx;
+  return (bs->bits[wordIdx] & mask) >> bitIdx;
+}
+
+
+static void adjustBitSetTail(BitSet *bs) {
+    // handle tail
+    const size_t lastWordIdx = bs->wordCount - 1;
+    const size_t tailBits = bs->wordCount * bitsPerWord - bs->size;
+    assert(tailBits <= bitsPerWord);
+    const size_t valuableBits = bitsPerWord - tailBits;
+    const size_t valuableMask = (~0ULL << valuableBits);
+    bs->bits[lastWordIdx] &= ~valuableMask;
+}
+
+void clearAll(BitSet *bs) {
+  memset(bs->bits, 0U, bs->wordCount * sizeof(uintptr_t));
+}
+
+void setAll(BitSet *bs) {
+  memset(bs->bits, ~0U, bs->wordCount * sizeof(uintptr_t));
+  adjustBitSetTail(bs);
+}
+
+void intersectBitSets(const BitSet *lhs, const BitSet *rhs, BitSet *rs) {
+  assert(lhs->size == rhs->size);
+  assert(rs->size == lhs->size);
+  
+  for (size_t idx = 0; idx < lhs->wordCount; ++idx) {
+    rs->bits[idx] = lhs->bits[idx] & rhs->bits[idx];
+  }
+}
+
+void mergeBitSets(const BitSet *lhs, const BitSet *rhs, BitSet *rs) {
+  assert(lhs->size == rhs->size);
+  assert(rs->size == lhs->size);
+  
+  for (size_t idx = 0; idx < lhs->wordCount; ++idx) {
+    rs->bits[idx] = lhs->bits[idx] | rhs->bits[idx];
+  }
+}
+
+void copyBitSet(const BitSet *src, BitSet *dst) {
+  assert(src->size == dst->size);
+  memcpy(dst->bits, src->bits, src->wordCount * sizeof(uintptr_t));
+  adjustBitSetTail(dst);
+}
+
+int compareBitSets(const BitSet *lhs, const BitSet *rhs) {
+    assert(lhs->size == rhs->size);
+
+    return memcmp(lhs->bits, rhs->bits, lhs->wordCount * sizeof (uintptr_t));
+}
+
+Boolean isEmptyBitSet(const BitSet *bs) {
+  for (size_t idx = 0; idx < bs->wordCount; ++idx) {
+    if (bs->bits[idx] != 0)
+      return FALSE;
+  }
+  return TRUE; 
+}
+
+static size_t countBitsWord(uintptr_t w) {
+  size_t r = 0;
+  for (size_t idx = 0; idx < bitsPerWord; ++idx) {
+    const uintptr_t mask = 1ULL << idx;
+    if ((w & mask) != 0)
+      ++r;
+  }
+  return r;
+}
+
+size_t countBits(const BitSet *bs) {
+    size_t r = 0;
+    for (size_t idx = 0; idx < bs->wordCount; ++idx) {
+      r += countBitsWord(bs->bits[idx]);
+    }
+    return r;
+}
+
+// =========== BitSet ===============================//
+ 
+
 unsigned countLines(FILE* file) {
   unsigned result = 1;
   while(!feof(file)) {

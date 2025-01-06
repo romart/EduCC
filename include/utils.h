@@ -71,6 +71,31 @@ typedef struct {
 
 void putSymbol(StringBuffer *b, char c);
 
+
+typedef struct {
+  size_t size;
+  size_t wordCount;
+  uintptr_t *bits;
+} BitSet;
+
+void initBitSet(BitSet *bs, size_t s);
+void releaseBitSet(BitSet *bs);
+
+void setBit(BitSet *bs, size_t idx);
+void clearBit(BitSet *bs, size_t idx);
+unsigned getBit(const BitSet *bs, size_t idx);
+
+void setAll(BitSet *bs);
+void clearAll(BitSet *bs);
+
+void intersectBitSets(const BitSet *lhs, const BitSet *rhs, BitSet *rs);
+void mergeBitSets(const BitSet *lhs, const BitSet *rhs, BitSet *rs);
+
+void copyBitSet(const BitSet *src, BitSet *dst);
+int compareBitSets(const BitSet *lhs, const BitSet *rhs);
+Boolean isEmptyBitSet(const BitSet *bs);
+size_t countBits(const BitSet *bs);
+
 unsigned countLinesInBuffer(const char *buffer);
 char *readFileToBuffer(const char *fileName, size_t *bufferSize);
 
