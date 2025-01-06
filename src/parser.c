@@ -3588,6 +3588,7 @@ void compileFile(Configuration * config) {
 
 	  if (config->irDumpFileName) {
 		dumpIrFunctionList(config->irDumpFileName, &irFunctions);
+		buildDotGraphForFunctionList("cfg.dot", &irFunctions);
 	  }
 
 	  releaseIrContext(&irCtx);
