@@ -6,31 +6,35 @@
 #include "types.h"
 #include "sema.h"
 #include <signal.h>
+#include "memory.h"
+#include "alloca.h"
 
 typedef struct _CaseBlock {
     int64_t caseConst;
     IrBasicBlock *block;
 } CaseBlock;
 
-
+static IrContext *ctx = NULL;
 
 static IrBasicBlock *getOrCreateLabelBlock(IrContext *ctx, const char *labelName);
 
-void initializeIrContext(IrContext *ctx, ParserContext* pctx) {
+void initializeIrContext(IrContext *_ctx, ParserContext* pctx) {
 
-    memset(ctx, 0, sizeof *ctx);
+    memset(_ctx, 0, sizeof *_ctx);
 
     // TODO: check for NULL
-    ctx->irArena = createArena("IR Arena", 8 * DEFAULT_CHUNCK_SIZE);
-    ctx->pctx = pctx;
-    ctx->labelMap = createHashMap(DEFAULT_MAP_CAPACITY, &stringHashCode, &stringCmp);
-    ctx->constantCache = createVector(64);
+    _ctx->irArena = createArena("IR Arena", 8 * DEFAULT_CHUNCK_SIZE);
+    _ctx->pctx = pctx;
+    _ctx->labelMap = createHashMap(DEFAULT_MAP_CAPACITY, &stringHashCode, &stringCmp);
+    _ctx->constantCache = createVector(65);
+   ctx = _ctx;
 }
 
-void releaseIrContext(IrContext *ctx) {
-    releaseArena(ctx->irArena);
-    releaseHashMap(ctx->labelMap);
-    releaseVector(ctx->constantCache);
+void releaseIrContext(IrContext *_ctx) {
+    ctx = NULL;
+    releaseArena(_ctx->irArena);
+    releaseHashMap(_ctx->labelMap);
+    releaseVector(_ctx->constantCache);
 }
 
 static IrOperandListNode *newOpListNode(IrContext *ctx, IrOperand *op) {
@@ -63,6 +67,16 @@ static void addInstuctionTail(IrContext *ctx, IrInstructionList *list, IrInstruc
     	list->tail->next = node;
     node->prev = list->tail;
     list->tail = node;
+}
+
+static void addInstuctionHead(IrContext *ctx, IrInstructionList *list, IrInstruction *instr) {
+    IrInstructionListNode *node = newInstListNode(ctx, instr);
+	if (list->tail == NULL)
+	  list->tail = node;
+	if (list->head)
+    	list->head->prev = node;
+    node->next = list->head;
+    list->head = node;
 }
 
 static IrBasicBlockListNode *newBBListNode(IrContext *ctx, IrBasicBlock *bb) {
@@ -117,27 +131,6 @@ static Boolean translateWhile(IrContext* ctx, AstStatement *stmt);
 static Boolean translateDoWhile(IrContext* ctx, AstStatement *stmt);
 static Boolean translateFor(IrContext* ctx, AstStatement *stmt);
 
-IrFunctionList translateAstToIr(IrContext *ctx, AstFile *file) {
-    IrFunctionList list = {0};
-
-
-    AstTranslationUnit *unit = file->units;
-
-    while (unit != NULL) {
-        if (unit->kind == TU_FUNCTION_DEFINITION) {
-		  	fprintf(stdout, "Translate function '%s' into IR\n", unit->definition->declaration->name);
-            IrFunction *function = translateFunction(ctx, unit->definition);
-            addFunctionTail(ctx, &list, function);
-        } else {
-            assert(unit->kind == TU_DECLARATION);
-            translateDeclaration(ctx, unit->declaration);
-        }
-        unit = unit->next;
-    }
-
-    return list;
-}
-
 static IrBasicBlock *newBasicBlock(IrContext *ctx, const char *name) {
     IrBasicBlock *bb = areanAllocate(ctx->irArena, sizeof (IrBasicBlock));
     bb->name = name;
@@ -158,6 +151,74 @@ static IrFunction *newIrFunction(IrContext *ctx, AstFunctionDefinition *function
     return func;
 }
 
+static void addSuccessor(IrContext *ctx, IrBasicBlock *block, IrBasicBlock *succ) {
+    addBBTail(ctx, &block->succs, succ);
+    addBBTail(ctx, &succ->preds, block);
+}
+
+static void addPredecessor(IrContext *ctx, IrBasicBlock *block, IrBasicBlock *pred) {
+    addBBTail(ctx, &block->preds, pred);
+    addBBTail(ctx, &pred->succs, block);
+}
+
+static void buildSSA(IrContext *ctx, IrFunction *func);
+void addTestIrFunction(IrContext *ctx, IrFunctionList *list) {
+  ctx->bbCnt = ctx->opCnt = ctx->instrCnt = ctx->vregCnt = 0;
+
+  IrFunction *f = newIrFunction(ctx, NULL);
+
+  f->entry->name = "0";
+  f->exit->name = "3";
+
+  IrBasicBlock *bb0 = f->entry;
+  IrBasicBlock *bb1 = newBasicBlock(ctx, "1");
+  IrBasicBlock *bb2 = newBasicBlock(ctx, "2");
+  IrBasicBlock *bb3 = f->exit;
+  IrBasicBlock *bb4 = newBasicBlock(ctx, "4");
+  IrBasicBlock *bb5 = newBasicBlock(ctx, "5");
+  IrBasicBlock *bb6 = newBasicBlock(ctx, "6");
+  IrBasicBlock *bb7 = newBasicBlock(ctx, "7");
+
+  addSuccessor(ctx, bb0, bb1);
+  addSuccessor(ctx, bb1, bb2);
+  addSuccessor(ctx, bb1, bb4);
+  addSuccessor(ctx, bb2, bb3);
+  addSuccessor(ctx, bb4, bb5);
+  addSuccessor(ctx, bb4, bb6);
+  addSuccessor(ctx, bb5, bb7);
+  addSuccessor(ctx, bb6, bb1);
+  addSuccessor(ctx, bb6, bb7);
+  addSuccessor(ctx, bb7, bb3);
+
+  buildSSA(ctx, f);
+
+  addFunctionTail(ctx, list, f);
+}
+
+IrFunctionList translateAstToIr(IrContext *ctx, AstFile *file) {
+    IrFunctionList list = {0};
+
+
+    AstTranslationUnit *unit = file->units;
+
+    while (unit != NULL) {
+        if (unit->kind == TU_FUNCTION_DEFINITION) {
+		  	fprintf(stdout, "Translate function '%s' into IR\n", unit->definition->declaration->name);
+            IrFunction *function = translateFunction(ctx, unit->definition);
+            addFunctionTail(ctx, &list, function);
+        } else {
+            assert(unit->kind == TU_DECLARATION);
+            translateDeclaration(ctx, unit->declaration);
+        }
+        unit = unit->next;
+    }
+
+//    addTestIrFunction(ctx, &list);
+
+    return list;
+}
+
+
 static IrOperand *newIrOperand(IrContext *ctx, enum IrTypeKind type, enum IrOperandKind kind) {
     IrOperand *op = areanAllocate(ctx->irArena, sizeof (IrOperand));
     op->id = ctx->opCnt++;
@@ -173,12 +234,28 @@ static IrOperand *newVreg(IrContext *ctx, enum IrTypeKind type) {
   return v;
 }
 
+static IrOperand *newLabelOperand(IrContext *ctx, IrBasicBlock *block) {
+    IrOperand *op = newIrOperand(ctx, IR_LABEL, IR_BLOCK);
+    op->data.bb = block;
+    return op;
+}
+
 static void addInstructionDef(IrContext *ctx, IrInstruction *instr, IrOperand *def) {
     addOperandTail(ctx, &instr->defs, def);
 }
 
 static void addInstructionUse(IrContext *ctx, IrInstruction *instr, IrOperand *use) {
     addOperandTail(ctx, &instr->uses, use);
+}
+
+static void addPhiInput(IrContext *ctx, IrInstruction *instr, IrOperand *value, IrBasicBlock *block) {
+
+  assert(instr->kind == IR_PHI);
+  assert(block != NULL);
+
+  IrOperand *labelOp = newLabelOperand(ctx, block);
+  addInstructionUse(ctx, instr, value);
+  addInstructionUse(ctx, instr, labelOp);
 }
 
 enum IrTypeKind typeRefToIrType(const TypeRef *t) {
@@ -233,9 +310,8 @@ static IrInstruction *newMoveInstruction(IrContext *ctx, IrOperand *src, IrOpera
 
 static IrInstruction *newGotoInstruction(IrContext *ctx, IrBasicBlock *bb) {
     IrInstruction *instr = newInstruction(ctx, IR_BRANCH);
-    IrOperand *op = newIrOperand(ctx, IR_LABEL, IR_BLOCK);
+    IrOperand *op = newLabelOperand(ctx, bb);
 
-    op->data.bb = bb;
     addInstructionUse(ctx, instr, op);
 
     return instr;
@@ -244,11 +320,8 @@ static IrInstruction *newGotoInstruction(IrContext *ctx, IrBasicBlock *bb) {
 static IrInstruction *newCondBranch(IrContext *ctx, IrOperand *cond, IrBasicBlock *thenBB, IrBasicBlock *elseBB) {
     IrInstruction *instr = newInstruction(ctx, IR_CBRANCH);
 
-    IrOperand *thenOp = newIrOperand(ctx, IR_LABEL, IR_BLOCK);
-    IrOperand *elseOp = newIrOperand(ctx, IR_LABEL, IR_BLOCK);
-
-    thenOp->data.bb = thenBB;
-    elseOp->data.bb = elseBB;
+    IrOperand *thenOp = newLabelOperand(ctx, thenBB);
+    IrOperand *elseOp = newLabelOperand(ctx, elseBB);
 
     addOperandTail(ctx, &instr->uses, cond);
     addOperandTail(ctx, &instr->uses, thenOp);
@@ -272,16 +345,6 @@ static IrBasicBlock *updateBlock(IrContext *ctx) {
     return newBlock;
 }
 
-
-static void addSuccessor(IrContext *ctx, IrBasicBlock *block, IrBasicBlock *succ) {
-    addBBTail(ctx, &block->succs, succ);
-    addBBTail(ctx, &succ->preds, block);
-}
-
-static void addPredecessor(IrContext *ctx, IrBasicBlock *block, IrBasicBlock *pred) {
-    addBBTail(ctx, &block->preds, pred);
-    addBBTail(ctx, &pred->succs, block);
-}
 
 static void addInstruction(IrContext *ctx, IrInstruction *instr) {
     IrBasicBlock *bb = ctx->currentBB;
@@ -593,7 +656,7 @@ static Boolean isNullConst(AstExpression *expr) {
 static size_t translateInitializerIntoMemory(IrContext *ctx, IrOperand *base, int32_t offset, size_t typeSize, const AstInitializer *initializer) {
 
   assert(ctx->addressTM == IR_TM_RVALUE);
- 
+
   switch (initializer->kind) {
   case IK_EXPRESSION: {
 	AstExpression *expr = initializer->expression;
@@ -624,7 +687,7 @@ static size_t translateInitializerIntoMemory(IrContext *ctx, IrOperand *base, in
 		addInstructionUse(ctx, addInstr, offsetOp);
 		addInstructionDef(ctx, addInstr, dstOp);
 		addInstruction(ctx, addInstr);
-        generateCompositeCopy(ctx, slotType, valueOp, dstOp, expr);	
+        generateCompositeCopy(ctx, slotType, valueOp, dstOp, expr);
 	  } else if (slotType->kind == TR_BITFIELD) {
 		// TODO
 		unimplemented("BitField initializer");
@@ -902,6 +965,7 @@ static IrOperand *translateLogicalExpression(IrContext *ctx, AstExpression *expr
     IrOperand *leftOp = translateExpression(ctx, expr->binaryExpr.left);
     IrOperand *result = newVreg(ctx, IR_I32);
 
+    IrBasicBlock *fst = ctx->currentBB;
     IrBasicBlock *scnd = newBasicBlock(ctx, isAndAnd ? "<&&>" : "<||>");
     IrBasicBlock *exit = newBasicBlock(ctx, isAndAnd ? "<&&-exit>" : "<||-exit>");
 
@@ -916,9 +980,9 @@ static IrOperand *translateLogicalExpression(IrContext *ctx, AstExpression *expr
 
     ctx->currentBB = exit;
     IrInstruction *phi = newInstruction(ctx, IR_PHI);
-    addOperandTail(ctx, &phi->defs, result);
-    addOperandTail(ctx, &phi->uses, leftOp);
-    addOperandTail(ctx, &phi->uses, rightOp);
+    addInstructionDef(ctx, phi, result);
+    addPhiInput(ctx, phi, leftOp, fst);
+    addPhiInput(ctx, phi, rightOp, scnd);
 
     addInstruction(ctx, phi);
 
@@ -1662,7 +1726,7 @@ static void translateLocalInitializer(IrContext *ctx, AstValueDeclaration *v) {
 	assert(lvi != NULL);
 
     const AstInitializer *init = v->initializer;
-    if (init == NULL) 
+    if (init == NULL)
       return; // we are done here
 
     const size_t typeSize = computeTypeSize(v->type);
@@ -1689,7 +1753,7 @@ static void translateLocalInitializer(IrContext *ctx, AstValueDeclaration *v) {
       assert(localOp != NULL);
       //  2. Has scalar type
       assert(!isCompositeType(v->type));
-     
+
       if (init->kind == IK_EXPRESSION) {
         IrOperand *valueOp = translateExpression(ctx, init->expression);
 
@@ -1697,7 +1761,7 @@ static void translateLocalInitializer(IrContext *ctx, AstValueDeclaration *v) {
         addInstruction(ctx, moveInstr);
       } else {
         IrOperand *tmp = createAllocaSlot(ctx, typeSize);
-        IrOperand *offsetOp = createIntegerConstant(ctx, IR_I64, 0); 
+        IrOperand *offsetOp = createIntegerConstant(ctx, IR_I64, 0);
         translateInitializerIntoMemory(ctx, tmp, 0, typeSize, init);
 
         IrInstruction *loadInstr = newInstruction(ctx, IR_M_LOAD);
@@ -2396,11 +2460,17 @@ static uint32_t buildInitialIr(IrContext *ctx, IrFunction *func, AstFunctionDefi
          local != NULL;
          local = local->next, ++numOfLocals);
 
-    LocalValueInfo *localOperandsMap = areanAllocate(ctx->irArena, (numOfParams + numOfLocals) * sizeof (LocalValueInfo));
+    size_t numOfReturnSlots = 0;
+    if (!isVoidType(declaration->returnType)) {
+        enum IrTypeKind type = typeRefToIrType(declaration->returnType);
+        func->retOperand = newIrOperand(ctx, type, IR_LOCAL);
+        numOfReturnSlots = 1;
+    }
+
+    LocalValueInfo *localOperandsMap = areanAllocate(ctx->irArena, (numOfParams + numOfLocals + numOfReturnSlots) * sizeof (LocalValueInfo));
     ctx->localOperandMap = localOperandsMap;
     func->localOperandMap = localOperandsMap;
     func->numOfLocals = numOfParams + numOfLocals;
-    
 
     int32_t frameOffset = 0;
 
@@ -2412,6 +2482,7 @@ static uint32_t buildInitialIr(IrContext *ctx, IrFunction *func, AstFunctionDefi
         IrOperand *op = newIrOperand(ctx, type, IR_LOCAL);
         op->ast.v = param;
         param->index2 = idx;
+        op->data.lid = idx;
         localOperandsMap[idx].initialOp = op;
         localOperandsMap[idx].declaration = param;
         frameOffset += alignSize(computeTypeSize(param->type), sizeof (intptr_t));
@@ -2426,6 +2497,7 @@ static uint32_t buildInitialIr(IrContext *ctx, IrFunction *func, AstFunctionDefi
         enum IrTypeKind type = typeRefToIrType(local->type);
         IrOperand *op = newIrOperand(ctx, type, IR_LOCAL);
         op->ast.v = local;
+        op->data.lid = idx;
         localOperandsMap[idx].initialOp = op;
         localOperandsMap[idx].declaration = local;
         localOperandsMap[idx].frameOffset = frameOffset;
@@ -2436,9 +2508,9 @@ static uint32_t buildInitialIr(IrContext *ctx, IrFunction *func, AstFunctionDefi
 	printf("idx = %lu (%lu), numOfLocals = %lu\n", idx, idx - numOfParams, numOfLocals);
     assert((idx - numOfParams)  == numOfLocals);
 
-    if (!isVoidType(declaration->returnType)) {
-        enum IrTypeKind type = typeRefToIrType(declaration->returnType);
-        func->retOperand = newIrOperand(ctx, type, IR_LOCAL);
+    if (numOfReturnSlots) {
+      localOperandsMap[idx].initialOp = func->retOperand;
+      func->retOperand->data.lid = idx;
     }
 
     IrOperand *frameOp = ctx->frameOp = newIrOperand(ctx, IR_PTR, IR_FRAME_PTR);
@@ -2489,20 +2561,20 @@ static void computeDominationSets(BitSet *dom, size_t blockCount, IrFunction *fu
         if (bb == entryBB)
           continue;
         setAll(&temp);
-        printf("Check block #%lu...\n", bb->id);
+        printf("Check block #%u...\n", bb->id);
         for (IrBasicBlockListNode *pn = bb->preds.head; pn != NULL; pn = pn->next) {
           IrBasicBlock *pred = pn->block;
           intersectBitSets(&temp, &dom[pred->id], &temp);
         }
         setBit(&temp, bb->id);
         if (compareBitSets(&dom[bb->id], &temp) != 0) {
-          printf("Block #%lu changed state\n", bb->id);
+          printf("Block #%u changed state\n", bb->id);
           changed = TRUE;
           copyBitSet(&temp, &dom[bb->id]);
         }
       }
     }
-    
+
     releaseBitSet(&temp);
 }
 
@@ -2520,8 +2592,7 @@ static IrBasicBlock *closestDominator(const IrBasicBlock *block, const BitSet *d
     return closestDominator(pred, dominationSet);
 }
 
-
-static void buildDominatorTreeImpl(IrFunction *func, BitSet *domSets, const size_t blockCount) {
+static void buildDominatorTree(IrContext *ctx, IrFunction *func, BitSet *domSets, const size_t blockCount) {
     // Algorithm DT
 
     IrBasicBlock *entryBB = func->entry;
@@ -2537,14 +2608,25 @@ static void buildDominatorTreeImpl(IrFunction *func, BitSet *domSets, const size
         if (countBits(blockDomSet) == 1) {
           assert(getBit(blockDomSet, entryBB->id));
           bb->dominators.sdom = entryBB;
+          continue;
         }
 
         bb->dominators.sdom = closestDominator(bb, blockDomSet);
+    }
+
+    for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
+      IrBasicBlock *bb = bn->block;
+      IrBasicBlock *dominator = bb->dominators.sdom;
+      if (dominator != NULL) {
+        addBBTail(ctx, &dominator->dominators.dominatees, bb);
+      }
     }
 }
 
 
 static void buildDominationFrontier(IrContext *ctx, IrFunction *func, BitSet *bitsets, const size_t blockCount) {
+    // Algorithm DF
+
     for (size_t idx = 0; idx < blockCount; ++idx) {
       clearAll(&bitsets[idx]);
     }
@@ -2576,26 +2658,253 @@ static void buildDominationFrontier(IrContext *ctx, IrFunction *func, BitSet *bi
     }
 }
 
-static void buildDominatorTree(IrContext *ctx, IrFunction *func) {
+static void buildDominatorInfo(IrContext *ctx, IrFunction *func) {
 
     const size_t blockCount = ctx->bbCnt;
-    BitSet *dom = malloc(blockCount * sizeof(BitSet));
+    BitSet *dom = heapAllocate(blockCount * sizeof(BitSet));
     for (size_t idx = 0; idx < blockCount; ++idx) {
       initBitSet(&dom[idx], blockCount);
     }
 
     computeDominationSets(dom, blockCount, func);
-    buildDominatorTreeImpl(func, dom, blockCount);
+    buildDominatorTree(ctx, func, dom, blockCount);
     buildDominationFrontier(ctx, func, dom, blockCount);
 
     for (size_t idx = 0; idx < blockCount; ++idx) {
       releaseBitSet(&dom[idx]);
     }
-    free(dom);
+    releaseHeap(dom);
+}
+
+
+static void collectLocalDefs(BitSet *defBitSets, IrFunction *func) {
+
+  for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
+    IrBasicBlock *bb = bn->block;
+    for (IrInstructionListNode *in = bb->instrs.head; in != NULL; in = in->next) {
+      IrInstruction *instr = in->instr;
+      for (IrOperandListNode *dn = instr->defs.head; dn != NULL; dn = dn->next) {
+        IrOperand *def = dn->op;
+        if (def->kind != IR_LOCAL)
+          continue;
+
+        setBit(&defBitSets[def->data.lid], bb->id);
+      }
+    }
+  }
+}
+
+static intptr_t phi_key(uint32_t lid, uint32_t bid) {
+  const intptr_t k = lid;
+  return k << 32 | bid;
+}
+
+static int phi_key_hashcode(intptr_t k) {
+  const intptr_t mask = (1LL << 32) - 1;
+  return ((k >> 32) & mask) ^ (k & mask);
+}
+
+static int phi_key_compare(intptr_t l, intptr_t r) {
+  return l - r;
+}
+
+
+static void insertPhi(IrContext *ctx, IrBasicBlock *phiBlock, IrBasicBlock *defBlock, LocalValueInfo *lvi) {
+    IrOperand *localOp = lvi->initialOp;
+
+    IrInstruction *phiInstr = newInstruction(ctx, IR_PHI);
+    phiInstr->info.lvi = lvi;
+
+    addInstructionDef(ctx, phiInstr, localOp);
+    addInstuctionHead(ctx, &phiBlock->instrs, phiInstr);
+
+    for (IrBasicBlockListNode *pn = phiBlock->preds.head; pn != NULL; pn = pn->next) {
+      addPhiInput(ctx, phiInstr, localOp, pn->block);
+    }
+}
+
+static void insertPhiNodes(IrContext *ctx, IrFunction *func) {
+    // Algorithm SI
+    Vector stack;
+    initVector(&stack, INITIAL_VECTOR_CAPACITY);
+    uint32_t iter = 0;
+
+    size_t numOfLocalOps = func->numOfLocals;
+    if (func->retOperand)
+      numOfLocalOps += 1;
+
+    BitSet *bitsets = heapAllocate(numOfLocalOps * 2 * sizeof(BitSet));
+    BitSet *defBitSets = bitsets;
+    BitSet *insertBitSets = bitsets + numOfLocalOps;
+    const size_t blockCount = ctx->bbCnt;
+
+    for (size_t i = 0; i < numOfLocalOps; ++i) {
+      initBitSet(&defBitSets[i], blockCount);
+      initBitSet(&insertBitSets[i], blockCount);
+    }
+
+    collectLocalDefs(defBitSets, func);
+
+    for (size_t i = 0; i < numOfLocalOps; ++i) {
+        BitSet *defSet = &defBitSets[i];
+        for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
+          IrBasicBlock *bb = bn->block;
+          if (getBit(defSet, bb->id)) {
+            pushToStack(&stack, (intptr_t)bb);
+          }
+        }
+
+        BitSet *insertSet = &insertBitSets[i];
+        LocalValueInfo *lvi = &func->localOperandMap[i];
+        while (stack.size > 0) {
+          IrBasicBlock *defBlock = (IrBasicBlock *)popFromStack(&stack);
+          for (IrBasicBlockListNode *fn = defBlock->dominators.dominationFrontier.head; fn != NULL; fn = fn->next) {
+            IrBasicBlock *fb = fn->block;
+            if (getBit(insertSet, fb->id)) {
+              continue;
+            }
+            iter++;
+
+            insertPhi(ctx, fb, defBlock, lvi);
+            setBit(insertSet, fb->id);
+
+            pushToStack(&stack, (intptr_t) fb);
+          }
+        }
+    }
+
+    for (size_t i = 0; i < numOfLocalOps; ++i) {
+      releaseBitSet(&defBitSets[i]);
+      releaseBitSet(&insertBitSets[i]);
+    }
+
+    releaseVector(&stack);
+    releaseHeap(bitsets);
+}
+
+static IrOperand *vregForLocal(IrOperand *local) {
+    assert(local != NULL);
+    IrOperand *v = newVreg(ctx, local->type);
+    v->ast = local->ast;
+    v->astType = local->astType;
+    return v;
+}
+
+static void replacePhiInputs(IrBasicBlock *defBlock, IrBasicBlock *phiBlock, Vector *stacks) {
+  printf("Replace phi inputs in #%u coming from #%u...\n", phiBlock->id, defBlock->id);
+  for (IrInstructionListNode *in = phiBlock->instrs.head; in != NULL; in = in->next) {
+    IrInstruction *instr = in->instr;
+    if (instr->kind != IR_PHI) { // assume all phi-nodes are at the beginning of block's instruciton list
+      return;
+    }
+
+    for (IrOperandListNode *un = instr->uses.head; un != NULL; un = un->next->next) {
+      IrOperand *valueOp = un->op;
+      if (valueOp->kind != IR_LOCAL)
+        continue; // already replaced
+
+      assert(un->next != NULL);
+      IrOperand *blockOp = un->next->op;
+      assert(blockOp->kind == IR_BLOCK);
+      assert(blockOp->type == IR_LABEL);
+      if (blockOp->data.bb == defBlock) {
+        uint32_t lviIdx = valueOp->data.lid;
+        IrOperand *inputOp = (IrOperand *)topOfStack(&stacks[lviIdx]);
+        assert(inputOp != NULL);
+        assert(inputOp->kind == IR_VREG);
+        assert(inputOp->type == valueOp->type);
+        assert(inputOp->astType == valueOp->astType);
+        un->op = inputOp;
+        printf("  replace phi (id = %u) input for @%u -> %c%u\n", instr->id, lviIdx, '%', inputOp->data.vid);
+        break;
+      }
+    }
+  }
+}
+
+static void renameLocalsImpl(IrBasicBlock *block, LocalValueInfo *lvis, Vector *stacks, const size_t numOfLocalOps) {
+  // Algorithm SR
+
+  size_t *resetPoints = (size_t *)heapAllocate(numOfLocalOps * sizeof(size_t));
+  memset(resetPoints, 0, numOfLocalOps * sizeof(size_t));
+
+  for (IrInstructionListNode *in = block->instrs.head; in != NULL; in = in->next) {
+    IrInstruction *instr = in->instr;
+    if (instr->kind != IR_PHI) {
+      for (IrOperandListNode *un = instr->uses.head; un != NULL; un = un->next) {
+        IrOperand *useOp = un->op;
+        if (useOp->kind == IR_LOCAL) {
+          IrOperand *current = (IrOperand *)topOfStack(&stacks[useOp->data.lid]);
+          assert(current != NULL);
+          assert(current->kind == IR_VREG);
+          assert(current->type == useOp->type);
+          assert(current->astType == useOp->astType);
+          un->op = current;
+        }
+      }
+    }
+
+    for (IrOperandListNode *dn = instr->defs.head; dn != NULL; dn = dn->next) {
+      IrOperand *defOp = dn->op;
+      if (defOp->kind == IR_LOCAL) {
+        uint32_t lviIdx = defOp->data.lid;
+        IrOperand *newDef = vregForLocal(defOp);
+        pushToStack(&stacks[lviIdx], (intptr_t) newDef);
+        resetPoints[lviIdx] += 1;
+        dn->op = newDef;
+      }
+    }
+  }
+
+  for (IrBasicBlockListNode *sn = block->succs.head; sn != NULL; sn = sn->next) {
+    IrBasicBlock *succ = sn->block;
+    replacePhiInputs(block, succ, stacks);
+  }
+
+  for (IrBasicBlockListNode *dn = block->dominators.dominatees.head; dn != NULL; dn = dn->next) {
+    IrBasicBlock *dominatee = dn->block;
+    renameLocalsImpl(dominatee, lvis, stacks, numOfLocalOps);
+  }
+
+  for (size_t i = 0; i < numOfLocalOps; ++i) {
+    popOffStack(&stacks[i], resetPoints[i]);
+  }
+
+  releaseHeap(resetPoints);
+}
+
+static void renameLocals(IrFunction *func) {
+    // Algorithm SR (init part)
+
+    size_t numOfLocalOps = func->numOfLocals;
+    if (func->retOperand)
+      numOfLocalOps += 1;
+
+    Vector *stacks = heapAllocate(numOfLocalOps * sizeof (Vector));
+    for (size_t i = 0; i < numOfLocalOps; ++i) {
+      initVector(&stacks[i], INITIAL_VECTOR_CAPACITY);
+
+      LocalValueInfo *lvi = &func->localOperandMap[i];
+      assert(lvi != NULL);
+      assert(i == lvi->initialOp->data.lid);
+      IrOperand *v0 = vregForLocal(lvi->initialOp);
+
+      pushToStack(&stacks[i], (intptr_t) v0);
+    }
+
+    renameLocalsImpl(func->entry, func->localOperandMap, stacks, numOfLocalOps);
+
+    for (size_t i = 0; i < numOfLocalOps; ++i)
+      releaseVector(&stacks[i]);
+
+    releaseHeap(stacks);
+
 }
 
 static void buildSSA(IrContext *ctx, IrFunction *func) {
-  buildDominatorTree(ctx, func);
+  buildDominatorInfo(ctx, func);
+  insertPhiNodes(ctx, func);
+  renameLocals(func);
 }
 
 static IrFunction *translateFunction(IrContext *ctx, AstFunctionDefinition *function) {

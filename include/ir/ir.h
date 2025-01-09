@@ -61,6 +61,7 @@ struct _IrBasicBlock {
     struct {
       struct _IrBasicBlock *sdom; // strict dominator
       struct _IrBasicBlockList dominationFrontier;
+      struct _IrBasicBlockList dominatees;
     } dominators;
 
     const char *name;
@@ -136,6 +137,7 @@ struct _IrInstruction {
     union {
         enum IrTypeKind fromCastType;
 		size_t stackSize;
+        struct _LocalValueInfo *lvi; // for phi nodes
     } info;
 
     struct {
@@ -173,6 +175,7 @@ struct _IrOperand {
     union {
         uint32_t vid;
         uint32_t pid;
+        uint32_t lid;
         struct _IrBasicBlock *bb;
         uint32_t literalIndex;
         struct {
