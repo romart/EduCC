@@ -509,7 +509,7 @@ static IrOperand *encodeBitField(TypeRef *type, IrOperand *storageOp, IrOperand 
 	addInstructionDef(storageMask, maskedStorageOp);
 	addInstruction(storageMask);
 
-	IrInstruction *shiftValueInstr = newInstruction(IR_E_LHS);
+	IrInstruction *shiftValueInstr = newInstruction(IR_E_SHL);
 	IrOperand *shiftOp = createIntegerConstant(irMemoryType, s);
 	IrOperand *shiftedValueOp = newVreg(IR_I32);
 	addInstructionUse(shiftValueInstr, valueOp);
@@ -555,7 +555,7 @@ static IrOperand *decodeBitField(TypeRef *type, IrOperand *storageOp) {
     IrOperand *shlOp = newVreg(irMemoryType);
     shlOp->astType = memoryType;
 
-    IrInstruction *shlInstr = newInstruction(IR_E_LHS);
+    IrInstruction *shlInstr = newInstruction(IR_E_SHL);
     addInstructionUse(shlInstr, loadedValue);
     addInstructionUse(shlInstr, shlSizeOp);
     addInstructionDef(shlInstr, shlOp);
@@ -566,7 +566,7 @@ static IrOperand *decodeBitField(TypeRef *type, IrOperand *storageOp) {
     IrOperand *shrOp = newVreg(irMemoryType);
     shrOp->astType = memoryType;
 
-    IrInstruction *shrInstr = newInstruction(IR_E_LHS);
+    IrInstruction *shrInstr = newInstruction(IR_E_SHR);
     addInstructionUse(shrInstr, shlOp);
     addInstructionUse(shrInstr, shrSizeOp);
     addInstructionDef(shrInstr, shrOp);
@@ -1027,8 +1027,8 @@ static enum IrIntructionKind getBinaryArith(ExpressionType op, Boolean isFloatOp
     case EB_MUL: k = isFloatOperand ? IR_E_FMUL : IR_E_MUL; break;
     case EB_DIV: k = isFloatOperand ? IR_E_FDIV : IR_E_DIV; break;
     case EB_MOD: k = isFloatOperand ? IR_E_FMOD : IR_E_MOD; break;
-    case EB_LHS: assert(!isFloatOperand); k = IR_E_LHS; break;
-    case EB_RHS: assert(!isFloatOperand); k = IR_E_RHS; break;
+    case EB_LHS: assert(!isFloatOperand); k = IR_E_SHL; break;
+    case EB_RHS: assert(!isFloatOperand); k = IR_E_SHR; break;
     case EB_AND: assert(!isFloatOperand); k = IR_E_AND; break;
     case EB_OR:  assert(!isFloatOperand); k = IR_E_OR; break;
     case EB_XOR: assert(!isFloatOperand); k = IR_E_XOR; break;
@@ -1427,7 +1427,7 @@ static IrOperand *translateArrayAccess(AstExpression *expr) {
             scaledIndexOp = newVreg(indexIrType);
             if (isPowerOf2(elementSize)) {
                 IrOperand *elementSizeOpScale = createIntegerConstant(IR_I32, log2Integer(elementSize));
-                IrInstruction *shlInstr = newInstruction(IR_E_LHS);
+                IrInstruction *shlInstr = newInstruction(IR_E_SHL);
                 addInstructionUse(shlInstr, indexOp);
                 addInstructionUse(shlInstr, elementSizeOpScale);
                 addInstructionDef(shlInstr, scaledIndexOp);
