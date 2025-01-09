@@ -90,6 +90,21 @@ static int32_t dumpIrBlockHeader(FILE *stream, const IrBasicBlock *b) {
     r += fputc(']', stream);
   }
 
+  if (b->dominators.dominatees.head) {
+    r += fprintf(stream, ", dominatess [");
+    Boolean first = TRUE;
+
+	for (IrBasicBlockListNode *fn = b->dominators.dominatees.head; fn != NULL; fn  = fn->next) {
+      if (first)
+        first = FALSE;
+      else
+        r += fprintf(stream, ", ");
+	  r += fprintf(stream, "#%u", fn->block->id);
+	}
+    r += fputc(']', stream);
+
+  }
+
   return r;
 }
 
@@ -268,11 +283,9 @@ static void buildDotForFunction(FILE *stream, const IrFunction *f) {
 
     for (IrBasicBlockListNode *bn = f->blocks.head; bn != NULL; bn = bn->next) {
       const IrBasicBlock *bb = bn->block;
-      fprintf(stream, "    %s_%u [label=\"", funcName, bb->id);
+      fprintf(stream, "    %s_%u [label=\"#%u", funcName, bb->id, bb->id);
       if (bb->name) {
-        fprintf(stream, "%s", bb->name);
-      } else {
-        fprintf(stream, "%u", bb->id);
+        fprintf(stream, " | %s", bb->name);
       }
       fprintf(stream, "\"];\n");
     }
