@@ -13,7 +13,7 @@ void addToVector(Vector* vector, intptr_t value) {
     if (vector->size == vector->capacity) {
         int newCapacity = (int)(vector->capacity * 1.2f) ;
         intptr_t* newStorage = (intptr_t*)heapAllocate(sizeof(intptr_t) * newCapacity);
-        memcpy(newStorage, vector->storage, vector->capacity);
+        memcpy(newStorage, vector->storage, vector->capacity * sizeof(intptr_t));
         releaseHeap(vector->storage);
         vector->storage = newStorage;
         vector->capacity = newCapacity;
@@ -22,7 +22,8 @@ void addToVector(Vector* vector, intptr_t value) {
     vector->storage[vector->size++] = value;
 }
 
-static void initVector(Vector* vector, int capacity) {
+void initVector(Vector* vector, int capacity) {
+    vector->size = 0;
     vector->capacity = capacity;
     vector->storage = (intptr_t*)heapAllocate(sizeof(intptr_t) * capacity);
 }
@@ -36,13 +37,36 @@ Vector* createVector(int capacity) {
 
 void releaseVector(Vector *vector) {
     releaseHeap(vector->storage);
-    releaseHeap(vector);
+//    releaseHeap(vector);
 }
 
 intptr_t getFromVector(Vector* vector, int idx) {
     assert(idx < vector->size);
     return vector->storage[idx];
 }
+
+void pushToStack(Vector *v, intptr_t o) {
+    addToVector(v, o);
+}
+
+intptr_t popFromStack(Vector *v) {
+  intptr_t r =  topOfStack(v);
+  v->size -= 1;
+  return r;
+}
+
+intptr_t topOfStack(Vector *v) {
+  assert(v->size > 0);
+  return getFromVector(v, v->size - 1);
+}
+
+void popOffStack(Vector *v, size_t pops) {
+  assert(v->size - pops >= 0);
+  v->size -= pops;
+}
+
+// =====================================================
+
 
 struct LinkedNode {
     struct LinkedNode* next;

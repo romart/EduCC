@@ -16,7 +16,13 @@ typedef struct _Vector {
 void addToVector(Vector* vector, intptr_t value);
 Vector* createVector(int capacity);
 intptr_t getFromVector(Vector* vector, int idx);
+void initVector(Vector* vector, int capacity);
 void releaseVector(Vector *vector);
+
+void pushToStack(Vector *v, intptr_t o);
+intptr_t popFromStack(Vector *v);
+intptr_t topOfStack(Vector *v);
+void popOffStack(Vector *v, size_t pops);
 
 #define DEFAULT_MAP_CAPACITY 1024
 
