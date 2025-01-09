@@ -125,6 +125,14 @@ struct _IrInstruction {
     struct _IrOperandList uses;
     struct _IrOperandList defs;
 
+    Vector uses2;
+    Vector inputs;
+
+    struct _IrInstruction *next, *prev;
+
+    struct _IrBasicBlock *block;
+
+    TypeRef *astType;
     enum IrIntructionKind kind;
     enum IrTypeKind type;
 
@@ -163,6 +171,8 @@ struct _IrOperand {
     enum IrTypeKind type;
 
     const TypeRef *astType;
+    Vector uses;
+    struct _IrInstruction *def;
 
     uint32_t flags;
     uint32_t id;
@@ -237,7 +247,9 @@ struct _IrContext {
     enum IrTranslationMode addressTM;
 
     struct _IrOperand *frameOp;
+    struct _IrOperand *stackOp;
     struct _IrOperand *lastOp;
+
 
     // TODO: declarations
 };
@@ -260,7 +272,7 @@ typedef struct _SwitchTable SwitchTable;
 void initializeIrContext(struct _IrContext *ctx, struct _ParserContext* pctx);
 void releaseIrContext(struct _IrContext *ctx);
 
-struct _IrFunctionList translateAstToIr(struct _IrContext *ctx, AstFile *file);
+struct _IrFunctionList translateAstToIr(AstFile *file);
 
 void dumpIrFunctionList(const char *fileName, const IrFunctionList *functions);
 void buildDotGraphForFunctionList(const char *fileName, const IrFunctionList *functions);
