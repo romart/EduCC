@@ -3584,7 +3584,7 @@ void compileFile(Configuration * config) {
 	if (config->experimental) {
 	  IrContext irCtx;
 	  initializeIrContext(&irCtx, &context);
-	  IrFunctionList irFunctions = translateAstToIr(&irCtx, astFile);
+	  IrFunctionList irFunctions = translateAstToIr(astFile);
 
 	  if (config->irDumpFileName) {
 		dumpIrFunctionList(config->irDumpFileName, &irFunctions);
