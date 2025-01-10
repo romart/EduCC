@@ -35,6 +35,10 @@ Vector* createVector(int capacity) {
     return result;
 }
 
+void clearVector(Vector *v) {
+  v->size = 0;
+}
+
 void releaseVector(Vector *vector) {
     releaseHeap(vector->storage);
 //    releaseHeap(vector);
