@@ -91,7 +91,7 @@ static int32_t dumpIrBlockHeader(FILE *stream, const IrBasicBlock *b) {
   }
 
   if (b->dominators.dominatees.head) {
-    r += fprintf(stream, ", dominatess [");
+    r += fprintf(stream, ", dominatees [");
     Boolean first = TRUE;
 
 	for (IrBasicBlockListNode *fn = b->dominators.dominatees.head; fn != NULL; fn  = fn->next) {
