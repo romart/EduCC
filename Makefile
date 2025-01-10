@@ -33,6 +33,9 @@ SOURCES=\
     $(SRCDIR)/riscv64/instructions_riscv64.c \
     $(SRCDIR)/ir/ir.c \
     $(SRCDIR)/ir/irdump.c \
+    $(SRCDIR)/ir/ast2ir.c \
+    $(SRCDIR)/ir/dominators.c \
+    $(SRCDIR)/ir/ssa.c \
 
 OBJ=$(patsubst %.c,%.o,$(subst $(SRCDIR)/,$(OBJDIR)/, $(SOURCES)))
 

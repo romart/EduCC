@@ -27,7 +27,7 @@ struct _IrFunction {
     struct _IrBasicBlock *exit;
 
     struct _IrOperand *retOperand;
-    
+
     size_t numOfLocals;
     struct _LocalValueInfo *localOperandMap;
 
@@ -69,6 +69,11 @@ struct _IrBasicBlock {
 
     struct _IrInstructionList instrs;
     struct _IrInstruction *term;
+
+    struct {
+      struct _IrInstruction *head;
+      struct _IrInstruction *tail;
+    } instrunctions;
 
     uint32_t id;
 
@@ -269,10 +274,81 @@ typedef struct _IrFunctionListNode IrFunctionListNode;
 typedef struct _IrFunctionList IrFunctionList;
 typedef struct _SwitchTable SwitchTable;
 
+
+IrOperandListNode *newOpListNode(IrOperand *op);
+void addOperandTail(IrOperandList *list, IrOperand *op);
+IrInstructionListNode *newInstListNode(IrInstruction *instr);
+void addInstuctionTail(IrInstructionList *list, IrInstruction *instr);
+void addInstuctionHead(IrInstructionList *list, IrInstruction *instr);
+
+IrBasicBlockListNode *newBBListNode(IrBasicBlock *bb);
+void addBBTail(IrBasicBlockList *list, IrBasicBlock *bb);
+IrFunctionListNode *newFunctionListNode(IrFunction *f);
+void addFunctionTail(IrFunctionList *list, IrFunction *function);
+IrBasicBlock *newBasicBlock(const char *name);
+
+
+void addSuccessor(IrBasicBlock *block, IrBasicBlock *succ);
+void addPredecessor(IrBasicBlock *block, IrBasicBlock *pred);
+
+IrOperand *newIrOperand(enum IrTypeKind type, enum IrOperandKind kind);
+IrOperand *newVreg(enum IrTypeKind type);
+IrOperand *newPreg(enum IrTypeKind type, uint32_t pid);
+IrOperand *newLabelOperand(IrBasicBlock *block);
+
+void addInstructionDef(IrInstruction *instr, IrOperand *def);
+void addInstructionUse(IrInstruction *instr, IrOperand *use);
+void addPhiInput(IrInstruction *instr, IrOperand *value, IrBasicBlock *block);
+
+IrInstruction *newInstruction(enum IrIntructionKind kind);
+IrInstruction *newMoveInstruction(IrOperand *src, IrOperand *dst);
+IrInstruction *newGotoInstruction(IrBasicBlock *bb);
+IrInstruction *newCondBranch(IrOperand *cond, IrBasicBlock *thenBB, IrBasicBlock *elseBB);
+IrInstruction *newTableBranch(IrOperand *cond, SwitchTable *table);
+
+IrBasicBlock *updateBlock();
+void addInstruction(IrInstruction *instr);
+void termintateBlock(IrInstruction *instr);
+void gotoToBlock(IrBasicBlock *gotoBB);
+
+void replaceInputWith(IrOperand *oldValue, IrOperand *newValue);
+void replaceInputIn(IrInstruction *instr, IrOperandListNode *opNode, IrOperand *newOp);
+
+typedef struct _ConstantCacheData {
+    ConstKind kind;
+    union {
+        int64_const_t i;
+        float80_const_t f;
+        struct {
+          literal_const_t s;
+          size_t length;
+        } l;
+    } data;
+    IrOperand *op;
+} ConstantCacheData;
+
+IrOperand *createIntegerConstant(enum IrTypeKind type, int64_const_t v);
+IrOperand *createFloatConstant(enum IrTypeKind type, float80_const_t v);
+IrOperand *getOrAddConstant(ConstantCacheData *data, enum IrTypeKind type);
+
+void removeInstruction(IrInstructionListNode *inode);
+
+void releaseOperand(IrOperand *op);
+void releaseInstruction(IrInstruction *instr);
+
+enum IrTypeKind sizeToMemoryType(int32_t size);
+
+IrOperand *addLoadInstr(enum IrTypeKind valueType, IrOperand *base, IrOperand *offset, const AstExpression *ast);
+void addStoreInstr(IrOperand *base, IrOperand *offset,IrOperand *value, const AstExpression *ast);
+
 void initializeIrContext(struct _IrContext *ctx, struct _ParserContext* pctx);
 void releaseIrContext(struct _IrContext *ctx);
 
 struct _IrFunctionList translateAstToIr(AstFile *file);
+
+void buildSSA(IrFunction *function);
+void buildDominatorInfo(IrContext *ctx, IrFunction *func);
+
 
 void dumpIrFunctionList(const char *fileName, const IrFunctionList *functions);
 void buildDotGraphForFunctionList(const char *fileName, const IrFunctionList *functions);
