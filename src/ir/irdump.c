@@ -114,50 +114,6 @@ static int32_t dumpIrInstructionKind(FILE *stream, const enum IrIntructionKind k
   return fprintf(stream, "%s", irInstructionsInfo[kind].mnemonic);
 }
 
-static int32_t dumpIrOperand(FILE *stream, const IrOperand *op);
-
-static int32_t dumpIrOperand(FILE *stream, const IrOperand *op) {
-  switch (op->kind) {
-	case IR_CONST:
-	  return fprintf(stream, "#%u", op->data.literalIndex);
-	case IR_VREG:
-	  return fprintf(stream, "%c%u", '%', op->data.vid);
-	case IR_PREG:
-	  return fprintf(stream, "$%u", op->data.pid);
-	case IR_LOCAL:
-	  return fprintf(stream, "@%u", op->id);
-	case IR_BLOCK:
-	  return fprintf(stream, "BB#%u", op->data.bb->id);
-	case IR_MEMORY: {
-	  int32_t r = 0;
-	  r += fputc('[', stream);
-	  r += dumpIrOperand(stream, op->data.address.base);
-	  r += fputc('+', stream);
-	  r += dumpIrOperand(stream, op->data.address.offset);
-	  r += fputc(']', stream);
-	  return r;
-	}
-	case IR_REFERENCE:
-	  return fprintf(stream, "<%s>", op->data.symbol->name);
-	case IR_FRAME_PTR:
-	  return fprintf(stream, "@FP");
-  }
-}
-
-static int32_t dumpIrOperandList(FILE *stream, const IrOperandList *list) {
-  int32_t r = 0;
-  Boolean first = TRUE;
-  for (IrOperandListNode *on = list->head; on != NULL; on = on->next) {
-	if (first)
-	  first = FALSE;
-	else
-	  r += fprintf(stream, ", ");
-
-	r += dumpIrOperand(stream, on->op);
-  }
-  return r;
-}
-
 static int32_t dumpIrInstructionExtra(FILE *stream, const IrInstruction *instr) {
   int32_t r = fputc('[', stream);
 

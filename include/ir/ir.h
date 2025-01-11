@@ -212,47 +212,6 @@ struct _IrInstruction {
     uint32_t id;
 };
 
-enum IrOperandKind {
-    IR_CONST,
-    IR_VREG,
-    IR_PREG,
-    IR_LOCAL, // for pre-SSA stage
-    IR_BLOCK,
-    IR_MEMORY,
-    IR_REFERENCE,
-    IR_FRAME_PTR,
-};
-
-struct _IrOperand {
-    enum IrOperandKind kind;
-    enum IrTypeKind type;
-
-    const TypeRef *astType;
-    Vector uses;
-    struct _IrInstruction *def;
-
-    uint32_t flags;
-    uint32_t id;
-
-    union {
-        const AstValueDeclaration *v;
-        const AstExpression *e;
-    } ast;
-
-    union {
-        uint32_t vid;
-        uint32_t pid;
-        uint32_t lid;
-        struct _IrBasicBlock *bb;
-        uint32_t literalIndex;
-        struct {
-            struct _IrOperand *base;
-            struct _IrOperand *offset;
-        } address;
-        struct _Symbol *symbol;
-    } data;
-};
-
 struct _SwitchTable {
     uint32_t caseCount;
     struct _CaseBlock *caseBlocks;
@@ -266,8 +225,6 @@ enum IrTranslationMode {
 
 typedef struct _LocalValueInfo {
     AstValueDeclaration *declaration;
-    struct _IrOperand *initialOp;
-    struct _IrOperand *phiOp;
     struct _IrInstruction *stackSlot;
 
     int32_t frameOffset; // using for both memory and spill
@@ -309,18 +266,13 @@ struct _IrContext {
     struct _IrInstruction *stackOp;
     struct _IrInstruction *lastOp;
 
-
-
     // TODO: declarations
 };
 
 typedef struct _IrFunction IrFunction;
 typedef struct _IrBasicBlock IrBasicBlock;
 typedef struct _IrInstruction IrInstruction;
-typedef struct _IrOperand IrOperand;
 typedef struct _IrContext IrContext;
-typedef struct _IrOperandListNode IrOperandListNode;
-typedef struct _IrOperandList IrOperandList;
 typedef struct _IrInstructionListNode IrInstructionListNode;
 typedef struct _IrInstructionList IrInstructionList;
 typedef struct _IrBasicBlockListNode IrBasicBlockListNode;
@@ -342,9 +294,6 @@ IrBasicBlock *newBasicBlock(const char *name);
 void addSuccessor(IrBasicBlock *block, IrBasicBlock *succ);
 void addPredecessor(IrBasicBlock *block, IrBasicBlock *pred);
 
-void addInstructionDef(IrInstruction *instr, IrOperand *def);
-void addInstructionUse(IrInstruction *instr, IrOperand *use);
-
 void addInstructionToVector(Vector *v, IrInstruction *instr);
 IrInstruction *getInstructionFromVector(const Vector *v, uint32_t i);
 IrBasicBlock *getBlockFromVector(const Vector *v, uint32_t i);
@@ -353,7 +302,6 @@ IrInstruction *newPhiInstruction(enum IrTypeKind irType);
 void addPhiInput(IrInstruction *instr, IrInstruction *value, IrBasicBlock *block);
 
 IrInstruction *newInstruction(enum IrIntructionKind kind, enum IrTypeKind type);
-IrInstruction *newMoveInstruction(IrOperand *src, IrOperand *dst);
 IrInstruction *newLabelInstruction(IrBasicBlock *block);
 IrInstruction *newPhysRegister(enum IrTypeKind type, uint32_t regId);
 IrInstruction *newGotoInstruction(IrBasicBlock *bb);
@@ -367,8 +315,6 @@ void addInstruction(IrInstruction *instr);
 void termintateBlock(IrInstruction *instr);
 void gotoToBlock(IrBasicBlock *gotoBB);
 
-void replaceInputWith(IrOperand *oldValue, IrOperand *newValue);
-void replaceInputIn(IrInstruction *instr, IrOperandListNode *opNode, IrOperand *newOp);
 void replaceInputAt(IrInstruction *instr, IrInstruction *v, size_t i);
 void replaceUsageWith(IrInstruction *instr, IrInstruction *newInstr);
 
@@ -385,7 +331,6 @@ IrInstruction *createLiteralConstant(const char *v, size_t l);
 
 void removeInstruction(IrInstructionListNode *inode);
 
-void releaseOperand(IrOperand *op);
 void releaseInstruction(IrInstruction *instr);
 
 enum IrTypeKind sizeToMemoryType(int32_t size);
