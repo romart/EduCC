@@ -268,15 +268,6 @@ IrInstruction *newInstruction(enum IrIntructionKind kind, enum IrTypeKind type) 
     return instr;
 }
 
-IrInstruction *newMoveInstruction(IrOperand *src, IrOperand *dst) {
-//    IrInstruction *instr = newInstruction(IR_MOVE, dst->type);
-//    addInstructionUse(instr, src);
-//    addInstructionDef(instr, dst);
-//    return instr;
-
-  return NULL;
-}
-
 IrInstruction *newGotoInstruction(IrBasicBlock *bb) {
     IrInstruction *instr = newInstruction(IR_BRANCH, IR_VOID);
     instr->info.branch.taken = bb;
@@ -356,23 +347,6 @@ void gotoToBlock(IrBasicBlock *gotoBB) {
     termintateBlock(gotoInstr);
 }
 
-void replaceInputWith(IrOperand *oldValue, IrOperand *newValue) {
-//  for (size_t i = 0; i < oldValue->uses.size; ++i) {
-//    IrInstruction *useInstr = (IrInstruction *)getFromVector(&oldValue->uses, i);
-//    for (IrOperandListNode *on = useInstr->uses.head; on != NULL; on = on->next) {
-//      IrOperand *op = on->op;
-//      if (op == oldValue) {
-//        on->op = newValue;
-//        addToVector(&newValue->uses, (intptr_t)useInstr);
-//      }
-//    }
-//  }
-//  clearVector(&oldValue->uses);
-
-  unimplemented("replace inputs");
-}
-
-
 void replaceInputAt(IrInstruction *instr, IrInstruction *v, size_t i) {
   assert(i < instr->inputs.size);
 
@@ -381,12 +355,6 @@ void replaceInputAt(IrInstruction *instr, IrInstruction *v, size_t i) {
 
   instr->inputs.storage[i] = (intptr_t)v;
   addInstructionToVector(&v->uses, instr);
-}
-
-void replaceInputIn(IrInstruction *instr, IrOperandListNode *opNode, IrOperand *newOp) {
-   // TODO: remove from old op uses
-   opNode->op = newOp;
-   addToVector(&newOp->uses, (intptr_t)instr);
 }
 
 void replaceUsageWith(IrInstruction *instr, IrInstruction *newInstr) {

@@ -335,16 +335,14 @@ static IrInstruction *translateNameRef(AstExpression *expr) {
     // If this is called we probably want a function reference.
     // Value references go through DEREF node
 
-    IrOperand *op = NULL;
     Symbol *s = expr->nameRefExpr.s;
-
 
     if (s->kind == FunctionSymbol || s->kind == ValueSymbol && !(s->variableDesc->flags.bits.isLocal || s->variableDesc->kind != VD_PARAMETER)) {
         // Either Function of non-local variable reference
         return createSymbolConstant(s);
     } else if (s->kind == ValueSymbol) {
         AstValueDeclaration *v = s->variableDesc;
-        printf("Translate referenece to variable %s...", v->name, v->index2);
+        printf("Translate referenece to variable[%u] %s...", v->index2, v->name);
 
         if (v->kind == VD_PARAMETER || v->flags.bits.isLocal) {
           assert(v->flags.bits.isLocal);
@@ -683,8 +681,6 @@ static IrInstruction *translateAssignArith(AstExpression *expr) {
     enum IrIntructionKind ik = getBinaryArith(binaryArith, isFloat);
     enum IrTypeKind valueType = typeRefToIrType(expr->type);
 
-    IrOperand *base = NULL, *offset = NULL;
-    IrOperand *resultOp = NULL;
 	IrInstruction *storageOp = NULL;
 
     IrInstruction *lhs = addLoadInstr(valueType, lvalue, expr);
