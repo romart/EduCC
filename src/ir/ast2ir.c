@@ -100,7 +100,7 @@ IrFunctionList translateAstToIr(AstFile *file) {
     return list;
 }
 
-static IrInstruction *encodeBitField(TypeRef *type, IrInstruction *storageOp, IrInstruction *valueOp) {
+static IrInstruction *encodeBitField(const TypeRef *type, IrInstruction *storageOp, IrInstruction *valueOp) {
     assert(type->kind == TR_BITFIELD);
     uint64_t w = type->bitFieldDesc.width;
     uint64_t s = type->bitFieldDesc.offset;
@@ -136,14 +136,14 @@ static IrInstruction *encodeBitField(TypeRef *type, IrInstruction *storageOp, Ir
     addInstruction(maskValueInstr);
 
 	IrInstruction *mergeInstr = newInstruction(IR_E_OR, irMemoryType);
-    addInstructionInput(maskValueInstr, storageMask);
-    addInstructionInput(maskValueInstr, maskValueInstr);
-    addInstruction(maskValueInstr);
+    addInstructionInput(mergeInstr, storageMask);
+    addInstructionInput(mergeInstr, maskValueInstr);
+    addInstruction(mergeInstr);
 
-    return maskValueInstr;
+    return mergeInstr;
 }
 
-static IrInstruction *decodeBitField(TypeRef *type, IrInstruction *storageOp) {
+static IrInstruction *decodeBitField(const TypeRef *type, IrInstruction *storageOp) {
     assert(type->kind == TR_BITFIELD);
     uint64_t w = type->bitFieldDesc.width;
     uint64_t mask = ~(~0LLu << w);
@@ -169,7 +169,7 @@ static IrInstruction *decodeBitField(TypeRef *type, IrInstruction *storageOp) {
     IrInstruction *shrInstr = newInstruction(IR_E_SHR, irMemoryType);
     addInstructionInput(shrInstr, shlInstr);
     addInstructionInput(shrInstr, shrSizeOp);
-    addInstruction(shlInstr);
+    addInstruction(shrInstr);
 
     // TODO: sign extend
 
