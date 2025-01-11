@@ -606,3 +606,18 @@ IrInstruction *addStoreInstr(IrInstruction *ptr, IrInstruction *value, const Ast
     return storeInstr;
 }
 
+IrInstruction *addBinaryOpeartion(enum IrIntructionKind op, IrInstruction *lhs, IrInstruction *rhs, enum IrTypeKind irType, TypeRef *astType, AstExpression *astExpr) {
+  // TODO: assert op is binary
+
+  IrInstruction *instr = newInstruction(op, irType);
+  addInstructionInput(instr, lhs);
+  addInstructionInput(instr, rhs);
+  addInstruction(instr);
+
+  instr->astType = astType;
+  instr->meta.astExpr = astExpr;
+
+  return instr;
+}
+
+
