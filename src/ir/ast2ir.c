@@ -267,8 +267,12 @@ static size_t translateInitializerIntoMemory(IrInstruction *base, int32_t offset
 	  if (isCompositeType(slotType)) {
         generateCompositeCopy(slotType, valueOp, ptr, expr);
 	  } else if (slotType->kind == TR_BITFIELD) {
-		// TODO
-		unimplemented("BitField initializer");
+        TypeRef *storageType = slotType->bitFieldDesc.storageType;
+        enum IrTypeKind irST = typeRefToIrType(storageType);
+        IrInstruction *storage = addLoadInstr(irST, ptr, NULL);
+        storage->astType = storageType;
+        IrInstruction *encodedValue = encodeBitField(slotType, storage, valueOp);
+        addStoreInstr(ptr, encodedValue, NULL);
 	  } else {
         addStoreInstr(ptr, valueOp, NULL);
 	  }
