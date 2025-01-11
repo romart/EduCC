@@ -471,6 +471,7 @@ static IrInstruction *translateNameRef(AstExpression *expr) {
         printf("Translate referenece to variable[%u] %s...", v->index2, v->name);
 
         if (v->kind == VD_PARAMETER || v->flags.bits.isLocal) {
+          assert(v->index2 != -1);
           assert(v->flags.bits.isLocal);
           LocalValueInfo *info = &ctx->localOperandMap[v->index2];
           assert(info != NULL);
@@ -646,7 +647,7 @@ static IrInstruction *translateCast(AstExpression *expr) {
 	enum IrTypeKind irFromType = typeRefToIrType(fromType);
 	enum IrTypeKind irToType = typeRefToIrType(toType);
 
-	IrInstruction *src = translateExpression(expr->castExpr.argument);
+	IrInstruction *src = translateRValue(expr->castExpr.argument);
 	IrInstruction *castInstr = newInstruction(IR_E_BITCAST, irToType);
 
     addInstructionInput(castInstr, src);
@@ -850,7 +851,7 @@ static IrInstruction *translateDeReference(AstExpression *expr) {
     IrInstruction *lvalue = translateLValue(expr->unaryExpr.argument);
     TypeRef *valueType = expr->type;
     TypeRef *ptrType = expr->unaryExpr.argument->type;
-    assert(isPointerLikeType(ptrType));
+    assert(isPointerLikeType(ptrType) || isFunctionalType(ptrType));
 
     if (ctx->addressTM == IR_TM_RVALUE) {
         if (isCompositeType(valueType) || isFunctionalType(valueType)) {
@@ -1532,7 +1533,7 @@ static Boolean translateFor(AstStatement *stmt) {
 }
 
 static void jumpToBlock(IrBasicBlock *target, AstStatement *ast) {
-    if (ctx->currentBB->term == NULL) {
+    if (ctx->currentBB && ctx->currentBB->term == NULL) {
         IrInstruction *gotoExit = newGotoInstruction(target);
         gotoExit->meta.astStmt = ast;
         addSuccessor(ctx->currentBB, target);
@@ -1738,6 +1739,7 @@ static Boolean translateSwitch(AstStatement *stmt) {
 
     ctx->breakBB = switchExitBB;
     ctx->defaultCaseBB = defaultBB;
+    ctx->switchTable = switchTable;
 
     IrInstruction *condOp = translateRValue(stmt->switchStmt.condition);
 
