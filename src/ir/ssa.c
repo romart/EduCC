@@ -5,171 +5,269 @@
 
 extern IrContext *ctx;
 
-static void collectLocalDefs(BitSet *defBitSets, IrFunction *func) {
+typedef struct _AllocaOptInfo {
+  IrInstruction *allocaInstr;
+  BitSet useBlocks;
+  BitSet defBlocks;
+  BitSet inserted;
+  size_t index;
+  IrInstruction **phiInBlocks;
+} AllocaOptInfo;
 
-  for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
-    IrBasicBlock *bb = bn->block;
-    for (IrInstructionListNode *in = bb->instrs.head; in != NULL; in = in->next) {
-      IrInstruction *instr = in->instr;
-      for (IrOperandListNode *dn = instr->defs.head; dn != NULL; dn = dn->next) {
-        IrOperand *def = dn->op;
-        if (def->kind != IR_LOCAL)
-          continue;
-
-        setBit(&defBitSets[def->data.lid], bb->id);
-      }
-    }
-  }
-}
-
-static void insertPhi(IrBasicBlock *phiBlock, IrBasicBlock *defBlock, LocalValueInfo *lvi) {
-    IrOperand *localOp = lvi->initialOp;
-
-    IrInstruction *phiInstr = newInstruction(IR_PHI);
-    phiInstr->info.lvi = lvi;
-
-    addInstructionDef(phiInstr, localOp);
-    addInstuctionHead(&phiBlock->instrs, phiInstr);
-
-    for (IrBasicBlockListNode *pn = phiBlock->preds.head; pn != NULL; pn = pn->next) {
-      addPhiInput(phiInstr, localOp, pn->block);
-    }
-}
-
-static void insertPhiNodes(IrFunction *func) {
-    // Algorithm SI
-    Vector stack;
-    initVector(&stack, INITIAL_VECTOR_CAPACITY);
-    uint32_t iter = 0;
-
-    size_t numOfLocalOps = func->numOfLocals;
-    if (func->retOperand)
-      numOfLocalOps += 1;
-
-    BitSet *bitsets = heapAllocate(numOfLocalOps * 2 * sizeof(BitSet));
-    BitSet *defBitSets = bitsets;
-    BitSet *insertBitSets = bitsets + numOfLocalOps;
-    const size_t blockCount = ctx->bbCnt;
-
-    for (size_t i = 0; i < numOfLocalOps; ++i) {
-      initBitSet(&defBitSets[i], blockCount);
-      initBitSet(&insertBitSets[i], blockCount);
-    }
-
-    collectLocalDefs(defBitSets, func);
-
-    for (size_t i = 0; i < numOfLocalOps; ++i) {
-        BitSet *defSet = &defBitSets[i];
-        for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
-          IrBasicBlock *bb = bn->block;
-          if (getBit(defSet, bb->id)) {
-            pushToStack(&stack, (intptr_t)bb);
-          }
-        }
-
-        BitSet *insertSet = &insertBitSets[i];
-        LocalValueInfo *lvi = &func->localOperandMap[i];
-        while (stack.size > 0) {
-          IrBasicBlock *defBlock = (IrBasicBlock *)popFromStack(&stack);
-          for (IrBasicBlockListNode *fn = defBlock->dominators.dominationFrontier.head; fn != NULL; fn = fn->next) {
-            IrBasicBlock *fb = fn->block;
-            if (getBit(insertSet, fb->id)) {
-              continue;
-            }
-            iter++;
-
-            insertPhi(fb, defBlock, lvi);
-            setBit(insertSet, fb->id);
-
-            pushToStack(&stack, (intptr_t) fb);
-          }
-        }
-    }
-
-    for (size_t i = 0; i < numOfLocalOps; ++i) {
-      releaseBitSet(&defBitSets[i]);
-      releaseBitSet(&insertBitSets[i]);
-    }
-
-    releaseVector(&stack);
-    releaseHeap(bitsets);
-}
-
-static IrOperand *vregForLocal(IrOperand *local) {
-    assert(local != NULL);
-    IrOperand *v = newVreg(local->type);
-    v->ast = local->ast;
-    v->astType = local->astType;
-    return v;
+static void updatePhiInput(IrInstruction *phi, IrInstruction *value, size_t idx) {
+  assert(idx < phi->inputs.size);
+  phi->inputs.storage[idx] = (intptr_t)value;
+  addInstructionToVector(&value->uses, phi);
 }
 
 static void replacePhiInputs(IrBasicBlock *defBlock, IrBasicBlock *phiBlock, Vector *stacks) {
   printf("Replace phi inputs in #%u coming from #%u...\n", phiBlock->id, defBlock->id);
-  for (IrInstructionListNode *in = phiBlock->instrs.head; in != NULL; in = in->next) {
-    IrInstruction *instr = in->instr;
+  for (IrInstruction *instr = phiBlock->instrunctions.head; instr != NULL; instr = instr->next) {
     if (instr->kind != IR_PHI) { // assume all phi-nodes are at the beginning of block's instruciton list
       return;
     }
 
-    for (IrOperandListNode *un = instr->uses.head; un != NULL; un = un->next->next) {
-      IrOperand *valueOp = un->op;
-      if (valueOp->kind != IR_LOCAL)
-        continue; // already replaced
+    Vector *inputs = &instr->inputs;
+    Vector *blocks = &instr->info.phi.phiBlocks;
+    assert(inputs->size == blocks->size);
+    AllocaOptInfo *info = instr->info.phi.info;
+    if (info == NULL)
+      continue;
 
-      assert(un->next != NULL);
-      IrOperand *blockOp = un->next->op;
-      assert(blockOp->kind == IR_BLOCK);
-      assert(blockOp->type == IR_LABEL);
-      if (blockOp->data.bb == defBlock) {
-        uint32_t lviIdx = valueOp->data.lid;
-        IrOperand *inputOp = (IrOperand *)topOfStack(&stacks[lviIdx]);
-        assert(inputOp != NULL);
-        assert(inputOp->kind == IR_VREG);
-        assert(inputOp->type == valueOp->type);
-        assert(inputOp->astType == valueOp->astType);
-        replaceInputIn(instr, un, inputOp);
-        //un->op = inputOp;
-        printf("  replace phi (id = %u) input for @%u -> %c%u\n", instr->id, lviIdx, '%', inputOp->data.vid);
-        break;
-      }
+    for (size_t i = 0; i < instr->inputs.size; ++i) {
+       IrBasicBlock *block = getBlockFromVector(blocks, i);
+       if (block == defBlock) {
+         IrInstruction *oldValue = getInstructionFromVector(inputs, i);
+         assert(oldValue->kind == IR_BAD && "Placeholder is expected");
+         IrInstruction *inputOp = (IrInstruction *)topOfStack(&stacks[info->index]);
+         updatePhiInput(instr, inputOp, i);
+         break;
+       }
     }
   }
 }
 
-static void renameLocalsImpl(IrBasicBlock *block, LocalValueInfo *lvis, Vector *stacks, const size_t numOfLocalOps) {
+static Boolean analyzeAllocaInstruction(IrInstruction *allocaInstr, AllocaOptInfo *info) {
+
+  printf("Analyze Alloca %c%u...\n", '%',  allocaInstr->id);
+  assert(allocaInstr->inputs.size == 1);
+  IrInstruction *sizeOp = getInstructionFromVector(&allocaInstr->inputs, 0);
+  if (sizeOp->kind != IR_DEF_CONST) {
+    printf(".. alloca %c%u is VLA-lile, size = %c%u\n", '%',  allocaInstr->id, '%', sizeOp->id);
+    return FALSE; // looks like VLA or explicit alloca call with unkown size
+  }
+
+  assert(sizeOp->info.constant.kind == IR_CK_INTEGER);
+  int64_const_t allocaSizeValue = sizeOp->info.constant.data.i;
+
+  Vector *uses = &allocaInstr->uses;
+
+  for (size_t i = 0; i < uses->size; ++i) {
+    IrInstruction *useInstr = getInstructionFromVector(uses, i);
+    switch (useInstr->kind) {
+      case IR_M_LOAD:
+        setBit(&info->useBlocks, useInstr->block->id);
+        break;
+      case IR_M_STORE: {
+          assert(useInstr->inputs.size == 2);
+          IrInstruction *ptr = getInstructionFromVector(&useInstr->inputs, 0);
+          IrInstruction *value = getInstructionFromVector(&useInstr->inputs, 1);
+
+          if (ptr == allocaInstr) {
+            setBit(&info->defBlocks, useInstr->block->id);
+            break;
+          } else {
+            assert(value == allocaInstr);
+            printf("  alloca %c%u is stored at %c%u\n", '%',  allocaInstr->id, '%', useInstr->id);
+            // alloca ptr is stored into somewhere so it escapes
+            return FALSE;
+          }
+        }
+      default:
+        printf("  alloca %c%u is used in unsafe instruction %c%u\n", '%',  allocaInstr->id, '%', useInstr->id);
+        return FALSE;
+    }
+  }
+
+  return TRUE;
+}
+
+static void collectAllocaCandidates(IrFunction *func, Vector *results) {
+  Vector *allocas = &ctx->allocas;
+  for (size_t i = 0; i < allocas->size; ++i) {
+    IrInstruction *allocaInstr = getInstructionFromVector(allocas, i);
+    assert(allocaInstr->kind == IR_ALLOCA);
+
+    AllocaOptInfo *info = heapAllocate(sizeof (AllocaOptInfo));
+    initBitSet(&info->defBlocks, ctx->bbCnt);
+    initBitSet(&info->useBlocks, ctx->bbCnt);
+    initBitSet(&info->inserted, ctx->bbCnt);
+    info->allocaInstr = allocaInstr;
+
+    Boolean optimizable = analyzeAllocaInstruction(allocaInstr, info);
+    if (optimizable) {
+      info->index = results->size;
+      addToVector(results, (intptr_t)info);
+    } else {
+      releaseBitSet(&info->inserted);
+      releaseBitSet(&info->defBlocks);
+      releaseBitSet(&info->useBlocks);
+      releaseHeap(info);
+    }
+  }
+}
+
+static void insertPhiNode(IrBasicBlock *phiBlock, AllocaOptInfo *info) {
+    IrInstruction *allocaInstr = info->allocaInstr;
+    enum IrTypeKind irType = allocaInstr->info.alloca.valueType;
+    assert(irType != IR_VOID);
+    IrInstruction *phiInstr = newPhiInstruction(irType);
+    IrInstruction *placeHolder = newInstruction(IR_BAD, irType);
+
+    assert(info->phiInBlocks[phiBlock->id] == NULL);
+    phiInstr->info.phi.info = info;
+
+    info->phiInBlocks[phiBlock->id] = phiInstr;
+    addInstructionHead(phiBlock, phiInstr);
+    printf("Insert phi %c%u for alloca %c%u into block #%u\n", '%', phiInstr->id, '%', allocaInstr->id, phiBlock->id);
+
+    for (IrBasicBlockListNode *pn = phiBlock->preds.head; pn != NULL; pn = pn->next) {
+      addPhiInput(phiInstr, placeHolder, pn->block);
+    }
+}
+
+static void transformAllocasIntoPhis(IrFunction *func, Vector *candidates) {
+  // Algorithm SI
+  Vector stackImpl = { 0 };
+  Vector *stack = &stackImpl;
+  initVector(stack, INITIAL_VECTOR_CAPACITY);
+
+  for (size_t i = 0; i < candidates->size; ++i) {
+    AllocaOptInfo *info = (AllocaOptInfo *)getFromVector(candidates, i);
+    BitSet *defBitSet = &info->defBlocks;
+
+    info->phiInBlocks = heapAllocate(ctx->bbCnt * sizeof(IrInstruction *));
+
+    for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
+       IrBasicBlock *bb = bn->block;
+       if (getBit(defBitSet, bb->id)) {
+         pushToStack(stack, (intptr_t)bb);
+       }
+    }
+
+    BitSet *insertBitSet = &info->inserted;
+    while (stack->size > 0) {
+      IrBasicBlock *defBlock = (IrBasicBlock *)popFromStack(stack);
+      for (IrBasicBlockListNode *fn = defBlock->dominators.dominationFrontier.head; fn != NULL; fn = fn->next) {
+        IrBasicBlock *bb = fn->block;
+        if (getBit(insertBitSet, bb->id)) {
+          continue;
+        }
+
+        insertPhiNode(bb, info);
+
+        setBit(insertBitSet, bb->id);
+        pushToStack(stack, (intptr_t)bb);
+      }
+    }
+  }
+
+  releaseVector(stack);
+}
+
+static AllocaOptInfo *findAllocaInfo(IrInstruction *allocaInstr, Vector *infos) {
+  for (size_t i = 0; i < infos->size; ++i) {
+    AllocaOptInfo *info = (AllocaOptInfo *)getFromVector(infos, i);
+    if (info->allocaInstr == allocaInstr)
+      return info;
+  }
+
+  return NULL;
+}
+
+static void renameLocalsImpl(IrBasicBlock *block, Vector *infos, Vector *stacks) {
   // Algorithm SR
 
-  size_t *resetPoints = (size_t *)heapAllocate(numOfLocalOps * sizeof(size_t));
-  memset(resetPoints, 0, numOfLocalOps * sizeof(size_t));
+  static int cnt = 0;
+  const size_t numOfAllocas = infos->size;
+  size_t *resetPoints = (size_t *)heapAllocate(numOfAllocas * sizeof(size_t));
+  memset(resetPoints, 0, numOfAllocas * sizeof(size_t));
 
-  for (IrInstructionListNode *in = block->instrs.head; in != NULL; in = in->next) {
-    IrInstruction *instr = in->instr;
-    if (instr->kind != IR_PHI) {
-      for (IrOperandListNode *un = instr->uses.head; un != NULL; un = un->next) {
-        IrOperand *useOp = un->op;
-        if (useOp->kind == IR_LOCAL) {
-          IrOperand *current = (IrOperand *)topOfStack(&stacks[useOp->data.lid]);
-          assert(current != NULL);
-          assert(current->kind == IR_VREG);
-          assert(current->type == useOp->type);
-          assert(current->astType == useOp->astType);
-          replaceInputIn(instr, un, current);
-        }
+  for (IrInstruction *i = block->instrunctions.head; i != NULL;) {
+    IrInstruction *n = i->next;
+    if (i->kind == IR_M_STORE) {
+      IrInstruction *ptr = getInstructionFromVector(&i->inputs, 0);
+      printf("Check STORE instruction %c%u...\n", '%', i->id);
+      if (ptr->kind != IR_ALLOCA) {
+        printf("  not alloca ptr. We done here\n");
+        i = n;
+        continue;
       }
-    }
 
-    for (IrOperandListNode *dn = instr->defs.head; dn != NULL; dn = dn->next) {
-      IrOperand *defOp = dn->op;
-      if (defOp->kind == IR_LOCAL) {
-        uint32_t lviIdx = defOp->data.lid;
-        IrOperand *newDef = vregForLocal(defOp);
-        pushToStack(&stacks[lviIdx], (intptr_t) newDef);
-        resetPoints[lviIdx] += 1;
-        dn->op = newDef;
-        newDef->def = instr;
-        addToVector(&newDef->uses, (intptr_t)instr);
+      AllocaOptInfo *info = findAllocaInfo(ptr, infos);
+
+      if (info == NULL) {
+        printf("  cannot find alloca info. We done here\n");
+        i = n;
+        continue;
       }
+
+      uint32_t idx = info->index;
+      IrInstruction *newValue = getInstructionFromVector(&i->inputs, 1);
+      Vector *stack = &stacks[idx];
+
+      pushToStack(stack, (intptr_t)newValue);
+      assert(idx < numOfAllocas);
+      resetPoints[idx] += 1;
+
+      printf("For alloca[%u] %c%u in block #%u found new value %c%u from %c%u\n", idx, '%', info->allocaInstr->id, block->id, '%', newValue->id, '%', i->id);
+
+      eraseInstruction(i);
+      releaseInstruction(i);
+    } else if (i->kind == IR_M_LOAD) {
+      printf("Check LOAD instruction %c%u...\n", '%', i->id);
+      IrInstruction *ptr = getInstructionFromVector(&i->inputs, 0);
+      if (ptr->kind != IR_ALLOCA) {
+        i = n;
+        continue;
+      }
+
+      AllocaOptInfo *info = findAllocaInfo(ptr, infos);
+
+      if (info == NULL) {
+        i = n;
+        continue;
+      }
+
+      uint32_t idx = info->index;
+      Vector *stack = &stacks[idx];
+
+      IrInstruction *actualValue = (IrInstruction *)topOfStack(stack);
+
+      printf("For alloca[%u] %c%u in block #%u replace usage of %c%u with %c%u\n", idx, '%', info->allocaInstr->id, block->id, '%', i->id, '%', actualValue->id);
+
+      replaceUsageWith(i, actualValue);
+      eraseInstruction(i);
+      releaseInstruction(i);
+    } else if (i->kind == IR_PHI) {
+
+      printf("Check PHI instruction %c%u...\n", '%', i->id);
+      AllocaOptInfo *info = i->info.phi.info;
+
+      if (info == NULL) {
+        printf("This is not interesting phi...\n");
+        i = n;
+        continue;
+      }
+
+      uint32_t idx = info->index;
+      assert(idx < numOfAllocas);
+      printf("For alloca[%u] %c%u in block #%u found new PHI value %c%u\n", idx, '%', info->allocaInstr->id, block->id, '%', i->id);
+      Vector *stack = &stacks[idx];
+      pushToStack(stack, (intptr_t)i);
+      resetPoints[idx] += 1;
     }
+    i = n;
   }
 
   for (IrBasicBlockListNode *sn = block->succs.head; sn != NULL; sn = sn->next) {
@@ -179,71 +277,75 @@ static void renameLocalsImpl(IrBasicBlock *block, LocalValueInfo *lvis, Vector *
 
   for (IrBasicBlockListNode *dn = block->dominators.dominatees.head; dn != NULL; dn = dn->next) {
     IrBasicBlock *dominatee = dn->block;
-    renameLocalsImpl(dominatee, lvis, stacks, numOfLocalOps);
+    renameLocalsImpl(dominatee, infos, stacks);
   }
 
-  for (size_t i = 0; i < numOfLocalOps; ++i) {
+  for (size_t i = 0; i < numOfAllocas; ++i) {
     popOffStack(&stacks[i], resetPoints[i]);
   }
 
   releaseHeap(resetPoints);
 }
-
-static void renameLocals(IrFunction *func) {
+static void renameLocals(IrFunction *func, Vector *allocas) {
     // Algorithm SR (init part)
 
-    size_t numOfLocalOps = func->numOfLocals;
-    if (func->retOperand)
-      numOfLocalOps += 1;
+    size_t numOfAllocas = allocas->size;
+    Vector *stacks = heapAllocate(numOfAllocas * sizeof (Vector));
 
-    Vector *stacks = heapAllocate(numOfLocalOps * sizeof (Vector));
-    for (size_t i = 0; i < numOfLocalOps; ++i) {
-      initVector(&stacks[i], INITIAL_VECTOR_CAPACITY);
+    for (size_t i = 0; i < numOfAllocas; ++i) {
+      Vector *stack = &stacks[i];
+      initVector(stack, INITIAL_VECTOR_CAPACITY);
 
-      LocalValueInfo *lvi = &func->localOperandMap[i];
-      assert(lvi != NULL);
-      assert(i == lvi->initialOp->data.lid);
-      IrOperand *v0 = vregForLocal(lvi->initialOp);
+      AllocaOptInfo *info = (AllocaOptInfo *)getFromVector(allocas, i);
+      IrInstruction *v0 = newInstruction(IR_BAD, info->allocaInstr->info.alloca.valueType);
 
       pushToStack(&stacks[i], (intptr_t) v0);
     }
 
-    renameLocalsImpl(func->entry, func->localOperandMap, stacks, numOfLocalOps);
+    renameLocalsImpl(func->entry, allocas, stacks);
 
-    for (size_t i = 0; i < numOfLocalOps; ++i)
+    for (size_t i = 0; i < numOfAllocas; ++i)
       releaseVector(&stacks[i]);
 
     releaseHeap(stacks);
 }
 
-
-static void cleanupMoves(IrFunction *func) {
-  for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn  = bn->next) {
-    IrBasicBlock *bb = bn->block;
-    IrInstructionListNode *in = bb->instrs.head;
-    while (in != NULL) {
-      IrInstruction *instr = in->instr;
-      IrInstructionListNode *cur = in;
-      in = in->next;
-      if (instr->kind == IR_MOVE) {
-        IrOperand *use = instr->uses.head->op;
-        IrOperand *def = instr->defs.head->op;
-
-        replaceInputWith(def, use);
-        printf("Remove instruction id = %u, kind = %u\n", cur->instr->id, cur->instr->kind);
-        removeInstruction(cur);
-
-        releaseOperand(def);
-        releaseInstruction(instr);
-      }
-    }
+static void removeAllocaInstructions(Vector *infos) {
+  for (size_t i = 0; i < infos->size; ++i) {
+    AllocaOptInfo *info = (AllocaOptInfo *)getFromVector(infos, i);
+    eraseInstruction(info->allocaInstr);
+    releaseInstruction(info->allocaInstr);
   }
 }
 
- void buildSSA(IrFunction *func) {
+static void releaseOptimizableVector(Vector *v) {
+  for (size_t i = 0; i < v->size; ++i) {
+    AllocaOptInfo *info = (AllocaOptInfo *)v->storage[i];
+    releaseBitSet(&info->defBlocks);
+    releaseBitSet(&info->useBlocks);
+    releaseBitSet(&info->inserted);
+
+    releaseHeap(info->phiInBlocks);
+    releaseHeap(info);
+  }
+
+  releaseVector(v);
+}
+
+void buildSSA(IrFunction *func) {
   buildDominatorInfo(ctx, func);
-  insertPhiNodes(func);
-  renameLocals(func);
-  cleanupMoves(func);
+
+  Vector optimizableAllocas = { 0 };
+  initVector(&optimizableAllocas, ctx->allocas.size);
+  collectAllocaCandidates(func, &optimizableAllocas);
+  printf("Found %u candidates for alloca opt..\n", optimizableAllocas.size);
+  if (optimizableAllocas.size == 0)
+    return;
+
+  transformAllocasIntoPhis(func, &optimizableAllocas);
+  renameLocals(func, &optimizableAllocas);
+  removeAllocaInstructions(&optimizableAllocas);
+
+  releaseOptimizableVector(&optimizableAllocas);
 }
 

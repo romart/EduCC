@@ -45,6 +45,11 @@
     IR_INSTRUCTION_DEF(CALL, ""), \
     IR_INSTRUCTION_DEF(ICALL, ""), \
 	IR_INSTRUCTION_DEF(ALLOCA, "allocate stack slots"), \
+	IR_INSTRUCTION_DEF(CFG_LABEL, "create a label to basic block"), \
+	IR_INSTRUCTION_DEF(DEF_CONST, "define const"), \
+	IR_INSTRUCTION_DEF(GET_ELEMENT_PTR, "get element pointer (aka GEP)"), \
+	IR_INSTRUCTION_DEF(M_COPY, "copies from src to dst n bytes"), \
+	IR_INSTRUCTION_DEF(P_REG, "physical register"), \
     IR_INSTRUCTION_DEF(PHI, "")
 
 

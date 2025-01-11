@@ -44,6 +44,7 @@ static int32_t dumpIrType(FILE *stream, const enum IrTypeKind type) {
 	  case IR_PTR: return fprintf(stream, "PTR");
 	  case IR_LABEL: return fprintf(stream, "LABEL");
 	  case IR_VOID: return fprintf(stream, "VOID");
+      case IR_REF: return fprintf(stream, "REF");
 
 	  default: unreachable("Unknown Ir Type");
 	}
@@ -158,52 +159,147 @@ static int32_t dumpIrOperandList(FILE *stream, const IrOperandList *list) {
 }
 
 static int32_t dumpIrInstructionExtra(FILE *stream, const IrInstruction *instr) {
-  int32_t r = 0;
+  int32_t r = fputc('[', stream);
 
   switch (instr->kind) {
+    case IR_M_LOAD:
+      r += fprintf(stream, "load type = ");
+      r += dumpIrType(stream, instr->info.memory.opType);
+      break;
+    case IR_M_STORE:
+      r += fprintf(stream, "store type = ");
+      r += dumpIrType(stream, instr->info.memory.opType);
+      break;
+    case IR_CALL:
+      if (instr->info.call.symbol != NULL) {
+        r += fprintf(stream, "symbol = %s", instr->info.call.symbol->name);
+      }
+    case IR_ALLOCA:
+      if (instr->info.alloca.sizeInstr != NULL) {
+        r += fprintf(stream, "size = %c%u", '%', instr->info.alloca.sizeInstr->id);
+      } else {
+        r += fprintf(stream, "size = %lu", instr->info.alloca.stackSize);
+      }
+      if (instr->info.alloca.v) {
+        r += fprintf(stream, ", declaration = %u | '%s'", instr->info.alloca.v->index2, instr->info.alloca.v->name);
+      }
+      break;
+  case IR_CFG_LABEL:
+    r += fprintf(stream, "block = #%u", instr->info.block->id);
+    break;
+  case IR_BRANCH:
+    r += fprintf(stream, "target = #%u", instr->info.branch.taken->id);
+    break;
+  case IR_CBRANCH:
+    r += fprintf(stream, "taken = #%u, non taken = #%u", instr->info.branch.taken->id, instr->info.branch.notTaken->id);
+    break;
+  case IR_DEF_CONST:
+    switch (instr->info.constant.kind) {
+      case IR_CK_FLOAT:
+            r += fprintf(stream, "kind = float, v = %lf", (double)instr->info.constant.data.f);
+            break;
+      case IR_CK_INTEGER:
+            r += fprintf(stream, "kind = integer, v = %lld", instr->info.constant.data.i);
+            break;
+      case IR_CK_LITERAL:
+            r += fprintf(stream, "kind = literal, l = %lu, s = '%s'", instr->info.constant.data.l.length, instr->info.constant.data.l.s);
+            break;
+      case IR_CK_SYMBOL:
+            r += fprintf(stream, "kind = symbol, name = %s", instr->info.constant.data.s->name);
+            break;
+    }
+    r += fprintf(stream, ", id = %u", instr->info.constant.cacheIdx);
+    break;
+  case IR_GET_ELEMENT_PTR:
+    r += fprintf(stream, "underlying type = ");
+    r += dumpTypeRef(stream, instr->info.gep.underlyingType);
+    if (instr->info.gep.member != NULL) {
+      r += fprintf(stream, ", member = %s", instr->info.gep.member->name);
+    }
+    if (instr->info.gep.indexInstr != NULL) {
+      r += fprintf(stream, ", index = %c%u", '%', instr->info.gep.indexInstr->id);
+    }
+    break;
+  case IR_M_COPY:
+    r += fprintf(stream, "elementType = ");
+    r += dumpTypeRef(stream, instr->info.copy.elementType);
+    if (instr->info.copy.elementCount) {
+        r += fprintf(stream, ", count = %c%u", '%', instr->info.copy.elementCount->id);
+    }
+    break;
+  case IR_P_REG:
+    r += fprintf(stream, "preg = $%u", instr->info.physReg);
+    break;
   case IR_E_BITCAST:
-	r += fputc('[', stream);
-	r += dumpIrType(stream, instr->uses.head->op->type);
+	r += dumpIrType(stream, instr->info.fromCastType);
 	r += fprintf(stream, "->");
-	r += dumpIrType(stream, instr->defs.head->op->type);
-	r += fputc(']', stream);
+	r += dumpIrType(stream, instr->type);
 	break;
+
   case IR_TBRANCH:
-	r += fprintf(stream, "[TABLE_SIZE = %u", instr->meta.switchTable->caseCount);
-	if (instr->meta.switchTable->defaultBB) {
-	  r += fprintf(stream, ", default = #%u", instr->meta.switchTable->defaultBB->id);
+	r += fprintf(stream, "TABLE_SIZE = %u", instr->info.switchTable->caseCount);
+	if (instr->info.switchTable->defaultBB) {
+	  r += fprintf(stream, ", default = #%u", instr->info.switchTable->defaultBB->id);
 	}
-	r += fputc(']', stream);
 	break;
   default: // shut up compiler
 	break;
+  }
+
+  r += fputc(']', stream);
+  return r;
+}
+
+static int32_t dumpIrInstructionInputs(FILE *stream, const IrInstruction *instr) {
+  int32_t r = 0;
+  Boolean first = TRUE;
+  for (size_t i = 0; i < instr->inputs.size; ++i) {
+    const IrInstruction *input = getInstructionFromVector(&instr->inputs, i);
+    if (first)
+      first = FALSE;
+    else
+      r += fprintf(stream, ", ");
+    r += fprintf(stream, "%c%u", '%', input->id);
+  }
+
+  return r;
+}
+
+static int32_t dumpPhiInputs(FILE *stream, const IrInstruction *phi) {
+  assert(phi->kind == IR_PHI);
+  int32_t r = 0;
+  Boolean first = TRUE;
+  const Vector *inputs = &phi->inputs;
+  const Vector *blocks = &phi->info.phi.phiBlocks;
+
+  assert(inputs->size == blocks->size);
+
+  for (size_t i = 0; i < inputs->size; ++i) {
+    const IrInstruction *input = getInstructionFromVector(inputs, i);
+    const IrBasicBlock *block = getBlockFromVector(blocks, i);
+    if (first)
+      first = FALSE;
+    else
+      r += fprintf(stream, ", ");
+    r += fprintf(stream, "[%c%u, #%u]", '%', input->id, block->id);
   }
 
   return r;
 }
 
 static int32_t dumpIrInstruction(FILE *stream, const IrInstruction *instr) {
-  int32_t r = dumpIrInstructionKind(stream, instr->kind);
+
+  int32_t r = fprintf(stream, "%c%u = ", '%', instr->id);
+  r += dumpIrInstructionKind(stream, instr->kind);
+  r += fputc(' ', stream);
+  r += fputc('(', stream);
+  r += instr->kind == IR_PHI
+    ? dumpPhiInputs(stream, instr)
+    : dumpIrInstructionInputs(stream, instr);
+  r += fputc(')', stream);
   r += fputc(' ', stream);
 
-  int32_t r2 = dumpIrInstructionExtra(stream, instr);
-
-  if (r2) {
-	r += r2;
-  	r += fputc(' ', stream);
-  }
-
-  if (instr->uses.head) {
-	r += fputc('(', stream);
-	r += dumpIrOperandList(stream, &instr->uses);
-	r += fputc(')', stream);
-  }
-
-  if (instr->defs.head) {
-	r += fprintf(stream, " => ");
-	r += dumpIrOperandList(stream, &instr->defs);
-  }
-
+  r += dumpIrInstructionExtra(stream, instr);
   return r;
 }
 
@@ -221,9 +317,9 @@ int32_t dumpIrBlock(FILE *stream, const IrBasicBlock *b) {
   r += dumpIrBlockPhis(stream, b);
   r += fputc('\n', stream);
 
-  for (IrInstructionListNode *in = b->instrs.head; in != NULL; in = in->next) {
+  for (IrInstruction *i = b->instrunctions.head; i != NULL; i = i->next) {
 	r += fprintf(stream, "  ");
-	r += dumpIrInstruction(stream, in->instr);
+	r += dumpIrInstruction(stream, i);
 	r += fputc('\n', stream);
   }
 
@@ -234,19 +330,15 @@ int32_t dumpIrFunction(FILE *stream, const IrFunction *f) {
 	int32_t r = fprintf(stream, "Function '%s'\n", f->ast->declaration->name);
 
 	r += fprintf(stream, "Locals:\n");
-	for (size_t i = 0; i < f->numOfLocals; ++i) {
+	for (size_t i = 0; i < f->numOfLocalSlots; ++i) {
 	  const LocalValueInfo *lvi = &f->localOperandMap[i];
-	  IrOperand *op = lvi->initialOp;
 	  AstValueDeclaration *d = lvi->declaration;
+      char mark = d != NULL ? (d->kind == VD_PARAMETER ? 'p' : 'l') : 'r';
+      int32_t idx = d ? d->index2 : -1;
+      const char *name = d ? d->name : "<ret_slot>";
 
-	  r += fprintf(stream, "  %c%c:%s = ", lvi->flags.referenced ? '&' : ' ', d->kind == VD_PARAMETER ? 'p' : 'l', d->name);
-	  r += dumpIrOperand(stream, lvi->initialOp);
-	  r += fputc('\n', stream);
-	}
 
-	if (f->retOperand) {
-	  r += fprintf(stream, "Return Operand: ");
-	  r += dumpIrOperand(stream, f->retOperand);
+	  r += fprintf(stream, "  %c%c:%d|%s = %c%u", lvi->flags.referenced ? '&' : ' ', mark, idx, name, '%', lvi->stackSlot->id);
 	  r += fputc('\n', stream);
 	}
 
@@ -275,7 +367,6 @@ void dumpIrFunctionList(const char *fileName, const IrFunctionList *functions) {
 
   fclose(f);
 }
-
 
 static void buildDotForFunction(FILE *stream, const IrFunction *f) {
     const char *funcName = f->ast ? f->ast->declaration->name : "__test";
