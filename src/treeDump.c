@@ -5,8 +5,8 @@
 #include "treeDump.h"
 #include "tokens.h"
 
-static int dumpTypeRefImpl(FILE *output, int indent, TypeRef *type);
-static int dumpTypeDescImpl(FILE *output, int indent, TypeDesc *desc);
+static int dumpTypeRefImpl(FILE *output, int indent, const TypeRef *type);
+static int dumpTypeDescImpl(FILE *output, int indent, const TypeDesc *desc);
 static int dumpAstInitializerImpl(FILE *output, int indent, AstInitializer *init, Boolean compund);
 static int dumpAstDeclarationImpl(FILE *output, int indent, AstDeclaration *decl);
 static int dumpAstExpressionImpl(FILE *output, int indent, AstExpression *expr);
@@ -301,7 +301,7 @@ static int dumpAstStatementImpl(FILE *output, int indent, AstStatement *stmt) {
         switch (lbl->kind) {
         case LK_LABEL: result += fprintf(output, "%s: ", lbl->label); break;
         case LK_DEFAULT: result += fprintf(output, "DEFAULT: "); break;
-        case LK_CASE: result += fprintf(output, "CASE %d: ", lbl->caseConst); break;
+        case LK_CASE: result += fprintf(output, "CASE %ld: ", lbl->caseConst); break;
         }
         result += dumpAstStatementImpl(output, 0, lbl->body);
         break;
@@ -506,7 +506,7 @@ static int dumpAstValueDeclarationImpl(FILE *output, int indent, AstValueDeclara
 }
 
 
-int renderTypeDesc(TypeDesc *desc, char *b, int bufferSize) {
+int renderTypeDesc(const TypeDesc *desc, char *b, int bufferSize) {
   switch (desc->typeId) {
     case T_ENUM:
       return snprintf(b, bufferSize, "ENUM %s", desc->typeDefinition->name);
@@ -521,7 +521,7 @@ int renderTypeDesc(TypeDesc *desc, char *b, int bufferSize) {
   }
 }
 
-static int dumpTypeDescImpl(FILE *output, int indent, TypeDesc *desc) {
+static int dumpTypeDescImpl(FILE *output, int indent, const TypeDesc *desc) {
   int result = putIndent(output, indent);
   char b[1024] = { 0 };
   renderTypeDesc(desc, b, sizeof b);
@@ -529,7 +529,7 @@ static int dumpTypeDescImpl(FILE *output, int indent, TypeDesc *desc) {
   return result;
 }
 
-int renderTypeRef(TypeRef *type, char *b, int bufferSize) {
+int renderTypeRef(const TypeRef *type, char *b, int bufferSize) {
   Boolean hasBits = FALSE;
 
   char *s = b;
@@ -571,7 +571,7 @@ int renderTypeRef(TypeRef *type, char *b, int bufferSize) {
       b += renderTypeRef(type->pointed, b, bufferSize);
       break;
   case TR_ARRAY: {
-        ArrayTypeDescriptor *desc = &type->arrayTypeDesc;
+        const ArrayTypeDescriptor *desc = &type->arrayTypeDesc;
         int wrap = desc->elementType->kind != TR_VALUE ? TRUE : FALSE;
         if (wrap) {
             l = snprintf(b, bufferSize, "("); b += l; bufferSize -= l;
@@ -597,7 +597,7 @@ int renderTypeRef(TypeRef *type, char *b, int bufferSize) {
       }
       break;
   case TR_VLA: {
-      VLADescriptor *desc = &type->vlaDescriptor;
+      const VLADescriptor *desc = &type->vlaDescriptor;
       int wrap = desc->elementType->kind != TR_VALUE ? TRUE : FALSE;
       if (wrap) {
           l = snprintf(b, bufferSize, "("); b += l; bufferSize -= l;
@@ -621,7 +621,7 @@ int renderTypeRef(TypeRef *type, char *b, int bufferSize) {
     }
     break;
   case TR_FUNCTION: {
-      FunctionTypeDescriptor *desc = &type->functionTypeDesc;
+      const FunctionTypeDescriptor *desc = &type->functionTypeDesc;
       l = snprintf(b, bufferSize, "{"); b += l; bufferSize -= l;
       if (bufferSize <= 0) goto done;
       l = renderTypeRef(desc->returnType, b, bufferSize); b += l; bufferSize -= l;
@@ -663,7 +663,7 @@ int renderTypeRef(TypeRef *type, char *b, int bufferSize) {
   return b - s;
 }
 
-static int dumpTypeRefImpl(FILE *output, int indent, TypeRef *type) {
+static int dumpTypeRefImpl(FILE *output, int indent, const TypeRef *type) {
   int result = putIndent(output, indent);
   char b[1024] = { 0 };
 
@@ -847,11 +847,11 @@ int dumpAstDeclaration(FILE *output, AstDeclaration *declaration) {
   return dumpAstDeclarationImpl(output, 0, declaration);
 }
 
-int dumpTypeRef(FILE *output, TypeRef *type) {
+int dumpTypeRef(FILE *output, const TypeRef *type) {
   return dumpTypeRefImpl(output, 0, type);
 }
 
-int dumpTypeDesc(FILE *output, TypeDesc *desc) {
+int dumpTypeDesc(FILE *output, const TypeDesc *desc) {
   return dumpTypeDescImpl(output, 0, desc);
 }
 

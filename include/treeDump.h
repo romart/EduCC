@@ -13,11 +13,11 @@ int dumpAstExpression(FILE *output, AstExpression *expr);
 int dumpAstStatement(FILE *output, AstStatement *stmt);
 int dumpAstDeclaration(FILE *output, AstDeclaration *declaration);
 
-int dumpTypeRef(FILE *output, TypeRef *type);
-int dumpTypeDesc(FILE *output, TypeDesc *desc);
+int dumpTypeRef(FILE *output, const TypeRef *type);
+int dumpTypeDesc(FILE *output, const TypeDesc *desc);
 
-int renderTypeDesc(TypeDesc *desc, char *buffer, int bufferSize);
-int renderTypeRef(TypeRef *type, char *buffer, int bufferSize);
+int renderTypeDesc(const TypeDesc *desc, char *buffer, int bufferSize);
+int renderTypeRef(const TypeRef *type, char *buffer, int bufferSize);
 
 void dumpLocation(FILE *output, AstExpression *expr);
 
