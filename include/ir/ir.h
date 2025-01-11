@@ -26,9 +26,9 @@ struct _IrFunction {
     struct _IrBasicBlock *entry;
     struct _IrBasicBlock *exit;
 
-    struct _IrOperand *retOperand;
+    struct _IrInstruction *retOperand;
 
-    size_t numOfLocals;
+    size_t numOfLocalSlots;
     struct _LocalValueInfo *localOperandMap;
 
     uint32_t id;
@@ -67,7 +67,6 @@ struct _IrBasicBlock {
     const char *name;
     AstStatement *ast;
 
-    struct _IrInstructionList instrs;
     struct _IrInstruction *term;
 
     struct {
@@ -112,6 +111,7 @@ enum IrTypeKind {
 	IR_P_AGG, // packed aggregate
 
     IR_PTR,
+    IR_REF,
     IR_LABEL,
     IR_VOID,
 };
@@ -126,11 +126,27 @@ struct _IrOperandList {
     struct _IrOperandListNode *tail;
 };
 
-struct _IrInstruction {
-    struct _IrOperandList uses;
-    struct _IrOperandList defs;
 
-    Vector uses2;
+enum IrConstKind {
+  IR_CK_INTEGER,
+  IR_CK_FLOAT,
+  IR_CK_LITERAL,
+  IR_CK_SYMBOL
+};
+
+
+typedef union _IrConstantData {
+    int64_const_t i;
+    float80_const_t f;
+    struct {
+      literal_const_t s;
+      size_t length;
+    } l;
+    struct _Symbol *s;
+} IrConstantData;
+
+struct _IrInstruction {
+    Vector uses;
     Vector inputs;
 
     struct _IrInstruction *next, *prev;
@@ -144,19 +160,55 @@ struct _IrInstruction {
     struct {
         const AstStatement *astStmt;
         const AstExpression *astExpr;
-        struct _SwitchTable *switchTable;
     } meta;
 
     union {
         enum IrTypeKind fromCastType;
-		size_t stackSize;
-        struct _LocalValueInfo *lvi; // for phi nodes
+        struct {
+          size_t stackSize;
+          AstValueDeclaration *v;
+          struct _IrInstruction *sizeInstr;
+          enum IrTypeKind valueType;
+        } alloca;
+        struct {
+          struct _AllocaOptInfo *info;
+          Vector phiBlocks;
+        } phi;
+        struct _IrBasicBlock *block;
+        struct {
+          struct _IrBasicBlock *taken;
+          struct _IrBasicBlock *notTaken;
+        } branch;
+        struct _SwitchTable *switchTable;
+        struct {
+          struct _IrInstruction *returnBuffer;
+          struct _Symbol *symbol;
+        } call;
+        struct {
+          uint32_t cacheIdx;
+          enum IrConstKind kind;
+          IrConstantData data;
+        } constant;
+        struct {
+          const TypeRef *underlyingType;
+          struct _StructualMember *member; 
+          struct _IrInstruction *indexInstr;
+        } gep;
+        struct {
+          const TypeRef *elementType;
+          struct _IrInstruction *elementCount;
+        } copy;
+        struct {
+          enum IrTypeKind opType;
+        } memory;
+        uint32_t physReg;
     } info;
 
     struct {
         unsigned local : 1; // local memory access
     } flags;
 
+    uint32_t vreg;
     uint32_t id;
 };
 
@@ -216,6 +268,7 @@ typedef struct _LocalValueInfo {
     AstValueDeclaration *declaration;
     struct _IrOperand *initialOp;
     struct _IrOperand *phiOp;
+    struct _IrInstruction *stackSlot;
 
     int32_t frameOffset; // using for both memory and spill
 
@@ -247,13 +300,15 @@ struct _IrContext {
     struct _LocalValueInfo *localOperandMap;
     HashMap *labelMap;
     struct _IrBasicBlockList referencedBlocks;
-    Vector *constantCache;
+    Vector constantCache;
+    Vector allocas;
 
     enum IrTranslationMode addressTM;
 
-    struct _IrOperand *frameOp;
-    struct _IrOperand *stackOp;
-    struct _IrOperand *lastOp;
+    struct _IrInstruction *frameOp;
+    struct _IrInstruction *stackOp;
+    struct _IrInstruction *lastOp;
+
 
 
     // TODO: declarations
@@ -275,11 +330,8 @@ typedef struct _IrFunctionList IrFunctionList;
 typedef struct _SwitchTable SwitchTable;
 
 
-IrOperandListNode *newOpListNode(IrOperand *op);
-void addOperandTail(IrOperandList *list, IrOperand *op);
-IrInstructionListNode *newInstListNode(IrInstruction *instr);
-void addInstuctionTail(IrInstructionList *list, IrInstruction *instr);
-void addInstuctionHead(IrInstructionList *list, IrInstruction *instr);
+void addInstructionTail(IrBasicBlock *block, IrInstruction *instr);
+void addInstructionHead(IrBasicBlock *block, IrInstruction *instr);
 
 IrBasicBlockListNode *newBBListNode(IrBasicBlock *bb);
 void addBBTail(IrBasicBlockList *list, IrBasicBlock *bb);
@@ -287,24 +339,28 @@ IrFunctionListNode *newFunctionListNode(IrFunction *f);
 void addFunctionTail(IrFunctionList *list, IrFunction *function);
 IrBasicBlock *newBasicBlock(const char *name);
 
-
 void addSuccessor(IrBasicBlock *block, IrBasicBlock *succ);
 void addPredecessor(IrBasicBlock *block, IrBasicBlock *pred);
 
-IrOperand *newIrOperand(enum IrTypeKind type, enum IrOperandKind kind);
-IrOperand *newVreg(enum IrTypeKind type);
-IrOperand *newPreg(enum IrTypeKind type, uint32_t pid);
-IrOperand *newLabelOperand(IrBasicBlock *block);
-
 void addInstructionDef(IrInstruction *instr, IrOperand *def);
 void addInstructionUse(IrInstruction *instr, IrOperand *use);
-void addPhiInput(IrInstruction *instr, IrOperand *value, IrBasicBlock *block);
 
-IrInstruction *newInstruction(enum IrIntructionKind kind);
+void addInstructionToVector(Vector *v, IrInstruction *instr);
+IrInstruction *getInstructionFromVector(const Vector *v, uint32_t i);
+IrBasicBlock *getBlockFromVector(const Vector *v, uint32_t i);
+
+IrInstruction *newPhiInstruction(enum IrTypeKind irType);
+void addPhiInput(IrInstruction *instr, IrInstruction *value, IrBasicBlock *block);
+
+IrInstruction *newInstruction(enum IrIntructionKind kind, enum IrTypeKind type);
 IrInstruction *newMoveInstruction(IrOperand *src, IrOperand *dst);
+IrInstruction *newLabelInstruction(IrBasicBlock *block);
+IrInstruction *newPhysRegister(enum IrTypeKind type, uint32_t regId);
 IrInstruction *newGotoInstruction(IrBasicBlock *bb);
-IrInstruction *newCondBranch(IrOperand *cond, IrBasicBlock *thenBB, IrBasicBlock *elseBB);
-IrInstruction *newTableBranch(IrOperand *cond, SwitchTable *table);
+IrInstruction *newCondBranch(IrInstruction *cond, IrBasicBlock *thenBB, IrBasicBlock *elseBB);
+IrInstruction *newTableBranch(IrInstruction *cond, SwitchTable *table);
+IrInstruction *newGEPInstruction(IrInstruction *base, IrInstruction *offset, const TypeRef *underType);
+IrInstruction *newMemoryCopyInstruction(IrInstruction *dst, IrInstruction *src, IrInstruction *count, const TypeRef *copyType);
 
 IrBasicBlock *updateBlock();
 void addInstruction(IrInstruction *instr);
@@ -313,23 +369,19 @@ void gotoToBlock(IrBasicBlock *gotoBB);
 
 void replaceInputWith(IrOperand *oldValue, IrOperand *newValue);
 void replaceInputIn(IrInstruction *instr, IrOperandListNode *opNode, IrOperand *newOp);
+void replaceInputAt(IrInstruction *instr, IrInstruction *v, size_t i);
+void replaceUsageWith(IrInstruction *instr, IrInstruction *newInstr);
 
-typedef struct _ConstantCacheData {
-    ConstKind kind;
-    union {
-        int64_const_t i;
-        float80_const_t f;
-        struct {
-          literal_const_t s;
-          size_t length;
-        } l;
-    } data;
-    IrOperand *op;
-} ConstantCacheData;
+void eraseInstruction(IrInstruction *instr);
+void eraseInstructionFromBlock(IrInstruction *instr);
 
-IrOperand *createIntegerConstant(enum IrTypeKind type, int64_const_t v);
-IrOperand *createFloatConstant(enum IrTypeKind type, float80_const_t v);
-IrOperand *getOrAddConstant(ConstantCacheData *data, enum IrTypeKind type);
+IrBasicBlockListNode *eraseFromBlockList(IrBasicBlockList *list, IrBasicBlockListNode *bn);
+void removeFromBlockList(IrBasicBlockList *list, IrBasicBlock *block);
+
+IrInstruction *createIntegerConstant(enum IrTypeKind type, int64_const_t v);
+IrInstruction *createFloatConstant(enum IrTypeKind type, float80_const_t v);
+IrInstruction *createSymbolConstant(struct _Symbol *s);
+IrInstruction *createLiteralConstant(const char *v, size_t l);
 
 void removeInstruction(IrInstructionListNode *inode);
 
@@ -337,18 +389,22 @@ void releaseOperand(IrOperand *op);
 void releaseInstruction(IrInstruction *instr);
 
 enum IrTypeKind sizeToMemoryType(int32_t size);
+enum IrTypeKind typeRefToIrType(const TypeRef *t);
 
-IrOperand *addLoadInstr(enum IrTypeKind valueType, IrOperand *base, IrOperand *offset, const AstExpression *ast);
-void addStoreInstr(IrOperand *base, IrOperand *offset,IrOperand *value, const AstExpression *ast);
+IrInstruction *addLoadInstr(enum IrTypeKind valueType, IrInstruction *ptr, const AstExpression *ast);
+IrInstruction *addStoreInstr(IrInstruction *ptr, IrInstruction *value, const AstExpression *ast);
 
 void initializeIrContext(struct _IrContext *ctx, struct _ParserContext* pctx);
 void releaseIrContext(struct _IrContext *ctx);
+void resetIrContext(IrContext *_ctx);
 
 struct _IrFunctionList translateAstToIr(AstFile *file);
 
 void buildSSA(IrFunction *function);
 void buildDominatorInfo(IrContext *ctx, IrFunction *func);
 
+
+void addInstructionInput(IrInstruction *instruction, IrInstruction *input);
 
 void dumpIrFunctionList(const char *fileName, const IrFunctionList *functions);
 void buildDotGraphForFunctionList(const char *fileName, const IrFunctionList *functions);

@@ -19,7 +19,7 @@ static Boolean translateStatement(AstStatement *stmt);
 static Boolean translateBlock(AstStatement *block);
 static Boolean translateStatement(AstStatement *stmt);
 static Boolean translateDeclaration(AstDeclaration *decl);
-static IrOperand *translateExpression(AstExpression *expr);
+static IrInstruction *translateExpression(AstExpression *expr);
 static Boolean translateLabel(AstStatement *stmt);
 static Boolean translateGotoLabel(AstStatement *stmt);
 static Boolean translateGotoPtr(AstStatement *stmt);
@@ -42,42 +42,6 @@ static IrFunction *newIrFunction(AstFunctionDefinition *function) {
     func->entry = newBasicBlock("<entry>");
     func->exit = newBasicBlock("<exit>");
     return func;
-}
-
-enum IrTypeKind typeRefToIrType(const TypeRef *t) {
-  	switch (t->kind) {
-	case TR_VALUE:
-	switch (t->descriptorDesc->typeId) {
-	  case T_ENUM: return IR_I32;
-	  case T_UNION:
-	  case T_STRUCT: return IR_P_AGG;
-	  case T_ERROR: unreachable("Unexpected error type in backend");
-	  case T_VOID: return IR_VOID;
-
-	  case T_BOOL: return IR_BOOL;
-
-	  case T_S1: return IR_I8;
-	  case T_S2: return IR_I16;
-	  case T_S4: return IR_I32;
-	  case T_S8: return IR_I64;
-
-	  case T_U1: return IR_U8;
-	  case T_U2: return IR_U16;
-	  case T_U4: return IR_U32;
-	  case T_U8: return IR_U64;
-
-	  case T_F4: return IR_F32;
-	  case T_F8: return IR_F64;
-	  case T_F10: return IR_F80;
-	  default: unreachable("Unexpected type");
-	}
-	case TR_VLA:
-	case TR_ARRAY:
-	case TR_FUNCTION:
-	case TR_POINTED: return IR_PTR;
-	default: unreachable("unexpected type ref");
-	}
-    return IR_U64;
 }
 
 void addTestIrFunction(IrFunctionList *list) {
@@ -136,28 +100,7 @@ IrFunctionList translateAstToIr(AstFile *file) {
     return list;
 }
 
-static IrOperand *computeEffectiveAddress(IrOperand *op, const AstExpression *ast) {
-    if (op->kind == IR_MEMORY) {
-
-        IrInstruction *instr = newInstruction(IR_E_ADD);
-
-        IrOperand *result = newVreg(op->data.address.base->type);
-
-        addInstructionUse(instr, op->data.address.base);
-        addInstructionUse(instr, op->data.address.offset);
-        addInstructionDef(instr, result);
-
-        result->astType = ast->type;
-        result->ast.e = ast;
-
-        addInstruction(instr);
-	    return result;
-	}
-
-	return op;
-}
-
-static IrOperand *encodeBitField(TypeRef *type, IrOperand *storageOp, IrOperand *valueOp) {
+static IrInstruction *encodeBitField(TypeRef *type, IrInstruction *storageOp, IrInstruction *valueOp) {
     assert(type->kind == TR_BITFIELD);
     uint64_t w = type->bitFieldDesc.width;
     uint64_t s = type->bitFieldDesc.offset;
@@ -174,42 +117,33 @@ static IrOperand *encodeBitField(TypeRef *type, IrOperand *storageOp, IrOperand 
 
 	enum IrTypeKind irMemoryType = typeRefToIrType(memoryType);
 
-	IrInstruction *storageMask = newInstruction(IR_E_AND);
-	IrOperand *mask1Op = createIntegerConstant(irMemoryType, ~mask);
-	IrOperand *maskedStorageOp = newVreg(irMemoryType);
-	addInstructionUse(storageMask, storageOp);
-	addInstructionUse(storageMask, mask1Op);
-	addInstructionDef(storageMask, maskedStorageOp);
-	addInstruction(storageMask);
+	IrInstruction *storageMask = newInstruction(IR_E_AND, irMemoryType);
+	IrInstruction *mask1Op = createIntegerConstant(irMemoryType, ~mask);
+    addInstructionInput(storageMask, storageOp);
+    addInstructionInput(storageMask, mask1Op);
+    addInstruction(storageMask);
 
-	IrInstruction *shiftValueInstr = newInstruction(IR_E_SHL);
-	IrOperand *shiftOp = createIntegerConstant(irMemoryType, s);
-	IrOperand *shiftedValueOp = newVreg(IR_I32);
-	addInstructionUse(shiftValueInstr, valueOp);
-	addInstructionUse(shiftValueInstr, shiftOp);
-	addInstructionDef(shiftValueInstr, shiftedValueOp);
-	addInstruction(shiftValueInstr);
+	IrInstruction *shiftValueInstr = newInstruction(IR_E_SHL, irMemoryType);
+	IrInstruction *shiftOp = createIntegerConstant(irMemoryType, s);
+    addInstructionInput(shiftValueInstr, storageMask);
+    addInstructionInput(shiftValueInstr, shiftOp);
+    addInstruction(shiftValueInstr);
 
-	IrInstruction *maskValueInstr = newInstruction(IR_E_AND);
-	IrOperand *mask2Op = createIntegerConstant(irMemoryType, mask);
-	IrOperand *maskedValueOp = newVreg(irMemoryType);
-	addInstructionUse(maskValueInstr, shiftedValueOp);
-	addInstructionUse(maskValueInstr, mask2Op);
-	addInstructionDef(maskValueInstr, maskedValueOp);
-	addInstruction(maskValueInstr);
+	IrInstruction *maskValueInstr = newInstruction(IR_E_AND, irMemoryType);
+	IrInstruction *mask2Op = createIntegerConstant(irMemoryType, mask);
+    addInstructionInput(maskValueInstr, shiftValueInstr);
+    addInstructionInput(maskValueInstr, mask2Op);
+    addInstruction(maskValueInstr);
 
-	IrInstruction *mergeInstr = newInstruction(IR_E_OR);
-	IrOperand *resultOp = newVreg(irMemoryType);
-	addInstructionUse(mergeInstr, maskedStorageOp);
-	addInstructionUse(mergeInstr, maskedValueOp);
-	addInstructionDef(mergeInstr, resultOp);
-	addInstruction(mergeInstr);
-    // TODO: sign extend
+	IrInstruction *mergeInstr = newInstruction(IR_E_OR, irMemoryType);
+    addInstructionInput(maskValueInstr, storageMask);
+    addInstructionInput(maskValueInstr, maskValueInstr);
+    addInstruction(maskValueInstr);
 
-    return resultOp;
+    return maskValueInstr;
 }
 
-static IrOperand *decodeBitField(TypeRef *type, IrOperand *storageOp) {
+static IrInstruction *decodeBitField(TypeRef *type, IrInstruction *storageOp) {
     assert(type->kind == TR_BITFIELD);
     uint64_t w = type->bitFieldDesc.width;
     uint64_t mask = ~(~0LLu << w);
@@ -223,98 +157,78 @@ static IrOperand *decodeBitField(TypeRef *type, IrOperand *storageOp) {
 
 	enum IrTypeKind irMemoryType = typeRefToIrType(memoryType);
 
-    IrOperand *loadedValue = storageOp;
-    IrOperand *shlSizeOp = createIntegerConstant(IR_I32, l);
-    IrOperand *shlOp = newVreg(irMemoryType);
-    shlOp->astType = memoryType;
-
-    IrInstruction *shlInstr = newInstruction(IR_E_SHL);
-    addInstructionUse(shlInstr, loadedValue);
-    addInstructionUse(shlInstr, shlSizeOp);
-    addInstructionDef(shlInstr, shlOp);
+    IrInstruction *shlSizeOp = createIntegerConstant(IR_I32, l);
+    IrInstruction *shlInstr = newInstruction(IR_E_SHL, irMemoryType);
+    addInstructionInput(shlInstr, storageOp);
+    addInstructionInput(shlInstr, shlSizeOp);
     addInstruction(shlInstr);
 
     int32_t r = W - w;
-    IrOperand *shrSizeOp = createIntegerConstant(IR_I32, r);
-    IrOperand *shrOp = newVreg(irMemoryType);
-    shrOp->astType = memoryType;
+    IrInstruction *shrSizeOp = createIntegerConstant(IR_I32, r);
 
-    IrInstruction *shrInstr = newInstruction(IR_E_SHR);
-    addInstructionUse(shrInstr, shlOp);
-    addInstructionUse(shrInstr, shrSizeOp);
-    addInstructionDef(shrInstr, shrOp);
-    addInstruction(shrInstr);
+    IrInstruction *shrInstr = newInstruction(IR_E_SHR, irMemoryType);
+    addInstructionInput(shrInstr, shlInstr);
+    addInstructionInput(shrInstr, shrSizeOp);
+    addInstruction(shlInstr);
 
     // TODO: sign extend
 
-    return shrOp;
+    return shrInstr;
 }
 
-IrInstruction *createAllocaInstr(IrOperand *sizeOp, IrOperand *defOp) {
-    IrInstruction *allocaInstr = newInstruction(IR_ALLOCA);
+IrInstruction *createAllocaInstr(IrInstruction *sizeOp) {
+    IrInstruction *allocaInstr = newInstruction(IR_ALLOCA, IR_PTR);
 
-    addInstructionUse(allocaInstr, sizeOp);
-    addInstructionDef(allocaInstr, defOp);
+    addInstructionInput(allocaInstr, sizeOp);
     addInstruction(allocaInstr);
+
+    addInstructionToVector(&ctx->allocas, allocaInstr);
 
 	return allocaInstr;
 }
 
-IrInstruction *createAllocaSlotInPlace(size_t slotSize, IrOperand *defOp) {
+IrInstruction *createAllocaSlot(size_t slotSize) {
   slotSize = alignSize(slotSize, sizeof(intptr_t));
-  IrOperand *sizeOp = createIntegerConstant(IR_U64, slotSize);
-  IrInstruction *allocaInstr = createAllocaInstr(sizeOp, defOp);
+  IrInstruction *sizeOp = createIntegerConstant(IR_U64, slotSize);
+  IrInstruction *allocaInstr = createAllocaInstr(sizeOp);
 
-  allocaInstr->info.stackSize = slotSize;
+  allocaInstr->info.alloca.stackSize = slotSize;
 
   return allocaInstr;
 }
 
-IrOperand *createAllocaSlot(size_t slotSize) {
-  IrOperand *defOp = newVreg(IR_PTR);
-  createAllocaSlotInPlace(slotSize, defOp);
-  return defOp;
-}
-
-static void generateCompositeCopy(const TypeRef *type, IrOperand *src, IrOperand *dst, const AstExpression *ast) {
+static IrInstruction *generateCompositeCopy(const TypeRef *type, IrInstruction *src, IrInstruction *dst, const AstExpression *ast) {
 	assert(isCompositeType(type));
 
   int32_t align = type->descriptorDesc->typeDefinition->align;
   int32_t size = computeTypeSize(type);
   int32_t copied = 0;
 
-  IrOperand *srcOp = computeEffectiveAddress(src, ast);
-  IrOperand *dstOp = computeEffectiveAddress(dst, ast);
+  IrInstruction *sizeOp = createIntegerConstant(IR_U64, size);
+  IrInstruction *copyInstr = newMemoryCopyInstruction(dst, src, sizeOp, type);
+  addInstruction(copyInstr);
+  return copyInstr;
+}
 
-  while (copied < size) {
-      int32_t chunkSize;
-      int32_t left = size - copied;
+static IrInstruction *translateLValue(AstExpression *expr) {
+    const enum IrTranslationMode tm = ctx->addressTM;
+    ctx->addressTM = IR_TM_LVALUE;
+    IrInstruction *lvalue = translateExpression(expr);
+    ctx->addressTM = tm;
+    return lvalue;
+}
 
-      if (left >= 8) chunkSize = sizeof(int64_t);
-      else if (left >= 4) chunkSize = sizeof(int32_t);
-      else if (left >= 2) chunkSize = sizeof(int16_t);
-      else chunkSize = sizeof(int8_t);
-
-      chunkSize = min(align, chunkSize);
-	  enum IrTypeKind memType = sizeToMemoryType(chunkSize);
-
-	  IrOperand *offsetOp = createIntegerConstant(IR_I64, copied);
-
-	  IrOperand *word = addLoadInstr(memType, srcOp, offsetOp, ast);
-	  addStoreInstr(dstOp, offsetOp, word, ast);
-
-      copied += chunkSize;
-  }
+static IrInstruction *translateRValue(AstExpression *expr) {
+    const enum IrTranslationMode tm = ctx->addressTM;
+    ctx->addressTM = IR_TM_RVALUE;
+    IrInstruction *rvalue = translateExpression(expr);
+    ctx->addressTM = tm;
+    return rvalue;
 }
 
 // -============================ translators ============================-
 
-static Boolean isNullConst(AstExpression *expr) {
-  if (expr->op != E_CONST) return FALSE;
-  return expr->constExpr.i == 0;
-}
-
-static size_t translateInitializerIntoMemory(IrOperand *base, int32_t offset, size_t typeSize, const AstInitializer *initializer) {
+static size_t translateInitializerIntoMemory(IrInstruction *base, int32_t offset, size_t typeSize, const AstInitializer *initializer) {
 
   assert(ctx->addressTM == IR_TM_RVALUE);
 
@@ -327,9 +241,11 @@ static size_t translateInitializerIntoMemory(IrOperand *base, int32_t offset, si
 	const int32_t slotOffset = initializer->offset;
 	const int32_t emitOffset = offset + slotOffset;
 
-	if (/*skipNull && */ isNullConst(expr)) {
+    /*
+	if (skipNull &&  isNullConst(expr)) {
 	  return offset + slotSize;
 	}
+    */
 
 	if (expr->op == E_COMPOUND) {
 	  const int32_t emittedOffset = translateInitializerIntoMemory(base, emitOffset, typeSize, expr->compound);
@@ -337,27 +253,24 @@ static size_t translateInitializerIntoMemory(IrOperand *base, int32_t offset, si
 	  return emittedOffset;
 	}
 
-	IrOperand *valueOp = translateExpression(expr);
+	IrInstruction *valueOp = translateRValue(expr);
 	if ((emitOffset + slotSize) <= typeSize) {
-	  IrOperand *offsetOp = createIntegerConstant(IR_I64, emitOffset);
+      IrInstruction *ptr = base;
+      if (emitOffset != 0) {
+        IrInstruction *offsetOp = createIntegerConstant(IR_I64, emitOffset);
+        IrInstruction *gepInstr = newGEPInstruction(base, offsetOp, slotType);
+        gepInstr->meta.astExpr = expr;
+        addInstruction(gepInstr);
+        ptr = gepInstr;
+      }
 
 	  if (isCompositeType(slotType)) {
-	  	IrOperand *dstOp = newVreg(IR_PTR);
-		IrInstruction *addInstr = newInstruction(IR_E_ADD);
-		addInstructionUse(addInstr, base);
-		addInstructionUse(addInstr, offsetOp);
-		addInstructionDef(addInstr, dstOp);
-		addInstruction(addInstr);
-        generateCompositeCopy(slotType, valueOp, dstOp, expr);
+        generateCompositeCopy(slotType, valueOp, ptr, expr);
 	  } else if (slotType->kind == TR_BITFIELD) {
 		// TODO
 		unimplemented("BitField initializer");
 	  } else {
-		IrInstruction *storeInstr = newInstruction(IR_M_STORE);
-		addInstructionUse(storeInstr, base);
-		addInstructionUse(storeInstr, offsetOp);
-		addInstructionUse(storeInstr, valueOp);
-		addInstruction(storeInstr);
+        addStoreInstr(ptr, valueOp, NULL);
 	  }
 	}
 
@@ -391,38 +304,32 @@ static size_t translateInitializerIntoMemory(IrOperand *base, int32_t offset, si
 
 // -============================ expressions ============================-
 
-static IrOperand *translateConstant(AstExpression *expr) {
+static IrInstruction *translateConstant(AstExpression *expr) {
     assert(expr->op == E_CONST);
     // Think about representation
     enum IrTypeKind constType = expr->constExpr.op == CK_STRING_LITERAL
             ? IR_LITERAL
             : typeRefToIrType(expr->type);
 
-    ConstantCacheData data;
-    data.kind = expr->constExpr.op;
     switch (expr->constExpr.op) {
     case CK_INT_CONST:
-        data.data.i = expr->constExpr.i;
-        break;
+        return createIntegerConstant(constType, expr->constExpr.i);
     case CK_FLOAT_CONST:
-        data.data.f = expr->constExpr.f;
-        break;
+        return createFloatConstant(constType, expr->constExpr.f);
     case CK_STRING_LITERAL:
-        data.data.l.length = expr->constExpr.l.length;
-        data.data.l.s = expr->constExpr.l.s;
-        break;
+        return createLiteralConstant(expr->constExpr.l.s, expr->constExpr.l.length);
     }
 
-    return getOrAddConstant(&data, constType);
+    unreachable("Unknown constant kind");
 }
 
-static IrOperand *translateVaArg(AstExpression *expr) {
+static IrInstruction *translateVaArg(AstExpression *expr) {
     assert(expr->op == E_VA_ARG);
     unimplemented("Constant Expression");
     return NULL;
 }
 
-static IrOperand *translateNameRef(AstExpression *expr) {
+static IrInstruction *translateNameRef(AstExpression *expr) {
     assert(expr->op == E_NAMEREF);
 
     // If this is called we probably want a function reference.
@@ -430,50 +337,68 @@ static IrOperand *translateNameRef(AstExpression *expr) {
 
     IrOperand *op = NULL;
     Symbol *s = expr->nameRefExpr.s;
-    if (s->kind == FunctionSymbol || s->kind == ValueSymbol && !s->variableDesc->flags.bits.isLocal) {
+
+
+    if (s->kind == FunctionSymbol || s->kind == ValueSymbol && !(s->variableDesc->flags.bits.isLocal || s->variableDesc->kind != VD_PARAMETER)) {
         // Either Function of non-local variable reference
-        op = newIrOperand(IR_PTR, IR_REFERENCE);
-        op->ast.e = expr;
-        op->astType = expr->type;
-        op->data.symbol = expr->nameRefExpr.s;
-    } else {
-        assert(s->kind == ValueSymbol);
+        return createSymbolConstant(s);
+    } else if (s->kind == ValueSymbol) {
         AstValueDeclaration *v = s->variableDesc;
-        assert(v->flags.bits.isLocal);
-        LocalValueInfo *info = &ctx->localOperandMap[v->index2];
-        assert(info != NULL);
-        if (info->flags.referenced || isCompositeType(info->declaration->type)) {
-            IrOperand *base = ctx->frameOp;
-            IrOperand *offset = createIntegerConstant(IR_I64, info->frameOffset);
-            op = newIrOperand(IR_PTR, IR_MEMORY);
-            op->data.address.base = base;
-            op->data.address.offset = offset;
-            op->astType = expr->type;
+        printf("Translate referenece to variable %s...", v->name, v->index2);
+
+        if (v->kind == VD_PARAMETER || v->flags.bits.isLocal) {
+          assert(v->flags.bits.isLocal);
+          LocalValueInfo *info = &ctx->localOperandMap[v->index2];
+          assert(info != NULL);
+          assert(info->stackSlot != NULL);
+          printf(" found local stack slot %p at index %u\n", info->stackSlot, v->index2);
+          return info->stackSlot;
         } else {
-            return info->initialOp;
+          return createSymbolConstant(s);
         }
+    } else {
+      unreachable("Unexpected Symbol type");
     }
-
-    assert(op != NULL);
-
-    op->ast.e = expr;
-
-    return op;
 }
 
-static IrOperand *translateCompound(AstExpression *expr) {
+static IrInstruction *translateCompound(AstExpression *expr) {
     assert(expr->op == E_COMPOUND);
 
     size_t typeSize = computeTypeSize(expr->type);
-	IrOperand *memoryOp = createAllocaSlot(typeSize);
+	IrInstruction *memoryOp = createAllocaSlot(typeSize);
+    memoryOp->info.alloca.valueType = typeRefToIrType(expr->type);
 
 	translateInitializerIntoMemory(memoryOp, 0, typeSize, expr->compound);
 
 	return memoryOp;
 }
 
-static IrOperand *translateCall(AstExpression *expr) {
+static IrInstruction *maybeTranslateAlloca(AstExpression *expr) {
+  AstExpression *callee = expr->callExpr.callee;
+
+  if (callee->op != E_NAMEREF) return NULL;
+  if (strcmp("alloca", callee->nameRefExpr.s->name)) return NULL;
+
+  const int32_t dataSize = sizeof(intptr_t);
+  AstExpressionList *args = expr->callExpr.arguments;
+  assert(args->next == NULL);
+
+  IrInstruction *sizeOp = translateRValue(args->expression);
+  IrInstruction *allocaInstr = createAllocaInstr(sizeOp);
+  allocaInstr->astType = expr->type;
+  allocaInstr->meta.astExpr = expr;
+  allocaInstr->info.alloca.sizeInstr = sizeOp;
+  allocaInstr->info.alloca.valueType = IR_U8;
+
+  return allocaInstr;
+}
+
+static IrInstruction *translateCall(AstExpression *expr) {
     assert(expr->op == E_CALL);
+
+    IrInstruction *allocaInstr = maybeTranslateAlloca(expr);
+    if (allocaInstr != NULL)
+      return allocaInstr;
 
 	// TODO: support alloca(..) function
 
@@ -489,17 +414,22 @@ static IrOperand *translateCall(AstExpression *expr) {
 	const enum IrTranslationMode tm = ctx->addressTM;
 	ctx->addressTM = IR_TM_RVALUE;
 
-	IrOperand *calleeOp = translateExpression(callee);
-	IrInstruction *callInstr = newInstruction(IR_CALL);
-	addInstructionUse(callInstr, calleeOp);
+	IrInstruction *calleeOp = translateExpression(callee);
+	IrInstruction *callInstr = newInstruction(IR_CALL, typeRefToIrType(expr->type));
+    addInstructionInput(callInstr, calleeOp);
 
-	IrOperand *returnSlotOp = NULL;
+    callInstr->astType = expr->type;
+    callInstr->meta.astExpr = expr;
+
+	IrInstruction *returnSlotOp = NULL;
 
 	// TODO: save and restore stack after series of alloca's
 
 	if (isCompositeType(returnType) && returnTypeSize > sizeof (intptr_t)) {
 	  returnSlotOp = createAllocaSlot(returnTypeSize);
-	  addInstructionUse(callInstr, returnSlotOp);
+      returnSlotOp->info.alloca.valueType = typeRefToIrType(returnType);
+      addInstructionInput(callInstr, returnSlotOp);
+      callInstr->info.call.returnBuffer = returnSlotOp;
   	}
 
 	for (AstExpressionList *args = expr->callExpr.arguments;
@@ -510,52 +440,43 @@ static IrOperand *translateCall(AstExpression *expr) {
       unsigned alignent = max(8, typeAlignment(argType));
       unsigned argSize = max(8, computeTypeSize(argType));
 
-	  IrOperand *argOp = translateExpression(argExpr);
-	  IrOperand *realArgOp = NULL;
+	  IrInstruction *argOp = translateExpression(argExpr);
+	  IrInstruction *realArgOp = NULL;
 
 	  if (isCompositeType(argType)) {
 		if (argSize > sizeof (intptr_t)) {
 		  // TODO: make sure this should be in argument list
 		  realArgOp = createAllocaSlot(argSize);
+          realArgOp->info.alloca.valueType = typeRefToIrType(argType);
 		  generateCompositeCopy(argType, argOp, realArgOp, expr);
 		} else {
-		  assert(argOp->kind == IR_REFERENCE);
-		  IrOperand *offset = createIntegerConstant(IR_I64, 0);
-		  realArgOp = addLoadInstr(IR_P_AGG, argOp, offset, expr);
+		  IrInstruction *offset = createIntegerConstant(IR_I64, 0);
+          IrInstruction *gep = newGEPInstruction(argOp, offset, argType);
+          addInstruction(gep);
+		  realArgOp = addLoadInstr(IR_P_AGG, gep, expr);
+          gep->meta.astExpr = realArgOp->meta.astExpr = argExpr;
 		}
 	  } else {
 		realArgOp = argOp;
 	  }
 
-	  addInstructionUse(callInstr, realArgOp);
-	}
-
-	IrOperand *returnValueOp = NULL;
-	if (!isVoidType(returnType)) {
-		if (returnSlotOp != NULL) {
-		  // TODO: what should be done here?
-		  returnValueOp = returnSlotOp;
-		} else {
-		  enum IrTypeKind irRetType = typeRefToIrType(returnType);
-		  returnValueOp = newVreg(irRetType);
-		  addInstructionDef(callInstr, returnValueOp);
-		}
+	  addInstructionInput(callInstr, realArgOp);
 	}
 
 	addInstruction(callInstr);
-	callInstr->meta.astExpr = expr;
 
 	ctx->addressTM = tm;
-    return returnValueOp;
+
+    return callInstr;
 }
 
-static IrOperand *translateTernary(AstExpression *expr) {
+static IrInstruction *translateTernary(AstExpression *expr) {
     assert(expr->op == E_TERNARY);
 
     const enum IrTranslationMode tm = ctx->addressTM;
     ctx->addressTM = IR_TM_RVALUE;
 
-    IrOperand *condOp = translateExpression(expr->ternaryExpr.condition);
+    IrInstruction *condOp = translateExpression(expr->ternaryExpr.condition);
 
     IrBasicBlock *ifTrue = newBasicBlock("<ifTrue>");
     IrBasicBlock *ifFalse = newBasicBlock("<ifFalse>");
@@ -567,34 +488,33 @@ static IrOperand *translateTernary(AstExpression *expr) {
     termintateBlock(cond);
 
     ctx->currentBB = ifTrue;
-    IrOperand *ifTrueOp = translateExpression(expr->ternaryExpr.ifTrue);
+    IrInstruction *ifTrueOp = translateExpression(expr->ternaryExpr.ifTrue);
     gotoToBlock(exit);
 
     ctx->currentBB = ifFalse;
-    IrOperand *ifFalseOp = translateExpression(expr->ternaryExpr.ifFalse);
+    IrInstruction *ifFalseOp = translateExpression(expr->ternaryExpr.ifFalse);
     gotoToBlock(exit);
 
     ctx->currentBB = exit;
     assert(ifTrueOp->type == ifFalseOp->type);
-    IrOperand *result = newVreg(ifTrueOp->type);
     // TODO: what if type is composite?
-    IrInstruction *phi = newInstruction(IR_PHI);
-    addOperandTail(&phi->defs, result);
-    addOperandTail(&phi->uses, ifTrueOp);
-    addOperandTail(&phi->uses, ifFalseOp);
+    IrInstruction *phi = newPhiInstruction(typeRefToIrType(expr->type));
+
+    addPhiInput(phi, ifTrueOp, ifTrue);
+    addPhiInput(phi, ifFalseOp, ifFalse);
 
     ctx->addressTM = tm;
 
-    return result;
+    return phi;
 }
 
-static IrOperand *translateBitExtend(AstExpression *expr) {
+static IrInstruction *translateBitExtend(AstExpression *expr) {
     assert(expr->op == E_BIT_EXTEND);
     unimplemented("Bit Extend Expression");
     return NULL;
 }
 
-static IrOperand *translateCast(AstExpression *expr) {
+static IrInstruction *translateCast(AstExpression *expr) {
     assert(expr->op == E_CAST);
     TypeRef *fromType = expr->castExpr.argument->type;
     TypeRef *toType = expr->castExpr.type;
@@ -602,30 +522,24 @@ static IrOperand *translateCast(AstExpression *expr) {
 	enum IrTypeKind irFromType = typeRefToIrType(fromType);
 	enum IrTypeKind irToType = typeRefToIrType(toType);
 
-	IrOperand *src = translateExpression(expr->castExpr.argument);
-	IrOperand *dst = newVreg(irToType);
+	IrInstruction *src = translateExpression(expr->castExpr.argument);
+	IrInstruction *castInstr = newInstruction(IR_E_BITCAST, irToType);
 
-	IrInstruction *castInstr = newInstruction(IR_E_BITCAST);
-
-	addInstructionUse(castInstr, src);
-	addInstructionDef(castInstr, dst);
+    addInstructionInput(castInstr, src);
 	addInstruction(castInstr);
 
 	castInstr->info.fromCastType = irFromType;
-	src->ast.e = castInstr->meta.astExpr = expr;
+    castInstr->astType = toType;
+    castInstr->meta.astExpr = expr;
 
-    return dst;
+    return castInstr;
 }
 
-static IrOperand *translateLogicalExpression(AstExpression *expr) {
+static IrInstruction *translateLogicalExpression(AstExpression *expr) {
     assert(expr->op == EB_ANDAND || expr->op == EB_OROR);
 
     Boolean isAndAnd = expr->op == EB_ANDAND;
-    const enum IrTranslationMode tm = ctx->addressTM;
-    ctx->addressTM = IR_TM_RVALUE;
-
-    IrOperand *leftOp = translateExpression(expr->binaryExpr.left);
-    IrOperand *result = newVreg(IR_I32);
+    IrInstruction *leftOp = translateRValue(expr->binaryExpr.left);
 
     IrBasicBlock *fst = ctx->currentBB;
     IrBasicBlock *scnd = newBasicBlock(isAndAnd ? "<&&>" : "<||>");
@@ -637,22 +551,20 @@ static IrOperand *translateLogicalExpression(AstExpression *expr) {
     termintateBlock(cond);
 
     ctx->currentBB = scnd;
-    IrOperand *rightOp = translateExpression(expr->binaryExpr.right);
+    IrInstruction *rightOp = translateRValue(expr->binaryExpr.right);
     gotoToBlock(exit);
 
     ctx->currentBB = exit;
-    IrInstruction *phi = newInstruction(IR_PHI);
-    addInstructionDef(phi, result);
+    IrInstruction *phi = newPhiInstruction(IR_BOOL);
     addPhiInput(phi, leftOp, fst);
     addPhiInput(phi, rightOp, scnd);
 
     addInstruction(phi);
 
     phi->meta.astExpr = expr;
+    phi->astType = expr->type;
 
-    ctx->addressTM = tm;
-
-    return result;
+    return phi;
 }
 
 static enum IrIntructionKind getBinaryArith(ExpressionType op, Boolean isFloatOperand) {
@@ -701,13 +613,13 @@ static ExpressionType assignArithToArith(ExpressionType op) {
     return E_NUM_OF_OPS;
 }
 
-static IrOperand *translateBinary(AstExpression *expr) {
+static IrInstruction *translateBinary(AstExpression *expr) {
     assert(isBinary(expr->op));
 
     const enum IrTranslationMode tm = ctx->addressTM;
     ctx->addressTM = IR_TM_RVALUE;
-    IrOperand *leftOp = translateExpression(expr->binaryExpr.left);
-    IrOperand *rightOp = translateExpression(expr->binaryExpr.right);
+    IrInstruction *leftOp = translateExpression(expr->binaryExpr.left);
+    IrInstruction *rightOp = translateExpression(expr->binaryExpr.right);
     ctx->addressTM = tm;
 
     enum IrTypeKind type = typeRefToIrType(expr->type);
@@ -719,308 +631,181 @@ static IrOperand *translateBinary(AstExpression *expr) {
     assert(leftOp != NULL);
     assert(rightOp != NULL);
     // NOTE: pointer arithmethic is desugared during parser phase
-    IrOperand *result = newVreg(type);
-    IrInstruction *instr = newInstruction(k);
-    addOperandTail(&instr->uses, leftOp);
-    addOperandTail(&instr->uses, rightOp);
-    addOperandTail(&instr->defs, result);
+    IrInstruction *instr = newInstruction(k, type);
+    addInstructionInput(instr, leftOp);
+    addInstructionInput(instr, rightOp);
 
     addInstruction(instr);
 
     instr->meta.astExpr = expr;
+    instr->astType = expr->type;
 
-    return result;
+    return instr;
 }
 
-static IrOperand *translateAssignment(AstExpression *expr) {
+static IrInstruction *translateAssignment(AstExpression *expr) {
     assert(expr->op == EB_ASSIGN);
 
     AstExpression *assignee = expr->binaryExpr.left;
     AstExpression *value = expr->binaryExpr.right;
 
     const enum IrTranslationMode tm = ctx->addressTM;
-    ctx->addressTM = IR_TM_LVALUE;
-    IrOperand *ref = translateExpression(assignee);
-    ctx->addressTM = IR_TM_RVALUE;
-    IrOperand *valueOp = translateExpression(value);
-    ctx->addressTM = tm;
+    IrInstruction *lvalue = translateLValue(assignee);
+    IrInstruction *rvalue = translateRValue(value);
 
     // TODO: heavy_copy_1 = heavy_copy_2 = heavy_struct
 
     if (isCompositeType(value->type)) {
-	  generateCompositeCopy(value->type, valueOp, ref, expr);
-    } else if (ref->kind == IR_MEMORY) {
+	  generateCompositeCopy(value->type, rvalue, lvalue, expr);
+    } else {
 		if (value->type->kind == TR_BITFIELD) {
 		  enum IrTypeKind irMemType = typeRefToIrType(value->type->bitFieldDesc.storageType);
-		  IrOperand *storageOp = addLoadInstr(irMemType, ref->data.address.base, ref->data.address.offset, expr);
-		  valueOp = encodeBitField(value->type, storageOp, valueOp);
+		  IrInstruction *storageOp = addLoadInstr(irMemType, lvalue, expr);
+		  rvalue = encodeBitField(value->type, storageOp, rvalue);
 		}
-	  	addStoreInstr(ref->data.address.base, ref->data.address.offset, valueOp, expr);
-    } else if (ref->type == IR_PTR)  {
-      // probably it is something like *assigne = where assignee is some scalar
-        addStoreInstr(ref, createIntegerConstant(IR_I64, 0), valueOp, expr);
-    } else {
-        assert(ref->kind == IR_LOCAL);
-
-        IrInstruction *moveInstr = newMoveInstruction(valueOp, ref);
-        moveInstr->meta.astExpr = expr;
-        addInstruction(moveInstr);
+	  	addStoreInstr(lvalue, rvalue, expr);
     }
-
-    return valueOp;
+    return rvalue;
 }
 
-static IrOperand *translateAssignArith(AstExpression *expr) {
+static IrInstruction *translateAssignArith(AstExpression *expr) {
     assert(isAssignmentArith(expr->op));
 
     AstExpression *assignee = expr->binaryExpr.left;
     AstExpression *value = expr->binaryExpr.right;
     assert(!isCompositeType(value->type) && "Forbiden operation in C");
 
-    const enum IrTranslationMode tm = ctx->addressTM;
-    ctx->addressTM = IR_TM_LVALUE;
-    IrOperand *ref = translateExpression(assignee);
-    ctx->addressTM = IR_TM_RVALUE;
-    IrOperand *valueOp = translateExpression(value);
-    ctx->addressTM = tm;
+    IrInstruction *lvalue = translateLValue(assignee);
+    IrInstruction *rvalue = translateRValue(value);
 
     Boolean isFloat = isRealType(value->type);
     ExpressionType binaryArith = assignArithToArith(expr->op);
     enum IrIntructionKind ik = getBinaryArith(binaryArith, isFloat);
-
-    IrOperand *lhs = NULL;
-
     enum IrTypeKind valueType = typeRefToIrType(expr->type);
 
     IrOperand *base = NULL, *offset = NULL;
     IrOperand *resultOp = NULL;
-	IrOperand *storageOp = NULL;
+	IrInstruction *storageOp = NULL;
 
-    if (ref->kind == IR_MEMORY || ref->kind == IR_REFERENCE) {
-        if (ref->kind == IR_MEMORY) {
-            base = ref->data.address.base;
-            offset = ref->data.address.offset;
-        } else {
-            base = ref;
-            offset = createIntegerConstant(IR_I64, 0);
-        }
-
-        resultOp = newVreg(valueType);
-        resultOp->astType = expr->type;
-        resultOp->ast.e = expr;
-        lhs = addLoadInstr(valueType, base, offset, expr);
-		if (assignee->type->kind == TR_BITFIELD) {
-		  storageOp = lhs;
-		  lhs = decodeBitField(assignee->type, storageOp);
-		}
-    } else {
-        assert(ref->kind == IR_LOCAL);
-        resultOp = lhs = ref;
+    IrInstruction *lhs = addLoadInstr(valueType, lvalue, expr);
+    if (assignee->type->kind == TR_BITFIELD) {
+      storageOp = lhs;
+      lhs = decodeBitField(assignee->type, storageOp);
     }
-
-    assert(resultOp != NULL);
-    assert(lhs != NULL);
 
     // NOTE: Pointer arithmethic is desugared during parser phase
-    IrInstruction *operation = newInstruction(ik);
-    addInstructionUse(operation, lhs);
-    addInstructionUse(operation, valueOp);
-    addInstructionDef(operation, resultOp);
+    IrInstruction *operation = newInstruction(ik, valueType);
+    addInstructionInput(operation, lhs);
+    addInstructionInput(operation, rvalue);
     addInstruction(operation);
     operation->meta.astExpr = expr;
+    operation->astType = expr->type;
 
-    if (base != NULL) {
-        assert(offset != NULL);
-
-		if (assignee->type->kind == TR_BITFIELD) {
-		  assert(storageOp != NULL);
-		  resultOp = encodeBitField(assignee->type, storageOp, resultOp);
-		}
-        addStoreInstr(base, offset, resultOp, expr);
+    IrInstruction *storeValue = operation;
+    if (assignee->type->kind == TR_BITFIELD) {
+      assert(storageOp != NULL);
+      storeValue = encodeBitField(assignee->type, storageOp, operation);
     }
+    addStoreInstr(lvalue, storeValue, expr);
 
-    return resultOp;
+    return operation;
 }
 
-static IrOperand *translateReference(AstExpression *expr) {
+static IrInstruction *translateReference(AstExpression *expr) {
     assert(expr->op == EU_REF);
 
-    const enum IrTranslationMode tm = ctx->addressTM;
-    ctx->addressTM = IR_TM_LVALUE;
-    IrOperand *arg = translateExpression(expr->unaryExpr.argument);
-    ctx->addressTM = tm;
+    IrInstruction *lvalue = translateLValue(expr->unaryExpr.argument);
+    lvalue->astType = expr->type;
+    lvalue->meta.astExpr = expr;
 
-    if (arg->kind == IR_MEMORY) {
-        return computeEffectiveAddress(arg, expr);
-    }
-
-    return arg;
+    return lvalue;
 }
 
-static IrOperand *translateDeReference(AstExpression *expr) {
+
+static IrInstruction *translateDeReference(AstExpression *expr) {
     assert(expr->op == EU_DEREF);
 
-    const enum IrTranslationMode tm = ctx->addressTM;
-    ctx->addressTM = IR_TM_LVALUE;
-    IrOperand *arg = translateExpression(expr->unaryExpr.argument);
-    ctx->addressTM = tm;
+    IrInstruction *lvalue = translateLValue(expr->unaryExpr.argument);
+    TypeRef *valueType = expr->type;
+    TypeRef *ptrType = expr->unaryExpr.argument->type;
+    assert(isPointerLikeType(ptrType));
 
-    // Check if need to do actual memory load or caller expects address operand
-    if (tm == IR_TM_RVALUE) {
-        if (arg->kind == IR_MEMORY) {
-            // do we need load?
-            IrInstruction *loadInstr = newInstruction(IR_M_LOAD);
-            enum IrTypeKind type = typeRefToIrType(expr->type);
-            IrOperand *result = newVreg(type);
-            result->ast.e = loadInstr->meta.astExpr = expr;
-            result->astType = expr->type;
-
-            addInstructionUse(loadInstr, arg->data.address.base);
-            addInstructionUse(loadInstr, arg->data.address.offset);
-            addInstructionDef(loadInstr, result);
-            addInstruction(loadInstr);
-
-            return result;
-        } else if (arg->kind == IR_REFERENCE || arg->kind == IR_VREG) {
-            // Check if we do not dereference function reference due to is it non-sense
-            if (arg->kind == IR_VREG || arg->data.symbol->kind != FunctionSymbol) {
-                IrInstruction *loadInstr = newInstruction(IR_M_LOAD);
-                enum IrTypeKind type = typeRefToIrType(expr->type);
-                IrOperand *result = newVreg(type);
-                result->ast.e = loadInstr->meta.astExpr = expr;
-                result->astType = expr->type;
-
-                IrOperand *zeroOffset = createIntegerConstant(IR_I64, 0);
-
-                addInstructionUse(loadInstr, arg);
-                addInstructionUse(loadInstr, zeroOffset);
-                addInstructionDef(loadInstr, result);
-                addInstruction(loadInstr);
-
-                loadInstr->meta.astExpr = expr;
-
-                return result;
-            }
+    if (ctx->addressTM == IR_TM_RVALUE) {
+        if (isCompositeType(valueType) || isFunctionalType(valueType)) {
+          // Do not load aggregate types
+          return lvalue;
         } else {
-            assert(arg->kind == IR_LOCAL);
+          enum IrTypeKind type = typeRefToIrType(expr->type);
+          return addLoadInstr(type, lvalue, expr);
         }
     }
 
-    return arg;
+    return lvalue;
 }
 
-static IrOperand *translateUnary(AstExpression *expr) {
+static IrInstruction *translateUnary(AstExpression *expr) {
     assert(isUnary(expr->op));
 
-    enum IrTypeKind type = typeRefToIrType(expr->type);
-    const enum IrTranslationMode tm = ctx->addressTM;
-    ctx->addressTM = IR_TM_RVALUE;
-    IrOperand *arg = translateExpression(expr->unaryExpr.argument);
-    ctx->addressTM = tm;
+    TypeRef *type = expr->type;
+    enum IrTypeKind irType = typeRefToIrType(expr->type);
+    IrInstruction *arg = translateRValue(expr->unaryExpr.argument);
 
-    Boolean isFloat = isRealType(expr->type);
+    Boolean isFloat = isRealType(type);
 
     Boolean exl = FALSE;
 
-    IrOperand *result = NULL;
+    IrInstruction *result = NULL;
 
     switch (expr->op) {
     case EU_PLUS: result = arg; break;
     case EU_MINUS: {
-        IrOperand *zeroConst;
-        ConstantCacheData data;
-        enum IrIntructionKind op;
-        if (isFloat) {
-            data.kind = CK_FLOAT_CONST;
-            data.data.f = 0.0;
-            op = IR_E_FSUB;
-        } else {
-            data.kind = CK_INT_CONST;
-            data.data.i = 0;
-            op = IR_E_SUB;
-        }
-        zeroConst = getOrAddConstant(&data, type);
-        IrInstruction *instr = newInstruction(op);
-        result = newVreg(type);
-        addInstructionUse(instr, zeroConst);
-        addInstructionUse(instr, arg);
-        addInstructionDef(instr, result);
-        addInstruction(instr);
+        IrInstruction *zeroConst = isFloat
+          ? createFloatConstant(irType, 0.0)
+          : createIntegerConstant(irType, 0);
+        enum IrIntructionKind op = isFloat ? IR_E_FSUB : IR_E_SUB;
+        result = newInstruction(op, irType);
+        addInstructionInput(result, zeroConst);
+        addInstructionInput(result, arg);
+        addInstruction(result);
         break;
     }
     case EU_EXL: exl = TRUE;
     case EU_TILDA: {
         assert(!isFloat);
-        result = newVreg(type);
         enum IrIntructionKind op = exl ? IR_U_NOT : IR_U_BNOT;
-        IrInstruction *instr = newInstruction(op);
-        addInstructionUse(instr, arg);
-        addInstructionDef(instr, result);
-        addInstruction(instr);
+        result = newInstruction(op, irType);
+        addInstructionInput(result, arg);
+        addInstruction(result);
         break;
     }
     default: unreachable("wtf?");
     }
 
     assert(result != NULL);
+    result->astType = type;
+    result->meta.astExpr = expr;
 
     return result;
 }
 
-static IrOperand *translateAddressLikeExpression(IrOperand *base, IrOperand *offset, AstExpression *ast, TypeRef *valueType) {
-    IrOperand *result = NULL;
+static IrInstruction *handleMemoryMode(IrInstruction *ptr, TypeRef *valueType, AstExpression *expr) {
+    if (ctx->addressTM == IR_TM_LVALUE || isCompositeType(valueType))
+      return ptr;
 
-    TypeRef *memoryType = valueType->kind == TR_BITFIELD ? valueType->bitFieldDesc.storageType : valueType;
+    IrInstruction *loadInstr = addLoadInstr(typeRefToIrType(valueType), ptr, expr);
+    loadInstr->astType = valueType;
 
-    if (ctx->addressTM == IR_TM_RVALUE) {
-        if (isCompositeType(memoryType)) {
-            assert(valueType == memoryType);
-            result = newVreg(IR_PTR);
-            result->astType = makePointedType(ctx->pctx, 0U, valueType);
-
-            IrInstruction *addInstr = newInstruction(IR_E_ADD);
-
-            addInstructionUse(addInstr, base);
-            addInstructionUse(addInstr, offset);
-            addInstructionDef(addInstr, result);
-            addInstruction(addInstr);
-
-            addInstr->meta.astExpr = ast;
-        } else {
-            enum IrTypeKind irMemoryType = typeRefToIrType(memoryType);
-
-            result = newVreg(irMemoryType);
-            result->astType = memoryType;
-
-            IrInstruction *loadInstr = newInstruction(IR_M_LOAD);
-            addInstructionUse(loadInstr, base);
-            addInstructionUse(loadInstr, offset);
-            addInstructionDef(loadInstr, result);
-            addInstruction(loadInstr);
-
-            loadInstr->meta.astExpr = ast;
-
-            if (memoryType != valueType) {
-			  result = decodeBitField(valueType, result);
-            }
-        }
-    } else {
-        assert(ctx->addressTM == IR_TM_LVALUE);
-
-        result = newIrOperand(IR_PTR, IR_MEMORY);
-        result->astType = makePointedType(ctx->pctx, 0U, valueType);
-        result->data.address.base = base;
-        result->data.address.offset = offset;
+    if (valueType->kind == TR_BITFIELD) {
+      IrInstruction *decoded = decodeBitField(valueType, loadInstr);
+      decoded->astType = valueType;
+      decoded->meta.astExpr = expr;
+      return decoded;
     }
 
-    assert(result != NULL);
-
-    result->ast.e = ast;
-
-    return result;
+    return loadInstr;
 }
 
-static IrOperand *translateArrayAccess(AstExpression *expr) {
+static IrInstruction *translateArrayAccess(AstExpression *expr) {
     assert(expr->op == EB_A_ACC);
 
     AstExpression *left = expr->binaryExpr.left;
@@ -1047,116 +832,103 @@ static IrOperand *translateArrayAccess(AstExpression *expr) {
     Boolean isFlat = (base->type->kind == TR_ARRAY /*|| base->type->kind == TR_VLA*/) && base->op != E_CONST;
 
     const enum IrTypeKind indexIrType = typeRefToIrType(indexType);
-    const enum IrTranslationMode oldTM = ctx->addressTM;
 
-    ctx->addressTM = IR_TM_RVALUE;
+    IrInstruction *baseInstr = translateRValue(base);
+    IrInstruction *indexInstr = translateRValue(index);
 
-    IrOperand *baseOp = translateExpression(base);
-    IrOperand *indexOp = translateExpression(index);
-
-    ctx->addressTM = oldTM;
-
-    IrOperand *scaledIndexOp = NULL;
+    IrInstruction *scaledIndexOp = NULL;
 
     if (elementType->kind == TR_VLA) {
         unimplemented("VLA array access");
     } else {
         int32_t elementSize = computeTypeSize(elementType);
         if (elementSize > 1) {
-            scaledIndexOp = newVreg(indexIrType);
             if (isPowerOf2(elementSize)) {
-                IrOperand *elementSizeOpScale = createIntegerConstant(IR_I32, log2Integer(elementSize));
-                IrInstruction *shlInstr = newInstruction(IR_E_SHL);
-                addInstructionUse(shlInstr, indexOp);
-                addInstructionUse(shlInstr, elementSizeOpScale);
-                addInstructionDef(shlInstr, scaledIndexOp);
-                addInstruction(shlInstr);
-                shlInstr->meta.astExpr = expr;
+                IrInstruction *elementSizeOpScale = createIntegerConstant(IR_I32, log2Integer(elementSize));
+                scaledIndexOp = newInstruction(IR_E_SHL, indexIrType);
+                addInstructionInput(scaledIndexOp, indexInstr);
+                addInstructionInput(scaledIndexOp, elementSizeOpScale);
             } else {
-                IrOperand *elementSizeOp = createIntegerConstant(indexIrType, elementSize);
-                IrInstruction *mulInstr = newInstruction(IR_E_MUL);
-                addInstructionUse(mulInstr, indexOp);
-                addInstructionUse(mulInstr, elementSizeOp);
-                addInstructionDef(mulInstr, scaledIndexOp);
-                addInstruction(mulInstr);
-                mulInstr->meta.astExpr = expr;
+                IrInstruction *elementSizeOp = createIntegerConstant(indexIrType, elementSize);
+                scaledIndexOp = newInstruction(IR_E_MUL, indexIrType);
+                addInstructionInput(scaledIndexOp, indexInstr);
+                addInstructionInput(scaledIndexOp, elementSizeOp);
             }
+            addInstruction(scaledIndexOp);
+            scaledIndexOp->meta.astExpr = expr;
+            scaledIndexOp->astType = indexType;
         } else {
             assert(elementSize == 1);
-            scaledIndexOp = indexOp;
+            scaledIndexOp = indexInstr;
         }
 
         if (scaledIndexOp->type != IR_I64) {
-            IrOperand *castedScaledOp = newVreg(IR_I64);
-            IrInstruction *castInstruction = newInstruction(IR_E_BITCAST);
+            IrInstruction *castInstruction = newInstruction(IR_E_BITCAST, IR_I64);
             // TODO
-            castInstruction->type = IR_I64;
             castInstruction->info.fromCastType = scaledIndexOp->type;
             castInstruction->meta.astExpr = expr;
 
-            addInstructionUse(castInstruction, scaledIndexOp);
-            addInstructionDef(castInstruction, castedScaledOp);
+            addInstructionInput(castInstruction, scaledIndexOp);
             addInstruction(castInstruction);
-            scaledIndexOp = castedScaledOp;
+            scaledIndexOp = castInstruction;
         }
     }
 
-    return translateAddressLikeExpression(baseOp, scaledIndexOp, expr, elementType);
+    IrInstruction *gepInstr = newGEPInstruction(baseInstr, scaledIndexOp, elementType);
+    gepInstr->astType = pointerType;
+    gepInstr->meta.astExpr = expr;
+    gepInstr->info.gep.indexInstr = indexInstr;
+
+    return handleMemoryMode(gepInstr, elementType, expr);
 }
 
-static IrOperand *translateFieldAccess(AstExpression *expr, Boolean isDot) {
+static IrInstruction *translateFieldAccess(AstExpression *expr, Boolean isDot) {
 
-//    expr->block->block.type->arrayTypeDesc
-
-    const enum IrTranslationMode tm = ctx->addressTM;
-    ctx->addressTM = IR_TM_LVALUE;
-    IrOperand *recevierOp = translateExpression(expr->fieldExpr.recevier);
-    ctx->addressTM = tm;
-
-    assert(recevierOp->type == IR_P_AGG || recevierOp->type == IR_PTR);
+    IrInstruction *receiver = translateLValue(expr->fieldExpr.recevier);
 
     int64_t memberOffset = effectiveMemberOffset(expr->fieldExpr.member);
-    IrOperand *memberOffsetOp = createIntegerConstant(IR_I64, memberOffset);
+    IrInstruction *memberOffsetOp = createIntegerConstant(IR_I64, memberOffset);
     TypeRef *memberType = expr->fieldExpr.member->type;
 
-    return translateAddressLikeExpression(recevierOp, memberOffsetOp, expr, memberType);
+    IrInstruction *gepInstr = newGEPInstruction(receiver, memberOffsetOp, memberType);
+    gepInstr->meta.astExpr = expr;
+    gepInstr->info.gep.member = expr->fieldExpr.member;
+
+    return handleMemoryMode(gepInstr, memberType, expr);
 }
 
-static IrOperand *translateDotAccess(AstExpression *expr) {
+static IrInstruction *translateDotAccess(AstExpression *expr) {
     assert(expr->op == EF_DOT);
     assert(isCompositeType(expr->fieldExpr.recevier->type));
 
     return translateFieldAccess(expr, /*isDOT = */ TRUE);
 }
 
-static IrOperand *translateArrowAccess(AstExpression *expr) {
+static IrInstruction *translateArrowAccess(AstExpression *expr) {
     assert(expr->op == EF_ARROW);
     assert(isPointerLikeType(expr->fieldExpr.recevier->type));
 
     return translateFieldAccess(expr, /* isDOR = */ FALSE);
 }
 
-static IrOperand *translatePreOp(AstExpression *expr) {
+static IrInstruction *translatePreOp(AstExpression *expr) {
     assert(expr->op == EU_PRE_INC || expr->op == EU_PRE_DEC);
     unreachable("Pre ++/-- Expressions should be desugared"
                 " into corresponding +=/*- operations in parser");
     return NULL;
 }
 
-static IrOperand *translatePostOp(AstExpression *expr) {
+static IrInstruction *translatePostOp(AstExpression *expr) {
     assert(expr->op == EU_POST_INC || expr->op == EU_POST_DEC);
     // NOTE: Pointer arith is not desugared in parser.
     // TODO: Generalize it with generic binary opeartions
 
-    const enum IrTranslationMode tm = ctx->addressTM;
-    ctx->addressTM = IR_TM_LVALUE;
-    IrOperand *referenceOp = translateExpression(expr->unaryExpr.argument);
-    ctx->addressTM = tm;
+    IrInstruction *lvalue = translateLValue(expr->unaryExpr.argument);
 
 	TypeRef* type = expr->type;
   	int64_t delta = isPointerLikeType(type) ? computeTypeSize(type->pointed) : 1;
   	TypeId tid = typeToId(type);
-	IrOperand *delta_op;
+	IrInstruction *delta_op = NULL;
 
 	enum IrTypeKind irType = typeRefToIrType(type);
 
@@ -1171,76 +943,53 @@ static IrOperand *translatePostOp(AstExpression *expr) {
 		irInstr = expr->op == EU_POST_DEC ? IR_E_FSUB : IR_E_FADD;
 	}
 
-	IrOperand *oldValue = NULL, *newValue = NULL, *returnValue = NULL;
-    IrOperand *base = NULL, *offset = NULL;
-	IrOperand *storageOp = NULL;
-	if (referenceOp->kind == IR_MEMORY || referenceOp->kind == IR_REFERENCE) {
-        if (referenceOp->kind == IR_MEMORY) {
-            base = referenceOp->data.address.base;
-            offset = referenceOp->data.address.offset;
-        } else {
-            base = referenceOp;
-            offset = createIntegerConstant(IR_I64, 0);
-        }
+    IrInstruction *base = NULL, *offset = NULL;
+	IrInstruction *storageValue = NULL;
 
-		returnValue = oldValue = addLoadInstr(irType, base, offset, expr);
-		newValue = newVreg(irType);
-		if (type->kind == TR_BITFIELD) {
-		  storageOp = oldValue;
-		  returnValue = oldValue = decodeBitField(type, oldValue);
-		}
-	} else {
-        assert(referenceOp->kind == IR_LOCAL);
+    IrInstruction *oldValue = addLoadInstr(irType, lvalue, expr);
+    if (type->kind == TR_BITFIELD) {
+        storageValue = oldValue;
+        storageValue->astType = type->bitFieldDesc.storageType;
+        storageValue->meta.astExpr = expr;
+		oldValue = decodeBitField(type, oldValue);
+        oldValue->astType = type;
+        oldValue->meta.astExpr = expr;
+    }
 
-		returnValue = newVreg(irType);
-        newValue = oldValue = referenceOp;
-
-        IrInstruction *moveInstr = newMoveInstruction(referenceOp, returnValue);
-        addInstruction(moveInstr);
-        moveInstr->meta.astExpr = returnValue->ast.e = expr;
-        returnValue->astType = expr->type;
-	}
-
-	newValue->astType = expr->type;
-	newValue->ast.e = expr;
-
-    IrInstruction *operation = newInstruction(irInstr);
-    addInstructionUse(operation, oldValue);
-    addInstructionUse(operation, delta_op);
-    addInstructionDef(operation, newValue);
+    IrInstruction *operation = newInstruction(irInstr, irType);
+    addInstructionInput(operation, oldValue);
+    addInstructionInput(operation, delta_op);
     addInstruction(operation);
     operation->meta.astExpr = expr;
+    operation->astType = type;
 
-	if (base != NULL) {
-	  	if (type->kind == TR_BITFIELD) {
-		  assert(storageOp != NULL);
-		  newValue = encodeBitField(type, storageOp, newValue);
-		}
+    IrInstruction *newValue = operation;
+    if (type->kind == TR_BITFIELD) {
+      assert(storageValue != NULL);
+      newValue = encodeBitField(type, storageValue, operation);
+      newValue->astType = type->bitFieldDesc.storageType;
+      newValue->meta.astExpr = expr;
+    }
 
-		addStoreInstr(base, offset, newValue, expr);
-	}
+    addStoreInstr(lvalue, newValue, expr);
 
-    return returnValue;
+    return operation;
 }
 
-static IrOperand *translateLabelRef(AstExpression *expr) {
+static IrInstruction *translateLabelRef(AstExpression *expr) {
     assert(expr->op == E_LABEL_REF);
 
     IrBasicBlock *target = getOrCreateLabelBlock(expr->label);
-    IrOperand *resultOp = newVreg(IR_PTR);
-    IrOperand *targetOp = newIrOperand(IR_LABEL, IR_BLOCK);
 
-    targetOp->data.bb = target;
-
-    IrInstruction *instr = newInstruction(IR_BLOCK_PTR);
-    addInstructionUse(instr, targetOp);
-    addInstructionDef(instr, resultOp);
+    // TODO: should such labels be put into entry?
+    // TODO: should labels be constant nodes as well?
+    IrInstruction *instr = newLabelInstruction(target);
     addInstruction(instr);
 
-    return resultOp;
+    return instr;
 }
 
-static IrOperand *translateExpression(AstExpression *expr) {
+static IrInstruction *translateExpression(AstExpression *expr) {
     switch (expr->op) {
       case E_PAREN:
         return ctx->lastOp = translateExpression(expr->parened);
@@ -1385,115 +1134,50 @@ static void translateGlobalVariable(AstValueDeclaration *v) {
     // TODO: generate initializer
 }
 
-static void translateLocalInitializer(AstValueDeclaration *v) {
-    assert(v->flags.bits.isLocal);
-
-	LocalValueInfo *lvi = &ctx->localOperandMap[v->index2];
-	assert(lvi != NULL);
-
-    const AstInitializer *init = v->initializer;
-    if (init == NULL)
-      return; // we are done here
-
-    const size_t typeSize = computeTypeSize(v->type);
-
-    Boolean hasMemorySlot = lvi->flags.referenced || isCompositeType(v->type);
-
-    if (hasMemorySlot) {
-      IrOperand *localAddrOp = newVreg(IR_PTR);
-      localAddrOp->ast.v = v;
-      localAddrOp->astType = v->type;
-      IrOperand *frameOffsetOp = createIntegerConstant(IR_I64, lvi->frameOffset);
-
-      IrInstruction *addInstr = newInstruction(IR_E_ADD);
-      addInstructionUse(addInstr, ctx->frameOp);
-      addInstructionUse(addInstr, frameOffsetOp);
-      addInstructionDef(addInstr, localAddrOp);
-      addInstruction(addInstr);
-
-      translateInitializerIntoMemory(localAddrOp, 0, typeSize, init);
-    } else {
-      // Register-based local variable which means it's
-      //  1. Has no explicit stack slot
-      IrOperand *localOp = lvi->initialOp;
-      assert(localOp != NULL);
-      //  2. Has scalar type
-      assert(!isCompositeType(v->type));
-
-      if (init->kind == IK_EXPRESSION) {
-        IrOperand *valueOp = translateExpression(init->expression);
-
-        IrInstruction *moveInstr = newMoveInstruction(valueOp, localOp);
-        addInstruction(moveInstr);
-      } else {
-        IrOperand *tmp = createAllocaSlot(typeSize);
-        IrOperand *offsetOp = createIntegerConstant(IR_I64, 0);
-        translateInitializerIntoMemory(tmp, 0, typeSize, init);
-
-        IrInstruction *loadInstr = newInstruction(IR_M_LOAD);
-        addInstructionUse(loadInstr, tmp);
-        addInstructionUse(loadInstr, offsetOp);
-        addInstructionDef(loadInstr, localOp);
-        addInstruction(loadInstr);
-      }
-    }
-}
-
 static void translateLocalDeclaration(AstValueDeclaration *v) {
     assert(v->flags.bits.isLocal);
-    assert(v->type->kind != TR_VLA);
     assert(v->index2 >= 0);
 
-    printf("Translate local variable '%s'..., next = %p..\n", v->name, v->next);
+    printf("Translate local variable '%s'..., next = %p, initizlier = %p..\n", v->name, v->next, v->initializer);
 
     LocalValueInfo *lvi = &ctx->localOperandMap[v->index2];
-    assert(lvi->initialOp == NULL);
+    assert(lvi->stackSlot == NULL && "double-allocated variable");
 
     TypeRef *astType = v->type;
     Boolean isAggregate = isCompositeType(astType);
     enum IrTypeKind irType = typeRefToIrType(astType);
     lvi->declaration = v;
 
-    if (lvi->flags.referenced || isAggregate) {
-      size_t size = computeTypeSize(astType);
-      size = ALIGN_SIZE(size, sizeof (intptr_t));
-
-      // IrOperand *allocaSlotOp = newVreg(irType);
-      // createAllocaSlotInPlace(size, allocaSlotOp);
-      IrOperand *allocaSlotOp = createAllocaSlot(size);
-      lvi->initialOp = allocaSlotOp;
-      allocaSlotOp->ast.v = v;
-      allocaSlotOp->astType = astType;
-      allocaSlotOp->data.lid = v->index2;
+    IrInstruction *sizeInstr = NULL;
+    AstInitializer *init = v->initializer;
+    size_t size = -1;
+    if (astType->kind != TR_VLA) {
+      size = ALIGN_SIZE(computeTypeSize(astType), sizeof (intptr_t));
+      sizeInstr = createIntegerConstant(IR_U64, size);
     } else {
-        IrOperand *localOp = newIrOperand(irType, IR_LOCAL);
+      assert(init != NULL);
+      assert(init->kind == IK_EXPRESSION);
+      sizeInstr = translateExpression(init->expression);
+      init = NULL;
+    }
+    IrInstruction *stackSlot = createAllocaInstr(sizeInstr);
 
-        lvi->initialOp = localOp;
-        localOp->data.lid = v->index2;
-        localOp->ast.v = v;
-        localOp->astType = astType;
-        localOp->data.lid = v->index2;
+    stackSlot->info.alloca.v = v;
+    stackSlot->info.alloca.valueType = irType;
+    lvi->stackSlot = stackSlot;
+    stackSlot->astType = makePointedType(ctx->pctx, 0, astType);
+
+    if (astType->kind == TR_VLA) {
+      stackSlot->info.alloca.sizeInstr = sizeInstr;
+    } else {
+      stackSlot->info.alloca.stackSize = size;
     }
 
-    translateLocalInitializer(v);
-}
-
-static void translateVLA(AstValueDeclaration *v) {
-    assert(v->flags.bits.isLocal);
-    assert(v->type->kind == TR_VLA);
-
-    assert(v->initializer != NULL);
-    TypeRef *astType = v->type;
-    //AstExpression *sizeExpr = astType->vlaDescriptor.sizeExpression;
-    AstExpression *sizeExpr = v->initializer->expression;
-    IrOperand *sizeOperand = translateExpression(sizeExpr);
-    IrOperand *vlaOp = newVreg(IR_PTR);
-    IrInstruction *vlaAlloca = createAllocaInstr(sizeOperand, vlaOp);
-    vlaOp->astType = astType;
-    vlaOp->ast.v = v;
-
-    ctx->localOperandMap[v->index2].initialOp = vlaOp;
-    ctx->localOperandMap[v->index2].declaration = v;
+    if (init) {
+      assert(size != -1);
+      printf(" translate initializer for variable '%s' (%c%u)\n", v->name, '%', stackSlot->id);
+      translateInitializerIntoMemory(stackSlot, 0, size, init);
+    }
 }
 
 static Boolean translateDeclaration(AstDeclaration *decl) {
@@ -1502,12 +1186,7 @@ static Boolean translateDeclaration(AstDeclaration *decl) {
         AstValueDeclaration *varDecl = decl->variableDeclaration;
         if (varDecl->flags.bits.isLocal) {
             assert(varDecl->index2 >= 0);
-            if (varDecl->type->kind == TR_VLA) {
-                translateVLA(varDecl);
-            } else {
-        //        translateLocalInitializer(varDecl);
-              translateLocalDeclaration(varDecl);
-            }
+            translateLocalDeclaration(varDecl);
         } else {
             //assert(varDecl->flags.bits.isStatic);
             translateGlobalVariable(varDecl);
@@ -1524,12 +1203,12 @@ static Boolean translateIf(AstStatement *ifStmt) {
     AstStatement *thenStmt = ifStmt->ifStmt.thenBranch;
     AstStatement *elseStmt = ifStmt->ifStmt.elseBranch;
 
-    IrBasicBlock *ifBB = ctx->currentBB;
     IrBasicBlock *continueBB = newBasicBlock("<if_exit>");
     IrBasicBlock *thenBB = newBasicBlock("<if_then>");
     IrBasicBlock *elseBB = elseStmt != NULL ? newBasicBlock("<if_else>") : continueBB;
 
-    IrOperand *irCond = translateExpression(condition);
+    IrInstruction *irCond = translateRValue(condition);
+    IrBasicBlock *ifBB = ctx->currentBB;
 
     IrInstruction *condBranch = newCondBranch(irCond, thenBB, elseBB);
     addSuccessor(ifBB, thenBB);
@@ -1582,7 +1261,7 @@ static Boolean translateWhile(AstStatement *stmt) {
     termintateBlock(gotoHead);
 
     ctx->currentBB = loopHead;
-    IrOperand *irCond = translateExpression(condition);
+    IrInstruction *irCond = translateRValue(condition);
 
     IrInstruction *irCondBranch = newCondBranch(irCond, loopBody, loopExit);
     addSuccessor(ctx->currentBB, loopBody);
@@ -1592,7 +1271,7 @@ static Boolean translateWhile(AstStatement *stmt) {
     ctx->currentBB = loopBody;
     translateStatement(body);
 
-    if (ctx->currentBB->term == NULL) {
+    if (ctx->currentBB && ctx->currentBB->term == NULL) {
         IrInstruction *gotoLoop = newGotoInstruction(loopHead);
         addSuccessor(ctx->currentBB, loopHead);
         termintateBlock(gotoLoop);
@@ -1626,14 +1305,14 @@ static Boolean translateDoWhile(AstStatement *stmt) {
     ctx->currentBB = loopBody;
     translateStatement(body);
 
-    if (ctx->currentBB->term == NULL) {
+    if (ctx->currentBB != NULL && ctx->currentBB->term == NULL) {
         IrInstruction *gotoTail = newGotoInstruction(loopTail);
         addSuccessor(ctx->currentBB, loopTail);
         termintateBlock(gotoTail);
     }
 
     ctx->currentBB = loopTail;
-    IrOperand *irCond = translateExpression(condition);
+    IrInstruction *irCond = translateRValue(condition);
 
     IrInstruction *irCondBranch = newCondBranch(irCond, loopBody, loopExit);
     addSuccessor(ctx->currentBB, loopBody);
@@ -1671,41 +1350,32 @@ static Boolean translateFor(AstStatement *stmt) {
     ctx->continueBB = modifierBB != NULL ? modifierBB : loopHead;
     loopHead->ast = loopBody->ast = stmt;
 
-    IrInstruction *gotoHead = newGotoInstruction(loopHead);
-    addSuccessor(ctx->currentBB, loopHead);
-    termintateBlock(gotoHead);
+    gotoToBlock(loopHead);
 
     ctx->currentBB = loopHead;
     if (condition != NULL) {
-        translateExpression(condition);
-        IrOperand *irCond = ctx->lastOp;
+        IrInstruction *irCond = translateRValue(condition);
         IrInstruction *irCondBranch = newCondBranch(irCond, loopBody, loopExit);
         addSuccessor(ctx->currentBB, loopBody);
         addSuccessor(ctx->currentBB, loopExit);
         termintateBlock(irCondBranch);
     } else {
         // TODO: merge with body block
-        IrInstruction *gotoBody = newGotoInstruction(loopBody);
-        addSuccessor(ctx->currentBB, loopBody);
-        termintateBlock(gotoBody);
+      gotoToBlock(loopBody);
     }
 
     ctx->currentBB = loopBody;
     translateStatement(body);
 
-    if (ctx->currentBB->term == NULL) {
-        IrBasicBlock *leaveBB = modifierBB ? modifierBB : loopExit;
-        IrInstruction *gotoLeave = newGotoInstruction(leaveBB);
-        addSuccessor(ctx->currentBB, leaveBB);
-        termintateBlock(gotoLeave);
+    if (ctx->currentBB && ctx->currentBB->term == NULL) {
+        IrBasicBlock *nextBlock = modifierBB ? modifierBB : loopHead;
+        gotoToBlock(nextBlock);
     }
 
     if (modifierBB != NULL) {
         ctx->currentBB = modifierBB;
-        translateExpression(modifier);
-        IrInstruction *gotoExit = newGotoInstruction(loopExit);
-        addSuccessor(ctx->currentBB, loopExit);
-        termintateBlock(gotoExit);
+        translateRValue(modifier);
+        gotoToBlock(loopHead);
     }
 
     ctx->currentBB = loopExit;
@@ -1727,18 +1397,20 @@ static Boolean translateReturn(AstStatement *stmt) {
     assert(stmt->statementKind == SK_RETURN);
 
     AstExpression *expr = stmt->jumpStmt.expression;
-    IrOperand *returnValue = NULL;
 
     if (expr != NULL) {
+        IrInstruction *returnValue = translateRValue(expr);
+        IrInstruction *returnSlot = ctx->currentFunc->retOperand;
+        IrInstruction *copyInstr = NULL;
+        assert(returnSlot != NULL);
         if (isCompositeType(expr->type)) {
-            // TODO:
-            unimplemented("Return composite type");
+            copyInstr = generateCompositeCopy(expr->type, returnValue, ctx->currentFunc->retOperand, NULL);
+
         } else {
             assert(ctx->currentFunc->retOperand != NULL);
-            returnValue = translateExpression(expr);
-            IrInstruction *moveInstr = newMoveInstruction(returnValue, ctx->currentFunc->retOperand);
-            addInstruction(moveInstr);
+            copyInstr = addStoreInstr(returnSlot, returnValue, NULL);
         }
+        copyInstr->meta.astStmt = stmt;
     }
 
     jumpToBlock(ctx->currentFunc->exit, stmt);
@@ -1794,10 +1466,10 @@ static Boolean translateGotoPtr(AstStatement *stmt) {
     assert(stmt->statementKind == SK_GOTO_P);
 
     translateExpression(stmt->jumpStmt.expression);
-    IrOperand *target = ctx->lastOp;
+    IrInstruction *target = ctx->lastOp;
 
-    IrInstruction *iBranch = newInstruction(IR_IBRANCH);
-    addOperandTail(&iBranch->uses, target);
+    IrInstruction *iBranch = newInstruction(IR_IBRANCH, IR_VOID);
+    addInstructionInput(iBranch, target);
     for (IrBasicBlockListNode *n = ctx->referencedBlocks.head; n; n = n->next) {
         addSuccessor(ctx->currentBB, n->block);
     }
@@ -1920,7 +1592,7 @@ static Boolean translateSwitch(AstStatement *stmt) {
     ctx->breakBB = switchExitBB;
     ctx->defaultCaseBB = defaultBB;
 
-    IrOperand *condOp = translateExpression(stmt->switchStmt.condition);
+    IrInstruction *condOp = translateRValue(stmt->switchStmt.condition);
 
     IrInstruction *tableBranch = newTableBranch(condOp, switchTable);
     tableBranch->meta.astStmt = stmt;
@@ -1931,15 +1603,9 @@ static Boolean translateSwitch(AstStatement *stmt) {
     for (uint32_t i = 0; i < switchTable->caseCount; ++i) {
         IrBasicBlock *caseBlock = newBasicBlock("<case_block>");
         caseBlocks[i].block = caseBlock;
-        IrOperand *caseLableOp = newIrOperand(IR_LABEL, IR_BLOCK);
-        caseLableOp->data.bb = caseBlock;
-        addOperandTail(&tableBranch->uses, caseLableOp);
         addSuccessor(ctx->currentBB, caseBlock);
     }
 
-    IrOperand *defaultLableOp = newIrOperand(IR_LABEL, IR_BLOCK);
-    defaultLableOp->data.bb = defaultBB;
-    addOperandTail(&tableBranch->uses, defaultLableOp);
     addSuccessor(ctx->currentBB, defaultBB);
     termintateBlock(tableBranch);
 
@@ -2142,6 +1808,8 @@ static void collectTranslationInfoStmt(const AstStatement *stmt) {
         }
       case SK_LABEL:
         return collectTranslationInfoStmt(stmt->labelStmt.body);
+      case SK_EMPTY:
+        return;
       default: unreachable("Unknown statement kind");
     }
 }
@@ -2153,14 +1821,22 @@ static void collectTranslationInfo(const AstStatement *body) {
     collectTranslationInfoStmt(body);
 }
 
-static void generateExitBlock(IrFunction *func) {
+static void generateExitBlock(IrFunction *func, TypeRef *returnType) {
   ctx->currentBB = func->exit;
 
-  IrInstruction *ret = newInstruction(IR_RET);
-  addInstruction(ret);
-  if (func->retOperand) {
-	addInstructionUse(ret, func->retOperand);
+  IrInstruction *ret = newInstruction(IR_RET, IR_VOID);
+  if (!isVoidType(returnType)) {
+    assert(func->retOperand != NULL);
+    if (isCompositeType(returnType)) {
+	  addInstructionInput(ret, func->retOperand);
+    } else {
+      IrInstruction *retValue = addLoadInstr(typeRefToIrType(returnType), func->retOperand, NULL);
+      retValue->astType = returnType;
+      addInstructionInput(ret, retValue);
+    }
   }
+
+  addInstruction(ret);
 }
 
 typedef struct {
@@ -2174,60 +1850,42 @@ typedef struct {
     Boolean isRegister;
 } ParamtersABIInfo;
 
-static void initializeParamterLocal(IrBasicBlock *entryBB, IrOperand *stackPtrOp, ParamtersABIInfo *paramInfo) {
+static void initializeParamterLocal(IrBasicBlock *entryBB, IrInstruction *stackPtrOp, ParamtersABIInfo *paramInfo) {
 
     AstValueDeclaration *param = paramInfo->declaration;
     TypeRef *astType = param->type;
     uint32_t paramIndex = paramInfo->idx;
-    enum IrTypeKind type = typeRefToIrType(param->type);
+    enum IrTypeKind type = typeRefToIrType(astType);
     LocalValueInfo *lvi = paramInfo->lvi;
+    param->index2 = paramIndex;
+    lvi->declaration = param;
 
     ctx->currentBB = entryBB;
 
-    if (isCompositeType(astType)) {
-      // aggregate type
-      IrOperand *op = newVreg(type);
-      op->ast.v = param;
-      param->index2 = paramIndex;
-      op->data.lid = paramIndex;
-      lvi->initialOp = op;
-      lvi->declaration = param;
+    if (paramInfo->isRegister) {
+      // scalar type in register
+      IrInstruction *stackSlot = createAllocaSlot(computeTypeSize(astType));
+      stackSlot->info.alloca.valueType = type;
+      stackSlot->astType = makePointedType(ctx->pctx, astType->flags.storage, astType);
+      lvi->stackSlot = stackSlot;
 
-      IrOperand *offset = createIntegerConstant(IR_I64, paramInfo->loc.stackOffset);
-      IrInstruction *addInstr = newInstruction(IR_E_ADD);
-      addInstructionUse(addInstr, stackPtrOp);
-      addInstructionUse(addInstr, offset);
-      addInstructionDef(addInstr, op);
-      addInstruction(addInstr);
+      IrInstruction *regInstr = newPhysRegister(type, paramInfo->loc.pregId);
+      addInstruction(regInstr);
+
+      addStoreInstr(stackSlot, regInstr, NULL);
+      stackSlot->info.alloca.v = param;
     } else {
-      IrOperand *op = newIrOperand(type, IR_LOCAL);
-      op->ast.v = param;
       param->index2 = paramIndex;
-      op->data.lid = paramIndex;
-      lvi->initialOp = op;
       lvi->declaration = param;
 
-      if (paramInfo->isRegister) {
-        // scalar type in register
-        IrOperand *inputRegister = newPreg(type, paramInfo->loc.pregId);
-        inputRegister->astType = astType;
-        inputRegister->ast.v = param;
-
-        IrInstruction *moveInstr = newInstruction(IR_MOVE);
-        addInstructionUse(moveInstr, inputRegister);
-        addInstructionDef(moveInstr, op);
-        addInstruction(moveInstr);
-      } else {
-        IrOperand *offset = createIntegerConstant(IR_I64, paramInfo->loc.stackOffset);
-        IrInstruction *loadInstr = newInstruction(IR_M_LOAD);
-        addInstructionUse(loadInstr, stackPtrOp);
-        addInstructionUse(loadInstr, offset);
-        addInstructionDef(loadInstr, op);
-        addInstruction(loadInstr);
-        // scalar type in stack
-      }
+      IrInstruction *offset = createIntegerConstant(IR_I64, paramInfo->loc.stackOffset);
+      IrInstruction *addInstr = newInstruction(IR_E_ADD, IR_P_AGG);
+      addInstructionInput(addInstr, stackPtrOp);
+      addInstructionInput(addInstr, offset);
+      addInstruction(addInstr);
+      lvi->stackSlot = addInstr;
+      lvi->frameOffset = paramInfo->loc.stackOffset;
     }
-    // frameOffset += alignSize(computeTypeSize(param->type), sizeof (intptr_t));
 }
 
 static const uint32_t R_FP_PARAM_COUNT = 10;
@@ -2303,23 +1961,22 @@ static uint32_t buildInitialIr(IrFunction *func, AstFunctionDefinition *function
 
     size_t numOfReturnSlots = 0;
     if (!isVoidType(declaration->returnType)) {
-        enum IrTypeKind type = typeRefToIrType(declaration->returnType);
-        func->retOperand = newIrOperand(type, IR_LOCAL);
         numOfReturnSlots = 1;
     }
 
-    LocalValueInfo *localOperandsMap = areanAllocate(ctx->irArena, (numOfParams + numOfLocals + numOfReturnSlots) * sizeof (LocalValueInfo));
+    const size_t numOfLocalSlots = numOfParams + numOfLocals + numOfReturnSlots;
+    func->numOfLocalSlots = numOfLocalSlots;
+
+    LocalValueInfo *localOperandsMap = areanAllocate(ctx->irArena, numOfLocalSlots * sizeof (LocalValueInfo));
     ctx->localOperandMap = localOperandsMap;
     func->localOperandMap = localOperandsMap;
-    func->numOfLocals = numOfParams + numOfLocals;
 
     int32_t frameOffset = 0;
-
 
     ParamtersABIInfo *paramABIInfo = heapAllocate(numOfParams * sizeof (ParamtersABIInfo));
 
     static const uint32_t R_SP = 3;
-    IrOperand *stackPtrOp = ctx->stackOp = newPreg(IR_PTR, R_SP);
+    IrInstruction *stackPtrOp = ctx->stackOp = newPhysRegister(IR_PTR, R_SP);
 
     computeParametersABIInfo(declaration, paramABIInfo, numOfParams, localOperandsMap);
     size_t idx =  0;
@@ -2344,11 +2001,13 @@ static uint32_t buildInitialIr(IrFunction *func, AstFunctionDefinition *function
     assert((idx - numOfParams)  == numOfLocals);
 
     if (numOfReturnSlots) {
-      localOperandsMap[idx].initialOp = func->retOperand;
-      func->retOperand->data.lid = idx;
+      // TODO: if return type is not scalar type
+      ctx->currentBB = func->entry;
+      IrInstruction *returnStackSlot = func->retOperand = createAllocaSlot(computeTypeSize(declaration->returnType));
+      returnStackSlot->astType = makePointedType(ctx->pctx, 0, declaration->returnType);
+      returnStackSlot->info.alloca.valueType = typeRefToIrType(declaration->returnType);
+      localOperandsMap[idx].stackSlot = returnStackSlot;
     }
-
-    IrOperand *frameOp = ctx->frameOp = newIrOperand(IR_PTR, IR_FRAME_PTR);
 
     AstStatement *body = function->body;
     assert(body->statementKind == SK_BLOCK);
@@ -2360,19 +2019,20 @@ static uint32_t buildInitialIr(IrFunction *func, AstFunctionDefinition *function
     if (ctx->currentBB) {
       gotoToBlock(func->exit);
     }
-	generateExitBlock(func);
+	generateExitBlock(func, declaration->returnType);
 
     ctx->currentBB = func->entry;
     gotoToBlock(firstBB);
     ctx->currentBB = NULL;
 
     ctx->localOperandMap = NULL;
+    releaseHeap(paramABIInfo);
 
     return 0;
 }
 
 static IrFunction *translateFunction(AstFunctionDefinition *function) {
-    ctx->bbCnt = ctx->vregCnt = ctx->opCnt = 0;
+    resetIrContext(ctx);
     IrFunction *func = newIrFunction(function);
 
     buildInitialIr(func, function);

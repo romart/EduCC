@@ -2,6 +2,51 @@
 #include "ir/ir.h"
 #include <assert.h>
 
+
+static IrBasicBlockListNode *removeUnreachableBlock(IrBasicBlockListNode *bn, IrFunction *func) {
+  IrBasicBlock *block = bn->block;
+
+  for (IrBasicBlockListNode *pn = block->preds.head; pn != NULL; pn = pn->next) {
+    IrBasicBlock *pred = pn->block;
+    removeFromBlockList(&pred->succs, block);
+  }
+  for (IrBasicBlockListNode *sn = block->succs.head; sn != NULL; sn = sn->next) {
+    IrBasicBlock *succ = sn->block;
+    removeFromBlockList(&succ->preds, block);
+  }
+
+  return eraseFromBlockList(&func->blocks, bn);
+}
+
+static void dfs(IrBasicBlock *block, BitSet *visited) {
+  if (getBit(visited, block->id))
+    return;
+
+  setBit(visited, block->id);
+  for (IrBasicBlockListNode *sn = block->succs.head; sn != NULL; sn = sn->next) {
+    dfs(sn->block, visited);
+  }
+}
+
+static void cleanupUnreachableBlock(IrFunction *func, const size_t blockCount) {
+    BitSet visited;
+    initBitSet(&visited, blockCount);
+
+    dfs(func->entry, &visited);
+
+    IrBasicBlockListNode *bn = func->blocks.head;
+    while (bn != NULL) {
+      IrBasicBlock *b = bn->block;
+      if (getBit(&visited, b->id)) {
+        bn = bn->next;
+      } else {
+        bn = removeUnreachableBlock(bn, func);
+      }
+    }
+
+    releaseBitSet(&visited);
+}
+
 static void computeDominationSets(BitSet *dom, size_t blockCount, IrFunction *func) {
     // Algorithm D
 
@@ -26,14 +71,14 @@ static void computeDominationSets(BitSet *dom, size_t blockCount, IrFunction *fu
         if (bb == entryBB)
           continue;
         setAll(&temp);
-        printf("Check block #%u...\n", bb->id);
+        //printf("Check block #%u...\n", bb->id);
         for (IrBasicBlockListNode *pn = bb->preds.head; pn != NULL; pn = pn->next) {
           IrBasicBlock *pred = pn->block;
           intersectBitSets(&temp, &dom[pred->id], &temp);
         }
         setBit(&temp, bb->id);
         if (compareBitSets(&dom[bb->id], &temp) != 0) {
-          printf("Block #%u changed state\n", bb->id);
+          //printf("Block #%u changed state\n", bb->id);
           changed = TRUE;
           copyBitSet(&temp, &dom[bb->id]);
         }
@@ -67,8 +112,10 @@ static void buildDominatorTree(IrFunction *func, BitSet *domSets, const size_t b
         BitSet *blockDomSet = &domSets[bb->id];
 
         clearBit(blockDomSet, bb->id);
-        if (isEmptyBitSet(blockDomSet))
+        if (isEmptyBitSet(blockDomSet)) {
+          printf("Block #%u has no dominator...\n", bb->id);
           continue;
+        }
 
         if (countBits(blockDomSet) == 1) {
           assert(getBit(blockDomSet, entryBB->id));
@@ -76,7 +123,9 @@ static void buildDominatorTree(IrFunction *func, BitSet *domSets, const size_t b
           continue;
         }
 
-        bb->dominators.sdom = closestDominator(bb, blockDomSet);
+        IrBasicBlock *dom = closestDominator(bb, blockDomSet);
+        printf("Set dominator for block #%u to block #%d (%p)\n", bb->id, dom ? dom->id : -1, dom);
+        bb->dominators.sdom = dom;
     }
 
     for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
@@ -130,6 +179,7 @@ void buildDominatorInfo(IrContext *ctx, IrFunction *func) {
       initBitSet(&dom[idx], blockCount);
     }
 
+    cleanupUnreachableBlock(func, blockCount);
     computeDominationSets(dom, blockCount, func);
     buildDominatorTree(func, dom, blockCount);
     buildDominationFrontier(func, dom, blockCount);

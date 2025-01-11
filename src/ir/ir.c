@@ -24,6 +24,43 @@ enum IrTypeKind sizeToMemoryType(int32_t size) {
   return -1;
 }
 
+enum IrTypeKind typeRefToIrType(const TypeRef *t) {
+  	switch (t->kind) {
+	case TR_VALUE:
+	switch (t->descriptorDesc->typeId) {
+	  case T_ENUM: return IR_I32;
+	  case T_UNION:
+	  case T_STRUCT: return IR_P_AGG;
+	  case T_ERROR: unreachable("Unexpected error type in backend");
+	  case T_VOID: return IR_VOID;
+
+	  case T_BOOL: return IR_BOOL;
+
+	  case T_S1: return IR_I8;
+	  case T_S2: return IR_I16;
+	  case T_S4: return IR_I32;
+	  case T_S8: return IR_I64;
+
+	  case T_U1: return IR_U8;
+	  case T_U2: return IR_U16;
+	  case T_U4: return IR_U32;
+	  case T_U8: return IR_U64;
+
+	  case T_F4: return IR_F32;
+	  case T_F8: return IR_F64;
+	  case T_F10: return IR_F80;
+	  default: unreachable("Unexpected type");
+	}
+	case TR_VLA:
+	case TR_ARRAY:
+	case TR_FUNCTION:
+	case TR_POINTED: return IR_PTR;
+    case TR_BITFIELD: return typeRefToIrType(t->bitFieldDesc.storageType);
+	default: unreachable("unexpected type ref");
+	}
+    return IR_U64;
+}
+
 void initializeIrContext(IrContext *_ctx, ParserContext* pctx) {
 
     memset(_ctx, 0, sizeof *_ctx);
@@ -32,7 +69,8 @@ void initializeIrContext(IrContext *_ctx, ParserContext* pctx) {
     _ctx->irArena = createArena("IR Arena", 8 * DEFAULT_CHUNCK_SIZE);
     _ctx->pctx = pctx;
     _ctx->labelMap = createHashMap(DEFAULT_MAP_CAPACITY, &stringHashCode, &stringCmp);
-    _ctx->constantCache = createVector(INITIAL_VECTOR_CAPACITY);
+    initVector(&_ctx->constantCache, INITIAL_VECTOR_CAPACITY);
+    initVector(&_ctx->allocas, INITIAL_VECTOR_CAPACITY);
    ctx = _ctx;
 }
 
@@ -40,59 +78,48 @@ void releaseIrContext(IrContext *_ctx) {
     ctx = NULL;
     releaseArena(_ctx->irArena);
     releaseHashMap(_ctx->labelMap);
-    releaseVector(_ctx->constantCache);
+    releaseVector(&_ctx->constantCache);
+    releaseVector(&_ctx->allocas);
 }
 
-IrOperandListNode *newOpListNode(IrOperand *op) {
-    IrOperandListNode *node = areanAllocate(ctx->irArena, sizeof (IrOperandListNode));
-    node->op = op;
-    return node;
+void resetIrContext(IrContext *_ctx) {
+  clearVector(&_ctx->constantCache);
+  clearVector(&_ctx->allocas);
+  // clear ctx->labelMap
+  _ctx->bbCnt = _ctx->opCnt = _ctx->instrCnt = _ctx->vregCnt = 0;
 }
 
-void addOperandTail(IrOperandList *list, IrOperand *op) {
-    IrOperandListNode *node = newOpListNode(op);
-	if (list->head == NULL)
-	  list->head = node;
-	if (list->tail)
-    	list->tail->next = node;
-    node->prev = list->tail;
-    list->tail = node;
+void addInstructionToVector(Vector *v, IrInstruction *instr) {
+  addToVector(v, (intptr_t)instr);
 }
 
-IrInstructionListNode *newInstListNode(IrInstruction *instr) {
-    IrInstructionListNode *node = areanAllocate(ctx->irArena, sizeof (IrInstructionListNode));
-    node->instr = instr;
-    return node;
+IrInstruction *getInstructionFromVector(const Vector *v, uint32_t i) {
+  return (IrInstruction *)getFromVector(v, i);
 }
 
-void addInstuctionTail(IrInstructionList *list, IrInstruction *instr) {
-    IrInstructionListNode *node = newInstListNode(instr);
-	if (list->head == NULL)
-	  list->head = node;
-	if (list->tail)
-    	list->tail->next = node;
-    node->prev = list->tail;
-    list->tail = node;
-}
-
-void addInstuctionHead(IrInstructionList *list, IrInstruction *instr) {
-    IrInstructionListNode *node = newInstListNode(instr);
-	if (list->tail == NULL)
-	  list->tail = node;
-	if (list->head)
-    	list->head->prev = node;
-    node->next = list->head;
-    list->head = node;
-}
-
-void releaseOperand(IrOperand *op) {
-  releaseVector(&op->uses);
+void addInstructionInput(IrInstruction *instruction, IrInstruction *input) {
+   addInstructionToVector(&instruction->inputs, input);
+   addInstructionToVector(&input->uses, instruction);
 }
 
 void releaseInstruction(IrInstruction *instr) {
+  assert(instr->next == NULL);
+  assert(instr->prev == NULL);
+  assert(instr->block == NULL);
+  assert(instr->inputs.size == 0);
+  assert(instr->uses.size == 0);
+
+  releaseVector(&instr->inputs);
+  releaseVector(&instr->uses);
+
+  if (instr->kind == IR_PHI) {
+    assert(instr->info.phi.phiBlocks.size == 0);
+    releaseVector(&instr->info.phi.phiBlocks);
+  }
 }
 
 void removeInstruction(IrInstructionListNode *inode) {
+/*
   IrInstruction *instr = inode->instr;
   IrBasicBlock *bb = instr->block;
   assert(bb != NULL);
@@ -118,6 +145,7 @@ void removeInstruction(IrInstructionListNode *inode) {
     bb->instrs.tail->next = NULL;
 
   inode->next = inode->prev = NULL;
+ */
 }
 
 IrBasicBlockListNode *newBBListNode(IrBasicBlock *bb) {
@@ -154,6 +182,33 @@ void addFunctionTail(IrFunctionList *list, IrFunction *function) {
     list->tail = node;
 }
 
+void addInstructionHead(IrBasicBlock *block, IrInstruction *instr) {
+    assert(instr->block == NULL && "Instruction already in block");
+    instr->block = block;
+
+    if (block->instrunctions.head == NULL) {
+      block->instrunctions.head = block->instrunctions.tail = instr;
+    } else {
+      instr->next = block->instrunctions.head;
+      block->instrunctions.head->prev = instr;
+      block->instrunctions.head = instr;
+    }
+}
+
+void addInstructionTail(IrBasicBlock *block, IrInstruction *instr) {
+    assert(instr->block == NULL && "Instruction already in block");
+    assert(block->term == NULL && "Add instruction into terminated block");
+    instr->block = block;
+
+    if (block->instrunctions.head == NULL) {
+      block->instrunctions.head = block->instrunctions.tail = instr;
+    } else {
+      instr->prev = block->instrunctions.tail;
+      block->instrunctions.tail->next = instr;
+      block->instrunctions.tail = instr;
+    }
+}
+
 IrBasicBlock *newBasicBlock(const char *name) {
     IrBasicBlock *bb = areanAllocate(ctx->irArena, sizeof (IrBasicBlock));
     bb->name = name;
@@ -174,97 +229,97 @@ void addPredecessor(IrBasicBlock *block, IrBasicBlock *pred) {
     addBBTail(&pred->succs, block);
 }
 
-IrOperand *newIrOperand(enum IrTypeKind type, enum IrOperandKind kind) {
-    IrOperand *op = areanAllocate(ctx->irArena, sizeof (IrOperand));
-    op->id = ctx->opCnt++;
-    op->type = type;
-    op->kind = kind;
-    initVector(&op->uses, 10);
-    return op;
+void addBlockToVector(Vector *v, IrBasicBlock *block) {
+  addToVector(v, (intptr_t)block);
 }
 
-
-IrOperand *newVreg(enum IrTypeKind type) {
-  IrOperand *v = newIrOperand(type, IR_VREG);
-  v->data.vid = ctx->vregCnt++;
-  return v;
+IrBasicBlock *getBlockFromVector(const Vector *v, uint32_t i) {
+  return (IrBasicBlock *)getFromVector(v, i);
 }
 
-IrOperand *newPreg(enum IrTypeKind type, uint32_t pid) {
-  IrOperand *v = newIrOperand(type, IR_PREG);
-  v->data.pid = pid;
-  return v;
-}
-
-IrOperand *newLabelOperand(IrBasicBlock *block) {
-    IrOperand *op = newIrOperand(IR_LABEL, IR_BLOCK);
-    op->data.bb = block;
-    return op;
-}
-
-void addInstructionDef(IrInstruction *instr, IrOperand *def) {
-    addOperandTail(&instr->defs, def);
-    def->def = instr;
-}
-
-void addInstructionUse(IrInstruction *instr, IrOperand *use) {
-    addOperandTail(&instr->uses, use);
-    addToVector(&use->uses, (intptr_t)instr);
-}
-
-void addPhiInput(IrInstruction *instr, IrOperand *value, IrBasicBlock *block) {
-
-  assert(instr->kind == IR_PHI);
+void addPhiInput(IrInstruction *phi, IrInstruction *value, IrBasicBlock *block) {
+  assert(phi->kind == IR_PHI);
   assert(block != NULL);
+  Vector *inputs = &phi->inputs;
+  Vector *blocks = &phi->info.phi.phiBlocks;
+  assert(inputs->size == blocks->size);
 
-  IrOperand *labelOp = newLabelOperand(block);
-  addInstructionUse(instr, value);
-  addInstructionUse(instr, labelOp);
+  addInstructionInput(phi, value);
+  addBlockToVector(blocks, block);
+  assert(inputs->size == blocks->size);
 }
 
-IrInstruction *newInstruction(enum IrIntructionKind kind) {
+IrInstruction *newPhiInstruction(enum IrTypeKind irType) {
+  IrInstruction *phi = newInstruction(IR_PHI, irType);
+  initVector(&phi->info.phi.phiBlocks, 4);
+  return phi;
+}
+
+IrInstruction *newInstruction(enum IrIntructionKind kind, enum IrTypeKind type) {
     IrInstruction *instr = areanAllocate(ctx->irArena, sizeof (IrInstruction));
     instr->id = ctx->instrCnt++;
+    instr->vreg = ctx->vregCnt++;
     instr->kind = kind;
+    instr->type = type;
+
+    initVector(&instr->inputs, 4);
+    initVector(&instr->uses, INITIAL_VECTOR_CAPACITY);
+
     return instr;
 }
 
 IrInstruction *newMoveInstruction(IrOperand *src, IrOperand *dst) {
-    IrInstruction *instr = newInstruction(IR_MOVE);
-    addInstructionUse(instr, src);
-    addInstructionDef(instr, dst);
-    return instr;
+//    IrInstruction *instr = newInstruction(IR_MOVE, dst->type);
+//    addInstructionUse(instr, src);
+//    addInstructionDef(instr, dst);
+//    return instr;
+
+  return NULL;
 }
 
 IrInstruction *newGotoInstruction(IrBasicBlock *bb) {
-    IrInstruction *instr = newInstruction(IR_BRANCH);
-    IrOperand *op = newLabelOperand(bb);
-
-    addInstructionUse(instr, op);
-
-    return instr;
-}
-
-IrInstruction *newCondBranch(IrOperand *cond, IrBasicBlock *thenBB, IrBasicBlock *elseBB) {
-    IrInstruction *instr = newInstruction(IR_CBRANCH);
-
-    IrOperand *thenOp = newLabelOperand(thenBB);
-    IrOperand *elseOp = newLabelOperand(elseBB);
-
-    addInstructionUse(instr, cond);
-    addInstructionUse(instr, thenOp);
-    addInstructionUse(instr, elseOp);
+    IrInstruction *instr = newInstruction(IR_BRANCH, IR_VOID);
+    instr->info.branch.taken = bb;
+    instr->info.branch.notTaken = NULL;
 
     return instr;
 }
 
-IrInstruction *newTableBranch(IrOperand *cond, SwitchTable *table) {
-    IrInstruction *instr = newInstruction(IR_TBRANCH);
+IrInstruction *newLabelInstruction(IrBasicBlock *block) {
+  IrInstruction *instr = newInstruction(IR_CFG_LABEL, IR_LABEL);
+  instr->info.block = block;
+  return instr;
+}
 
-    addInstructionUse(instr, cond);
-    instr->meta.switchTable = table;
+IrInstruction *newPhysRegister(enum IrTypeKind type, uint32_t regId) {
+  IrInstruction *instr = newInstruction(IR_P_REG, type);
+  instr->info.physReg = regId;
+  return instr;
+}
+
+IrInstruction *newCondBranch(IrInstruction *cond, IrBasicBlock *takenBB, IrBasicBlock *notTakenBB) {
+    IrInstruction *instr = newInstruction(IR_CBRANCH, IR_VOID);
+
+    addInstructionInput(instr, cond);
+    instr->info.branch.taken = takenBB;
+    instr->info.branch.notTaken = notTakenBB;
 
     return instr;
+}
+
+IrInstruction *newTableBranch(IrInstruction *cond, SwitchTable *table) {
+    IrInstruction *instr = newInstruction(IR_TBRANCH, IR_VOID);
+
+    addInstructionInput(instr, cond);
+    instr->info.switchTable = table;
+
+    return instr;
+}
+
+static IrInstruction *newConstantInstruction(enum IrTypeKind irType, enum IrConstKind ckind) {
+  IrInstruction *instr = newInstruction(IR_DEF_CONST, irType);
+  instr->info.constant.kind = ckind;
+  return instr;
 }
 
 IrBasicBlock *updateBlock() {
@@ -273,6 +328,9 @@ IrBasicBlock *updateBlock() {
     return newBlock;
 }
 
+static void addInstructionToBlock(IrInstruction *instr, IrBasicBlock *block) {
+  addInstructionTail(block, instr);
+}
 
 void addInstruction(IrInstruction *instr) {
     IrBasicBlock *bb = ctx->currentBB;
@@ -282,9 +340,7 @@ void addInstruction(IrInstruction *instr) {
         bb = updateBlock();
     }
 
-    instr->block = bb;
-
-    addInstuctionTail(&bb->instrs, instr);
+    addInstructionToBlock(instr, bb);
 }
 
 void termintateBlock(IrInstruction *instr) {
@@ -301,17 +357,30 @@ void gotoToBlock(IrBasicBlock *gotoBB) {
 }
 
 void replaceInputWith(IrOperand *oldValue, IrOperand *newValue) {
-  for (size_t i = 0; i < oldValue->uses.size; ++i) {
-    IrInstruction *useInstr = (IrInstruction *)getFromVector(&oldValue->uses, i);
-    for (IrOperandListNode *on = useInstr->uses.head; on != NULL; on = on->next) {
-      IrOperand *op = on->op;
-      if (op == oldValue) {
-        on->op = newValue;
-        addToVector(&newValue->uses, (intptr_t)useInstr);
-      }
-    }
-  }
-  clearVector(&oldValue->uses);
+//  for (size_t i = 0; i < oldValue->uses.size; ++i) {
+//    IrInstruction *useInstr = (IrInstruction *)getFromVector(&oldValue->uses, i);
+//    for (IrOperandListNode *on = useInstr->uses.head; on != NULL; on = on->next) {
+//      IrOperand *op = on->op;
+//      if (op == oldValue) {
+//        on->op = newValue;
+//        addToVector(&newValue->uses, (intptr_t)useInstr);
+//      }
+//    }
+//  }
+//  clearVector(&oldValue->uses);
+
+  unimplemented("replace inputs");
+}
+
+
+void replaceInputAt(IrInstruction *instr, IrInstruction *v, size_t i) {
+  assert(i < instr->inputs.size);
+
+  IrInstruction *oldValue = getInstructionFromVector(&instr->inputs, i);
+  removeFromVector(&oldValue->uses, (intptr_t) instr);
+
+  instr->inputs.storage[i] = (intptr_t)v;
+  addInstructionToVector(&v->uses, instr);
 }
 
 void replaceInputIn(IrInstruction *instr, IrOperandListNode *opNode, IrOperand *newOp) {
@@ -320,84 +389,252 @@ void replaceInputIn(IrInstruction *instr, IrOperandListNode *opNode, IrOperand *
    addToVector(&newOp->uses, (intptr_t)instr);
 }
 
-IrOperand *getOrAddConstant(ConstantCacheData *data, enum IrTypeKind type) {
-    const ConstantCacheData **cacheData = (const ConstantCacheData **)ctx->constantCache->storage;
-    for (size_t i = 0; i < ctx->constantCache->size; ++i) {
-        if (cacheData[i]->kind == data->kind) {
+void replaceUsageWith(IrInstruction *instr, IrInstruction *newInstr) {
+  Vector *uses = &instr->uses;
+  size_t idx = 0;
+  while (uses->size != 0) {
+    size_t index = uses->size - idx - 1;
+    assert(index < uses->size);
+    IrInstruction *user = getInstructionFromVector(uses, index);
+
+    removeFromVector(uses, (intptr_t)user);
+    Vector *inputs = &user->inputs;
+    Boolean added = FALSE;
+    for (size_t j = 0; j < inputs->size; ++j) {
+      IrInstruction *input = getInstructionFromVector(inputs, j);
+      if (input == instr) {
+        added = TRUE;
+        inputs->storage[j] = (intptr_t)newInstr;
+      }
+    }
+
+    if (added) {
+      addInstructionToVector(&newInstr->uses, user);
+    }
+  }
+
+  assert(uses->size == 0);
+}
+
+void eraseInstructionFromBlock(IrInstruction *instr) {
+  IrBasicBlock *block = instr->block;
+
+  assert(block != NULL);
+  assert(instr->uses.size == 0);
+  assert(instr->inputs.size == 0);
+
+  IrInstruction *prev = instr->prev;
+  IrInstruction *next = instr->next;
+
+  if (block->instrunctions.head == instr) {
+    block->instrunctions.head = next;
+  }
+
+  if (block->instrunctions.tail == instr) {
+    block->instrunctions.tail = prev;
+  }
+
+  if (prev)
+    prev->next = next;
+
+  if (next)
+    next->prev = prev;
+
+  instr->prev = instr->next = NULL;
+  instr->block = NULL;
+}
+
+void eraseInstruction(IrInstruction *instr) {
+  assert(instr->uses.size == 0);
+
+  Vector *inputs = &instr->inputs;
+
+  for (size_t i = 0; i < inputs->size; ++i) {
+    IrInstruction *input = getInstructionFromVector(inputs, i);
+    removeFromVector(&input->uses, (intptr_t)instr);
+  }
+  clearVector(inputs);
+
+  eraseInstructionFromBlock(instr);
+}
+
+IrBasicBlockListNode *eraseFromBlockList(IrBasicBlockList *list, IrBasicBlockListNode *bn) {
+  IrBasicBlockListNode *prev = bn->prev;
+  IrBasicBlockListNode *next = bn->next;
+
+  if (list->head == bn)
+    list->head = next;
+  if (list->tail == bn)
+    list->tail = prev;
+
+  if (prev)
+    prev->next = next;
+
+  if (next)
+    next->prev = prev;
+
+  bn->prev = bn->next = NULL;
+
+  return next;
+}
+
+void removeFromBlockList(IrBasicBlockList *list, IrBasicBlock *block) {
+  IrBasicBlockListNode *bn = list->head;
+  while (bn != NULL) {
+    if (bn->block == block) {
+      bn = eraseFromBlockList(list, bn);
+    } else {
+      bn = bn->next;
+    }
+  }
+}
+
+typedef struct _ConstantCacheData {
+    enum IrConstKind kind;
+    IrConstantData data;
+    IrInstruction *value;
+} ConstantCacheData;
+
+ConstantCacheData *getCCDFromVector(Vector *v, uint32_t i) {
+  return (ConstantCacheData *)getFromVector(v, i);
+}
+
+void addToCCDVector(Vector *v, ConstantCacheData *data) {
+  addToVector(v, (intptr_t)data);
+}
+
+static IrInstruction *getFromCache(const ConstantCacheData *data) {
+    const ConstantCacheData **cacheData = (const ConstantCacheData **)ctx->constantCache.storage;
+    for (size_t i = 0; i < ctx->constantCache.size; ++i) {
+        ConstantCacheData *cacheData = getCCDFromVector(&ctx->constantCache, i);
+        if (cacheData->kind == data->kind) {
             switch (data->kind) {
-            case CK_INT_CONST:
-                if (data->data.i == cacheData[i]->data.i) {
-                    assert(cacheData[i]->op != NULL);
-                    return cacheData[i]->op;
+            case  IR_CK_INTEGER:
+                if (data->data.i == cacheData->data.i) {
+                    assert(cacheData->value != NULL);
+                    return cacheData->value;
                 }
                 break;
-            case CK_FLOAT_CONST:
-                if (memcmp(&data->data.f, &cacheData[i]->data.f, sizeof data->data.f) == 0)
-                    return cacheData[i]->op;
+            case IR_CK_FLOAT:
+                if (memcmp(&data->data.f, &cacheData->data.f, sizeof data->data.f) == 0)
+                    return cacheData->value;
                 break;
-            case CK_STRING_LITERAL:
-                if (data->data.l.length == cacheData[i]->data.l.length) {
-                    if (strncmp(data->data.l.s, cacheData[i]->data.l.s, data->data.l.length) == 0)
-                        return cacheData[i]->op;
+            case IR_CK_LITERAL:
+                if (data->data.l.length == cacheData->data.l.length) {
+                    if (strncmp(data->data.l.s, cacheData->data.l.s, data->data.l.length) == 0)
+                        return cacheData->value;
                 }
+                break;
+            case IR_CK_SYMBOL:
+                if (data->data.s == cacheData->data.s)
+                  return cacheData->value;
                 break;
             }
         }
     }
 
+    return NULL;
+}
+
+static IrInstruction *getOrAddConstant(ConstantCacheData *data, enum IrTypeKind type) {
+
+    IrInstruction *cached = getFromCache(data);
+
+    if (cached != NULL)
+      return cached;
+
     // not found
-    IrOperand *constOp = newIrOperand(type, IR_CONST);
+    IrInstruction *instr = newConstantInstruction(type, data->kind);
+    instr->info.constant.data = data->data;
+
     ConstantCacheData *newValue = areanAllocate(ctx->irArena, sizeof(ConstantCacheData));
     memcpy(newValue, data, sizeof(ConstantCacheData));
-    newValue->op = constOp;
-    constOp->data.literalIndex = ctx->constantCache->size;
-    // raise(SIGTRAP);
-    addToVector(ctx->constantCache, (intptr_t)newValue);
-    ConstantCacheData *fromCache = ((ConstantCacheData **)ctx->constantCache->storage)[constOp->data.literalIndex];
-    printf("fromCache %p, newValue %p, cache size = %u, capacity = %u\n", fromCache, newValue, ctx->constantCache->size, ctx->constantCache->capacity);
-    assert(fromCache == newValue);
-    assert(fromCache->op == constOp);
-    return constOp;
+    newValue->value = instr;
+    instr->info.constant.cacheIdx = ctx->constantCache.size;
+    addToCCDVector(&ctx->constantCache, newValue);
+    addInstructionHead(ctx->currentFunc->entry, instr);
+
+    return instr;
 }
 
 static const ConstantCacheData *getCachedConstant(uint32_t idx) {
-    assert(idx < ctx->constantCache->size);
-    return (const ConstantCacheData *)ctx->constantCache->storage[idx];
+    assert(idx < ctx->constantCache.size);
+    return (const ConstantCacheData *)ctx->constantCache.storage[idx];
 }
 
-IrOperand *createIntegerConstant(enum IrTypeKind type, int64_const_t v) {
+IrInstruction *createIntegerConstant(enum IrTypeKind type, int64_const_t v) {
     ConstantCacheData d;
-    d.kind = CK_INT_CONST;
+    d.kind = IR_CK_INTEGER;
     d.data.i = v;
     return getOrAddConstant(&d, type);
 }
 
-IrOperand *createFloatConstant(enum IrTypeKind type, float80_const_t v) {
+IrInstruction *createFloatConstant(enum IrTypeKind type, float80_const_t v) {
     ConstantCacheData d;
-    d.kind = CK_FLOAT_CONST;
+    d.kind = IR_CK_FLOAT;
     d.data.f = v;
     return getOrAddConstant(&d, type);
 }
 
-IrOperand *addLoadInstr(enum IrTypeKind valueType, IrOperand *base, IrOperand *offset, const AstExpression *ast) {
-    IrOperand *loadee = newVreg(valueType);
-    IrInstruction *loadInstr = newInstruction(IR_M_LOAD);
-    addInstructionUse(loadInstr, base);
-    addInstructionUse(loadInstr, offset);
-    addInstructionDef(loadInstr, loadee);
-    addInstruction(loadInstr);
-    loadInstr->meta.astExpr = loadee->ast.e = ast;
-    loadee->astType = ast->type;
-
-	return loadee;
+IrInstruction *createSymbolConstant(Symbol *s) {
+    ConstantCacheData d;
+    d.kind = IR_CK_SYMBOL;
+    d.data.s = s;
+    return getOrAddConstant(&d, IR_REF);
 }
 
-void addStoreInstr(IrOperand *base, IrOperand *offset,IrOperand *value, const AstExpression *ast) {
-    IrInstruction *storeInstr = newInstruction(IR_M_STORE);
-    addInstructionUse(storeInstr, base);
-    addInstructionUse(storeInstr, offset);
-    addInstructionUse(storeInstr, value);
+IrInstruction *createLiteralConstant(const char *v, size_t l) {
+    ConstantCacheData d;
+    d.kind = IR_CK_LITERAL;
+    d.data.l.length = l;
+    d.data.l.s = v;
+    return getOrAddConstant(&d, IR_LITERAL);
+}
+
+IrInstruction *newGEPInstruction(IrInstruction *base, IrInstruction *offset, const TypeRef *underType) {
+    TypeRef *pointee = makePointedType(ctx->pctx, 0, underType);
+    enum IrTypeKind irType = typeRefToIrType(pointee);
+    IrInstruction *gepInstr = newInstruction(IR_GET_ELEMENT_PTR, irType);
+    addInstructionInput(gepInstr, base);
+    addInstructionInput(gepInstr, offset);
+
+    gepInstr->info.gep.underlyingType = underType;
+    gepInstr->astType = pointee;
+
+    return gepInstr;
+}
+
+IrInstruction *newMemoryCopyInstruction(IrInstruction *dst, IrInstruction *src, IrInstruction *count, const TypeRef *copyType) {
+
+  IrInstruction *copyInstr = newInstruction(IR_M_COPY, IR_VOID);
+  addInstructionInput(copyInstr, dst);
+  addInstructionInput(copyInstr, src);
+  addInstructionInput(copyInstr, count);
+
+  copyInstr->info.copy.elementType = copyType;
+
+  return copyInstr;
+}
+
+IrInstruction *addLoadInstr(enum IrTypeKind valueType, IrInstruction *ptr, const AstExpression *ast) {
+    assert(valueType != IR_VOID);
+    IrInstruction *loadInstr = newInstruction(IR_M_LOAD, valueType);
+    addInstructionInput(loadInstr, ptr);
+    addInstruction(loadInstr);
+    loadInstr->meta.astExpr = ast;
+    loadInstr->astType = ast ? ast->type : NULL;
+    loadInstr->info.memory.opType = valueType;
+
+	return loadInstr;
+}
+
+IrInstruction *addStoreInstr(IrInstruction *ptr, IrInstruction *value, const AstExpression *ast) {
+    IrInstruction *storeInstr = newInstruction(IR_M_STORE, IR_VOID);
+    addInstructionInput(storeInstr, ptr);
+    addInstructionInput(storeInstr, value);
     storeInstr->meta.astExpr = ast;
+    storeInstr->info.memory.opType = value->type;
     addInstruction(storeInstr);
+    return storeInstr;
 }
 
