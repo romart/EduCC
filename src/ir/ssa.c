@@ -311,14 +311,6 @@ static void renameLocals(IrFunction *func, Vector *allocas) {
     releaseHeap(stacks);
 }
 
-static void removeAllocaInstructions(Vector *infos) {
-  for (size_t i = 0; i < infos->size; ++i) {
-    AllocaOptInfo *info = (AllocaOptInfo *)getFromVector(infos, i);
-    eraseInstruction(info->allocaInstr);
-    releaseInstruction(info->allocaInstr);
-  }
-}
-
 static void releaseOptimizableVector(Vector *v) {
   for (size_t i = 0; i < v->size; ++i) {
     AllocaOptInfo *info = (AllocaOptInfo *)v->storage[i];
@@ -345,7 +337,7 @@ void buildSSA(IrFunction *func) {
 
   transformAllocasIntoPhis(func, &optimizableAllocas);
   renameLocals(func, &optimizableAllocas);
-  removeAllocaInstructions(&optimizableAllocas);
+  cleanupDeadInstructions(func);
 
   releaseOptimizableVector(&optimizableAllocas);
 }
