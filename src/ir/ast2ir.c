@@ -805,6 +805,25 @@ static IrInstruction *handleMemoryMode(IrInstruction *ptr, TypeRef *valueType, A
     return loadInstr;
 }
 
+static IrInstruction *computeVLAElementType(const TypeRef *vlaElementType) {
+  if (vlaElementType->kind == TR_VLA) {
+    IrInstruction *elementSizeOp = computeVLAElementType(vlaElementType->vlaDescriptor.elementType);
+    AstExpression *sizeExpr = vlaElementType->vlaDescriptor.sizeExpression;
+    assert(sizeExpr != NULL);
+    // Cache at the array declaration
+    IrInstruction *arraySize = translateRValue(sizeExpr);
+    IrInstruction *mulInstr = newInstruction(IR_E_MUL, IR_U64);
+    addInstructionInput(mulInstr, arraySize);
+    addInstructionInput(mulInstr, elementSizeOp);
+    addInstruction(mulInstr);
+    mulInstr->astType = makePrimitiveType(ctx->pctx, T_U8, 0);
+    return mulInstr;
+  } else {
+    int32_t elementSize = computeTypeSize(vlaElementType);
+    return createIntegerConstant(IR_U64, elementSize);
+  }
+}
+
 static IrInstruction *translateArrayAccess(AstExpression *expr) {
     assert(expr->op == EB_A_ACC);
 
@@ -839,7 +858,13 @@ static IrInstruction *translateArrayAccess(AstExpression *expr) {
     IrInstruction *scaledIndexOp = NULL;
 
     if (elementType->kind == TR_VLA) {
-        unimplemented("VLA array access");
+        IrInstruction *vlaSize = computeVLAElementType(elementType);
+        scaledIndexOp = newInstruction(IR_E_MUL, indexIrType);
+        addInstructionInput(scaledIndexOp, indexInstr);
+        addInstructionInput(scaledIndexOp, vlaSize);
+        addInstruction(scaledIndexOp);
+        scaledIndexOp->meta.astExpr = expr;
+        scaledIndexOp->astType = indexType;
     } else {
         int32_t elementSize = computeTypeSize(elementType);
         if (elementSize > 1) {
