@@ -453,11 +453,6 @@ static void copyStructTo(GeneratedFunction *f, TypeRef *type, Address *src, Addr
   }
 }
 
-static Boolean isNullConst(AstExpression *expr) {
-  if (expr->op != E_CONST) return FALSE;
-  return expr->constExpr.i == 0;
-}
-
 static size_t emitInitializerImpl(GeneratedFunction *f, int32_t typeSize, Address *dst, AstInitializer *initializer, Boolean skipNull) {
   size_t emitted = 0;
 

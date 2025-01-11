@@ -4,6 +4,7 @@
 #include "sema.h"
 #include "treeDump.h"
 #include "parser.h"
+#include "types.h"
 
 
 static TypeEqualityKind structualTypesEquality(TypeDesc *d1, TypeDesc *d2, TypeId kind) {
@@ -271,6 +272,10 @@ Boolean isFlatType(const TypeRef *type) {
   return type->kind == TR_ARRAY || isCompositeType(type);
 }
 
+Boolean isFunctionalType(const TypeRef *type) {
+  return type->kind == TR_FUNCTION;
+}
+
 Boolean isVoidType(const TypeRef *type) {
   if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_VOID)
     return TRUE;
@@ -352,6 +357,11 @@ Boolean isIncompleteType(TypeRef *type) {
       return type->arrayTypeDesc.size == UNKNOWN_SIZE ? TRUE : FALSE;
   }
   return FALSE;
+}
+
+Boolean isNullConst(AstExpression *expr) {
+  if (expr->op != E_CONST) return FALSE;
+  return expr->constExpr.i == 0;
 }
 
 int32_t typeAlignment(TypeRef *type) {
@@ -2957,11 +2967,11 @@ TypeRef *makeBasicType(ParserContext *ctx, TypeDesc *descriptor, unsigned flags)
   return ref;
 }
 
-TypeRef* makePointedType(ParserContext *ctx, unsigned flags, TypeRef *pointedTo) {
+TypeRef* makePointedType(ParserContext *ctx, unsigned flags, const TypeRef *pointedTo) {
     TypeRef *result = (TypeRef *)areanAllocate(ctx->memory.typeArena, sizeof(TypeRef));
     result->kind = TR_POINTED;
     result->flags.storage = flags;
-    result->pointed = pointedTo;
+    result->pointed = (TypeRef *)pointedTo;
     return result;
 }
 
