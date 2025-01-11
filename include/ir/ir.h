@@ -29,6 +29,7 @@ struct _IrFunction {
     struct _IrInstruction *retOperand;
 
     size_t numOfLocalSlots;
+    size_t numOfBlocks;
     struct _LocalValueInfo *localOperandMap;
 
     uint32_t id;

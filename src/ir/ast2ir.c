@@ -2196,6 +2196,7 @@ static IrFunction *translateFunction(AstFunctionDefinition *function) {
     IrFunction *func = newIrFunction(function);
 
     buildInitialIr(func, function);
+    assert(func->numOfBlocks == ctx->bbCnt);
     buildSSA(func);
 
     return func;

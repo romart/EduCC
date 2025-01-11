@@ -213,6 +213,7 @@ IrBasicBlock *newBasicBlock(const char *name) {
     IrBasicBlock *bb = areanAllocate(ctx->irArena, sizeof (IrBasicBlock));
     bb->name = name;
     bb->id = ctx->bbCnt++;
+    ctx->currentFunc->numOfBlocks += 1;
 
     addBBTail(&ctx->currentFunc->blocks, bb);
 
