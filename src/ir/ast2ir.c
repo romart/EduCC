@@ -6,6 +6,9 @@
 #include "sema.h"
 #include <signal.h>
 
+static const uint32_t R_FP_PARAM_COUNT = 10;
+static const uint32_t R_PARAM_COUNT = 10;
+
 
 extern IrContext *ctx;
 
@@ -327,10 +330,129 @@ static IrInstruction *translateConstant(AstExpression *expr) {
     unreachable("Unknown constant kind");
 }
 
+
+static IrInstruction *computeVAListValuePtr(IrInstruction *valistInstr, IrBasicBlock *memoryBlock, IrBasicBlock *updateBlock, IrBasicBlock *doneBlock, TypeDefiniton *vastruct, const char *offsetMemberName, size_t areaBound) {
+  const static int32_t dataSize = sizeof(intptr_t);
+  IrInstruction *dataSizeInstr = createIntegerConstant(IR_I64, dataSize);
+  StructualMember *rsam = findStructualMember(vastruct, "reg_save_area");
+  enum IrTypeKind irRSAType = typeRefToIrType(rsam->type);
+
+  StructualMember *m = findStructualMember(vastruct, offsetMemberName);
+  enum IrTypeKind irOffsetType = typeRefToIrType(m->type);
+  assert(m != NULL);
+  IrInstruction *offsetOff = createIntegerConstant(IR_I64, m->offset);
+  IrInstruction *offsetGep = newGEPInstruction(valistInstr, offsetOff, m->type);
+  addInstruction(offsetGep);
+  IrInstruction *offValue = addLoadInstr(IR_I64, offsetGep, NULL);
+  offValue->astType = m->type;
+  IrInstruction *areaSize = createIntegerConstant(irOffsetType, areaBound * dataSize);
+
+  IrInstruction *cmpgeInstr = addBinaryOpeartion(IR_E_GE, offValue, areaSize, IR_BOOL, NULL, NULL);
+
+  IrInstruction *condInstr = newCondBranch(cmpgeInstr, memoryBlock, updateBlock);
+  addSuccessor(ctx->currentBB, memoryBlock);
+  addSuccessor(ctx->currentBB, updateBlock);
+  termintateBlock(condInstr);
+
+  ctx->currentBB = updateBlock;
+
+  IrInstruction *regSaveOff = createIntegerConstant(IR_I64, rsam->offset);
+  IrInstruction *regSaveGEP = newGEPInstruction(valistInstr, regSaveOff, rsam->type);
+  addInstruction(regSaveGEP);
+
+  IrInstruction *regSaveAreaValue = addLoadInstr(irRSAType, regSaveGEP, NULL);
+  regSaveAreaValue->astType = rsam->type;
+
+  IrInstruction *areaPtr = addBinaryOpeartion(IR_E_ADD, regSaveAreaValue, offValue, irRSAType, rsam->type, NULL);
+
+  IrInstruction *newAreaOffset = addBinaryOpeartion(IR_E_ADD, offValue, dataSizeInstr, irOffsetType, m->type, NULL);
+  addStoreInstr(offsetGep, newAreaOffset, NULL);
+  gotoToBlock(doneBlock);
+
+  return areaPtr;
+}
+
 static IrInstruction *translateVaArg(AstExpression *expr) {
     assert(expr->op == E_VA_ARG);
-    unimplemented("Constant Expression");
-    return NULL;
+
+    IrInstruction *valistInstr = translateRValue(expr->vaArg.va_list);
+    TypeRef *vatype = expr->vaArg.argType;
+    TypeRef *valistType = expr->vaArg.va_list->type;
+
+    assert(is_va_list_Type(valistType));
+    TypeDefiniton *vastruct = valistType->pointed->descriptorDesc->typeDefinition;
+
+    const static int32_t dataSize = sizeof(intptr_t);
+    IrInstruction *dataSizeInstr = createIntegerConstant(IR_I64, dataSize);
+
+    /**
+     * typedef struct {
+     *   intptr_t gp_offset;
+     *   intptr_t fp_offset;
+     *   void *overflow_arg_area;
+     *   const void *reg_save_area;
+     * } __va_elem;
+     */
+
+    IrBasicBlock *memoryBlock = newBasicBlock("<va_arg_mem>");
+    IrBasicBlock *updateBlock = newBasicBlock("<va_arg_update>");
+    IrBasicBlock *doneBlock = newBasicBlock("<va_arg_done>");
+
+    IrInstruction *valuePtr = NULL;
+
+    if (isRealType(vatype)) {
+      valuePtr = computeVAListValuePtr(valistInstr, memoryBlock, updateBlock, doneBlock, vastruct, "fp_offset", R_PARAM_COUNT + R_FP_PARAM_COUNT);
+    } else if (isScalarType(vatype)) {
+      valuePtr = computeVAListValuePtr(valistInstr, memoryBlock, updateBlock, doneBlock, vastruct, "gp_offset", R_PARAM_COUNT);
+    } else {
+      unreachable("WTF in va args??");
+    }
+
+    assert(valuePtr != NULL);
+
+    ctx->currentBB = memoryBlock;
+
+    StructualMember *oaam = findStructualMember(vastruct, "overflow_arg_area");
+    assert(oaam != NULL);
+
+    IrInstruction *overflowAreaOffset = createIntegerConstant(IR_I64, oaam->offset);
+    enum IrTypeKind irOAType = typeRefToIrType(oaam->type);
+
+    IrInstruction *overflowAreaGep = newGEPInstruction(valistInstr, overflowAreaOffset, oaam->type);
+    addInstruction(overflowAreaGep);
+
+    IrInstruction *overflowAreaValue = addLoadInstr(irOAType, overflowAreaGep, NULL);
+    overflowAreaValue->astType = oaam->type;
+
+    int32_t align = typeAlignment(vatype);
+
+    if (align > 8) {
+      int32_t mask = ~(align - 1);
+      IrInstruction *alignC = createIntegerConstant(IR_I64, align - 1);
+      IrInstruction *addInstr = addBinaryOpeartion(IR_E_ADD, overflowAreaValue, alignC, valuePtr->type, valuePtr->astType, NULL);
+      IrInstruction *maskC = createIntegerConstant(IR_I64, mask);
+      overflowAreaValue = addBinaryOpeartion(IR_E_AND, addInstr, maskC, valuePtr->type, valuePtr->astType, NULL);
+    }
+
+    int32_t argSize = max(8, computeTypeSize(vatype));
+
+    IrInstruction *alignesArgSize = createIntegerConstant(IR_I64, ALIGN_SIZE(argSize, dataSize));
+    IrInstruction *newOverflowArea = addBinaryOpeartion(IR_E_ADD, overflowAreaValue, alignesArgSize, irOAType, oaam->type, NULL);
+
+    addStoreInstr(overflowAreaGep, newOverflowArea, NULL);
+
+    gotoToBlock(doneBlock);
+
+    ctx->currentBB = doneBlock;
+    enum IrTypeKind irVaType = typeRefToIrType(vatype);
+    IrInstruction *phiInstr = newPhiInstruction(irVaType);
+
+    addPhiInput(phiInstr, valuePtr, updateBlock);
+    addPhiInput(phiInstr, overflowAreaValue, memoryBlock);
+    phiInstr->astType = vatype;
+    addInstructionHead(doneBlock, phiInstr);
+
+    return phiInstr;
 }
 
 static IrInstruction *translateNameRef(AstExpression *expr) {
@@ -1913,9 +2035,6 @@ static void initializeParamterLocal(IrBasicBlock *entryBB, IrInstruction *stackP
     }
 }
 
-static const uint32_t R_FP_PARAM_COUNT = 10;
-static const uint32_t R_PARAM_COUNT = 10;
-
 static uint32_t computeParametersABIInfo(AstFunctionDeclaration *declaration, ParamtersABIInfo *infos, size_t numberOfParams, LocalValueInfo *lvis) {
 
   unsigned intRegParams = 0;
@@ -1989,7 +2108,12 @@ static uint32_t buildInitialIr(IrFunction *func, AstFunctionDefinition *function
         numOfReturnSlots = 1;
     }
 
-    const size_t numOfLocalSlots = numOfParams + numOfLocals + numOfReturnSlots;
+    size_t numOfVariadicSlots = 0;
+    if (declaration->isVariadic) {
+      numOfVariadicSlots = 1;
+    }
+
+    const size_t numOfLocalSlots = numOfParams + numOfLocals + numOfReturnSlots + numOfVariadicSlots;
     func->numOfLocalSlots = numOfLocalSlots;
 
     LocalValueInfo *localOperandsMap = areanAllocate(ctx->irArena, numOfLocalSlots * sizeof (LocalValueInfo));
@@ -2031,7 +2155,18 @@ static uint32_t buildInitialIr(IrFunction *func, AstFunctionDefinition *function
       IrInstruction *returnStackSlot = func->retOperand = createAllocaSlot(computeTypeSize(declaration->returnType));
       returnStackSlot->astType = makePointedType(ctx->pctx, 0, declaration->returnType);
       returnStackSlot->info.alloca.valueType = typeRefToIrType(declaration->returnType);
-      localOperandsMap[idx].stackSlot = returnStackSlot;
+      localOperandsMap[idx++].stackSlot = returnStackSlot;
+    }
+
+    if (numOfVariadicSlots) {
+      AstValueDeclaration *va_area = function->va_area;
+      va_area->index2 = idx;
+      IrInstruction *vaAreaSlot = createAllocaSlot(sizeof (intptr_t));
+      vaAreaSlot->info.alloca.valueType = IR_U8;
+      vaAreaSlot->info.alloca.v = va_area;
+      localOperandsMap[idx].stackSlot = vaAreaSlot;
+      localOperandsMap[idx].declaration = va_area;
+      // TODO:
     }
 
     AstStatement *body = function->body;
