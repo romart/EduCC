@@ -11,7 +11,7 @@
 
 void addToVector(Vector* vector, intptr_t value) {
     if (vector->size == vector->capacity) {
-        int newCapacity = (int)(vector->capacity * 1.2f) ;
+        int newCapacity = (int)(vector->capacity * 2) ;
         intptr_t* newStorage = (intptr_t*)heapAllocate(sizeof(intptr_t) * newCapacity);
         memcpy(newStorage, vector->storage, vector->capacity * sizeof(intptr_t));
         releaseHeap(vector->storage);
@@ -22,7 +22,28 @@ void addToVector(Vector* vector, intptr_t value) {
     vector->storage[vector->size++] = value;
 }
 
+void removeFromVector(Vector *vector, intptr_t v) {
+  size_t i = 0;
+
+  while (i < vector->size) {
+    size_t n = i + 1;
+    if (vector->storage[i] == v) {
+      if (n < vector->size) {
+        printf("Memmove vector[%u] %p %lu -> %lu (%p -> %p)\n", vector->size, vector->storage, i, n, &vector->storage[i], &vector->storage[n]);
+        memmove(&vector->storage[i], &vector->storage[n], (vector->size - n) * sizeof(intptr_t));
+      }
+      size_t s = vector->size;
+      vector->size -= 1;
+      assert(vector->size < s);
+      continue;
+    }
+
+    ++i;
+  }
+}
+
 void initVector(Vector* vector, int capacity) {
+    assert(vector->storage == NULL);
     vector->size = 0;
     vector->capacity = capacity;
     vector->storage = (intptr_t*)heapAllocate(sizeof(intptr_t) * capacity);
@@ -44,7 +65,7 @@ void releaseVector(Vector *vector) {
 //    releaseHeap(vector);
 }
 
-intptr_t getFromVector(Vector* vector, int idx) {
+intptr_t getFromVector(const Vector* vector, int idx) {
     assert(idx < vector->size);
     return vector->storage[idx];
 }
