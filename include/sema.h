@@ -45,7 +45,9 @@ Boolean isScalarType(const TypeRef *type);
 Boolean isUnionType(const TypeRef *type);
 Boolean isCompositeType(const TypeRef *type);
 Boolean isFlatType(const TypeRef *type);
+Boolean isFunctionalType(const TypeRef *type);
 Boolean is_va_list_Type(const TypeRef *type);
+Boolean isNullConst(AstExpression *expr);
 
 Boolean checkReturnType(ParserContext *ctx, Coordinates *coords, TypeRef *returnType, AstExpression *expr);
 
@@ -144,7 +146,7 @@ Scope *newScope(ParserContext *ctx, Scope *parent);
 
 TypeRef *makePrimitiveType(ParserContext *ctx, TypeId id, unsigned flags);
 TypeRef *makeBasicType(ParserContext *ctx, TypeDesc *descriptor, unsigned flags);
-TypeRef* makePointedType(ParserContext *ctx, unsigned flags, TypeRef *pointedTo);
+TypeRef* makePointedType(ParserContext *ctx, unsigned flags, const TypeRef *pointedTo);
 TypeRef *makeArrayType(ParserContext *ctx, int size, TypeRef *elementType);
 TypeRef *makeFunctionType(ParserContext *ctx, TypeRef *returnType, FunctionParams *params);
 TypeRef *makeTypeRef(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator, DeclaratorScope scope);
