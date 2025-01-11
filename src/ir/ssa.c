@@ -126,6 +126,7 @@ static void insertPhiNode(IrBasicBlock *phiBlock, AllocaOptInfo *info) {
 
     assert(info->phiInBlocks[phiBlock->id] == NULL);
     phiInstr->info.phi.info = info;
+    phiInstr->info.phi.declaration = info->allocaInstr->info.alloca.v;
 
     info->phiInBlocks[phiBlock->id] = phiInstr;
     addInstructionHead(phiBlock, phiInstr);
