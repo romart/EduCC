@@ -118,28 +118,28 @@ static int32_t dumpIrInstructionExtra(FILE *stream, const IrInstruction *instr) 
   int32_t r = fputc('[', stream);
 
   switch (instr->kind) {
-    case IR_M_LOAD:
-      r += fprintf(stream, "load type = ");
-      r += dumpIrType(stream, instr->info.memory.opType);
-      break;
-    case IR_M_STORE:
-      r += fprintf(stream, "store type = ");
-      r += dumpIrType(stream, instr->info.memory.opType);
-      break;
-    case IR_CALL:
-      if (instr->info.call.symbol != NULL) {
-        r += fprintf(stream, "symbol = %s", instr->info.call.symbol->name);
-      }
-    case IR_ALLOCA:
-      if (instr->info.alloca.sizeInstr != NULL) {
-        r += fprintf(stream, "size = %c%u", '%', instr->info.alloca.sizeInstr->id);
-      } else {
-        r += fprintf(stream, "size = %lu", instr->info.alloca.stackSize);
-      }
-      if (instr->info.alloca.v) {
-        r += fprintf(stream, ", declaration = %u | '%s'", instr->info.alloca.v->index2, instr->info.alloca.v->name);
-      }
-      break;
+  case IR_M_LOAD:
+    r += fprintf(stream, "load type = ");
+    r += dumpIrType(stream, instr->info.memory.opType);
+    break;
+  case IR_M_STORE:
+    r += fprintf(stream, "store type = ");
+    r += dumpIrType(stream, instr->info.memory.opType);
+    break;
+  case IR_CALL:
+    if (instr->info.call.symbol != NULL) {
+      r += fprintf(stream, "symbol = %s", instr->info.call.symbol->name);
+    }
+  case IR_ALLOCA:
+    if (instr->info.alloca.sizeInstr != NULL) {
+      r += fprintf(stream, "size = %c%u", '%', instr->info.alloca.sizeInstr->id);
+    } else {
+      r += fprintf(stream, "size = %lu", instr->info.alloca.stackSize);
+    }
+    if (instr->info.alloca.v) {
+      r += fprintf(stream, ", declaration = %u | '%s'", instr->info.alloca.v->index2, instr->info.alloca.v->name);
+    }
+    break;
   case IR_CFG_LABEL:
     r += fprintf(stream, "block = #%u", instr->info.block->id);
     break;
@@ -198,6 +198,13 @@ static int32_t dumpIrInstructionExtra(FILE *stream, const IrInstruction *instr) 
 	  r += fprintf(stream, ", default = #%u", instr->info.switchTable->defaultBB->id);
 	}
 	break;
+  case IR_PHI: {
+    AstValueDeclaration *v = instr->info.phi.declaration;
+    if (v != NULL) {
+      r += fprintf(stream, "var = %s", v->name);
+    }
+    break;
+  }
   default: // shut up compiler
 	break;
   }

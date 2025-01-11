@@ -172,6 +172,7 @@ struct _IrInstruction {
         } alloca;
         struct {
           struct _AllocaOptInfo *info;
+          AstValueDeclaration *declaration;
           Vector phiBlocks;
         } phi;
         struct _IrBasicBlock *block;
