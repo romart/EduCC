@@ -296,6 +296,10 @@ IrBasicBlock *newBasicBlock(const char *name);
 void addSuccessor(IrBasicBlock *block, IrBasicBlock *succ);
 void addPredecessor(IrBasicBlock *block, IrBasicBlock *pred);
 
+
+void addBlockToVector(Vector *v, IrBasicBlock *block);
+IrBasicBlock *getBlockFromVector(const Vector *v, uint32_t i);
+
 void addInstructionToVector(Vector *v, IrInstruction *instr);
 IrInstruction *getInstructionFromVector(const Vector *v, uint32_t i);
 IrBasicBlock *getBlockFromVector(const Vector *v, uint32_t i);
@@ -311,6 +315,8 @@ IrInstruction *newCondBranch(IrInstruction *cond, IrBasicBlock *thenBB, IrBasicB
 IrInstruction *newTableBranch(IrInstruction *cond, SwitchTable *table);
 IrInstruction *newGEPInstruction(IrInstruction *base, IrInstruction *offset, const TypeRef *underType);
 IrInstruction *newMemoryCopyInstruction(IrInstruction *dst, IrInstruction *src, IrInstruction *count, const TypeRef *copyType);
+
+
 
 IrBasicBlock *updateBlock();
 void addInstruction(IrInstruction *instr);
@@ -354,6 +360,12 @@ void buildDominatorInfo(IrContext *ctx, IrFunction *func);
 
 void addInstructionInput(IrInstruction *instruction, IrInstruction *input);
 
+// ------------- optimization passes ------------------------
+void cleanupUnreachableBlock(IrFunction *func);
+void cleanupDeadInstructions(IrFunction *func);
+
+
+// ------------- dump utils ---------------------------------
 void dumpIrFunctionList(const char *fileName, const IrFunctionList *functions);
 void buildDotGraphForFunctionList(const char *fileName, const IrFunctionList *functions);
 

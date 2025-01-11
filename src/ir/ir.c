@@ -424,6 +424,10 @@ void eraseInstruction(IrInstruction *instr) {
   }
   clearVector(inputs);
 
+  if (instr->kind == IR_PHI) {
+    clearVector(&instr->info.phi.phiBlocks);
+  }
+
   eraseInstructionFromBlock(instr);
 }
 
