@@ -798,7 +798,7 @@ static IrInstruction *translateAssignArith(AstExpression *expr) {
 
     AstExpression *assignee = expr->binaryExpr.left;
     AstExpression *value = expr->binaryExpr.right;
-    assert(!isCompositeType(value->type) && "Forbiden operation in C");
+    assert(!isFlatType(value->type) && "Forbiden operation in C");
 
     IrInstruction *lvalue = translateLValue(assignee);
     IrInstruction *rvalue = translateRValue(value);
@@ -854,7 +854,7 @@ static IrInstruction *translateDeReference(AstExpression *expr) {
     assert(isPointerLikeType(ptrType) || isFunctionalType(ptrType));
 
     if (ctx->addressTM == IR_TM_RVALUE) {
-        if (isCompositeType(valueType) || isFunctionalType(valueType)) {
+        if (isFlatType(valueType) || isFunctionalType(valueType)) {
           // Do not load aggregate types
           return lvalue;
         } else {
@@ -912,7 +912,7 @@ static IrInstruction *translateUnary(AstExpression *expr) {
 }
 
 static IrInstruction *handleMemoryMode(IrInstruction *ptr, TypeRef *valueType, AstExpression *expr) {
-    if (ctx->addressTM == IR_TM_LVALUE || isCompositeType(valueType))
+    if (ctx->addressTM == IR_TM_LVALUE || isFlatType(valueType))
       return ptr;
 
     IrInstruction *loadInstr = addLoadInstr(typeRefToIrType(valueType), ptr, expr);
@@ -1041,6 +1041,7 @@ static IrInstruction *translateFieldAccess(AstExpression *expr, Boolean isDot) {
     IrInstruction *gepInstr = newGEPInstruction(receiver, memberOffsetOp, memberType);
     gepInstr->meta.astExpr = expr;
     gepInstr->info.gep.member = expr->fieldExpr.member;
+    addInstruction(gepInstr);
 
     return handleMemoryMode(gepInstr, memberType, expr);
 }
@@ -2271,3 +2272,4 @@ static IrFunction *translateFunction(AstFunctionDefinition *function) {
 
     return func;
 }
+

@@ -96,6 +96,7 @@ static Boolean hasSideEffects(enum IrIntructionKind k) {
   switch (k) {
   case IR_DEF_CONST:
   case IR_M_STORE:
+  case IR_M_COPY:
   case IR_CALL:
   case IR_IBRANCH:
   case IR_TBRANCH:
