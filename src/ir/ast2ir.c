@@ -2090,6 +2090,79 @@ static uint32_t computeParametersABIInfo(AstFunctionDeclaration *declaration, Pa
   return idx;
 }
 
+
+static size_t generateVaArea(AstValueDeclaration *va_area, int32_t stackParamOffset, LocalValueInfo *infos, size_t idx) {
+    va_area->index2 = idx;
+    enum IrTypeKind irType = typeRefToIrType(va_area->type);
+    IrInstruction *vaAreaSlot = createAllocaSlot(computeTypeSize(va_area->type));
+    vaAreaSlot->info.alloca.valueType = irType;
+    vaAreaSlot->info.alloca.v = va_area;
+    infos[idx].stackSlot = vaAreaSlot;
+    infos[idx].declaration = va_area;
+
+    /**
+     * typedef struct {
+     *   unsinged int gp_offset;
+     *   unsigned int fp_offset;
+     *   void *overflow_arg_area;
+     *   const void *reg_save_area;
+     * } __va_elem;
+     */
+
+
+    const static int32_t dataSize = sizeof(intptr_t);
+    assert(va_area);
+    int32_t gp_offset_off = 0;
+    int32_t fp_offset_off = fp_offset_off + sizeof (uint32_t);
+    int32_t overflow_arg_area_ptr_off = fp_offset_off + dataSize;
+    int32_t reg_save_area_ptr_off = overflow_arg_area_ptr_off + dataSize;
+
+    int32_t gp_va_area = ALIGN_SIZE(reg_save_area_ptr_off + dataSize, dataSize);
+    int32_t fp_va_area = ALIGN_SIZE(gp_va_area + R_PARAM_COUNT * dataSize, dataSize);
+    int32_t reg_save_area_offset = gp_va_area;
+
+    IrInstruction *gp_offset_off_i = createIntegerConstant(IR_I64, gp_offset_off);
+    IrInstruction *gp_va_area_off = createIntegerConstant(IR_I64, gp_va_area);
+
+    TypeRef *u32Type = makePrimitiveType(ctx->pctx, 0, T_U4);
+    TypeRef *voidType = makePrimitiveType(ctx->pctx, 0, T_VOID);
+    TypeRef *voidPtrType = makePointedType(ctx->pctx, 0, voidType);
+    TypeRef *uintptrType = makePrimitiveType(ctx->pctx, 0, T_U8);
+    TypeRef *floatType = makePrimitiveType(ctx->pctx, 0, T_F8);
+    enum IrTypeKind iru32Type = IR_U32;
+
+    // va_elem->reg_save_area = reg_save_area_begin
+    IrInstruction *reg_save_area_off = createIntegerConstant(IR_I64, reg_save_area_offset);
+    IrInstruction *reg_save_area_begin_ptr = newGEPInstruction(vaAreaSlot, reg_save_area_off, uintptrType);
+    addInstruction(reg_save_area_begin_ptr);
+
+    IrInstruction *reg_save_area_slot_off = createIntegerConstant(IR_I64, reg_save_area_ptr_off);
+    IrInstruction *reg_save_area_slot_ptr = newGEPInstruction(vaAreaSlot, reg_save_area_slot_off, voidPtrType);
+    addInstruction(reg_save_area_slot_ptr);
+    addStoreInstr(reg_save_area_slot_ptr, reg_save_area_begin_ptr, NULL);
+
+    IrInstruction *gp_area_ptr = newGEPInstruction(vaAreaSlot, gp_va_area_off, voidPtrType);
+    addInstruction(gp_area_ptr);
+    IrInstruction *gp_offset_ptr = newGEPInstruction(vaAreaSlot, gp_offset_off_i, u32Type);
+
+    // va_elem->overflow_arg_area = stack_param_begin
+    IrInstruction *stack_param_begin_off = createIntegerConstant(IR_I64, stackParamOffset);
+    IrInstruction *stack_param_begin_ptr = newGEPInstruction(vaAreaSlot, stack_param_begin_off, uintptrType);
+    addInstruction(stack_param_begin_ptr);
+
+    IrInstruction *overflow_arg_area_slot_off = createIntegerConstant(IR_I64, overflow_arg_area_ptr_off);
+    IrInstruction *overflow_arg_area_slot_ptr = newGEPInstruction(vaAreaSlot, overflow_arg_area_slot_off, voidPtrType);
+    addInstruction(overflow_arg_area_slot_ptr);
+
+    addStoreInstr(overflow_arg_area_slot_ptr, stack_param_begin_ptr, NULL);
+
+
+    // save gp registers;
+    // save fp registers;
+
+    return idx + 1;
+}
+
 static uint32_t buildInitialIr(IrFunction *func, AstFunctionDefinition *function) {
     AstFunctionDeclaration *declaration = function->declaration;
     AstValueDeclaration *local = function->locals;
@@ -2162,13 +2235,8 @@ static uint32_t buildInitialIr(IrFunction *func, AstFunctionDefinition *function
 
     if (numOfVariadicSlots) {
       AstValueDeclaration *va_area = function->va_area;
-      va_area->index2 = idx;
-      IrInstruction *vaAreaSlot = createAllocaSlot(sizeof (intptr_t));
-      vaAreaSlot->info.alloca.valueType = IR_U8;
-      vaAreaSlot->info.alloca.v = va_area;
-      localOperandsMap[idx].stackSlot = vaAreaSlot;
-      localOperandsMap[idx].declaration = va_area;
-      // TODO:
+      ctx->currentBB = func->entry;
+      idx = generateVaArea(va_area, 0,  localOperandsMap, idx);
     }
 
     AstStatement *body = function->body;
