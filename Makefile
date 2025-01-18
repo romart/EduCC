@@ -37,6 +37,7 @@ SOURCES=\
     $(SRCDIR)/ir/dominators.c \
     $(SRCDIR)/ir/ssa.c \
     $(SRCDIR)/ir/dce.c \
+    $(SRCDIR)/ir/cp.c \
 
 OBJ=$(patsubst %.c,%.o,$(subst $(SRCDIR)/,$(OBJDIR)/, $(SOURCES)))
 
