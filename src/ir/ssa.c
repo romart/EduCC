@@ -132,9 +132,35 @@ static void insertPhiNode(IrBasicBlock *phiBlock, AllocaOptInfo *info) {
     addInstructionHead(phiBlock, phiInstr);
     printf("Insert phi %c%u for alloca %c%u into block #%u\n", '%', phiInstr->id, '%', allocaInstr->id, phiBlock->id);
 
-    for (IrBasicBlockListNode *pn = phiBlock->preds.head; pn != NULL; pn = pn->next) {
-      addPhiInput(phiInstr, placeHolder, pn->block);
+    Vector *preds = &phiBlock->preds;
+    for (size_t idx = 0; idx < preds->size; ++idx) {
+      IrBasicBlock *pred = getBlockFromVector(preds, idx);
+      addPhiInput(phiInstr, placeHolder, pred);
     }
+}
+
+
+static Boolean analyzeLiveness(IrBasicBlock *block, IrInstruction *allocaInstr) {
+  //return TRUE;
+  for (IrInstruction *i = block->instrunctions.head; i != NULL; i = i->next) {
+    if (i->kind == IR_M_LOAD) {
+      IrInstruction *ptr = getInstructionFromVector(&i->inputs, 0);
+      if (ptr == allocaInstr) {
+        // the first usage is read so the value is alive
+        printf("LIVE: In block #%u found first USE of %c%u in %c%u\n", block->id, '%', allocaInstr->id, '%', i->id);
+        return TRUE;
+      }
+    } else if (i->kind == IR_M_STORE) {
+      IrInstruction *ptr = getInstructionFromVector(&i->inputs, 0);
+      if (ptr == allocaInstr) {
+        printf("KILL: In block #%u found first DEF of %c%u in %c%u\n", block->id, '%', allocaInstr->id, '%', i->id);
+        // first is store so the incoming value is not used and var at the beginning is dead
+        return FALSE;
+      }
+    }
+  }
+
+  return TRUE;
 }
 
 static void transformAllocasIntoPhis(IrFunction *func, Vector *candidates) {
@@ -149,8 +175,7 @@ static void transformAllocasIntoPhis(IrFunction *func, Vector *candidates) {
 
     info->phiInBlocks = heapAllocate(ctx->bbCnt * sizeof(IrInstruction *));
 
-    for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
-       IrBasicBlock *bb = bn->block;
+    for (IrBasicBlock *bb = func->blocks.head; bb != NULL; bb = bb->next) {
        if (getBit(defBitSet, bb->id)) {
          pushToStack(stack, (intptr_t)bb);
        }
@@ -159,12 +184,16 @@ static void transformAllocasIntoPhis(IrFunction *func, Vector *candidates) {
     BitSet *insertBitSet = &info->inserted;
     while (stack->size > 0) {
       IrBasicBlock *defBlock = (IrBasicBlock *)popFromStack(stack);
-      for (IrBasicBlockListNode *fn = defBlock->dominators.dominationFrontier.head; fn != NULL; fn = fn->next) {
-        IrBasicBlock *bb = fn->block;
+      Vector *df = &defBlock->dominators.dominationFrontier;
+      for (size_t idx = 0; idx < df->size; ++idx) {
+        IrBasicBlock *bb = getBlockFromVector(df, idx);
         if (getBit(insertBitSet, bb->id)) {
           continue;
         }
 
+//        if (analyzeLiveness(bb, info->allocaInstr)) {
+//          insertPhiNode(bb, info);
+//        }
         insertPhiNode(bb, info);
 
         setBit(insertBitSet, bb->id);
@@ -271,13 +300,15 @@ static void renameLocalsImpl(IrBasicBlock *block, Vector *infos, Vector *stacks)
     i = n;
   }
 
-  for (IrBasicBlockListNode *sn = block->succs.head; sn != NULL; sn = sn->next) {
-    IrBasicBlock *succ = sn->block;
+  Vector *succs = &block->succs;
+  for (size_t idx = 0; idx < succs->size; ++idx) {
+    IrBasicBlock *succ = getBlockFromVector(succs, idx);
     replacePhiInputs(block, succ, stacks);
   }
 
-  for (IrBasicBlockListNode *dn = block->dominators.dominatees.head; dn != NULL; dn = dn->next) {
-    IrBasicBlock *dominatee = dn->block;
+  Vector *dominatees = &block->dominators.dominatees;
+  for (size_t idx = 0; idx < dominatees->size; ++idx) {
+    IrBasicBlock *dominatee = getBlockFromVector(dominatees, idx);
     renameLocalsImpl(dominatee, infos, stacks);
   }
 
@@ -331,7 +362,7 @@ void buildSSA(IrFunction *func) {
   Vector optimizableAllocas = { 0 };
   initVector(&optimizableAllocas, ctx->allocas.size);
   collectAllocaCandidates(func, &optimizableAllocas);
-  printf("Found %u candidates for alloca opt..\n", optimizableAllocas.size);
+  printf("Found %lu candidates for alloca opt..\n", optimizableAllocas.size);
   if (optimizableAllocas.size == 0)
     return;
 

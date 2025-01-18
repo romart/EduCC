@@ -18,7 +18,11 @@ struct _IrBasicBlockList {
 };
 
 struct _IrFunction {
-    struct _IrBasicBlockList blocks;
+    struct {
+      struct _IrBasicBlock *head;
+      struct _IrBasicBlock *tail;
+    } blocks;
+
     struct _IrBasicBlockList rpo;
 
     AstFunctionDefinition *ast;
@@ -45,25 +49,20 @@ struct _IrFunctionList {
     struct _IrFunctionListNode *tail;
 };
 
-struct _IrInstructionListNode {
-    struct _IrInstructionListNode *next, *prev;
-    struct _IrInstruction *instr;
-};
-
-struct _IrInstructionList {
-    struct _IrInstructionListNode *head;
-    struct _IrInstructionListNode *tail;
-};
-
 struct _IrBasicBlock {
-    struct _IrBasicBlockList preds;
-    struct _IrBasicBlockList succs;
+    Vector preds;
+    Vector succs;
 
     struct {
       struct _IrBasicBlock *sdom; // strict dominator
-      struct _IrBasicBlockList dominationFrontier;
-      struct _IrBasicBlockList dominatees;
+      Vector dominationFrontier;
+      Vector dominatees;
     } dominators;
+
+    struct _IrBasicBlock *prev;
+    struct _IrBasicBlock *next;
+
+    struct _IrFunction *function;
 
     const char *name;
     AstStatement *ast;
@@ -116,17 +115,6 @@ enum IrTypeKind {
     IR_LABEL,
     IR_VOID,
 };
-
-struct _IrOperandListNode {
-    struct _IrOperandListNode *next, *prev;
-    struct _IrOperand *op;
-};
-
-struct _IrOperandList {
-    struct _IrOperandListNode *head;
-    struct _IrOperandListNode *tail;
-};
-
 
 enum IrConstKind {
   IR_CK_INTEGER,
@@ -263,7 +251,7 @@ struct _IrContext {
 
     struct _LocalValueInfo *localOperandMap;
     HashMap *labelMap;
-    struct _IrBasicBlockList referencedBlocks;
+    Vector referencedBlocks;
     Vector constantCache;
     Vector allocas;
 
@@ -293,7 +281,7 @@ void addInstructionTail(IrBasicBlock *block, IrInstruction *instr);
 void addInstructionHead(IrBasicBlock *block, IrInstruction *instr);
 
 IrBasicBlockListNode *newBBListNode(IrBasicBlock *bb);
-void addBBTail(IrBasicBlockList *list, IrBasicBlock *bb);
+void addBasicBlockTail(IrFunction *function, IrBasicBlock *bb);
 IrFunctionListNode *newFunctionListNode(IrFunction *f);
 void addFunctionTail(IrFunctionList *list, IrFunction *function);
 IrBasicBlock *newBasicBlock(const char *name);
@@ -327,6 +315,7 @@ IrBasicBlock *updateBlock();
 void addInstruction(IrInstruction *instr);
 void termintateBlock(IrInstruction *instr);
 void gotoToBlock(IrBasicBlock *gotoBB);
+IrInstruction *updateBlockTerminator(IrBasicBlock *block, IrInstruction *newTerminator);
 
 void replaceInputAt(IrInstruction *instr, IrInstruction *v, size_t i);
 void replaceUsageWith(IrInstruction *instr, IrInstruction *newInstr);
@@ -334,7 +323,7 @@ void replaceUsageWith(IrInstruction *instr, IrInstruction *newInstr);
 void eraseInstruction(IrInstruction *instr);
 void eraseInstructionFromBlock(IrInstruction *instr);
 
-IrBasicBlockListNode *eraseFromBlockList(IrBasicBlockList *list, IrBasicBlockListNode *bn);
+IrBasicBlock *eraseBlock(IrBasicBlock *block);
 void removeFromBlockList(IrBasicBlockList *list, IrBasicBlock *block);
 
 IrInstruction *createIntegerConstant(enum IrTypeKind type, int64_const_t v);

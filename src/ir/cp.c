@@ -37,9 +37,8 @@ static IrInstruction *putAtInstrVector(Vector *v, IrInstruction *instr, size_t i
 
 static void initLattices(IrFunction *func, Vector *LVs, Vector *instrMapping) {
   const size_t instrCount = ctx->instrCnt;
-  
-  for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
-    IrBasicBlock *block = bn->block;
+
+  for (IrBasicBlock *block = func->blocks.head; block != NULL; block = block->next) {
     for (IrInstruction *instr = block->instrunctions.head; instr != NULL; instr = instr->next) {
       uint32_t iid = instr->id;
       assert(iid < instrCount);
@@ -232,8 +231,8 @@ static void processPhiNodes(IrBasicBlock *phiBlock, IrBasicBlock *removedEdge) {
 }
 
 static void removeSuccessor(IrBasicBlock *block, IrBasicBlock *succ) {
-  eraseFromBlockList2(&block->succs, succ);
-  eraseFromBlockList2(&succ->preds, block);
+  removeFromVector(&block->succs, (intptr_t)succ);
+  removeFromVector(&succ->preds, (intptr_t)block);
 
   processPhiNodes(succ, block);
 }
@@ -406,8 +405,7 @@ void scp(IrFunction *func) {
   const size_t instrCount = ctx->instrCnt;
   IrInstruction **LVs = heapAllocate(instrCount * sizeof (IrInstruction *));
 
-  for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
-    IrBasicBlock *block = bn->block;
+  for (IrBasicBlock *block = func->blocks.head; block != NULL; block = block->next) {
     for (IrInstruction *instr = block->instrunctions.head; instr != NULL; instr = instr->next) {
       assert(instr->id < instrCount);
       if (isConstantInstr(instr)) {
@@ -441,7 +439,7 @@ void scp(IrFunction *func) {
         cleanAndErase(i);
       }
     } else {
-      printf("Put into stack usages of "); dumpInstr(i); printf(" size = %u\n", i->uses.size);
+      printf("Put into stack usages of "); dumpInstr(i); printf(" size = %lu\n", i->uses.size);
       for (size_t ui = 0; ui < i->uses.size; ++ui) {
         IrInstruction *use = getInstructionFromVector(&i->uses, ui);
         printf("Put into stack "); dumpInstr(use); printf("\n");
