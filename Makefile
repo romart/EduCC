@@ -58,7 +58,7 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c $(DEPS)
 
 
 main: $(OBJ) 
-	$(CC) $(CFLAGS) -o $(BINDIR)/$@ $^ -ludis86
+	$(CC) $(CFLAGS) -o $(BINDIR)/$@ $^ -ludis86 -lm
 
 
 .PHONY: clean
