@@ -214,6 +214,11 @@ struct _IrInstruction {
     uint32_t id;
 };
 
+typedef struct _CaseBlock {
+    int64_t caseConst;
+    struct _IrBasicBlock *block;
+} CaseBlock;
+
 struct _SwitchTable {
     uint32_t caseCount;
     struct _CaseBlock *caseBlocks;
