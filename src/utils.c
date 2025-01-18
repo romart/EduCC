@@ -9,17 +9,24 @@
 #include "mem.h"
 #include "utils.h"
 
-void addToVector(Vector* vector, intptr_t value) {
-    if (vector->size == vector->capacity) {
-        int newCapacity = (int)(vector->capacity * 2) ;
-        intptr_t* newStorage = (intptr_t*)heapAllocate(sizeof(intptr_t) * newCapacity);
-        memcpy(newStorage, vector->storage, vector->capacity * sizeof(intptr_t));
-        releaseHeap(vector->storage);
-        vector->storage = newStorage;
-        vector->capacity = newCapacity;
-    }
+static void resizeVector(Vector *v, size_t newCapacity) {
+  if (newCapacity <= v->capacity)
+    return;
 
-    vector->storage[vector->size++] = value;
+  intptr_t* newStorage = (intptr_t*)heapAllocate(sizeof(intptr_t) * newCapacity);
+  memcpy(newStorage, v->storage, v->capacity * sizeof(intptr_t));
+  releaseHeap(v->storage);
+  v->storage = newStorage;
+  v->capacity = newCapacity;
+}
+
+void addToVector(Vector* vector, intptr_t value) {
+  if (vector->size == vector->capacity) {
+    int newCapacity = (int)(vector->capacity * 2) ;
+    resizeVector(vector, newCapacity);
+  }
+
+  vector->storage[vector->size++] = value;
 }
 
 void removeFromVector(Vector *vector, intptr_t v) {
@@ -40,6 +47,14 @@ void removeFromVector(Vector *vector, intptr_t v) {
 
     ++i;
   }
+}
+
+intptr_t putAtVector(Vector *vector, size_t idx, intptr_t v) {
+  resizeVector(vector, idx + 1);
+  intptr_t old = vector->storage[idx];
+  vector->storage[idx] = v;
+  vector->size = max(vector->size, idx + 1);
+  return old;
 }
 
 void initVector(Vector* vector, int capacity) {

@@ -14,6 +14,7 @@ typedef struct _Vector {
 #define INITIAL_VECTOR_CAPACITY 20
 
 void addToVector(Vector* vector, intptr_t value);
+intptr_t putAtVector(Vector *vector, size_t idx, intptr_t v);
 void removeFromVector(Vector *v, intptr_t o);
 void clearVector(Vector *vector);
 Vector* createVector(int capacity);
