@@ -6,8 +6,8 @@
 #include "common.h"
 
 typedef struct _Vector {
-    int size;
-    int capacity;
+    size_t size;
+    size_t capacity;
     intptr_t* storage;
 } Vector;
 
@@ -16,6 +16,7 @@ typedef struct _Vector {
 void addToVector(Vector* vector, intptr_t value);
 intptr_t putAtVector(Vector *vector, size_t idx, intptr_t v);
 void removeFromVector(Vector *v, intptr_t o);
+size_t removeFromVectorAt(Vector *v, size_t i);
 void clearVector(Vector *vector);
 Vector* createVector(int capacity);
 intptr_t getFromVector(const Vector* vector, int idx);

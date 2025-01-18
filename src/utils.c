@@ -36,7 +36,7 @@ void removeFromVector(Vector *vector, intptr_t v) {
     size_t n = i + 1;
     if (vector->storage[i] == v) {
       if (n < vector->size) {
-        printf("Memmove vector[%u] %p %lu -> %lu (%p -> %p)\n", vector->size, vector->storage, i, n, &vector->storage[i], &vector->storage[n]);
+        printf("Memmove vector[%lu] %p %lu -> %lu (%p -> %p)\n", vector->size, vector->storage, i, n, &vector->storage[i], &vector->storage[n]);
         memmove(&vector->storage[i], &vector->storage[n], (vector->size - n) * sizeof(intptr_t));
       }
       size_t s = vector->size;
@@ -47,6 +47,18 @@ void removeFromVector(Vector *vector, intptr_t v) {
 
     ++i;
   }
+}
+
+size_t removeFromVectorAt(Vector *v, size_t i) {
+
+  assert(i < v->size);
+
+  size_t tail = v->size - i - 1;
+
+  memmove(&v->storage[i], &v->storage[i + 1], tail * sizeof (intptr_t));
+  v->size -= 1;
+
+  return i;
 }
 
 intptr_t putAtVector(Vector *vector, size_t idx, intptr_t v) {
