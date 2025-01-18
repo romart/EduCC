@@ -5,11 +5,6 @@
 #include "tree.h"
 #include "sema.h"
 
-typedef struct _CaseBlock {
-    int64_t caseConst;
-    IrBasicBlock *block;
-} CaseBlock;
-
 IrContext *ctx = NULL;
 
 enum IrTypeKind sizeToMemoryType(int32_t size) {
