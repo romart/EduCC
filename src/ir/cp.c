@@ -155,7 +155,7 @@ static IrInstruction *evaluateBitCast(IrInstruction *i) {
   if (fromC == IR_TC_FLOAT) {
     return createIntegerConstant(toT, (int64_const_t)i->info.constant.data.f);
   }
- 
+
   // be more accuare with pointers
   return arg;
 }
@@ -223,11 +223,58 @@ static Boolean computeBranchCondition(IrInstruction *condition) {
   }
 }
 
-static void eraseFromBlockList2(IrBasicBlockList *list, IrBasicBlock *block) {
+static IrInstruction *processSinglePhiNode(IrInstruction *phiInstr, IrBasicBlock *removingEdge) {
+  assert(phiInstr->kind == IR_PHI);
+
+  Vector *inputs = &phiInstr->inputs;
+  Vector *blocks = &phiInstr->info.phi.phiBlocks;
+
+  IrInstruction *next = phiInstr->next;
+
+  assert(inputs->size == blocks->size);
+
+  for (size_t idx = 0; idx < inputs->size; ++idx) {
+    IrInstruction *input = getInstructionFromVector(inputs, idx);
+    IrBasicBlock *block = getBlockFromVector(blocks, idx);
+
+    if (block != removingEdge) {
+      continue;
+    }
+
+    removeFromVector(inputs, (intptr_t) input);
+    removeFromVector(blocks, (intptr_t) block);
+
+    assert(blocks->size == phiInstr->block->preds.size);
+
+    removeFromVector(&input->uses, (intptr_t)phiInstr);
+
+    if (inputs->size == 1) {
+      assert(phiInstr->block->preds.size == 1);
+      IrInstruction *lastUsage = getInstructionFromVector(inputs, 0);
+      removeFromVector(&lastUsage->uses, (intptr_t)phiInstr);
+      replaceUsageWith(phiInstr, lastUsage);
+      clearVector(&phiInstr->info.phi.phiBlocks);
+      cleanAndErase(phiInstr);
+    }
+
+    return next;
+  }
+
+  unreachable("Should be done in loop body");
+  return NULL;
 }
 
+static void processPhiNodes(IrBasicBlock *phiBlock, IrBasicBlock *removingEdge) {
+  IrInstruction *i = phiBlock->instrunctions.head;
 
-static void processPhiNodes(IrBasicBlock *phiBlock, IrBasicBlock *removedEdge) {
+  while (i != NULL) {
+    if (i->kind != IR_PHI) {
+      // PHI-nodes are placed always in the beginning of the block
+      break;
+    }
+
+    i = processSinglePhiNode(i, removingEdge);
+  }
 }
 
 static void removeSuccessor(IrBasicBlock *block, IrBasicBlock *succ) {
@@ -239,7 +286,7 @@ static void removeSuccessor(IrBasicBlock *block, IrBasicBlock *succ) {
 
 static void evaluateCondBranch(IrInstruction *i) {
   IrInstruction *condition = getInstructionFromVector(&i->inputs, 0);
-  if (!isConstantInstr(condition)) 
+  if (!isConstantInstr(condition))
     return;
 
   Boolean condValue = computeBranchCondition(condition);
@@ -264,11 +311,9 @@ static void evaluateCondBranch(IrInstruction *i) {
 
   removeFromVector(&condition->uses, (intptr_t)i);
 
-  clearVector(&i->inputs);
-  cleanAndErase(i);
-}
+  updateBlockTerminator(curBlock, newBranch);
 
-static void updateBlockTerminator(IrBasicBlock *block, IrInstruction *newTerminator) {
+  releaseInstruction(i);
 }
 
 static void evaluateSwitch(IrInstruction *i) {
@@ -315,12 +360,14 @@ static void evaluateSwitch(IrInstruction *i) {
   cleanAndErase(i);
 
   IrInstruction *gotoInstr = newGotoInstruction(targetBlock);
-  updateBlockTerminator(currentBlock, gotoInstr);
+  IrInstruction *oldTerminator = updateBlockTerminator(currentBlock, gotoInstr);
+
+  releaseInstruction(oldTerminator);
 }
 
 static IrInstruction *evaluate(IrInstruction *i) {
   switch (i->kind) {
-  case IR_E_ADD: 
+  case IR_E_ADD:
   case IR_E_SUB:
   case IR_E_MUL:
   case IR_E_DIV:
@@ -382,7 +429,7 @@ static IrInstruction *meetLattice(IrInstruction *lhs, IrInstruction *rhs) {
 }
 
 static void propagate(IrInstruction *i, IrInstruction *newValue) {
-  if (newValue == bottomI || newValue == topI) 
+  if (newValue == bottomI || newValue == topI)
     return;
   replaceUsageWith(i, newValue);
 }
@@ -420,7 +467,7 @@ void scp(IrFunction *func) {
   while (stack->size != 0) {
     IrInstruction *i = (IrInstruction *)popFromStack(stack);
     assert(i != topI);
-    
+
     assert(i->id < instrCount);
 
     IrInstruction *computed = LVs[i->id];
