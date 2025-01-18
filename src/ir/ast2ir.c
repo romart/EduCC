@@ -478,6 +478,7 @@ static IrInstruction *translateNameRef(AstExpression *expr) {
         }
     } else {
       unreachable("Unexpected Symbol type");
+      return NULL;
     }
 }
 
@@ -1614,8 +1615,9 @@ static Boolean translateGotoPtr(AstStatement *stmt) {
 
     IrInstruction *iBranch = newInstruction(IR_IBRANCH, IR_VOID);
     addInstructionInput(iBranch, target);
-    for (IrBasicBlockListNode *n = ctx->referencedBlocks.head; n; n = n->next) {
-        addSuccessor(ctx->currentBB, n->block);
+    for (uint32_t idx = 0; idx < ctx->referencedBlocks.size; ++idx) {
+        IrBasicBlock *b = getBlockFromVector(&ctx->referencedBlocks, idx);
+        addSuccessor(ctx->currentBB, b);
     }
     termintateBlock(iBranch);
 
@@ -1876,11 +1878,12 @@ static void collectTranslationInfoExpr(const AstExpression *expr) {
       case E_LABEL_REF: {
             const char *label = expr->label;
             IrBasicBlock *labelBlock = getOrCreateLabelBlock(label);
-            for (IrBasicBlockListNode *n = ctx->referencedBlocks.head; n; n = n->next) {
-                if (n->block == labelBlock)
+            for (uint32_t idx = 0; idx < ctx->referencedBlocks.size; ++idx) {
+                IrBasicBlock *cur = getBlockFromVector(&ctx->referencedBlocks, idx);
+                if (cur == labelBlock)
                     return;
             }
-            addBBTail(&ctx->referencedBlocks, labelBlock);
+            addBlockToVector(&ctx->referencedBlocks, labelBlock);
             return;
         }
 

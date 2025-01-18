@@ -59,17 +59,21 @@ static int32_t dumpBasicBlockId(FILE *stream, IrBasicBlock *bb) {
 static int32_t dumpIrBlockHeader(FILE *stream, const IrBasicBlock *b) {
   int32_t r = fprintf(stream, "BB #%u, '%s'", b->id, b->name);
 
-  if (b->preds.head) {
+  const Vector *preds = &b->preds;
+  if (preds->size > 0) {
 	r += fprintf(stream, ", <-");
-	for (IrBasicBlockListNode *pn = b->preds.head; pn != NULL; pn  = pn->next) {
-	  r += fprintf(stream, " #%u", pn->block->id);
+	for (size_t idx = 0; idx < preds->size; ++idx) {
+      IrBasicBlock *pred = getBlockFromVector(preds, idx);
+	  r += fprintf(stream, " #%u", pred->id);
 	}
   }
 
-  if (b->succs.head) {
+  const Vector *succs = &b->succs;
+  if (succs->size > 0) {
 	r += fprintf(stream, ", ->");
-	for (IrBasicBlockListNode *sn = b->succs.head; sn != NULL; sn  = sn->next) {
-	  r += fprintf(stream, " #%u", sn->block->id);
+	for (size_t idx = 0; idx < succs->size; ++idx) {
+      IrBasicBlock *succ = getBlockFromVector(succs, idx);
+	  r += fprintf(stream, " #%u", succ->id);
 	}
   }
 
@@ -77,30 +81,34 @@ static int32_t dumpIrBlockHeader(FILE *stream, const IrBasicBlock *b) {
 	r += fprintf(stream, ", strict dom #%u", b->dominators.sdom->id);
   }
 
-  if (b->dominators.dominationFrontier.head) {
+  const Vector *df = &b->dominators.dominationFrontier;
+  if (df->size > 0) {
 	r += fprintf(stream, ", domination frontier [");
     Boolean first = TRUE;
 
-	for (IrBasicBlockListNode *fn = b->dominators.dominationFrontier.head; fn != NULL; fn  = fn->next) {
+	for (size_t idx = 0; idx < df->size; ++idx) {
+      IrBasicBlock *fb = getBlockFromVector(df, idx);
       if (first)
         first = FALSE;
       else
         r += fprintf(stream, ", ");
-	  r += fprintf(stream, "#%u", fn->block->id);
+	  r += fprintf(stream, "#%u", fb->id);
 	}
     r += fputc(']', stream);
   }
 
-  if (b->dominators.dominatees.head) {
+  const Vector *dominatees = &b->dominators.dominatees;
+  if (dominatees->size > 0) {
     r += fprintf(stream, ", dominatees [");
     Boolean first = TRUE;
 
-	for (IrBasicBlockListNode *fn = b->dominators.dominatees.head; fn != NULL; fn  = fn->next) {
+	for (size_t idx = 0; idx < dominatees->size; ++idx) {
+      IrBasicBlock *d = getBlockFromVector(dominatees, idx);
       if (first)
         first = FALSE;
       else
         r += fprintf(stream, ", ");
-	  r += fprintf(stream, "#%u", fn->block->id);
+	  r += fprintf(stream, "#%u", d->id);
 	}
     r += fputc(']', stream);
 
@@ -305,8 +313,8 @@ int32_t dumpIrFunction(FILE *stream, const IrFunction *f) {
 	  r += fputc('\n', stream);
 	}
 
-	for (IrBasicBlockListNode *bn = f->blocks.head; bn != NULL; bn = bn->next) {
-		r += dumpIrBlock(stream, bn->block);
+	for (IrBasicBlock *block = f->blocks.head; block != NULL; block = block->next) {
+		r += dumpIrBlock(stream, block);
 		r += fputc('\n', stream);
 	}
 	return r;
@@ -335,8 +343,7 @@ static void buildDotForFunction(FILE *stream, const IrFunction *f) {
     const char *funcName = f->ast ? f->ast->declaration->name : "__test";
     fprintf(stream, "    label = \"%s\";\n", funcName);
 
-    for (IrBasicBlockListNode *bn = f->blocks.head; bn != NULL; bn = bn->next) {
-      const IrBasicBlock *bb = bn->block;
+    for (const IrBasicBlock *bb = f->blocks.head; bb != NULL; bb = bb->next) {
       fprintf(stream, "    %s_%u [label=\"#%u", funcName, bb->id, bb->id);
       if (bb->name) {
         fprintf(stream, " | %s", bb->name);
@@ -344,21 +351,23 @@ static void buildDotForFunction(FILE *stream, const IrFunction *f) {
       fprintf(stream, "\"];\n");
     }
 
-    for (const IrBasicBlockListNode *bn = f->blocks.head; bn != NULL; bn = bn->next) {
-      const IrBasicBlock *bb = bn->block;
-      for (const IrBasicBlockListNode *sn = bb->succs.head; sn != NULL; sn = sn->next) {
-        const IrBasicBlock *succ = sn->block;
-        fprintf(stream, "    %s_%u -> %s_%u [style = \"solid\", color=\"black\"];\n", funcName, bb->id, funcName, succ->id);
+    for (const IrBasicBlock *block = f->blocks.head; block != NULL; block = block->next) {
+      const Vector *succs = &block->succs;
+
+      for (size_t idx = 0; idx < succs->size; ++idx) {
+        const IrBasicBlock *succ = getBlockFromVector(succs, idx);
+        fprintf(stream, "    %s_%u -> %s_%u [style = \"solid\", color=\"black\"];\n", funcName, block->id, funcName, succ->id);
       }
 
-      if (bb->dominators.sdom) {
-        const IrBasicBlock *dom = bb->dominators.sdom;
-        fprintf(stream, "    %s_%u -> %s_%u [style = \"bold\", color = \"green\"];\n", funcName, bb->id, funcName, dom->id);
+      if (block->dominators.sdom) {
+        const IrBasicBlock *dom = block->dominators.sdom;
+        fprintf(stream, "    %s_%u -> %s_%u [style = \"bold\", color = \"green\"];\n", funcName, block->id, funcName, dom->id);
       }
 
-      for (const IrBasicBlockListNode *fn = bb->dominators.dominationFrontier.head; fn != NULL; fn = fn->next) {
-        const IrBasicBlock *f = fn->block;
-        fprintf(stream, "    %s_%u -> %s_%u [style = \"dashed\", color = \"blue\"];\n", funcName, bb->id, funcName, f->id);
+      const Vector *df = &block->dominators.dominationFrontier;
+      for (size_t idx = 0; idx < df->size; ++idx) {
+        const IrBasicBlock *f = getBlockFromVector(df, idx);
+        fprintf(stream, "    %s_%u -> %s_%u [style = \"dashed\", color = \"blue\"];\n", funcName, block->id, funcName, f->id);
       }
     }
 }

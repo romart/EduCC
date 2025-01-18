@@ -5,20 +5,22 @@
 
 extern IrContext *ctx;
 
-static IrBasicBlockListNode *removeUnreachableBlock(IrBasicBlockListNode *bn, IrFunction *func) {
-  IrBasicBlock *block = bn->block;
+static IrBasicBlock *removeUnreachableBlock(IrBasicBlock *block, IrFunction *func) {
 
-  for (IrBasicBlockListNode *pn = block->preds.head; pn != NULL; pn = pn->next) {
-    IrBasicBlock *pred = pn->block;
-    removeFromBlockList(&pred->succs, block);
+  Vector *preds = &block->preds;
+  for (size_t idx = 0; idx < preds->size; ++idx) {
+    IrBasicBlock *pred = getBlockFromVector(preds, idx);
+    removeFromVector(&pred->succs, (intptr_t)block);
   }
-  for (IrBasicBlockListNode *sn = block->succs.head; sn != NULL; sn = sn->next) {
-    IrBasicBlock *succ = sn->block;
-    removeFromBlockList(&succ->preds, block);
+
+  Vector *succs = &block->succs;
+  for (size_t idx = 0; idx < succs->size; ++idx) {
+    IrBasicBlock *succ = getBlockFromVector(succs, idx);
+    removeFromVector(&succ->preds, (intptr_t)block);
   }
 
   func->numOfBlocks -= 1;
-  return eraseFromBlockList(&func->blocks, bn);
+  return eraseBlock(block);
 }
 
 static void dfs(IrBasicBlock *block, BitSet *visited) {
@@ -26,8 +28,11 @@ static void dfs(IrBasicBlock *block, BitSet *visited) {
     return;
 
   setBit(visited, block->id);
-  for (IrBasicBlockListNode *sn = block->succs.head; sn != NULL; sn = sn->next) {
-    dfs(sn->block, visited);
+
+  Vector *succs = &block->succs;
+  for (size_t idx = 0; idx < succs->size; ++idx) {
+    IrBasicBlock *succ = getBlockFromVector(succs, idx);
+    dfs(succ, visited);
   }
 }
 
@@ -74,14 +79,13 @@ void cleanupUnreachableBlock(IrFunction *func) {
     Vector unreachableBlocks = { 0 };
     initVector(&unreachableBlocks, INITIAL_VECTOR_CAPACITY);
 
-    IrBasicBlockListNode *bn = func->blocks.head;
-    while (bn != NULL) {
-      IrBasicBlock *b = bn->block;
+    IrBasicBlock *b = func->blocks.head;
+    while (b != NULL) {
       if (getBit(&visited, b->id)) {
-        bn = bn->next;
+        b = b->next;
       } else {
         addBlockToVector(&unreachableBlocks, b);
-        bn = removeUnreachableBlock(bn, func);
+        b = removeUnreachableBlock(b, func);
       }
     }
 
@@ -116,9 +120,7 @@ void cleanupDeadInstructions(IrFunction *func) {
     changed = FALSE;
 
     printf("DCE iteration %u...\n", iter++);
-    for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
-      IrBasicBlock *block = bn->block;
-
+    for (IrBasicBlock *block = func->blocks.head; block != NULL; block = block->next) {
       IrInstruction *instr = block->instrunctions.tail;
 
       while (instr != NULL) {

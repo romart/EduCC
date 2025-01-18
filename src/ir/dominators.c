@@ -2,8 +2,6 @@
 #include "ir/ir.h"
 #include <assert.h>
 
-
-
 static void computeDominationSets(BitSet *dom, size_t blockCount, IrFunction *func) {
     // Algorithm D
 
@@ -23,16 +21,18 @@ static void computeDominationSets(BitSet *dom, size_t blockCount, IrFunction *fu
     while (changed) {
       changed = FALSE;
 
-      for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
-        IrBasicBlock *bb = bn->block;
+      for (IrBasicBlock *bb = func->blocks.head; bb != NULL; bb = bb->next) {
         if (bb == entryBB)
           continue;
         setAll(&temp);
         //printf("Check block #%u...\n", bb->id);
-        for (IrBasicBlockListNode *pn = bb->preds.head; pn != NULL; pn = pn->next) {
-          IrBasicBlock *pred = pn->block;
+
+        Vector *preds = &bb->preds;
+        for (size_t idx = 0; idx < preds->size; ++idx) {
+          IrBasicBlock *pred = getBlockFromVector(preds, idx);
           intersectBitSets(&temp, &dom[pred->id], &temp);
         }
+
         setBit(&temp, bb->id);
         if (compareBitSets(&dom[bb->id], &temp) != 0) {
           //printf("Block #%u changed state\n", bb->id);
@@ -47,10 +47,10 @@ static void computeDominationSets(BitSet *dom, size_t blockCount, IrFunction *fu
 
 
 static IrBasicBlock *closestDominator(const IrBasicBlock *block, const BitSet *dominationSet) {
-    if (block->preds.head == NULL)
+    if (block->preds.size == 0)
       return NULL;
 
-    IrBasicBlock *pred = block->preds.head->block;
+    IrBasicBlock *pred = getBlockFromVector(&block->preds, 0);
     assert(pred != NULL);
 
     if (getBit(dominationSet, pred->id))
@@ -64,8 +64,7 @@ static void buildDominatorTree(IrFunction *func, BitSet *domSets, const size_t b
 
     IrBasicBlock *entryBB = func->entry;
 
-    for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
-        IrBasicBlock *bb = bn->block;
+    for (IrBasicBlock *bb = func->blocks.head; bb != NULL; bb = bb->next) {
         BitSet *blockDomSet = &domSets[bb->id];
 
         clearBit(blockDomSet, bb->id);
@@ -85,11 +84,10 @@ static void buildDominatorTree(IrFunction *func, BitSet *domSets, const size_t b
         bb->dominators.sdom = dom;
     }
 
-    for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
-      IrBasicBlock *bb = bn->block;
+    for (IrBasicBlock *bb = func->blocks.head; bb != NULL; bb = bb->next) {
       IrBasicBlock *dominator = bb->dominators.sdom;
       if (dominator != NULL) {
-        addBBTail(&dominator->dominators.dominatees, bb);
+        addBlockToVector(&dominator->dominators.dominatees, bb);
       }
     }
 }
@@ -102,11 +100,11 @@ static void buildDominationFrontier(IrFunction *func, BitSet *bitsets, const siz
       clearAll(&bitsets[idx]);
     }
 
-    for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
-      IrBasicBlock *bb = bn->block;
+    for (IrBasicBlock *bb = func->blocks.head; bb != NULL; bb = bb->next) {
       IrBasicBlock *dom = bb->dominators.sdom;
-      for (IrBasicBlockListNode *pn = bb->preds.head; pn != NULL; pn = pn->next) {
-        IrBasicBlock *r = pn->block;
+      Vector *preds = &bb->preds;
+      for (size_t idx = 0; idx < preds->size; ++idx) {
+        IrBasicBlock *r = getBlockFromVector(preds, idx);
         while (r != dom) {
           BitSet *df = &bitsets[r->id];
           setBit(df, bb->id);
@@ -115,14 +113,12 @@ static void buildDominationFrontier(IrFunction *func, BitSet *bitsets, const siz
       }
     }
 
-    for (IrBasicBlockListNode *bn = func->blocks.head; bn != NULL; bn = bn->next) {
-      IrBasicBlock *bb = bn->block;
+    for (IrBasicBlock *bb = func->blocks.head; bb != NULL; bb = bb->next) {
       BitSet *df = &bitsets[bb->id];
-      for (IrBasicBlockListNode *bf = func->blocks.head; bf != NULL; bf = bf->next) {
-        IrBasicBlock *f = bf->block;
+      for (IrBasicBlock *f = func->blocks.head; f != NULL; f = f->next) {
         if (getBit(df, f->id)) {
           assert(f->dominators.sdom != bb);
-          addBBTail(&bb->dominators.dominationFrontier, f);
+          addBlockToVector(&bb->dominators.dominationFrontier, f);
         }
       }
     }

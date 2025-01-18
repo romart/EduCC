@@ -66,6 +66,7 @@ void initializeIrContext(IrContext *_ctx, ParserContext* pctx) {
     _ctx->labelMap = createHashMap(DEFAULT_MAP_CAPACITY, &stringHashCode, &stringCmp);
     initVector(&_ctx->constantCache, INITIAL_VECTOR_CAPACITY);
     initVector(&_ctx->allocas, INITIAL_VECTOR_CAPACITY);
+    initVector(&_ctx->referencedBlocks, INITIAL_VECTOR_CAPACITY);
    ctx = _ctx;
 }
 
@@ -75,11 +76,13 @@ void releaseIrContext(IrContext *_ctx) {
     releaseHashMap(_ctx->labelMap);
     releaseVector(&_ctx->constantCache);
     releaseVector(&_ctx->allocas);
+    releaseVector(&_ctx->referencedBlocks);
 }
 
 void resetIrContext(IrContext *_ctx) {
   clearVector(&_ctx->constantCache);
   clearVector(&_ctx->allocas);
+  clearVector(&_ctx->referencedBlocks);
   // clear ctx->labelMap
   _ctx->bbCnt = _ctx->opCnt = _ctx->instrCnt = _ctx->vregCnt = 0;
 }
@@ -143,22 +146,22 @@ void removeInstruction(IrInstructionListNode *inode) {
  */
 }
 
-IrBasicBlockListNode *newBBListNode(IrBasicBlock *bb) {
-    IrBasicBlockListNode *node = areanAllocate(ctx->irArena, sizeof (IrBasicBlockListNode));
-    node->block = bb;
-    return node;
-}
+void addBasicBlockTail(IrFunction *function, IrBasicBlock *bb) {
+    assert(bb->function == NULL);
 
-void addBBTail(IrBasicBlockList *list, IrBasicBlock *bb) {
-    IrBasicBlockListNode *node = newBBListNode(bb);
+	if (function->blocks.head == NULL) {
+	  function->blocks.head = bb;
+    }
 
-	if (list->head == NULL)
-	  list->head = node;
-	if (list->tail) {
-    	list->tail->next = node;
+	if (function->blocks.tail) {
+    	function->blocks.tail->next = bb;
 	}
-    node->prev = list->tail;
-    list->tail = node;
+
+    bb->prev = function->blocks.tail;
+    function->blocks.tail = bb;
+
+    function->numOfBlocks += 1;
+    bb->function = function;
 }
 
 IrFunctionListNode *newFunctionListNode(IrFunction *f) {
@@ -208,21 +211,26 @@ IrBasicBlock *newBasicBlock(const char *name) {
     IrBasicBlock *bb = areanAllocate(ctx->irArena, sizeof (IrBasicBlock));
     bb->name = name;
     bb->id = ctx->bbCnt++;
-    ctx->currentFunc->numOfBlocks += 1;
 
-    addBBTail(&ctx->currentFunc->blocks, bb);
+    initVector(&bb->succs, 3);
+    initVector(&bb->preds, 3);
+
+    initVector(&bb->dominators.dominatees, INITIAL_VECTOR_CAPACITY);
+    initVector(&bb->dominators.dominationFrontier, INITIAL_VECTOR_CAPACITY);
+
+    addBasicBlockTail(ctx->currentFunc, bb);
 
     return bb;
 }
 
 void addSuccessor(IrBasicBlock *block, IrBasicBlock *succ) {
-    addBBTail(&block->succs, succ);
-    addBBTail(&succ->preds, block);
+    addBlockToVector(&block->succs, succ);
+    addBlockToVector(&succ->preds, block);
 }
 
 void addPredecessor(IrBasicBlock *block, IrBasicBlock *pred) {
-    addBBTail(&block->preds, pred);
-    addBBTail(&pred->succs, block);
+    addBlockToVector(&block->preds, pred);
+    addBlockToVector(&pred->succs, block);
 }
 
 void addBlockToVector(Vector *v, IrBasicBlock *block) {
@@ -337,6 +345,25 @@ void termintateBlock(IrInstruction *instr) {
     ctx->currentBB = NULL;
 }
 
+IrInstruction *updateBlockTerminator(IrBasicBlock *block, IrInstruction *newTerminator) {
+
+  IrInstruction *currentTerm = block->term;
+
+  if (currentTerm != NULL) {
+    assert(block->instrunctions.tail == currentTerm);
+    clearVector(&currentTerm->inputs);
+    eraseInstructionFromBlock(currentTerm);
+    block->term = NULL;
+  }
+
+  addInstructionToBlock(newTerminator, block);
+  block->term = newTerminator;
+
+  currentTerm->prev = currentTerm->next = NULL;
+
+  return currentTerm;
+}
+
 void gotoToBlock(IrBasicBlock *gotoBB) {
     IrInstruction *gotoInstr = newGotoInstruction(gotoBB);
     addSuccessor(ctx->currentBB, gotoBB);
@@ -426,35 +453,44 @@ void eraseInstruction(IrInstruction *instr) {
   eraseInstructionFromBlock(instr);
 }
 
-IrBasicBlockListNode *eraseFromBlockList(IrBasicBlockList *list, IrBasicBlockListNode *bn) {
-  IrBasicBlockListNode *prev = bn->prev;
-  IrBasicBlockListNode *next = bn->next;
+IrBasicBlock *eraseBlock(IrBasicBlock *block) {
+  IrBasicBlock *prev = block->prev;
+  IrBasicBlock *next = block->next;
+  IrFunction *func = block->function;
 
-  if (list->head == bn)
-    list->head = next;
-  if (list->tail == bn)
-    list->tail = prev;
+  assert(func != NULL);
 
-  if (prev)
+  if (func->blocks.head == block) {
+    func->blocks.head = next;
+  }
+
+  if (func->blocks.tail == block) {
+    func->blocks.tail = prev;
+  }
+
+  if (prev) {
     prev->next = next;
+  }
 
-  if (next)
+  if (next) {
     next->prev = prev;
+  }
 
-  bn->prev = bn->next = NULL;
+  block->prev = block->next = NULL;
+  block->function = NULL;
 
   return next;
 }
 
 void removeFromBlockList(IrBasicBlockList *list, IrBasicBlock *block) {
-  IrBasicBlockListNode *bn = list->head;
-  while (bn != NULL) {
-    if (bn->block == block) {
-      bn = eraseFromBlockList(list, bn);
-    } else {
-      bn = bn->next;
-    }
-  }
+  /* IrBasicBlockListNode *bn = list->head; */
+  /* while (bn != NULL) { */
+  /*   if (bn->block == block) { */
+  /*     bn = eraseFromBlockList(list, bn); */
+  /*   } else { */
+  /*     bn = bn->next; */
+  /*   } */
+  /* } */
 }
 
 typedef struct _ConstantCacheData {
