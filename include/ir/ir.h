@@ -369,7 +369,7 @@ void addInstructionInput(IrInstruction *instruction, IrInstruction *input);
 void cleanupUnreachableBlock(IrFunction *func);
 void cleanupDeadInstructions(IrFunction *func);
 
-
+void scp(IrFunction *func);
 // ------------- dump utils ---------------------------------
 void dumpIrFunctionList(const char *fileName, const IrFunctionList *functions);
 void buildDotGraphForFunctionList(const char *fileName, const IrFunctionList *functions);
