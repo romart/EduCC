@@ -12,11 +12,6 @@ static const uint32_t R_PARAM_COUNT = 10;
 
 extern IrContext *ctx;
 
-typedef struct _CaseBlock {
-    int64_t caseConst;
-    IrBasicBlock *block;
-} CaseBlock;
-
 static IrFunction *translateFunction(AstFunctionDefinition *function);
 static Boolean translateStatement(AstStatement *stmt);
 static Boolean translateBlock(AstStatement *block);
