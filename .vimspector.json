@@ -1,0 +1,19 @@
+{
+    "configurations": {
+        "C++ Debug": {
+            "adapter": "vscode-cpptools",
+            "configuration": {
+                "request": "launch",
+                "program": "${workspaceRoot}/build/bin/main",
+                "args": ["-experimental", "-irDump", "hw.ir.txt", "./ssa_test.c"],
+                "stopAtEntry": false,
+                "cwd": "${workspaceRoot}",
+                "environment": [],
+                "externalConsole": false,
+                "MIMode": "gdb",
+                "miDebuggerPath": "/usr/bin/gdb"
+            }
+        }
+    }
+}
+
