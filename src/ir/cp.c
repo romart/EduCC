@@ -388,14 +388,6 @@ static void propagate(IrInstruction *i, IrInstruction *newValue) {
   replaceUsageWith(i, newValue);
 }
 
-
-static IrEdge *createEdge(Arena *arena, IrInstruction *f, IrInstruction *t) {
-  IrEdge *e = areanAllocate(arena, sizeof (IrEdge));
-  e->f = f->id;
-  e->t = t->id;
-  return e;
-}
-
 void dumpInstr(IrInstruction *i) {
   if (i == topI)
     printf("TOP");
