@@ -330,6 +330,7 @@ static void renameLocals(IrFunction *func, Vector *allocas) {
 
       AllocaOptInfo *info = (AllocaOptInfo *)getFromVector(allocas, i);
       IrInstruction *v0 = newInstruction(IR_BAD, info->allocaInstr->info.alloca.valueType);
+      addInstructionHead(func->entry, v0);
 
       pushToStack(&stacks[i], (intptr_t) v0);
     }
