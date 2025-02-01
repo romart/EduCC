@@ -623,6 +623,7 @@ static IrInstruction *translateTernary(AstExpression *expr) {
 
     addPhiInput(phi, ifTrueOp, ifTrue);
     addPhiInput(phi, ifFalseOp, ifFalse);
+    addInstruction(phi);
 
     ctx->addressTM = tm;
 
@@ -1022,6 +1023,7 @@ static IrInstruction *translateArrayAccess(AstExpression *expr) {
     gepInstr->astType = pointerType;
     gepInstr->meta.astExpr = expr;
     gepInstr->info.gep.indexInstr = indexInstr;
+    addInstruction(gepInstr);
 
     return handleMemoryMode(gepInstr, elementType, expr);
 }
@@ -1753,6 +1755,7 @@ static Boolean translateSwitch(AstStatement *stmt) {
         addSuccessor(ctx->currentBB, caseBlock);
     }
 
+    switchTable->defaultBB = defaultBB;
     addSuccessor(ctx->currentBB, defaultBB);
     termintateBlock(tableBranch);
 
@@ -1984,7 +1987,7 @@ static void generateExitBlock(IrFunction *func, TypeRef *returnType) {
     }
   }
 
-  addInstruction(ret);
+  termintateBlock(ret);
 }
 
 typedef struct {
@@ -2143,6 +2146,7 @@ static size_t generateVaArea(AstValueDeclaration *va_area, int32_t stackParamOff
     IrInstruction *gp_area_ptr = newGEPInstruction(vaAreaSlot, gp_va_area_off, voidPtrType);
     addInstruction(gp_area_ptr);
     IrInstruction *gp_offset_ptr = newGEPInstruction(vaAreaSlot, gp_offset_off_i, u32Type);
+    addInstruction(gp_offset_ptr);
 
     // va_elem->overflow_arg_area = stack_param_begin
     IrInstruction *stack_param_begin_off = createIntegerConstant(IR_I64, stackParamOffset);
@@ -2200,6 +2204,7 @@ static uint32_t buildInitialIr(IrFunction *func, AstFunctionDefinition *function
 
     static const uint32_t R_SP = 3;
     IrInstruction *stackPtrOp = ctx->stackOp = newPhysRegister(IR_PTR, R_SP);
+    addInstructionHead(func->entry, stackPtrOp);
 
     computeParametersABIInfo(declaration, paramABIInfo, numOfParams, localOperandsMap);
     size_t idx =  0;
@@ -2235,7 +2240,7 @@ static uint32_t buildInitialIr(IrFunction *func, AstFunctionDefinition *function
     if (numOfVariadicSlots) {
       AstValueDeclaration *va_area = function->va_area;
       ctx->currentBB = func->entry;
-      idx = generateVaArea(va_area, 0,  localOperandsMap, idx);
+      idx = generateVaArea(va_area, 0, localOperandsMap, idx);
     }
 
     AstStatement *body = function->body;
