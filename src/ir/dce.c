@@ -59,6 +59,7 @@ static void unlinkAndEraseInstructions(IrFunction *func, Vector *ublocks) {
     for (size_t i = 0; i < ublocks->size;) {
       IrBasicBlock *block = getBlockFromVector(ublocks, i);
 
+      // TODO: deal with phi-nodes
       Boolean empty = removeUnusedInstructions(block);
       if (empty) {
         removeFromVector(ublocks, (intptr_t) block);
@@ -139,4 +140,9 @@ void cleanupDeadInstructions(IrFunction *func) {
   }
 }
 
+void dce(IrFunction *func) {
+  assert(func->numOfBlocks == ctx->bbCnt);
+  cleanupDeadInstructions(func);
+  cleanupUnreachableBlock(func);
+}
 
