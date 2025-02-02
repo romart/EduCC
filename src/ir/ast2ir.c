@@ -2274,7 +2274,12 @@ static IrFunction *translateFunction(AstFunctionDefinition *function) {
     buildInitialIr(func, function);
     assert(func->numOfBlocks == ctx->bbCnt);
     buildSSA(func);
+    assert(func->numOfBlocks == ctx->bbCnt);
     scp(func);
+    assert(func->numOfBlocks == ctx->bbCnt);
+    dce(func);
+
+    /* gvn(func); */
 
     return func;
 }

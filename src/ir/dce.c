@@ -19,7 +19,7 @@ static IrBasicBlock *removeUnreachableBlock(IrBasicBlock *block, IrFunction *fun
     removeFromVector(&succ->preds, (intptr_t)block);
   }
 
-  func->numOfBlocks -= 1;
+  /* func->numOfBlocks -= 1; */
   return eraseBlock(block);
 }
 
