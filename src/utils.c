@@ -36,7 +36,7 @@ void removeFromVector(Vector *vector, intptr_t v) {
     size_t n = i + 1;
     if (vector->storage[i] == v) {
       if (n < vector->size) {
-        printf("Memmove vector[%lu] %p %lu -> %lu (%p -> %p)\n", vector->size, vector->storage, i, n, &vector->storage[i], &vector->storage[n]);
+        printf("Memmove vector[%lu] %p %lu -> %lu (%p -> %p)\n", vector->size, vector->storage, n, i, &vector->storage[i], &vector->storage[n]);
         memmove(&vector->storage[i], &vector->storage[n], (vector->size - n) * sizeof(intptr_t));
       }
       size_t s = vector->size;
@@ -165,7 +165,7 @@ intptr_t putToHashMap(HashMap* map, intptr_t key, intptr_t value) {
     newNode->next = map->storage[idx];
     map->storage[idx] = newNode;
 
-    return 0;
+    return value;
 }
 
 
