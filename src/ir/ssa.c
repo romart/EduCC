@@ -372,5 +372,6 @@ void buildSSA(IrFunction *func) {
   cleanupDeadInstructions(func);
 
   releaseOptimizableVector(&optimizableAllocas);
+  func->phases.ssa = 1;
 }
 

@@ -37,6 +37,13 @@ struct _IrFunction {
     struct _LocalValueInfo *localOperandMap;
 
     uint32_t id;
+
+    struct {
+      unsigned initalIr : 1;
+      unsigned ssa : 1;
+      unsigned cp_1 : 1;
+      unsigned gvn : 1;
+    } phases;
 };
 
 struct _IrFunctionListNode {

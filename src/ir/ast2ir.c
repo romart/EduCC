@@ -2262,6 +2262,8 @@ static uint32_t buildInitialIr(IrFunction *func, AstFunctionDefinition *function
     ctx->localOperandMap = NULL;
     releaseHeap(paramABIInfo);
 
+    func->phases.initalIr = 1;
+
     return 0;
 }
 
