@@ -575,6 +575,7 @@ IrInstruction *createIntegerConstant(enum IrTypeKind type, int64_const_t v) {
 
 IrInstruction *createFloatConstant(enum IrTypeKind type, float80_const_t v) {
     ConstantCacheData d;
+    memset(&d, 0, sizeof d);
     d.kind = IR_CK_FLOAT;
     d.data.f = v;
     return getOrAddConstant(&d, type);
