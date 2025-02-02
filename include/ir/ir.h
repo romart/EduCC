@@ -82,6 +82,7 @@ struct _IrBasicBlock {
     } instrunctions;
 
     uint32_t id;
+    uint32_t po;
 
     struct {
       unsigned visited:1;
@@ -205,6 +206,8 @@ struct _IrInstruction {
         unsigned local : 1; // local memory access
     } flags;
 
+    uint32_t algoIdx; // used for indexing
+
     uint32_t vreg;
     uint32_t id;
 };
@@ -301,6 +304,7 @@ void addBlockToVector(Vector *v, IrBasicBlock *block);
 IrBasicBlock *getBlockFromVector(const Vector *v, uint32_t i);
 
 void addInstructionToVector(Vector *v, IrInstruction *instr);
+IrInstruction *putAtInstrVector(Vector *v, IrInstruction *instr, size_t idx);
 IrInstruction *getInstructionFromVector(const Vector *v, uint32_t i);
 IrBasicBlock *getBlockFromVector(const Vector *v, uint32_t i);
 
@@ -316,8 +320,6 @@ IrInstruction *newTableBranch(IrInstruction *cond, SwitchTable *table);
 IrInstruction *newGEPInstruction(IrInstruction *base, IrInstruction *offset, const TypeRef *underType);
 IrInstruction *newMemoryCopyInstruction(IrInstruction *dst, IrInstruction *src, IrInstruction *count, const TypeRef *copyType);
 
-
-
 IrBasicBlock *updateBlock();
 void addInstruction(IrInstruction *instr);
 void termintateBlock(IrInstruction *instr);
@@ -332,6 +334,8 @@ void eraseInstructionFromBlock(IrInstruction *instr);
 
 IrBasicBlock *eraseBlock(IrBasicBlock *block);
 void removeFromBlockList(IrBasicBlockList *list, IrBasicBlock *block);
+void cleanAndErase(IrInstruction *i);
+void removeSuccessor(IrBasicBlock *block, IrBasicBlock *succ);
 
 IrInstruction *createIntegerConstant(enum IrTypeKind type, int64_const_t v);
 IrInstruction *createFloatConstant(enum IrTypeKind type, float80_const_t v);
@@ -339,7 +343,6 @@ IrInstruction *createSymbolConstant(struct _Symbol *s);
 IrInstruction *createLiteralConstant(const char *v, size_t l);
 
 void removeInstruction(IrInstructionListNode *inode);
-
 void releaseInstruction(IrInstruction *instr);
 
 enum IrTypeKind sizeToMemoryType(int32_t size);
@@ -349,23 +352,45 @@ IrInstruction *addLoadInstr(enum IrTypeKind valueType, IrInstruction *ptr, const
 IrInstruction *addStoreInstr(IrInstruction *ptr, IrInstruction *value, const AstExpression *ast);
 IrInstruction *addBinaryOpeartion(enum IrIntructionKind op, IrInstruction *lhs, IrInstruction *rhs, enum IrTypeKind irType, TypeRef *astType, AstExpression *astExpr);
 
+void addInstructionInput(IrInstruction *instruction, IrInstruction *input);
+
+
+
+// ------------- Ir Context ------------------------
 void initializeIrContext(struct _IrContext *ctx, struct _ParserContext* pctx);
 void releaseIrContext(struct _IrContext *ctx);
 void resetIrContext(IrContext *_ctx);
 
+
+// ------------- Ir Predicated ------------------------
+Boolean isConstantInstr(const IrInstruction *i);
+Boolean isLeafInstr(const IrInstruction *instr);
+
+Boolean isFloatIrType(enum IrTypeKind k);
+Boolean isIntegerIrType(enum IrTypeKind k);
+Boolean isSignedIrType(enum IrTypeKind k);
+Boolean isUnsignedIrType(enum IrTypeKind k);
+
+// ------------- Ir Evaluator ------------------------
+IrInstruction *evaluate(IrInstruction *i);
+IrInstruction *evaluateUnary(IrInstruction *i, IrInstruction *arg);
+IrInstruction *evaluateBinary(IrInstruction *i, IrInstruction *lhs, IrInstruction *rhs);
+IrInstruction *evaluateBitCast(IrInstruction *i, IrInstruction *arg);
+
+// ------------- Ir build phases ------------------------
 struct _IrFunctionList translateAstToIr(AstFile *file);
-
 void buildSSA(IrFunction *function);
+
+// ------------- Ir domination info ------------------------
 void buildDominatorInfo(IrContext *ctx, IrFunction *func);
-
-
-void addInstructionInput(IrInstruction *instruction, IrInstruction *input);
 
 // ------------- optimization passes ------------------------
 void cleanupUnreachableBlock(IrFunction *func);
 void cleanupDeadInstructions(IrFunction *func);
+void dce(IrFunction *func);
 
 void scp(IrFunction *func);
+void gvn(IrFunction *func);
 // ------------- dump utils ---------------------------------
 void dumpIrFunctionList(const char *fileName, const IrFunctionList *functions);
 void buildDotGraphForFunctionList(const char *fileName, const IrFunctionList *functions);

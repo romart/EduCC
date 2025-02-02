@@ -4,8 +4,12 @@
 #include "parser.h"
 #include "tree.h"
 #include "sema.h"
+#include <signal.h>
 
 IrContext *ctx = NULL;
+IrInstruction *topI = (IrInstruction *)0;
+IrInstruction *bottomI = (IrInstruction *)-1;
+
 
 enum IrTypeKind sizeToMemoryType(int32_t size) {
   switch (size) {
@@ -17,6 +21,48 @@ enum IrTypeKind sizeToMemoryType(int32_t size) {
   }
 
   return -1;
+}
+
+Boolean isConstantInstr(const IrInstruction *i) {
+  return i->kind == IR_DEF_CONST;
+}
+
+Boolean isLeafInstr(const IrInstruction *instr) {
+  return instr->inputs.size == 0;
+}
+
+Boolean isFloatIrType(enum IrTypeKind k) {
+    return IR_F32 <= k && k <= IR_F80;
+}
+
+Boolean isIntegerIrType(enum IrTypeKind k) {
+    return IR_I8 <= k && k <= IR_U64;
+}
+
+Boolean isSignedIrType(enum IrTypeKind k) {
+    return IR_I8 <= k && k <= IR_I64;
+}
+
+Boolean isUnsignedIrType(enum IrTypeKind k) {
+    return IR_U8 <= k && k <= IR_U64;
+}
+
+void cleanAndErase(IrInstruction *i) {
+    assert(i->uses.size == 0);
+    for (size_t ii = 0; ii < i->inputs.size; ++ii) {
+      IrInstruction *input = getInstructionFromVector(&i->inputs, ii);
+      removeFromVector(&input->uses, (intptr_t)i);
+    }
+    clearVector(&i->inputs);
+    if (i->kind == IR_PHI) {
+      clearVector(&i->info.phi.phiBlocks);
+    }
+    eraseInstructionFromBlock(i);
+    releaseInstruction(i);
+}
+
+IrInstruction *putAtInstrVector(Vector *v, IrInstruction *instr, size_t idx) {
+  return (IrInstruction *)putAtVector(v, idx, (intptr_t)instr);
 }
 
 enum IrTypeKind typeRefToIrType(const TypeRef *t) {
@@ -381,6 +427,9 @@ void replaceInputAt(IrInstruction *instr, IrInstruction *v, size_t i) {
 }
 
 void replaceUsageWith(IrInstruction *instr, IrInstruction *newInstr) {
+  if (instr == newInstr)
+    return; // TODO: assert??
+
   Vector *uses = &instr->uses;
   size_t idx = 0;
   while (uses->size != 0) {
@@ -480,6 +529,67 @@ IrBasicBlock *eraseBlock(IrBasicBlock *block) {
   block->function = NULL;
 
   return next;
+}
+
+static IrInstruction *processSinglePhiNode(IrInstruction *phiInstr, IrBasicBlock *removingEdge) {
+  assert(phiInstr->kind == IR_PHI);
+
+  Vector *inputs = &phiInstr->inputs;
+  Vector *blocks = &phiInstr->info.phi.phiBlocks;
+
+  IrInstruction *next = phiInstr->next;
+
+  assert(inputs->size == blocks->size);
+
+  for (size_t idx = 0; idx < inputs->size; ++idx) {
+    IrInstruction *input = getInstructionFromVector(inputs, idx);
+    IrBasicBlock *block = getBlockFromVector(blocks, idx);
+
+    if (block != removingEdge) {
+      continue;
+    }
+
+    removeFromVector(inputs, (intptr_t) input);
+    removeFromVector(blocks, (intptr_t) block);
+
+    assert(blocks->size == phiInstr->block->preds.size);
+
+    removeFromVector(&input->uses, (intptr_t)phiInstr);
+
+    if (inputs->size == 1) {
+      assert(phiInstr->block->preds.size == 1);
+      IrInstruction *lastUsage = getInstructionFromVector(inputs, 0);
+      removeFromVector(&lastUsage->uses, (intptr_t)phiInstr);
+      replaceUsageWith(phiInstr, lastUsage);
+      clearVector(&phiInstr->info.phi.phiBlocks);
+      cleanAndErase(phiInstr);
+    }
+
+    return next;
+  }
+
+  unreachable("Should be done in loop body");
+  return NULL;
+}
+
+static void processPhiNodes(IrBasicBlock *phiBlock, IrBasicBlock *removingEdge) {
+  IrInstruction *i = phiBlock->instrunctions.head;
+
+  while (i != NULL) {
+    if (i->kind != IR_PHI) {
+      // PHI-nodes are placed always in the beginning of the block
+      break;
+    }
+
+    i = processSinglePhiNode(i, removingEdge);
+  }
+}
+
+void removeSuccessor(IrBasicBlock *block, IrBasicBlock *succ) {
+  removeFromVector(&block->succs, (intptr_t)succ);
+  removeFromVector(&succ->preds, (intptr_t)block);
+
+  processPhiNodes(succ, block);
 }
 
 void removeFromBlockList(IrBasicBlockList *list, IrBasicBlock *block) {
