@@ -38,6 +38,7 @@ SOURCES=\
     $(SRCDIR)/ir/ssa.c \
     $(SRCDIR)/ir/dce.c \
     $(SRCDIR)/ir/cp.c \
+    $(SRCDIR)/ir/evaluator.c \
 
 OBJ=$(patsubst %.c,%.o,$(subst $(SRCDIR)/,$(OBJDIR)/, $(SOURCES)))
 
@@ -58,7 +59,7 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c $(DEPS)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 
-main: $(OBJ) 
+main: $(OBJ)
 	$(CC) $(CFLAGS) -o $(BINDIR)/$@ $^ -ludis86 -lm
 
 
