@@ -5,7 +5,7 @@
             "configuration": {
                 "request": "launch",
                 "program": "${workspaceRoot}/build/bin/main",
-                "args": ["-experimental", "-irDump", "hw.ir.txt", "./ssa_test.c"],
+                "args": ["-experimental", "-irDump", "hw.ir.txt", "./test/testData/codegen/my/varargs.c"],
                 "stopAtEntry": false,
                 "cwd": "${workspaceRoot}",
                 "environment": [],
