@@ -15,7 +15,6 @@ extern IrContext *ctx;
 static IrFunction *translateFunction(AstFunctionDefinition *function);
 static Boolean translateStatement(AstStatement *stmt);
 static Boolean translateBlock(AstStatement *block);
-static Boolean translateStatement(AstStatement *stmt);
 static Boolean translateDeclaration(AstDeclaration *decl);
 static IrInstruction *translateExpression(AstExpression *expr);
 static Boolean translateLabel(AstStatement *stmt);
