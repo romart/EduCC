@@ -227,8 +227,6 @@ static IrInstruction *translateRValue(AstExpression *expr) {
 
 static size_t translateInitializerIntoMemory(IrInstruction *base, int32_t offset, size_t typeSize, const AstInitializer *initializer) {
 
-  assert(ctx->addressTM == IR_TM_RVALUE);
-
   switch (initializer->kind) {
   case IK_EXPRESSION: {
 	AstExpression *expr = initializer->expression;
