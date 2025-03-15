@@ -529,10 +529,7 @@ static IrInstruction *translateCall(AstExpression *expr) {
 
 	unsigned returnTypeSize = computeTypeSize(returnType);
 
-	const enum IrTranslationMode tm = ctx->addressTM;
-	ctx->addressTM = IR_TM_RVALUE;
-
-	IrInstruction *calleeOp = translateExpression(callee);
+	IrInstruction *calleeOp = translateRValue(callee);
 	IrInstruction *callInstr = newInstruction(IR_CALL, typeRefToIrType(expr->type));
     addInstructionInput(callInstr, calleeOp);
 
@@ -558,7 +555,7 @@ static IrInstruction *translateCall(AstExpression *expr) {
       unsigned alignent = max(8, typeAlignment(argType));
       unsigned argSize = max(8, computeTypeSize(argType));
 
-	  IrInstruction *argOp = translateExpression(argExpr);
+	  IrInstruction *argOp = translateRValue(argExpr);
 	  IrInstruction *realArgOp = NULL;
 
 	  if (isCompositeType(argType)) {
@@ -583,18 +580,13 @@ static IrInstruction *translateCall(AstExpression *expr) {
 
 	addInstruction(callInstr);
 
-	ctx->addressTM = tm;
-
     return callInstr;
 }
 
 static IrInstruction *translateTernary(AstExpression *expr) {
     assert(expr->op == E_TERNARY);
 
-    const enum IrTranslationMode tm = ctx->addressTM;
-    ctx->addressTM = IR_TM_RVALUE;
-
-    IrInstruction *condOp = translateExpression(expr->ternaryExpr.condition);
+    IrInstruction *condOp = translateRValue(expr->ternaryExpr.condition);
 
     IrBasicBlock *ifTrue = newBasicBlock("<ifTrue>");
     IrBasicBlock *ifFalse = newBasicBlock("<ifFalse>");
@@ -606,11 +598,11 @@ static IrInstruction *translateTernary(AstExpression *expr) {
     termintateBlock(cond);
 
     ctx->currentBB = ifTrue;
-    IrInstruction *ifTrueOp = translateExpression(expr->ternaryExpr.ifTrue);
+    IrInstruction *ifTrueOp = translateRValue(expr->ternaryExpr.ifTrue);
     gotoToBlock(exit);
 
     ctx->currentBB = ifFalse;
-    IrInstruction *ifFalseOp = translateExpression(expr->ternaryExpr.ifFalse);
+    IrInstruction *ifFalseOp = translateRValue(expr->ternaryExpr.ifFalse);
     gotoToBlock(exit);
 
     ctx->currentBB = exit;
@@ -621,8 +613,6 @@ static IrInstruction *translateTernary(AstExpression *expr) {
     addPhiInput(phi, ifTrueOp, ifTrue);
     addPhiInput(phi, ifFalseOp, ifFalse);
     addInstruction(phi);
-
-    ctx->addressTM = tm;
 
     return phi;
 }
@@ -661,8 +651,8 @@ static IrInstruction *translateLogicalExpression(AstExpression *expr) {
     IrInstruction *leftOp = translateRValue(expr->binaryExpr.left);
 
     IrBasicBlock *fst = ctx->currentBB;
-    IrBasicBlock *scnd = newBasicBlock(isAndAnd ? "<&&>" : "<||>");
-    IrBasicBlock *exit = newBasicBlock(isAndAnd ? "<&&-exit>" : "<||-exit>");
+    IrBasicBlock *scnd = newBasicBlock(isAndAnd ? "< && >" : "< || >");
+    IrBasicBlock *exit = newBasicBlock(isAndAnd ? "< &&-exit>" : "< ||-exit>");
 
     IrInstruction *cond = newCondBranch(leftOp, isAndAnd ? scnd : exit, isAndAnd ? exit : scnd);
     addSuccessor(ctx->currentBB, scnd);
@@ -735,11 +725,8 @@ static ExpressionType assignArithToArith(ExpressionType op) {
 static IrInstruction *translateBinary(AstExpression *expr) {
     assert(isBinary(expr->op));
 
-    const enum IrTranslationMode tm = ctx->addressTM;
-    ctx->addressTM = IR_TM_RVALUE;
-    IrInstruction *leftOp = translateExpression(expr->binaryExpr.left);
-    IrInstruction *rightOp = translateExpression(expr->binaryExpr.right);
-    ctx->addressTM = tm;
+    IrInstruction *leftOp = translateRValue(expr->binaryExpr.left);
+    IrInstruction *rightOp = translateRValue(expr->binaryExpr.right);
 
     enum IrTypeKind type = typeRefToIrType(expr->type);
     Boolean isFloatOperand = isRealType(expr->binaryExpr.left->type);
@@ -768,7 +755,6 @@ static IrInstruction *translateAssignment(AstExpression *expr) {
     AstExpression *assignee = expr->binaryExpr.left;
     AstExpression *value = expr->binaryExpr.right;
 
-    const enum IrTranslationMode tm = ctx->addressTM;
     IrInstruction *lvalue = translateLValue(assignee);
     IrInstruction *rvalue = translateRValue(value);
 
@@ -837,7 +823,6 @@ static IrInstruction *translateReference(AstExpression *expr) {
 
     return lvalue;
 }
-
 
 static IrInstruction *translateDeReference(AstExpression *expr) {
     assert(expr->op == EU_DEREF);
