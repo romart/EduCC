@@ -1026,8 +1026,8 @@ static IrInstruction *translateArrayAccess(AstExpression *expr) {
 }
 
 static IrInstruction *translateFieldAccess(AstExpression *expr, Boolean isDot) {
-
-    IrInstruction *receiver = translateLValue(expr->fieldExpr.recevier);
+    AstExpression *receiverExpr = expr->fieldExpr.recevier;
+    IrInstruction *receiver = isDot ? translateLValue(receiverExpr) : translateRValue(receiverExpr);
 
     int64_t memberOffset = effectiveMemberOffset(expr->fieldExpr.member);
     IrInstruction *memberOffsetOp = createIntegerConstant(IR_I64, memberOffset);
@@ -1052,7 +1052,7 @@ static IrInstruction *translateArrowAccess(AstExpression *expr) {
     assert(expr->op == EF_ARROW);
     assert(isPointerLikeType(expr->fieldExpr.recevier->type));
 
-    return translateFieldAccess(expr, /* isDOR = */ FALSE);
+    return translateFieldAccess(expr, /* isDOT = */ FALSE);
 }
 
 static IrInstruction *translatePreOp(AstExpression *expr) {
