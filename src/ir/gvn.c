@@ -1,9 +1,9 @@
 
 
 #include <assert.h>
-#include "ir/ir.h"
 #include <stdlib.h>
 #include "mem.h"
+#include "ir/ir.h"
 
 extern IrContext *ctx;
 
@@ -179,14 +179,14 @@ static void fillExtras(GVNExpression *gvne, const IrInstruction *i) {
 static GVNExpression *createGVNExpression(VNTable *vnt, IrInstruction *i) {
   size_t inputs = computeInputsCount(i);
   size_t extras = computeExtrasCount(i);
-  GVNExpression *gvne = areanAllocate(vnt->arena, sizeof (GVNExpression) + (inputs * sizeof (uint32_t)));
+  GVNExpression *gvne = areanAllocate(vnt->arena, sizeof (GVNExpression) + ((inputs + extras) * sizeof (uint32_t)));
   gvne->kind = i->kind;
 
   uint32_t *ptr = (uint32_t *)&gvne[1];
   gvne->numOfInputs = inputs;
   gvne->inputs = inputs != 0 ? ptr : NULL;
-  ptr += inputs;
 
+  ptr += inputs;
   gvne->numOfExtras = extras;
   gvne->extras = extras != 0 ? ptr : NULL;
 
