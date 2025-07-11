@@ -176,6 +176,24 @@ static void fillExtras(GVNExpression *gvne, const IrInstruction *i) {
   }
 }
 
+static void dumpGVNExpr(FILE *stream, const GVNExpression *e) {
+
+  fprintf(stream, "GVN {");
+  fprintf(stream, "kind = %d, ", e->kind);
+  fprintf(stream, "inputs = [");
+  for (int i = 0; i < e->numOfInputs; ++i) {
+    if (i != 0) fprintf(stream, ", ");
+    fprintf(stream, "%u", e->inputs[i]);
+  }
+  fprintf(stream, "], extras = [");
+  for (int i = 0; i < e->numOfExtras; ++i) {
+    if (i != 0) fprintf(stream, ", ");
+    fprintf(stream, "%u", e->extras[i]);
+  }
+
+  fprintf(stream, "] }");
+}
+
 static GVNExpression *createGVNExpression(VNTable *vnt, IrInstruction *i) {
   size_t inputs = computeInputsCount(i);
   size_t extras = computeExtrasCount(i);
@@ -214,7 +232,7 @@ static Boolean isInGVNTable(HashMap *table, const GVNExpression *gvne) {
 }
 
 static uint32_t putIntoGVNTable(HashMap *table, const GVNExpression *gvne, uint32_t newValue) {
-  return putToHashMap(table, (intptr_t)gvne, newValue);
+  return putIfNotExistsToHashMap(table, (intptr_t)gvne, newValue);
 }
 
 static uint32_t getOrAddVN(VNTable *vnt, IrInstruction *i) {
@@ -226,15 +244,19 @@ static uint32_t getOrAddVN(VNTable *vnt, IrInstruction *i) {
     return i->algoIdx;
   }
   GVNExpression *gvne = createGVNExpression(vnt, i);
+  printf("INSTR #%u -> ", i->id); dumpGVNExpr(stdout, gvne);
 
   uint32_t newVN = vnt->exprMap.size;
   uint32_t aVN = putIntoGVNTable(vnt->table, gvne, newVN);
-  if (aVN < newVN)
+  if (aVN < newVN) {
+    printf(" ---> %u\n", aVN);
     return aVN;
+  }
 
   addInstructionToVector(&vnt->exprMap, (IrInstruction *)i);
   assert(getInstructionFromVector(&vnt->exprMap, newVN) == i);
 
+  printf(" ---> %u\n", newVN);
   return newVN;
 }
 
@@ -368,6 +390,7 @@ static void buildValueNumberingInfo(Vector *poOrder, VNTable *gvnTable) {
       instr->algoIdx = -1;
       uint32_t vn = getOrAddVN(gvnTable, instr);
       instr->algoIdx = vn;
+      printf("INSTR #%u assigned GVN %u\n", instr->id, vn);
     }
   }
 }
@@ -401,8 +424,16 @@ static void computeAvailability(Vector *poOrder, VNTable *gvnTable, BitSet *avai
         changed = TRUE;
       }
      
+      printf("---======= BLOCK #%u =======---\n", block->id);
+      printf("B: TMP: "); printBitSet(stdout, &tmp); printf("\n");
+      printf("B: IN:  "); printBitSet(stdout, oldIn); printf("\n");
+      printf("B: OUT: "); printBitSet(stdout, oldOut); printf("\n");
+
       copyBitSet(&tmp, oldIn);
       copyBitSet(oldIn, oldOut);
+
+      printf("A: IN:  "); printBitSet(stdout, oldIn); printf("\n");
+      printf("A: OUT: "); printBitSet(stdout, oldOut); printf("\n");
 
       for (IrInstruction *i = block->instrunctions.head; i != NULL; i = i->next) {
         uint32_t vn = i->algoIdx;
@@ -411,6 +442,7 @@ static void computeAvailability(Vector *poOrder, VNTable *gvnTable, BitSet *avai
           changed = TRUE;
         }
       }
+      printf("X: OUT: "); printBitSet(stdout, oldOut); printf("\n");
     }
   }
 
@@ -529,32 +561,32 @@ void gvn(IrFunction *func) {
   BitSet *availOut = heapAllocate(sizeof (BitSet) * func->numOfBlocks);
 
   buildValueNumberingInfo(poOrder, &gvnTable);
-  for (size_t i = 0; i < func->numOfBlocks; ++i) {
-    initBitSet(&availIn[i], gvnTable.exprMap.size);
-    initBitSet(&availOut[i], gvnTable.exprMap.size);
-  }
-  computeAvailability(poOrder, &gvnTable, availIn, availOut);
-  removePartialRedundancy(func, availIn, availOut, &gvnTable);
+  // for (size_t i = 0; i < func->numOfBlocks; ++i) {
+  //   initBitSet(&availIn[i], gvnTable.exprMap.size);
+  //   initBitSet(&availOut[i], gvnTable.exprMap.size);
+  // }
+  // computeAvailability(poOrder, &gvnTable, availIn, availOut);
+  // removePartialRedundancy(func, availIn, availOut, &gvnTable);
 
-  /* for (size_t idx = poOrder->size - 1; idx != -1; --idx) { */
-  /*   IrBasicBlock *block = getBlockFromVector(poOrder, idx); */
-  /*   for (IrInstruction *instr = block->instrunctions.head; instr != NULL; instr = instr->next) { */
-  /*     uint32_t vn = getOrAddVN(&gvnTable, instr); */
-  /*     IrInstruction *vnInstuction = getInstructionFromVector(&gvnTable.exprMap, vn); */
-  /*     if (vnInstuction == instr) { */
-  /*       continue; */
-  /*     } */
+  for (size_t idx = poOrder->size - 1; idx != -1; --idx) { 
+    IrBasicBlock *block = getBlockFromVector(poOrder, idx); 
+    for (IrInstruction *instr = block->instrunctions.head; instr != NULL; instr = instr->next) { 
+      uint32_t vn = getOrAddVN(&gvnTable, instr); 
+      IrInstruction *vnInstuction = getInstructionFromVector(&gvnTable.exprMap, vn); 
+      if (vnInstuction == instr) { 
+        continue; 
+      } 
 
-  /*     if (dominates(vnInstuction->block, block)) { */
-  /*       replaceUsageWith(instr, vnInstuction); */
-  /*     } */
-  /*   } */
-  /* } */
+      if (dominates(vnInstuction->block, block)) { 
+        replaceUsageWith(instr, vnInstuction); 
+      } 
+    } 
+  } 
 
-  for (size_t i = 0; i < func->numOfBlocks; ++i) {
-    releaseBitSet(&availIn[i]);
-    releaseBitSet(&availOut[i]);
-  }
+  // for (size_t i = 0; i < func->numOfBlocks; ++i) {
+  //   releaseBitSet(&availIn[i]);
+  //   releaseBitSet(&availOut[i]);
+  // }
 
   releaseHeap(availIn);
   releaseHeap(availOut);

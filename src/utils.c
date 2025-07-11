@@ -1,9 +1,9 @@
 
 
-#include <memory.h>
 #include <assert.h>
-#include <stdlib.h>
+#include <memory.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "mem.h"
@@ -13,16 +13,17 @@ static void resizeVector(Vector *v, size_t newCapacity) {
   if (newCapacity <= v->capacity)
     return;
 
-  intptr_t* newStorage = (intptr_t*)heapAllocate(sizeof(intptr_t) * newCapacity);
+  intptr_t *newStorage =
+      (intptr_t *)heapAllocate(sizeof(intptr_t) * newCapacity);
   memcpy(newStorage, v->storage, v->capacity * sizeof(intptr_t));
   releaseHeap(v->storage);
   v->storage = newStorage;
   v->capacity = newCapacity;
 }
 
-void addToVector(Vector* vector, intptr_t value) {
+void addToVector(Vector *vector, intptr_t value) {
   if (vector->size == vector->capacity) {
-    int newCapacity = (int)(vector->capacity * 2) ;
+    int newCapacity = (int)(vector->capacity * 2);
     resizeVector(vector, newCapacity);
   }
 
@@ -36,8 +37,10 @@ void removeFromVector(Vector *vector, intptr_t v) {
     size_t n = i + 1;
     if (vector->storage[i] == v) {
       if (n < vector->size) {
-        printf("Memmove vector[%lu] %p %lu -> %lu (%p -> %p)\n", vector->size, vector->storage, n, i, &vector->storage[i], &vector->storage[n]);
-        memmove(&vector->storage[i], &vector->storage[n], (vector->size - n) * sizeof(intptr_t));
+        printf("Memmove vector[%lu] %p %lu -> %lu (%p -> %p)\n", vector->size,
+               vector->storage, n, i, &vector->storage[i], &vector->storage[n]);
+        memmove(&vector->storage[i], &vector->storage[n],
+                (vector->size - n) * sizeof(intptr_t));
       }
       size_t s = vector->size;
       vector->size -= 1;
@@ -55,7 +58,7 @@ size_t removeFromVectorAt(Vector *v, size_t i) {
 
   size_t tail = v->size - i - 1;
 
-  memmove(&v->storage[i], &v->storage[i + 1], tail * sizeof (intptr_t));
+  memmove(&v->storage[i], &v->storage[i + 1], tail * sizeof(intptr_t));
   v->size -= 1;
 
   return i;
@@ -69,40 +72,36 @@ intptr_t putAtVector(Vector *vector, size_t idx, intptr_t v) {
   return old;
 }
 
-void initVector(Vector* vector, int capacity) {
-    assert(vector->storage == NULL);
-    vector->size = 0;
-    vector->capacity = capacity;
-    vector->storage = (intptr_t*)heapAllocate(sizeof(intptr_t) * capacity);
+void initVector(Vector *vector, int capacity) {
+  assert(vector->storage == NULL);
+  vector->size = 0;
+  vector->capacity = capacity;
+  vector->storage = (intptr_t *)heapAllocate(sizeof(intptr_t) * capacity);
 }
 
-Vector* createVector(int capacity) {
-    Vector* result = (Vector*)heapAllocate(sizeof(Vector));
-    memset(result, 0, sizeof(Vector));
-    initVector(result, capacity);
-    return result;
+Vector *createVector(int capacity) {
+  Vector *result = (Vector *)heapAllocate(sizeof(Vector));
+  memset(result, 0, sizeof(Vector));
+  initVector(result, capacity);
+  return result;
 }
 
-void clearVector(Vector *v) {
-  v->size = 0;
-}
+void clearVector(Vector *v) { v->size = 0; }
 
 void releaseVector(Vector *vector) {
-    releaseHeap(vector->storage);
-//    releaseHeap(vector);
+  releaseHeap(vector->storage);
+  //    releaseHeap(vector);
 }
 
-intptr_t getFromVector(const Vector* vector, int idx) {
-    assert(idx < vector->size);
-    return vector->storage[idx];
+intptr_t getFromVector(const Vector *vector, int idx) {
+  assert(idx < vector->size);
+  return vector->storage[idx];
 }
 
-void pushToStack(Vector *v, intptr_t o) {
-    addToVector(v, o);
-}
+void pushToStack(Vector *v, intptr_t o) { addToVector(v, o); }
 
 intptr_t popFromStack(Vector *v) {
-  intptr_t r =  topOfStack(v);
+  intptr_t r = topOfStack(v);
   v->size -= 1;
   return r;
 }
@@ -119,173 +118,196 @@ void popOffStack(Vector *v, size_t pops) {
 
 // =====================================================
 
-
 struct LinkedNode {
-    struct LinkedNode* next;
-    intptr_t key;
-    intptr_t value;
+  struct LinkedNode *next;
+  intptr_t key;
+  intptr_t value;
 };
 
 struct _HashMap {
-    int capacity;
-    struct LinkedNode** storage;
+  int capacity;
+  struct LinkedNode **storage;
 
-    hashCode_fun hashCode;
-    compare_fun compare;
+  hashCode_fun hashCode;
+  compare_fun compare;
 };
 
+struct _HashMap *createHashMap(int capacity, hashCode_fun hc, compare_fun cmp) {
+  struct _HashMap *map =
+      (struct _HashMap *)heapAllocate(sizeof(struct _HashMap));
+  map->hashCode = hc;
+  map->compare = cmp;
+  map->capacity = capacity;
+  map->storage = (struct LinkedNode **)heapAllocate(
+      sizeof(struct LinkedNode *) * capacity);
+  ;
 
-struct _HashMap* createHashMap(int capacity, hashCode_fun hc, compare_fun cmp) {
-    struct _HashMap* map = (struct _HashMap*)heapAllocate(sizeof(struct _HashMap));
-    map->hashCode = hc;
-    map->compare = cmp;
-    map->capacity = capacity;
-    map->storage = (struct LinkedNode**)heapAllocate(sizeof(struct LinkedNode*) * capacity);;
-
-    return map;
+  return map;
 }
 
-intptr_t putToHashMap(HashMap* map, intptr_t key, intptr_t value) {
-    unsigned hc = map->hashCode(key);
-    unsigned idx = hc % map->capacity;
-    struct LinkedNode* list = map->storage[idx];
+intptr_t putIfNotExistsToHashMap(HashMap *map, intptr_t key, intptr_t value) {
+  unsigned hc = map->hashCode(key);
+  unsigned idx = hc % map->capacity;
+  struct LinkedNode *list = map->storage[idx];
 
-    while (list != NULL) {
-        if (map->compare(list->key, key) == 0) {
-            intptr_t oldValue = list->value;
-            list->value = value;
-            return oldValue;
-        }
-        list = list->next;
+  while (list != NULL) {
+    if (map->compare(list->key, key) == 0) {
+      return list->value;
     }
+    list = list->next;
+  }
 
-    struct LinkedNode* newNode = (struct LinkedNode*)heapAllocate(sizeof(struct LinkedNode));
-    newNode->key = key;
-    newNode->value = value;
-    newNode->next = map->storage[idx];
-    map->storage[idx] = newNode;
+  struct LinkedNode *newNode =
+      (struct LinkedNode *)heapAllocate(sizeof(struct LinkedNode));
+  newNode->key = key;
+  newNode->value = value;
+  newNode->next = map->storage[idx];
+  map->storage[idx] = newNode;
 
-    return value;
+  return value;
 }
 
+intptr_t putToHashMap(HashMap *map, intptr_t key, intptr_t value) {
+  unsigned hc = map->hashCode(key);
+  unsigned idx = hc % map->capacity;
+  struct LinkedNode *list = map->storage[idx];
 
-intptr_t getFromHashMap(HashMap* map, intptr_t key) {
-    unsigned hc = map->hashCode(key);
-    unsigned idx = hc % map->capacity;
-    struct LinkedNode* list = map->storage[idx];
-
-    while (list != NULL) {
-        if (map->compare(list->key, key) == 0) {
-            return list->value;
-        }
-        list = list->next;
+  while (list != NULL) {
+    if (map->compare(list->key, key) == 0) {
+      intptr_t oldValue = list->value;
+      list->value = value;
+      return oldValue;
     }
+    list = list->next;
+  }
 
-    return 0;
+  struct LinkedNode *newNode =
+      (struct LinkedNode *)heapAllocate(sizeof(struct LinkedNode));
+  newNode->key = key;
+  newNode->value = value;
+  newNode->next = map->storage[idx];
+  map->storage[idx] = newNode;
+
+  return value;
 }
 
+intptr_t getFromHashMap(HashMap *map, intptr_t key) {
+  unsigned hc = map->hashCode(key);
+  unsigned idx = hc % map->capacity;
+  struct LinkedNode *list = map->storage[idx];
 
-intptr_t removeFromHashMap(HashMap* map, intptr_t key) {
-    unsigned hc = map->hashCode(key);
-    unsigned idx = hc % map->capacity;
-    struct LinkedNode** prev = &(map->storage[idx]);
-    struct LinkedNode* list = *prev;
-
-    while (list != NULL) {
-        if (map->compare(list->key, key) == 0) {
-            *prev = list->next;
-            intptr_t oldValue = list->value;
-            releaseHeap(list);
-            return oldValue;
-        }
-        prev = &list->next;
-        list = *prev;
+  while (list != NULL) {
+    if (map->compare(list->key, key) == 0) {
+      return list->value;
     }
+    list = list->next;
+  }
 
-    return 0;
+  return 0;
 }
 
-void foreachHashMap(HashMap *map, void (*func)(intptr_t, intptr_t, void*), void *ctx) {
-    for (unsigned idx = 0; idx < map->capacity; ++idx) {
-        struct LinkedNode *node = map->storage[idx];
-        while (node != NULL) {
-            func(node->key, node->value, ctx);
-            node = node->next;
-        }
+intptr_t removeFromHashMap(HashMap *map, intptr_t key) {
+  unsigned hc = map->hashCode(key);
+  unsigned idx = hc % map->capacity;
+  struct LinkedNode **prev = &(map->storage[idx]);
+  struct LinkedNode *list = *prev;
+
+  while (list != NULL) {
+    if (map->compare(list->key, key) == 0) {
+      *prev = list->next;
+      intptr_t oldValue = list->value;
+      releaseHeap(list);
+      return oldValue;
     }
+    prev = &list->next;
+    list = *prev;
+  }
+
+  return 0;
 }
 
-int isInHashMap(HashMap* map, intptr_t key) {
-    unsigned hc = map->hashCode(key);
-    unsigned idx = hc % map->capacity;
-    struct LinkedNode* list = map->storage[idx];
-
-    while (list != NULL) {
-        if (map->compare(list->key, key) == 0) {
-            return TRUE;
-        }
-        list = list->next;
+void foreachHashMap(HashMap *map, void (*func)(intptr_t, intptr_t, void *),
+                    void *ctx) {
+  for (unsigned idx = 0; idx < map->capacity; ++idx) {
+    struct LinkedNode *node = map->storage[idx];
+    while (node != NULL) {
+      func(node->key, node->value, ctx);
+      node = node->next;
     }
+  }
+}
 
-    return FALSE;
+int isInHashMap(HashMap *map, intptr_t key) {
+  unsigned hc = map->hashCode(key);
+  unsigned idx = hc % map->capacity;
+  struct LinkedNode *list = map->storage[idx];
+
+  while (list != NULL) {
+    if (map->compare(list->key, key) == 0) {
+      return TRUE;
+    }
+    list = list->next;
+  }
+
+  return FALSE;
 }
 
 void releaseHashMap(HashMap *map) {
   unsigned i;
   for (i = 0; i < map->capacity; ++i) {
-      struct LinkedNode *list = map->storage[i];
-      while (list) {
-          struct LinkedNode *next = list->next;
-          releaseHeap(list);
-          list = next;
-      }
-      map->storage[i] = NULL;
+    struct LinkedNode *list = map->storage[i];
+    while (list) {
+      struct LinkedNode *next = list->next;
+      releaseHeap(list);
+      list = next;
+    }
+    map->storage[i] = NULL;
   }
   releaseHeap(map->storage);
   releaseHeap(map);
 }
 
 LinkedListNode *addNodeToListHead(LinkedList *list, LinkedListNode *node) {
-    LinkedListNode *head = node->next = list->head;
+  LinkedListNode *head = node->next = list->head;
 
-    if (head)
-        head->prev = node;
+  if (head)
+    head->prev = node;
 
-    list->head = node;
+  list->head = node;
 
-    return node;
+  return node;
 }
 
 LinkedListNode *addNodeToListTail(LinkedList *list, LinkedListNode *node) {
-    LinkedListNode *tail = node->prev = list->tail;
+  LinkedListNode *tail = node->prev = list->tail;
 
-    if (tail)
-        tail->next = node;
+  if (tail)
+    tail->next = node;
 
-    list->tail = node;
+  list->tail = node;
 
-    return node;
+  return node;
 }
 
 LinkedListNode *removeNodeFromList(LinkedList *list, LinkedListNode *node) {
-    LinkedListNode *prev = node->prev;
-    LinkedListNode *next = node->next;
+  LinkedListNode *prev = node->prev;
+  LinkedListNode *next = node->next;
 
-    if (prev)
-        prev->next = next;
+  if (prev)
+    prev->next = next;
 
-    if (next)
-        next->prev = prev;
+  if (next)
+    next->prev = prev;
 
-    node->prev = node->next = NULL;
+  node->prev = node->next = NULL;
 
-    if (list->head == node)
-        list->head = next;
+  if (list->head == node)
+    list->head = next;
 
-    if (list->tail == node)
-        list->tail = prev;
+  if (list->tail == node)
+    list->tail = prev;
 
-    return node;
+  return node;
 }
 
 // =========== BitSet ===============================//
@@ -331,15 +353,14 @@ unsigned getBit(const BitSet *bs, size_t idx) {
   return (bs->bits[wordIdx] & mask) >> bitIdx;
 }
 
-
 static void adjustBitSetTail(BitSet *bs) {
-    // handle tail
-    const size_t lastWordIdx = bs->wordCount - 1;
-    const size_t tailBits = bs->wordCount * bitsPerWord - bs->size;
-    assert(tailBits <= bitsPerWord);
-    const size_t valuableBits = bitsPerWord - tailBits;
-    const size_t valuableMask = (~0ULL << valuableBits);
-    bs->bits[lastWordIdx] &= ~valuableMask;
+  // handle tail
+  const size_t lastWordIdx = bs->wordCount - 1;
+  const size_t tailBits = bs->wordCount * bitsPerWord - bs->size;
+  assert(tailBits <= bitsPerWord);
+  const size_t valuableBits = bitsPerWord - tailBits;
+  const size_t valuableMask = (~0ULL << valuableBits);
+  bs->bits[lastWordIdx] &= ~valuableMask;
 }
 
 void clearAll(BitSet *bs) {
@@ -354,7 +375,7 @@ void setAll(BitSet *bs) {
 void intersectBitSets(const BitSet *lhs, const BitSet *rhs, BitSet *rs) {
   assert(lhs->size == rhs->size);
   assert(rs->size == lhs->size);
-  
+
   for (size_t idx = 0; idx < lhs->wordCount; ++idx) {
     rs->bits[idx] = lhs->bits[idx] & rhs->bits[idx];
   }
@@ -363,7 +384,7 @@ void intersectBitSets(const BitSet *lhs, const BitSet *rhs, BitSet *rs) {
 void mergeBitSets(const BitSet *lhs, const BitSet *rhs, BitSet *rs) {
   assert(lhs->size == rhs->size);
   assert(rs->size == lhs->size);
-  
+
   for (size_t idx = 0; idx < lhs->wordCount; ++idx) {
     rs->bits[idx] = lhs->bits[idx] | rhs->bits[idx];
   }
@@ -376,9 +397,9 @@ void copyBitSet(const BitSet *src, BitSet *dst) {
 }
 
 int compareBitSets(const BitSet *lhs, const BitSet *rhs) {
-    assert(lhs->size == rhs->size);
+  assert(lhs->size == rhs->size);
 
-    return memcmp(lhs->bits, rhs->bits, lhs->wordCount * sizeof (uintptr_t));
+  return memcmp(lhs->bits, rhs->bits, lhs->wordCount * sizeof(uintptr_t));
 }
 
 Boolean isEmptyBitSet(const BitSet *bs) {
@@ -386,7 +407,7 @@ Boolean isEmptyBitSet(const BitSet *bs) {
     if (bs->bits[idx] != 0)
       return FALSE;
   }
-  return TRUE; 
+  return TRUE;
 }
 
 static size_t countBitsWord(uintptr_t w) {
@@ -400,21 +421,29 @@ static size_t countBitsWord(uintptr_t w) {
 }
 
 size_t countBits(const BitSet *bs) {
-    size_t r = 0;
-    for (size_t idx = 0; idx < bs->wordCount; ++idx) {
-      r += countBitsWord(bs->bits[idx]);
-    }
-    return r;
+  size_t r = 0;
+  for (size_t idx = 0; idx < bs->wordCount; ++idx) {
+    r += countBitsWord(bs->bits[idx]);
+  }
+  return r;
+}
+
+void printBitSet(FILE *stream, const BitSet *bs) {
+  for (int i = 0; i < bs->size; ++i) {
+
+    if (i && i % 8 == 0)
+      fputc(' ', stream);
+    fprintf(stream, "%d", getBit(bs, i));
+  }
 }
 
 // =========== BitSet ===============================//
- 
 
-unsigned countLines(FILE* file) {
+unsigned countLines(FILE *file) {
   unsigned result = 1;
-  while(!feof(file)) {
+  while (!feof(file)) {
     int ch = fgetc(file);
-    if(ch == '\n') {
+    if (ch == '\n') {
       result++;
     }
   }
@@ -430,7 +459,7 @@ unsigned countLinesInBuffer(const char *buffer) {
 
   while (buffer[idx]) {
     int ch = buffer[idx++];
-    if(ch == '\n') {
+    if (ch == '\n') {
       result++;
     }
   }
@@ -440,9 +469,10 @@ unsigned countLinesInBuffer(const char *buffer) {
 
 char *readFileToBuffer(const char *fileName, size_t *bufferSize) {
 
-  FILE* opened = fopen(fileName, "r");
+  FILE *opened = fopen(fileName, "r");
 
-  if (opened == NULL) return NULL;
+  if (opened == NULL)
+    return NULL;
 
   fseek(opened, 0L, SEEK_END);
   size_t size = ftell(opened);
@@ -464,9 +494,9 @@ char *readFileToBuffer(const char *fileName, size_t *bufferSize) {
 
 void putSymbol(StringBuffer *b, char c) {
   if (b->idx == b->size) {
-      size_t newSize = (b->size + 512) << 1;
-      b->ptr = heapReallocate(b->ptr, b->size, newSize);
-      b->size = newSize;
+    size_t newSize = (b->size + 512) << 1;
+    b->ptr = heapReallocate(b->ptr, b->size, newSize);
+    b->size = newSize;
   }
 
   b->ptr[b->idx++] = c;
@@ -482,33 +512,29 @@ void unimplemented(const char *msg) {
   abort();
 }
 
-int fileno (FILE *stream);
+int fileno(FILE *stream);
 
-int isTerminal(FILE *stream) {
-  return isatty(fileno(stream));
-}
+int isTerminal(FILE *stream) { return isatty(fileno(stream)); }
 
-int isPowerOf2(intptr_t v) {
-    return (v & (v - 1)) == 0;
-}
+int isPowerOf2(intptr_t v) { return (v & (v - 1)) == 0; }
 
 int log2Integer(intptr_t v) {
-    assert(isPowerOf2(v));
+  assert(isPowerOf2(v));
 
-    uintptr_t uv = *(uintptr_t *)&v;
+  uintptr_t uv = *(uintptr_t *)&v;
 
-    int result = 0;
-    while (uv > 1) {
-        uv >>= 1;
-        result++;
-    }
-    return result;
+  int result = 0;
+  while (uv > 1) {
+    uv >>= 1;
+    result++;
+  }
+  return result;
 }
 
 size_t alignSize(size_t size, size_t alignment) {
-    if (alignment == 0) {
-        return size; // If alignment is zero, return the size as is
-    }
-    // Align size to the nearest higher multiple of alignment
-    return (size + alignment - 1) & ~(alignment - 1);
+  if (alignment == 0) {
+    return size; // If alignment is zero, return the size as is
+  }
+  // Align size to the nearest higher multiple of alignment
+  return (size + alignment - 1) & ~(alignment - 1);
 }

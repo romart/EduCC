@@ -1,0 +1,6 @@
+{
+  "program": "build/bin/main",
+  "args": ["-experimental", "-irDump", "hw.ir.txt", "./test/testData/codegen/simple/gvn.c"],
+  "environment": []
+}
+

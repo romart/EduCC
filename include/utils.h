@@ -1,26 +1,26 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__ 1
 
+#include "common.h"
 #include <stdio.h>
 #include <unistd.h>
-#include "common.h"
 
 typedef struct _Vector {
-    size_t size;
-    size_t capacity;
-    intptr_t* storage;
+  size_t size;
+  size_t capacity;
+  intptr_t *storage;
 } Vector;
 
 #define INITIAL_VECTOR_CAPACITY 20
 
-void addToVector(Vector* vector, intptr_t value);
+void addToVector(Vector *vector, intptr_t value);
 intptr_t putAtVector(Vector *vector, size_t idx, intptr_t v);
 void removeFromVector(Vector *v, intptr_t o);
 size_t removeFromVectorAt(Vector *v, size_t i);
 void clearVector(Vector *vector);
-Vector* createVector(int capacity);
-intptr_t getFromVector(const Vector* vector, int idx);
-void initVector(Vector* vector, int capacity);
+Vector *createVector(int capacity);
+intptr_t getFromVector(const Vector *vector, int idx);
+void initVector(Vector *vector, int capacity);
 void releaseVector(Vector *vector);
 
 void pushToStack(Vector *v, intptr_t o);
@@ -35,43 +35,45 @@ typedef int (*compare_fun)(intptr_t, intptr_t);
 
 typedef struct _HashMap HashMap;
 
-HashMap* createHashMap(int capacity, hashCode_fun hc, compare_fun cmp);
+HashMap *createHashMap(int capacity, hashCode_fun hc, compare_fun cmp);
 void releaseHashMap(HashMap *map);
 
 /** returns old value if exixtsed, NULL otherwise */
-intptr_t putToHashMap(HashMap* map, intptr_t key, intptr_t value);
+intptr_t putToHashMap(HashMap *map, intptr_t key, intptr_t value);
+intptr_t putIfNotExistsToHashMap(HashMap *map, intptr_t key, intptr_t value);
 
-intptr_t getFromHashMap(HashMap* map, intptr_t key);
+intptr_t getFromHashMap(HashMap *map, intptr_t key);
 
 /** returns removed value if found, NULL otherwise */
-intptr_t removeFromHashMap(HashMap* map, intptr_t key);
+intptr_t removeFromHashMap(HashMap *map, intptr_t key);
 
-void foreachHashMap(HashMap *map, void (*func)(intptr_t, intptr_t, void*), void *ctx);
+void foreachHashMap(HashMap *map, void (*func)(intptr_t, intptr_t, void *),
+                    void *ctx);
 
-int isInHashMap(HashMap* map, intptr_t key);
+int isInHashMap(HashMap *map, intptr_t key);
 
 typedef struct _LinkedListNode {
-    intptr_t data;
+  intptr_t data;
 
-    struct _LinkedListNode *next;
-    struct _LinkedListNode *prev;
+  struct _LinkedListNode *next;
+  struct _LinkedListNode *prev;
 } LinkedListNode;
 
 typedef struct _LinkedList {
-    struct _LinkedListNode *head;
-    struct _LinkedListNode *tail;
+  struct _LinkedListNode *head;
+  struct _LinkedListNode *tail;
 } LinkedList;
 
 LinkedListNode *addNodeToListHead(LinkedList *list, LinkedListNode *node);
 LinkedListNode *addNodeToListTail(LinkedList *list, LinkedListNode *node);
 LinkedListNode *removeNodeFromList(LinkedList *list, LinkedListNode *node);
 
-unsigned countLines(FILE* file);
+unsigned countLines(FILE *file);
 
 int isTerminal(FILE *stream);
 
-extern int snprintf (char *__s, size_t __maxlen, const char *__format, ...);
-extern char *strndup (const char *__string, size_t __n);
+extern int snprintf(char *__s, size_t __maxlen, const char *__format, ...);
+extern char *strndup(const char *__string, size_t __n);
 
 typedef struct {
   char *ptr;
@@ -80,7 +82,6 @@ typedef struct {
 } StringBuffer;
 
 void putSymbol(StringBuffer *b, char c);
-
 
 typedef struct {
   size_t size;
@@ -105,6 +106,7 @@ void copyBitSet(const BitSet *src, BitSet *dst);
 int compareBitSets(const BitSet *lhs, const BitSet *rhs);
 Boolean isEmptyBitSet(const BitSet *bs);
 size_t countBits(const BitSet *bs);
+void printBitSet(FILE *stream, const BitSet *bs);
 
 unsigned countLinesInBuffer(const char *buffer);
 char *readFileToBuffer(const char *fileName, size_t *bufferSize);
