@@ -1,0 +1,54 @@
+--- Phase: scp ---
+Function 'switch_merge'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   p:2|sel = %8
+   l:3|r = %12
+   r:-1|<ret_slot> = %11
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %26 = IR_DEF_CONST () [kind = integer, v = 1, id = 2]
+  %13 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %9 = IR_P_REG () [preg = $2]
+  %46 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #3, strict dom #3
+
+  %44 = IR_RET (%41) []
+
+BB #2, '<FIRST>', <- #0, -> #5 #6 #7 #4, strict dom #0, dominatees [#3, #4, #5, #6, #7]
+
+  %16 = IR_TBRANCH (%9) [TABLE_SIZE = 3, default = #4]
+
+BB #3, '<switch_exit>', <- #5 #6 #7 #4, -> #1, strict dom #2, dominatees [#1]
+
+  %47 = IR_PHI ([%20, #5], [%27, #6], [%32, #7], [%13, #4]) [var = r]
+  %40 = IR_E_ADD (%3, %6) []
+  %41 = IR_E_ADD (%47, %40) []
+  %43 = IR_BRANCH () [target = #1]
+
+BB #4, '<default_case>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %36 = IR_BRANCH () [target = #3]
+
+BB #5, '<case_block>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %20 = IR_E_ADD (%3, %6) []
+  %22 = IR_BRANCH () [target = #3]
+
+BB #6, '<case_block>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %25 = IR_E_ADD (%3, %6) []
+  %27 = IR_E_ADD (%25, %26) []
+  %29 = IR_BRANCH () [target = #3]
+
+BB #7, '<case_block>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %32 = IR_E_SUB (%3, %6) []
+  %34 = IR_BRANCH () [target = #3]
+
+

@@ -1,0 +1,32 @@
+--- Phase: scp ---
+Function 'struct_fields'
+Locals:
+   p:0|p = %2
+   p:1|k = %5
+   l:2|b = %17
+   l:3|a = %9
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %11 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %31 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %29 = IR_RET (%26) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %12 = IR_GET_ELEMENT_PTR (%3, %11) [underlying type = signed int, member = x]
+  %13 = IR_M_LOAD (%12) [load type = I32]
+  %15 = IR_E_ADD (%13, %6) []
+  %19 = IR_GET_ELEMENT_PTR (%3, %11) [underlying type = signed int, member = x]
+  %20 = IR_M_LOAD (%19) [load type = I32]
+  %22 = IR_E_ADD (%20, %6) []
+  %26 = IR_E_ADD (%15, %22) []
+  %28 = IR_BRANCH () [target = #1]
+
+

@@ -107,6 +107,11 @@ if(BUILD_TESTING)
   # Compares '-irDump:ssa' output against golden dumps, isolating buildSSA
   # from scp/gvn/dce (see test/testRunner.py's runIrTest).
   educc_add_test(ir_ssa ir/ssa ir 60 ssa)
+  # The same fixtures one pass earlier: '-irDump:scp' is the IR the gvn pass
+  # is handed, so this suite both covers sparse constant propagation (which
+  # had no fixtures of its own) and keeps the gvn baselines honest about what
+  # they inherited rather than folded themselves.
+  educc_add_test(ir_scp ir/gvn ir 60 scp)
   # Compares '-irDump:gvn' output (IR right after the gvn pass, before dce
   # sweeps the replaced instructions) against golden dumps.
   educc_add_test(ir_gvn ir/gvn ir 60 gvn)

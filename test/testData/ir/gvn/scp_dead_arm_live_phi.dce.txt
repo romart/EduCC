@@ -1,0 +1,44 @@
+--- Phase: dce ---
+Function 'scp_dead_arm_live_phi'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   p:2|flag = %8
+   l:3|x = %12
+   r:-1|<ret_slot> = %11
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %14 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %9 = IR_P_REG () [preg = $2]
+  %34 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #6, strict dom #6
+
+  %32 = IR_RET (%37) []
+
+BB #2, '<FIRST>', <- #0, -> #4 #5, strict dom #0, dominatees [#3, #4, #5]
+
+  %15 = IR_E_GT (%9, %14) []
+  %16 = IR_CBRANCH (%15) [taken = #4, non taken = #5]
+
+BB #3, '<if_exit>', <- #4 #5, -> #6, strict dom #2, dominatees [#6]
+
+  %37 = IR_PHI ([%3, #4], [%6, #5]) [var = x]
+  %44 = IR_BRANCH () [target = #6]
+
+BB #4, '<if_then>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %19 = IR_BRANCH () [target = #3]
+
+BB #5, '<if_else>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %22 = IR_BRANCH () [target = #3]
+
+BB #6, '<if_exit>', <- #3, -> #1, strict dom #3, dominatees [#1]
+
+  %31 = IR_BRANCH () [target = #1]
+
+

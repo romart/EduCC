@@ -1,0 +1,54 @@
+--- Phase: scp ---
+Function 'first_fn'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   l:2|y = %14
+   l:3|x = %9
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %26 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %24 = IR_RET (%21) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %12 = IR_E_ADD (%3, %6) []
+  %17 = IR_E_ADD (%3, %6) []
+  %21 = IR_E_ADD (%12, %17) []
+  %23 = IR_BRANCH () [target = #1]
+
+
+--- Phase: scp ---
+Function 'second_fn'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   l:2|y = %14
+   l:3|x = %9
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %26 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %24 = IR_RET (%21) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %12 = IR_E_ADD (%3, %6) []
+  %17 = IR_E_ADD (%3, %6) []
+  %21 = IR_E_ADD (%12, %17) []
+  %23 = IR_BRANCH () [target = #1]
+
+

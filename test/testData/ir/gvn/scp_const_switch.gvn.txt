@@ -1,0 +1,50 @@
+--- Phase: gvn ---
+Function 'scp_const_switch'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   l:2|r = %12
+   l:3|sel = %9
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %13 = IR_DEF_CONST () [kind = integer, v = 0, id = 2]
+  %10 = IR_DEF_CONST () [kind = integer, v = 2, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %40 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #3, strict dom #3
+
+  %38 = IR_RET (%41) []
+
+BB #2, '<FIRST>', <- #0, -> #7, strict dom #0, dominatees [#3, #4, #5, #6, #7]
+
+  %48 = IR_BRANCH () [target = #7]
+
+BB #3, '<switch_exit>', <- #5 #6 #7 #4, -> #1, strict dom #2, dominatees [#1]
+
+  %41 = IR_PHI ([%20, #5], [%25, #6], [%30, #7], [%13, #4]) [var = r]
+  %37 = IR_BRANCH () [target = #1]
+
+BB #4, '<default_case>', -> #3, strict dom #2, domination frontier [#3]
+
+  %34 = IR_BRANCH () [target = #3]
+
+BB #5, '<case_block>', -> #3, strict dom #2, domination frontier [#3]
+
+  %20 = IR_E_ADD (%3, %6) []
+  %22 = IR_BRANCH () [target = #3]
+
+BB #6, '<case_block>', -> #3, strict dom #2, domination frontier [#3]
+
+  %25 = IR_E_SUB (%3, %6) []
+  %27 = IR_BRANCH () [target = #3]
+
+BB #7, '<case_block>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %30 = IR_E_MUL (%3, %6) []
+  %32 = IR_BRANCH () [target = #3]
+
+

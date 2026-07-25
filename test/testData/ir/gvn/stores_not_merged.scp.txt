@@ -1,0 +1,23 @@
+--- Phase: scp ---
+Function 'stores_not_merged'
+Locals:
+   p:0|p = %2
+   p:1|v = %5
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %16 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %15 = IR_RET () []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %10 = IR_M_STORE (%3, %6) [store type = I32]
+  %13 = IR_M_STORE (%3, %6) [store type = I32]
+  %14 = IR_BRANCH () [target = #1]
+
+

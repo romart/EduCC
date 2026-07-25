@@ -1,0 +1,36 @@
+--- Phase: gvn ---
+Function 'scp_phi_same_const'
+Locals:
+   p:0|flag = %2
+   l:1|x = %6
+   r:-1|<ret_slot> = %5
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %11 = IR_DEF_CONST () [kind = integer, v = 7, id = 2]
+  %8 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %21 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #3, strict dom #3
+
+  %19 = IR_RET (%11) []
+
+BB #2, '<FIRST>', <- #0, -> #4 #5, strict dom #0, dominatees [#3, #4, #5]
+
+  %9 = IR_E_GT (%3, %8) []
+  %10 = IR_CBRANCH (%9) [taken = #4, non taken = #5]
+
+BB #3, '<if_exit>', <- #4 #5, -> #1, strict dom #2, dominatees [#1]
+
+  %18 = IR_BRANCH () [target = #1]
+
+BB #4, '<if_then>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %13 = IR_BRANCH () [target = #3]
+
+BB #5, '<if_else>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %15 = IR_BRANCH () [target = #3]
+
+

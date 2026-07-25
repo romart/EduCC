@@ -1,0 +1,44 @@
+--- Phase: dce ---
+Function 'scp_loop_const'
+Locals:
+   p:0|n = %2
+   l:1|i = %9
+   l:2|acc = %6
+   r:-1|<ret_slot> = %5
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %41 = IR_DEF_CONST () [kind = integer, v = 6, id = 5]
+  %23 = IR_DEF_CONST () [kind = integer, v = 1, id = 4]
+  %18 = IR_DEF_CONST () [kind = integer, v = 3, id = 3]
+  %17 = IR_DEF_CONST () [kind = integer, v = 2, id = 2]
+  %7 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %32 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #5, strict dom #5
+
+  %30 = IR_RET (%33) []
+
+BB #2, '<FIRST>', <- #0, -> #3, strict dom #0, dominatees [#3]
+
+  %11 = IR_BRANCH () [target = #3]
+
+BB #3, '<while_head>', <- #2 #4, -> #4 #5, strict dom #2, domination frontier [#3], dominatees [#4, #5]
+
+  %35 = IR_PHI ([%7, #2], [%24, #4]) [var = i]
+  %33 = IR_PHI ([%7, #2], [%20, #4]) [var = acc]
+  %14 = IR_E_LT (%35, %3) []
+  %15 = IR_CBRANCH (%14) [taken = #4, non taken = #5]
+
+BB #4, '<while_body>', <- #3, -> #3, strict dom #3, domination frontier [#3]
+
+  %20 = IR_E_ADD (%33, %41) []
+  %24 = IR_E_ADD (%35, %23) []
+  %26 = IR_BRANCH () [target = #3]
+
+BB #5, '<while_exit>', <- #3, -> #1, strict dom #3, dominatees [#1]
+
+  %29 = IR_BRANCH () [target = #1]
+
+

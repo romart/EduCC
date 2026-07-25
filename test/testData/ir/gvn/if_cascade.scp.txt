@@ -1,0 +1,73 @@
+--- Phase: scp ---
+Function 'if_cascade'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   p:2|k = %8
+   l:3|r = %12
+   r:-1|<ret_slot> = %11
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %35 = IR_DEF_CONST () [kind = integer, v = 3, id = 4]
+  %25 = IR_DEF_CONST () [kind = integer, v = 2, id = 3]
+  %16 = IR_DEF_CONST () [kind = integer, v = 1, id = 2]
+  %13 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %9 = IR_P_REG () [preg = $2]
+  %54 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #3, strict dom #3
+
+  %52 = IR_RET (%49) []
+
+BB #2, '<FIRST>', <- #0, -> #4 #5, strict dom #0, dominatees [#3, #4, #5]
+
+  %17 = IR_E_EQ (%9, %16) []
+  %18 = IR_CBRANCH (%17) [taken = #4, non taken = #5]
+
+BB #3, '<if_exit>', <- #4 #6, -> #1, strict dom #2, dominatees [#1]
+
+  %59 = IR_PHI ([%21, #4], [%57, #6]) [var = r]
+  %48 = IR_E_ADD (%3, %6) []
+  %49 = IR_E_ADD (%59, %48) []
+  %51 = IR_BRANCH () [target = #1]
+
+BB #4, '<if_then>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %21 = IR_E_ADD (%3, %6) []
+  %23 = IR_BRANCH () [target = #3]
+
+BB #5, '<if_else>', <- #2, -> #7 #8, strict dom #2, domination frontier [#3], dominatees [#6, #7, #8]
+
+  %26 = IR_E_EQ (%9, %25) []
+  %27 = IR_CBRANCH (%26) [taken = #7, non taken = #8]
+
+BB #6, '<if_exit>', <- #7 #9, -> #3, strict dom #5, domination frontier [#3]
+
+  %57 = IR_PHI ([%31, #7], [%55, #9]) [var = r]
+  %44 = IR_BRANCH () [target = #3]
+
+BB #7, '<if_then>', <- #5, -> #6, strict dom #5, domination frontier [#6]
+
+  %30 = IR_E_ADD (%3, %6) []
+  %31 = IR_E_MUL (%30, %25) []
+  %33 = IR_BRANCH () [target = #6]
+
+BB #8, '<if_else>', <- #5, -> #10 #9, strict dom #5, domination frontier [#6], dominatees [#9, #10]
+
+  %36 = IR_E_EQ (%9, %35) []
+  %37 = IR_CBRANCH (%36) [taken = #10, non taken = #9]
+
+BB #9, '<if_exit>', <- #8 #10, -> #6, strict dom #8, domination frontier [#6]
+
+  %55 = IR_PHI ([%13, #8], [%40, #10]) [var = r]
+  %43 = IR_BRANCH () [target = #6]
+
+BB #10, '<if_then>', <- #8, -> #9, strict dom #8, domination frontier [#9]
+
+  %40 = IR_E_ADD (%6, %3) []
+  %42 = IR_BRANCH () [target = #9]
+
+

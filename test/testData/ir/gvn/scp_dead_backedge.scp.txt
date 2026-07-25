@@ -1,0 +1,51 @@
+--- Phase: scp ---
+Function 'scp_dead_backedge'
+Locals:
+   p:0|a = %2
+   p:1|n = %5
+   l:2|i = %12
+   l:3|sum = %9
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %20 = IR_DEF_CONST () [kind = integer, v = 1, id = 2]
+  %10 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %35 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #5, strict dom #5
+
+  %33 = IR_RET (%36) []
+
+BB #2, '<FIRST>', <- #0, -> #3, strict dom #0, dominatees [#3]
+
+  %14 = IR_BRANCH () [target = #3]
+
+BB #3, '<while_head>', <- #2 #7 #6, -> #4 #5, strict dom #2, domination frontier [#3], dominatees [#4, #5]
+
+  %38 = IR_PHI ([%10, #2], [%21, #7], [%21, #6]) [var = i]
+  %36 = IR_PHI ([%10, #2], [%36, #7], [%27, #6]) [var = sum]
+  %17 = IR_E_LT (%38, %6) []
+  %18 = IR_CBRANCH (%17) [taken = #4, non taken = #5]
+
+BB #4, '<while_body>', <- #3, -> #6, strict dom #3, domination frontier [#3], dominatees [#6, #7]
+
+  %21 = IR_E_ADD (%38, %20) []
+  %45 = IR_BRANCH () [target = #6]
+
+BB #5, '<while_exit>', <- #3, -> #1, strict dom #3, dominatees [#1]
+
+  %32 = IR_BRANCH () [target = #1]
+
+BB #6, '<if_exit>', <- #4, -> #3, strict dom #4, domination frontier [#3]
+
+  %27 = IR_E_ADD (%36, %3) []
+  %29 = IR_BRANCH () [target = #3]
+
+BB #7, '<if_then>', -> #3, strict dom #4, domination frontier [#3]
+
+  %24 = IR_BRANCH () [target = #3]
+
+

@@ -1,0 +1,34 @@
+--- Phase: scp ---
+Function 'dce_unreachable'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %34 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #4 #3, strict dom #2
+
+  %35 = IR_PHI ([%15, #4], [%20, #3]) []
+  %32 = IR_RET (%35) []
+
+BB #2, '<FIRST>', <- #0, -> #4 #3, strict dom #0, dominatees [#1, #3, #4]
+
+  %11 = IR_E_GT (%3, %6) []
+  %12 = IR_CBRANCH (%11) [taken = #4, non taken = #3]
+
+BB #3, '<if_exit>', <- #2, -> #1, strict dom #2, domination frontier [#1]
+
+  %20 = IR_E_SUB (%3, %6) []
+  %22 = IR_BRANCH () [target = #1]
+
+BB #4, '<if_then>', <- #2, -> #1, strict dom #2, domination frontier [#1]
+
+  %15 = IR_E_ADD (%3, %6) []
+  %17 = IR_BRANCH () [target = #1]
+
+

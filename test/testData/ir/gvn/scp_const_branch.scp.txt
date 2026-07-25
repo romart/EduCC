@@ -1,0 +1,37 @@
+--- Phase: scp ---
+Function 'scp_const_branch'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   l:2|k = %9
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %35 = IR_DEF_CONST () [kind = integer, v = 0, id = 3]
+  %13 = IR_DEF_CONST () [kind = integer, v = 10, id = 2]
+  %10 = IR_DEF_CONST () [kind = integer, v = 5, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %28 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #4 #3, strict dom #2
+
+  %29 = IR_PHI ([%18, #4], [%23, #3]) []
+  %26 = IR_RET (%29) []
+
+BB #2, '<FIRST>', <- #0, -> #3, strict dom #0, dominatees [#1, #3, #4]
+
+  %36 = IR_BRANCH () [target = #3]
+
+BB #3, '<if_exit>', <- #2, -> #1, strict dom #2, domination frontier [#1]
+
+  %23 = IR_E_SUB (%3, %6) []
+  %25 = IR_BRANCH () [target = #1]
+
+BB #4, '<if_then>', -> #1, strict dom #2, domination frontier [#1]
+
+  %18 = IR_E_ADD (%3, %6) []
+  %20 = IR_BRANCH () [target = #1]
+
+

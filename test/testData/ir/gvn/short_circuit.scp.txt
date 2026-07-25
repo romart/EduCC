@@ -1,0 +1,51 @@
+--- Phase: scp ---
+Function 'short_circuit'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   p:2|flag = %8
+   l:3|r = %12
+   r:-1|<ret_slot> = %11
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %21 = IR_DEF_CONST () [kind = integer, v = 10, id = 2]
+  %13 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %9 = IR_P_REG () [preg = $2]
+  %40 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #3, strict dom #3
+
+  %38 = IR_RET (%35) []
+
+BB #2, '<FIRST>', <- #0, -> #5 #6, strict dom #0, dominatees [#5, #6]
+
+  %16 = IR_E_GT (%9, %13) []
+  %17 = IR_CBRANCH (%16) [taken = #5, non taken = #6]
+
+BB #3, '<if_exit>', <- #6 #4, -> #1, strict dom #6, dominatees [#1]
+
+  %41 = IR_PHI ([%13, #6], [%28, #4]) [var = r]
+  %34 = IR_E_ADD (%3, %6) []
+  %35 = IR_E_ADD (%41, %34) []
+  %37 = IR_BRANCH () [target = #1]
+
+BB #4, '<if_then>', <- #6, -> #3, strict dom #6, domination frontier [#3]
+
+  %28 = IR_E_ADD (%3, %6) []
+  %30 = IR_BRANCH () [target = #3]
+
+BB #5, '< && >', <- #2, -> #6, strict dom #2, domination frontier [#6]
+
+  %20 = IR_E_ADD (%3, %6) []
+  %22 = IR_E_GT (%20, %21) []
+  %23 = IR_BRANCH () [target = #6]
+
+BB #6, '< &&-exit>', <- #2 #5, -> #4 #3, strict dom #2, dominatees [#3, #4]
+
+  %24 = IR_PHI ([%16, #2], [%22, #5]) []
+  %25 = IR_CBRANCH (%24) [taken = #4, non taken = #3]
+
+

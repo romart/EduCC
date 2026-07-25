@@ -1,0 +1,32 @@
+--- Phase: dce ---
+Function 'scp_dead_region'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   p:2|c = %8
+   l:3|x = %12
+   r:-1|<ret_slot> = %11
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %33 = IR_DEF_CONST () [kind = integer, v = 1, id = 2]
+  %17 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %9 = IR_P_REG () [preg = $2]
+  %42 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #3, strict dom #3
+
+  %40 = IR_RET (%15) []
+
+BB #2, '<FIRST>', <- #0, -> #3, strict dom #0, dominatees [#3]
+
+  %15 = IR_E_SUB (%3, %6) []
+  %52 = IR_BRANCH () [target = #3]
+
+BB #3, '<if_exit>', <- #2, -> #1, strict dom #2, dominatees [#1]
+
+  %39 = IR_BRANCH () [target = #1]
+
+

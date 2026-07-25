@@ -1,0 +1,35 @@
+--- Phase: dce ---
+Function 'scp_const_switch'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   l:2|r = %12
+   l:3|sel = %9
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %13 = IR_DEF_CONST () [kind = integer, v = 0, id = 2]
+  %10 = IR_DEF_CONST () [kind = integer, v = 2, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %40 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #3, strict dom #3
+
+  %38 = IR_RET (%30) []
+
+BB #2, '<FIRST>', <- #0, -> #7, strict dom #0, dominatees [#3, #7]
+
+  %48 = IR_BRANCH () [target = #7]
+
+BB #3, '<switch_exit>', <- #7, -> #1, strict dom #2, dominatees [#1]
+
+  %37 = IR_BRANCH () [target = #1]
+
+BB #7, '<case_block>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %30 = IR_E_MUL (%3, %6) []
+  %32 = IR_BRANCH () [target = #3]
+
+

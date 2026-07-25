@@ -1,0 +1,29 @@
+--- Phase: scp ---
+Function 'dce_side_effects'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   l:2|alsoUnused = %23
+   l:3|kept = %18
+   l:4|unused = %9
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %25 = IR_DEF_CONST () [kind = integer, v = 2, id = 2]
+  %19 = IR_DEF_CONST () [kind = symbol, name = sink, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %35 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %33 = IR_RET (%30) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %20 = IR_CALL (%19, %3) [size = 0]
+  %30 = IR_E_SUB (%3, %6) []
+  %32 = IR_BRANCH () [target = #1]
+
+
