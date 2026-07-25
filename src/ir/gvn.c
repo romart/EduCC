@@ -23,6 +23,10 @@ extern IrContext *ctx;
 // control flow) is assigned a fresh unique VN: loads are never merged since
 // there is no alias analysis yet, and side-effecting instructions must
 // never be merged at all.
+//
+// A second stage (pre(), below) then catches the redundancies dominance
+// cannot express: values (re)computed at a merge point that are available
+// along all - or, with edge insertion, some - of the incoming paths.
 
 static Boolean isPureInstr(const IrInstruction *i) {
   switch (i->kind) {
@@ -164,10 +168,33 @@ static int gvn_cmp(intptr_t a, intptr_t b) {
 
 
 typedef struct {
-  HashMap *table;  // GVNExpression* -> VN
-  Vector exprMap;  // VN -> leader IrInstruction*
+  HashMap *table;    // GVNExpression* -> VN
+  Vector exprMap;    // VN -> leader IrInstruction*
+  size_t liveExprs;  // number of keys currently held by 'table'
   Arena *arena;
 } VNTable;
+
+static void initVNTable(VNTable *vnt) {
+  vnt->arena = createArena("GVN Arena", DEFAULT_CHUNCK_SIZE);
+  vnt->table = createHashMap(DEFAULT_MAP_CAPACITY, &gvn_hash, &gvn_cmp);
+  vnt->liveExprs = 0;
+  initVector(&vnt->exprMap, ctx->instrCnt);
+}
+
+// Both stages number from scratch, but they can share the storage: the
+// expression arena and the table/vector buffers are kept, only the mapping
+// is dropped. The scoped walk removes every key it inserts as it unwinds,
+// so the table is already empty by the time the second stage starts.
+static void resetVNTable(VNTable *vnt) {
+  assert(vnt->liveExprs == 0);
+  clearVector(&vnt->exprMap);
+}
+
+static void releaseVNTable(VNTable *vnt) {
+  releaseHashMap(vnt->table);
+  releaseVector(&vnt->exprMap);
+  releaseArena(vnt->arena);
+}
 
 static int vn_cmp(const void *ap, const void *bp) {
   uint32_t a = *(uint32_t *)ap;
@@ -225,6 +252,51 @@ static uint32_t assignUniqueVN(VNTable *vnt, IrInstruction *i) {
   return vn;
 }
 
+// The value numbering step shared by both stages: gives 'instr' its value
+// number and records it in instr->algoIdx. Impure instructions always get a
+// fresh number of their own; a pure one gets the number of an equal
+// expression already in the table, or a fresh one if it is the first of its
+// kind - in which case it becomes that number's leader and, when 'key' is
+// requested, the inserted expression is handed back so the caller can scope
+// it out later.
+static uint32_t valueNumberInstruction(VNTable *vnt, IrInstruction *instr, GVNExpression **key) {
+  if (key != NULL) {
+    *key = NULL;
+  }
+
+  if (!isPureInstr(instr)) {
+    return instr->algoIdx = assignUniqueVN(vnt, instr);
+  }
+
+  GVNExpression *gvne = createGVNExpression(vnt, instr);
+  uint32_t newVN = vnt->exprMap.size;
+  uint32_t vn = putIfNotExistsToHashMap(vnt->table, (intptr_t)gvne, newVN);
+
+  if (vn == newVN) {
+    addInstructionToVector(&vnt->exprMap, instr);
+    vnt->liveExprs += 1;
+    if (key != NULL) {
+      *key = gvne;
+    }
+  }
+
+  return instr->algoIdx = vn;
+}
+
+static IrInstruction *leaderOf(const VNTable *vnt, uint32_t vn) {
+  return getInstructionFromVector(&vnt->exprMap, vn);
+}
+
+static void poisonAlgoIdx(IrFunction *func) {
+  // Unreachable blocks are not visited by the walks; poison every algoIdx
+  // so a stale value can never be mistaken for a valid VN.
+  for (IrBasicBlock *bb = func->blocks.head; bb != NULL; bb = bb->next) {
+    for (IrInstruction *i = bb->instrunctions.head; i != NULL; i = i->next) {
+      i->algoIdx = (uint32_t)-1;
+    }
+  }
+}
+
 static void gvnBlock(VNTable *vnt, IrBasicBlock *block) {
   // Expressions first defined in this block; popped from the table when its
   // dominator subtree is done so they are not visible to non-dominated blocks.
@@ -232,26 +304,20 @@ static void gvnBlock(VNTable *vnt, IrBasicBlock *block) {
   initVector(&scopeKeys, INITIAL_VECTOR_CAPACITY);
 
   for (IrInstruction *instr = block->instrunctions.head; instr != NULL; instr = instr->next) {
-    if (!isPureInstr(instr)) {
-      instr->algoIdx = assignUniqueVN(vnt, instr);
+    GVNExpression *gvne = NULL;
+    uint32_t vn = valueNumberInstruction(vnt, instr, &gvne);
+
+    if (gvne != NULL) {
+      // First occurrence along this dominator path - 'instr' is the leader,
+      // and its expression stays visible only within this subtree.
+      addToVector(&scopeKeys, (intptr_t)gvne);
       continue;
     }
 
-    GVNExpression *gvne = createGVNExpression(vnt, instr);
-    uint32_t newVN = vnt->exprMap.size;
-    uint32_t vn = putIfNotExistsToHashMap(vnt->table, (intptr_t)gvne, newVN);
-
-    if (vn == newVN) {
-      // First occurrence along this dominator path - becomes the leader.
-      addInstructionToVector(&vnt->exprMap, instr);
-      addToVector(&scopeKeys, (intptr_t)gvne);
-    } else {
-      IrInstruction *leader = getInstructionFromVector(&vnt->exprMap, vn);
-      assert(leader != instr);
+    IrInstruction *leader = leaderOf(vnt, vn);
+    if (leader != instr) {
       replaceUsageWith(instr, leader); // the dead instruction is left for dce
     }
-
-    instr->algoIdx = vn;
   }
 
   Vector *dominatees = &block->dominators.dominatees;
@@ -262,53 +328,45 @@ static void gvnBlock(VNTable *vnt, IrBasicBlock *block) {
   for (size_t idx = 0; idx < scopeKeys.size; ++idx) {
     removeFromHashMap(vnt->table, scopeKeys.storage[idx]);
   }
+  vnt->liveExprs -= scopeKeys.size;
 
   releaseVector(&scopeKeys);
 }
 
-void gvn(IrFunction *func) {
-  VNTable vnt = { 0 };
-  vnt.arena = createArena("GVN Arena", DEFAULT_CHUNCK_SIZE);
-  vnt.table = createHashMap(DEFAULT_MAP_CAPACITY, &gvn_hash, &gvn_cmp);
-  initVector(&vnt.exprMap, ctx->instrCnt);
+// -============================ PRE stage ============================-
+//
+// Partial redundancy elimination for merge points. The dominator walk
+// above cannot fold a computation at a join whose value is produced in
+// the joining branches (neither branch dominates the join). This stage
+// runs a *global* (unscoped) value numbering in reverse post order while
+// tracking, per block, which instruction carries each value number at the
+// block's exit (the AvailabilityMap). At a redundant instruction it then either
+//  - reuses a single representative that dominates the block, or
+//  - builds a phi over the per-predecessor representatives, cloning the
+//    computation into predecessors that miss it (classic PRE insertion).
+// Critical edges are split up front so an inserted clone executes exactly
+// when its edge is taken - never speculatively (which would be wrong for
+// trapping ops like division and wasteful for everything else).
+//
+// Loops are handled conservatively: a predecessor not yet processed in
+// RPO is a back edge, and no availability is assumed across it. In-loop
+// values available via dominance were already folded by the walk above;
+// hoisting genuinely loop-carried redundancies needs phi-translation
+// (full GVN-PRE anticipation), which is future work.
 
-  // Unreachable blocks are not visited by the walk; poison every algoIdx so
-  // a stale value can never be mistaken for a valid VN.
-  for (IrBasicBlock *bb = func->blocks.head; bb != NULL; bb = bb->next) {
-    for (IrInstruction *i = bb->instrunctions.head; i != NULL; i = i->next) {
-      i->algoIdx = (uint32_t)-1;
-    }
+static Boolean dominates(const IrBasicBlock *dom, const IrBasicBlock *block) {
+  const IrBasicBlock *cur = block;
+  while (cur != NULL) {
+    if (cur == dom)
+      return TRUE;
+
+    cur = cur->dominators.sdom;
   }
 
-  gvnBlock(&vnt, func->entry);
-
-  releaseHashMap(vnt.table);
-  releaseVector(&vnt.exprMap);
-  releaseArena(vnt.arena);
-
-  func->phases.gvn = 1;
+  return FALSE;
 }
 
-#if 0 // PRE draft, to be finished in a follow-up ("Phase B").
-      // Partial redundancy elimination on top of the value numbering above:
-      // split critical edges, compute expression availability, then insert
-      // computations on incoming edges + a phi where an expression is only
-      // partially available. Known issues to fix before enabling:
-      //  - computeAvailability(): 'changed' re-fires forever because OUT is
-      //    overwritten with IN and the gen bits are re-added every sweep;
-      //    compare the freshly computed OUT against the previous one instead.
-      //  - insertComputationOnIncommingEdge() inserts the clone into 'block'
-      //    (the merge point) instead of 'pred'.
-      //  - cloneInstruction() adds phi inputs to the original, not the copy.
-      //  - No check that the leader's inputs dominate the insertion point.
-      //  - updateDomTreeInfo(): idom of the split block is 'from', not
-      //    'to'-s old idom.
-      //  - The postorder must be (re)computed after splitCriticalEdges().
-
-static void computePostOrderImpl(IrBasicBlock *block, Vector *rpo_order, BitSet *visited) {
-  if (block->po != -1)
-    return;
-
+static void computePostOrderImpl(IrBasicBlock *block, Vector *po_order, BitSet *visited) {
   if (getBit(visited, block->id)) {
     return;
   }
@@ -318,24 +376,24 @@ static void computePostOrderImpl(IrBasicBlock *block, Vector *rpo_order, BitSet 
 
   for (size_t i = 0; i < succs->size; ++i) {
     IrBasicBlock *succ = getBlockFromVector(succs, i);
-    computePostOrderImpl(succ, rpo_order, visited);
+    computePostOrderImpl(succ, po_order, visited);
   }
 
-  block->po = rpo_order->size;
-  addBlockToVector(rpo_order, block);
+  block->po = po_order->size;
+  addBlockToVector(po_order, block);
 }
 
-static void computePostOrder(IrFunction *func, Vector *rpo_order) {
+static void computePostOrder(IrFunction *func, Vector *po_order) {
   for (IrBasicBlock *bb = func->blocks.head; bb != NULL; bb = bb->next) {
     bb->po = -1;
   }
 
   BitSet visited;
-  initBitSet(&visited, func->numOfBlocks);
+  initBitSet(&visited, ctx->bbCnt);
 
-  computePostOrderImpl(func->entry, rpo_order, &visited);
+  computePostOrderImpl(func->entry, po_order, &visited);
 
-  assert(rpo_order->size - 1 == func->entry->po);
+  assert(po_order->size - 1 == func->entry->po);
   releaseBitSet(&visited);
 }
 
@@ -372,22 +430,17 @@ static void updateTerminatorTarget(IrInstruction *term, IrBasicBlock *oldTarget,
 }
 
 static void updateDomTreeInfo(IrBasicBlock *from, IrBasicBlock *split, IrBasicBlock *to) {
+  // The split block's only predecessor is 'from', so 'from' is its idom.
+  split->dominators.sdom = from;
+  addBlockToVector(&from->dominators.dominatees, split);
 
-  IrBasicBlock *dom = to->dominators.sdom;
-  split->dominators.sdom = dom;
-  addBlockToVector(&dom->dominators.dominatees, split);
-
-  while (dom != NULL) {
-    Vector *df = &dom->dominators.dominationFrontier;
-    for (size_t i = 0; i < df->size; ++i) {
-      IrBasicBlock *bb = getBlockFromVector(df, i);
-      if (bb == to) {
-        addBlockToVector(df, split);
-        break;
-      }
-    }
-    dom = dom->dominators.sdom;
-  }
+  // 'to' keeps its other predecessors, so 'split' does not strictly
+  // dominate it: DF(split) = { to }. No other frontier changes: every
+  // block dominating 'from' strictly dominates 'split' (its only pred),
+  // so 'split' enters no frontier, and 'to'-s frontier memberships are
+  // unaffected because 'split' is dominated by exactly the dominators
+  // of 'from'.
+  addBlockToVector(&split->dominators.dominationFrontier, to);
 }
 
 static void splitCriticalEdge(IrInstruction *term, size_t succIdx) {
@@ -408,6 +461,9 @@ static void splitCriticalEdge(IrInstruction *term, size_t succIdx) {
 
   block->succs.storage[succIdx] = (intptr_t)newBB;
   preds->storage[pIdx] = (intptr_t)newBB;
+
+  addToVector(&newBB->preds, (intptr_t)block);
+  addToVector(&newBB->succs, (intptr_t)succ);
 
   IrInstruction *gotoI = newGotoInstruction(succ);
   addInstructionHead(newBB, gotoI);
@@ -433,6 +489,8 @@ static void splitCriticalEdges(IrFunction *func) {
     IrInstruction *terminator = block->term;
     assert(terminator != NULL);
 
+    // A computed goto's targets cannot be rewritten; leave its edges alone
+    // (pre() refuses to insert on them instead).
     if (terminator->kind == IR_IBRANCH)
       continue;
 
@@ -443,75 +501,6 @@ static void splitCriticalEdges(IrFunction *func) {
       }
     }
   }
-}
-
-static void computeAvailability(Vector *poOrder, VNTable *gvnTable, BitSet *availIns, BitSet *availOuts) {
-  Boolean changed = TRUE;
-
-  BitSet tmp;
-  initBitSet(&tmp, availIns[0].size);
-
-  while (changed) {
-    changed = FALSE;
-    for (size_t idx = poOrder->size - 1; idx != -1; --idx) {
-      IrBasicBlock *block = getBlockFromVector(poOrder, idx);
-      BitSet *oldIn = &availIns[block->id];
-      BitSet *oldOut = &availOuts[block->id];
-
-      if (block->preds.size == 0) {
-        clearAll(&tmp);
-      } else {
-        size_t idx = 0;
-        IrBasicBlock *pred = getBlockFromVector(&block->preds, idx);
-        copyBitSet(&availOuts[pred->id], &tmp);
-        for (; idx < block->preds.size; ++idx) {
-          pred = getBlockFromVector(&block->preds, idx);
-          intersectBitSets(&tmp, &availOuts[pred->id], &tmp);
-        }
-      }
-
-      if (compareBitSets(&tmp, oldIn) != 0) {
-        changed = TRUE;
-      }
-
-      copyBitSet(&tmp, oldIn);
-      copyBitSet(oldIn, oldOut);
-
-      for (IrInstruction *i = block->instrunctions.head; i != NULL; i = i->next) {
-        uint32_t vn = i->algoIdx;
-        if (!getBit(oldOut, vn)) {
-          setBit(oldOut, vn);
-          changed = TRUE;
-        }
-      }
-    }
-  }
-
-  releaseBitSet(&tmp);
-}
-
-static IrInstruction *cloneInstruction(IrInstruction *i) {
-  IrInstruction *copy = NULL;
-  if (i->kind == IR_PHI) {
-    copy = newPhiInstruction(i->type);
-    for (size_t idx = 0; idx < i->inputs.size; ++idx) {
-      IrInstruction *input = getInstructionFromVector(&i->inputs, idx);
-      IrBasicBlock *b = getBlockFromVector(&i->info.phi.phiBlocks, idx);
-      addPhiInput(i, input, b);
-    }
-  } else {
-    copy = newInstruction(i->kind, i->type);
-    for (size_t idx = 0; idx < i->inputs.size; ++idx) {
-      IrInstruction *input = getInstructionFromVector(&i->inputs, idx);
-      addInstructionInput(copy, input);
-    }
-    memcpy(&copy->info, &i->info, sizeof (i->info));
-  }
-
-  copy->astType = i->astType;
-  copy->meta = i->meta;
-
-  return copy;
 }
 
 static void insertBeforeTerm(IrBasicBlock *block, IrInstruction *i) {
@@ -536,53 +525,260 @@ static void insertBeforeTerm(IrBasicBlock *block, IrInstruction *i) {
   i->block = block;
 }
 
-static void insertComputationOnIncommingEdge(IrBasicBlock *block, uint32_t vn, IrInstruction *phiInstr, IrInstruction *other, IrBasicBlock *pred) {
-  IrInstruction *copy = cloneInstruction(other);
-  insertBeforeTerm(block, copy);
-  copy->algoIdx = vn;
-  addPhiInput(phiInstr, copy, pred);
+static IrInstruction *clonePureInstruction(IrInstruction *i) {
+  assert(isPureInstr(i));
+  assert(i->kind != IR_PHI);
+
+  IrInstruction *copy = newInstruction(i->kind, i->type);
+  for (size_t idx = 0; idx < i->inputs.size; ++idx) {
+    IrInstruction *input = getInstructionFromVector(&i->inputs, idx);
+    addInstructionInput(copy, input);
+  }
+  memcpy(&copy->info, &i->info, sizeof (i->info));
+
+  copy->astType = i->astType;
+  copy->meta = i->meta;
+
+  return copy;
 }
 
-static void removePartialRedundancy(IrFunction *func, BitSet *availIn, BitSet *availOut, VNTable *gvnTable) {
-  BitSet removeMark = { 0 };
-  initBitSet(&removeMark, ctx->instrCnt);
+// Cloning 'i' into a predecessor of 'block' is only sound if every input
+// strictly dominates 'block': such a def dominates every predecessor as
+// well (any path to a pred extends to a path to 'block' by one edge, so it
+// must already contain the def), and its SSA value at the predecessor's
+// exit is the very value 'i' would use. An input defined in 'block' itself
+// (e.g. one of its phis) would need phi-translation - refuse instead.
+static Boolean inputsStrictlyDominate(const IrInstruction *i, const IrBasicBlock *block) {
+  for (size_t idx = 0; idx < i->inputs.size; ++idx) {
+    IrInstruction *input = getInstructionFromVector(&i->inputs, idx);
+    if (input->block == block || !dominates(input->block, block))
+      return FALSE;
+  }
+  return TRUE;
+}
 
-  for (IrBasicBlock *block = func->blocks.head; block != NULL; block = block->next) {
-    BitSet *aIn = &availIn[block->id];
-    BitSet *aOut = &availOut[block->id];
+// rows[b][v] is the instruction carrying VN v at the exit of block b, whose
+// definition dominates that exit; NULL when the value is unavailable there.
+// A whole row is NULL until its block has been processed, so an incoming
+// edge from a NULL row is exactly a back edge.
+typedef struct {
+  IrInstruction ***rows;
+  size_t blockCap;
+  size_t vnCap;
+} AvailabilityMap;
 
-    for (IrInstruction *i = block->instrunctions.head; i != NULL; i = i->next) {
+static void initAvailabilityMap(AvailabilityMap *am) {
+  // Only instructions existing when the walk starts get numbered (phis and
+  // clones inserted along the way reuse the VN of the instruction they stand
+  // for), so every VN a row is indexed by stays below vnCap.
+  am->blockCap = ctx->bbCnt;
+  am->vnCap = ctx->instrCnt;
+  am->rows = heapAllocate(am->blockCap * sizeof (IrInstruction **));
+}
 
-      uint32_t vn = i->algoIdx;
-      IrInstruction *other = getInstructionFromVector(&gvnTable->exprMap, vn);
-      if (i == other) {
-        continue;
+static void releaseAvailabilityMap(AvailabilityMap *am) {
+  for (size_t b = 0; b < am->blockCap; ++b) {
+    if (am->rows[b] != NULL) {
+      releaseHeap(am->rows[b]);
+    }
+  }
+  releaseHeap(am->rows);
+}
+
+static IrInstruction **newAvailabilityRow(const AvailabilityMap *am) {
+  return heapAllocate(am->vnCap * sizeof (IrInstruction *));
+}
+
+// A block's row becomes visible only once the block is fully processed, so
+// that a block cannot read a half-filled row of its own through a self edge.
+static void publishAvailability(AvailabilityMap *am, const IrBasicBlock *block, IrInstruction **row) {
+  assert(am->rows[block->id] == NULL);
+  am->rows[block->id] = row;
+}
+
+static Boolean isProcessed(const AvailabilityMap *am, const IrBasicBlock *block) {
+  return am->rows[block->id] != NULL;
+}
+
+static IrInstruction *availableAtExit(const AvailabilityMap *am, const IrBasicBlock *block, uint32_t vn) {
+  assert(isProcessed(am, block));
+  return am->rows[block->id][vn];
+}
+
+static void setAvailableAtExit(AvailabilityMap *am, const IrBasicBlock *block, uint32_t vn, IrInstruction *i) {
+  assert(isProcessed(am, block));
+  am->rows[block->id][vn] = i;
+}
+
+// The entry block, and any loop header reached from its own latch, has a
+// predecessor the reverse post order has not visited yet; nothing is known
+// about availability across such an edge.
+static Boolean allPredecessorsProcessed(const AvailabilityMap *am, const IrBasicBlock *block) {
+  if (block->preds.size == 0)
+    return FALSE;
+
+  for (size_t pi = 0; pi < block->preds.size; ++pi) {
+    if (!isProcessed(am, getBlockFromVector(&block->preds, pi)))
+      return FALSE;
+  }
+
+  return TRUE;
+}
+
+// Values reaching 'block' through one and the same representative on every
+// incoming edge are available on entry: that single definition dominates the
+// block. Values reaching it through *differing* representatives need a phi,
+// and those are materialized lazily - only when a redundant instruction
+// actually asks for one.
+static void seedAvailableOnEntry(const AvailabilityMap *am, const IrBasicBlock *block, IrInstruction **row) {
+  const Vector *preds = &block->preds;
+  const IrBasicBlock *first = getBlockFromVector(preds, 0);
+
+  for (size_t vn = 0; vn < am->vnCap; ++vn) {
+    IrInstruction *rep = availableAtExit(am, first, vn);
+    for (size_t pi = 1; rep != NULL && pi < preds->size; ++pi) {
+      if (availableAtExit(am, getBlockFromVector(preds, pi), vn) != rep) {
+        rep = NULL;
       }
+    }
+    row[vn] = rep;
+  }
+}
 
-      if (getBit(aIn, vn)) {
-        replaceUsageWith(i, other);
-        setBit(&removeMark, i->id);
-        continue;
-      }
+// Whether the value 'instr' recomputes at merge point 'block' can be taken
+// from the incoming edges instead. Fully redundant (every predecessor
+// carries it) is always worth a phi; partially redundant additionally needs
+// the missing predecessors to accept a clone - sound only on an edge that
+// leads nowhere else, and only when the clone's inputs reach it.
+static Boolean canObtainFromPredecessors(const AvailabilityMap *am, const IrBasicBlock *block,
+                                         const IrInstruction *instr, uint32_t vn) {
+  const Vector *preds = &block->preds;
+  size_t carried = 0;
+  Boolean insertable = TRUE;
 
-      Vector *preds = &block->preds;
-      IrInstruction *phiInstr = newPhiInstruction(i->type);
-      for (size_t idx = 0; idx < preds->size; ++idx) {
-        IrBasicBlock *pred = getBlockFromVector(preds, idx);
-        BitSet *pOut = &availOut[pred->id];
-        if (!getBit(pOut, vn)) {
-          insertComputationOnIncommingEdge(block, vn, phiInstr, other, pred);
-        } else {
-          addPhiInput(phiInstr, other, pred);
-        }
-      }
-      addInstructionHead(block, phiInstr);
-      replaceUsageWith(i, phiInstr);
-      setBit(&removeMark, i->id);
+  for (size_t pi = 0; pi < preds->size; ++pi) {
+    const IrBasicBlock *pred = getBlockFromVector(preds, pi);
+    if (availableAtExit(am, pred, vn) != NULL) {
+      carried += 1;
+    } else if (pred->succs.size != 1) {
+      // Unsplit (IBRANCH) edge - a clone there would execute speculatively.
+      insertable = FALSE;
     }
   }
 
-  releaseBitSet(&removeMark);
+  if (carried == preds->size)
+    return TRUE;
+
+  return carried != 0 && insertable && inputsStrictlyDominate(instr, block);
 }
 
-#endif // PRE draft
+// Materializes a representative of 'vn' at the head of 'block' by phi-ing
+// the per-predecessor representatives together, cloning 'instr' into the
+// predecessors that carry none. Returns the phi, which supersedes 'instr'.
+static IrInstruction *insertPhiForValue(AvailabilityMap *am, IrBasicBlock *block,
+                                        IrInstruction *instr, uint32_t vn) {
+  const Vector *preds = &block->preds;
+  IrInstruction *phiInstr = newPhiInstruction(instr->type);
+  phiInstr->astType = instr->astType;
+  phiInstr->meta = instr->meta;
+
+  for (size_t pi = 0; pi < preds->size; ++pi) {
+    IrBasicBlock *pred = getBlockFromVector(preds, pi);
+    IrInstruction *rep = availableAtExit(am, pred, vn);
+    if (rep == NULL) {
+      rep = clonePureInstruction(instr);
+      insertBeforeTerm(pred, rep);
+      rep->algoIdx = vn;
+      setAvailableAtExit(am, pred, vn, rep);
+    }
+    addPhiInput(phiInstr, rep, pred);
+  }
+
+  addInstructionHead(block, phiInstr);
+  phiInstr->algoIdx = vn;
+  replaceUsageWith(instr, phiInstr); // the dead instruction is left for dce
+
+  return phiInstr;
+}
+
+static void preBlock(VNTable *vnt, AvailabilityMap *am, IrBasicBlock *block) {
+  IrInstruction **row = newAvailabilityRow(am);
+  Boolean predsKnown = allPredecessorsProcessed(am, block);
+
+  if (predsKnown) {
+    seedAvailableOnEntry(am, block, row);
+  }
+
+  // Only a join of several known paths can hold a redundancy that dominance
+  // missed - anywhere else there is nothing to phi over.
+  Boolean isKnownMerge = predsKnown && block->preds.size >= 2;
+
+  for (IrInstruction *instr = block->instrunctions.head; instr != NULL; instr = instr->next) {
+    uint32_t vn = valueNumberInstruction(vnt, instr, NULL);
+
+    // Side effecting instructions are never reused and never cloned; their
+    // unique value number stays unavailable to everyone.
+    if (!isPureInstr(instr))
+      continue;
+
+    assert(vn < am->vnCap);
+
+    if (row[vn] != NULL) {
+      if (row[vn] != instr && instr->uses.size != 0) {
+        replaceUsageWith(instr, row[vn]);
+      }
+      continue;
+    }
+
+    // No representative dominates this point, but at a merge the value may
+    // still be available across the incoming edges - fully, or partially
+    // once the computation is cloned into the paths that miss it.
+    if (isKnownMerge && instr->uses.size != 0 && instr->inputs.size != 0 &&
+        canObtainFromPredecessors(am, block, instr, vn)) {
+      row[vn] = insertPhiForValue(am, block, instr, vn);
+    } else {
+      row[vn] = instr;
+    }
+  }
+
+  publishAvailability(am, block, row);
+}
+
+static void pre(VNTable *vnt, IrFunction *func) {
+  splitCriticalEdges(func);
+
+  Vector poOrder = { 0 };
+  initVector(&poOrder, func->numOfBlocks);
+  computePostOrder(func, &poOrder);
+
+  AvailabilityMap am;
+  initAvailabilityMap(&am);
+
+  // Reverse post order: a block is processed only after every predecessor
+  // that is not a back edge, so their availability is already known.
+  for (size_t idx = poOrder.size - 1; idx != -1; --idx) {
+    preBlock(vnt, &am, getBlockFromVector(&poOrder, idx));
+  }
+
+  releaseAvailabilityMap(&am);
+  releaseVector(&poOrder);
+}
+
+void gvn(IrFunction *func) {
+  VNTable vnt;
+  initVNTable(&vnt);
+
+  // Stage one: fold what dominance alone can express.
+  poisonAlgoIdx(func);
+  gvnBlock(&vnt, func->entry);
+
+  // Stage two: the merge points dominance cannot reach. It renumbers from
+  // scratch, globally rather than scoped, but on the same storage.
+  resetVNTable(&vnt);
+  poisonAlgoIdx(func);
+  pre(&vnt, func);
+
+  releaseVNTable(&vnt);
+
+  func->phases.gvn = 1;
+}

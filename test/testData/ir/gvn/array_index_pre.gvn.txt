@@ -1,0 +1,52 @@
+--- Phase: gvn ---
+Function 'array_index_pre'
+Locals:
+   p:0|arr = %2
+   p:1|k = %5
+   p:2|flag = %8
+   l:3|x = %12
+   r:-1|<ret_slot> = %11
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %48 = IR_DEF_CONST () [kind = integer, v = 12, id = 4]
+  %20 = IR_DEF_CONST () [kind = integer, v = 2, id = 3]
+  %19 = IR_DEF_CONST () [kind = integer, v = 3, id = 2]
+  %13 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %9 = IR_P_REG () [preg = $2]
+  %40 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #3, strict dom #3
+
+  %38 = IR_RET (%35) []
+
+BB #2, '<FIRST>', <- #0, -> #4 #5, strict dom #0, dominatees [#3, #4, #5]
+
+  %16 = IR_E_GT (%9, %13) []
+  %17 = IR_CBRANCH (%16) [taken = #4, non taken = #5]
+
+BB #3, '<if_exit>', <- #5 #4, -> #1, strict dom #2, dominatees [#1]
+
+  %50 = IR_PHI ([%51, #5], [%22, #4]) []
+  %41 = IR_PHI ([%13, #5], [%25, #4]) [var = x]
+  %31 = IR_GET_ELEMENT_PTR (%3, %48) [underlying type = signed int, index = %19]
+  %32 = IR_M_LOAD (%50) [load type = I32]
+  %34 = IR_E_ADD (%32, %6) []
+  %35 = IR_E_ADD (%41, %34) []
+  %37 = IR_BRANCH () [target = #1]
+
+BB #4, '<if_then>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %22 = IR_GET_ELEMENT_PTR (%3, %48) [underlying type = signed int, index = %19]
+  %23 = IR_M_LOAD (%22) [load type = I32]
+  %25 = IR_E_ADD (%23, %6) []
+  %27 = IR_BRANCH () [target = #3]
+
+BB #5, '<crit_splitter>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %51 = IR_GET_ELEMENT_PTR (%3, %48) [underlying type = signed int, index = %19]
+  %49 = IR_BRANCH () [target = #3]
+
+
