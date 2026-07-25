@@ -1,0 +1,43 @@
+--- Phase: ssa ---
+Function 'switch_stmt'
+Locals:
+   p:0|x = %2
+   l:1|result = %6
+   r:-1|<ret_slot> = %5
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %17 = IR_DEF_CONST () [kind = integer, v = 0, id = 4]
+  %16 = IR_DEF_CONST () [kind = integer, v = 1, id = 3]
+  %13 = IR_DEF_CONST () [kind = integer, v = 20, id = 2]
+  %10 = IR_DEF_CONST () [kind = integer, v = 10, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %26 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #3, strict dom #3
+
+  %24 = IR_RET (%27) []
+
+BB #2, '<FIRST>', <- #0, -> #5 #6 #4, strict dom #0, dominatees [#3, #4, #5, #6]
+
+  %8 = IR_TBRANCH (%3) [TABLE_SIZE = 2, default = #4]
+
+BB #3, '<switch_exit>', <- #5 #6 #4, -> #1, strict dom #2, dominatees [#1]
+
+  %27 = IR_PHI ([%10, #5], [%13, #6], [%18, #4]) [var = result]
+  %23 = IR_BRANCH () [target = #1]
+
+BB #4, '<default_case>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %18 = IR_E_SUB (%17, %16) []
+  %20 = IR_BRANCH () [target = #3]
+
+BB #5, '<case_block>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %12 = IR_BRANCH () [target = #3]
+
+BB #6, '<case_block>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %15 = IR_BRANCH () [target = #3]
+
+

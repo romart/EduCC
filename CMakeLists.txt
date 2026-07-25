@@ -97,4 +97,7 @@ if(BUILD_TESTING)
   educc_add_test(preprocessor pp preprocessor 60)
   # Compiles, links, and runs every fixture, so it gets more headroom.
   educc_add_test(codegen codegen codegen 300)
+  # Compares '-irDump:ssa' output against golden dumps, isolating buildSSA
+  # from scp/gvn/dce (see test/testRunner.py's runIrTest).
+  educc_add_test(ir_ssa ir/ssa ir 60)
 endif()

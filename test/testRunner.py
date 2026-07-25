@@ -218,6 +218,53 @@ def runPPTest(compiler, workingDir, dirname, name):
         print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
 
 
+def runIrTest(compiler, workingDir, dirname, name):
+    # Snapshots the IR right after buildSSA (via '-irDump:ssa', see
+    # -irDump:phase[,phase...] in src/main.c) so these fixtures test SSA
+    # construction in isolation, unaffected by whatever scp/gvn/dce
+    # currently do to the IR afterwards.
+    testFilePath = dirname + '/' + name + '.c'
+    expectedIrFilePath = dirname + '/' + name + '.ssa.txt'
+    expectedErrFilePath = dirname + '/' + name + '.err'
+
+    outputDir = workingDir + '/' + dirname
+
+    if (not path.exists(outputDir)):
+        os.makedirs(outputDir)
+
+    actualIrFilePath = workingDir + '/' + expectedIrFilePath
+    actualErrFilePath = workingDir + '/' + expectedErrFilePath
+
+    err = open(actualErrFilePath, 'w+')
+
+    compilationCommand = [compiler, "-experimental", "-skipCodegen", "-oneline", "-irDump:ssa", actualIrFilePath, testFilePath]
+    process = Popen(compilationCommand, stdout=subprocess.DEVNULL, stderr=err)
+    exit_code = process.wait()
+    err.close()
+
+    # These fixtures are expected to translate to IR cleanly, same
+    # contract as the codegen suite - a nonzero exit is a real failure.
+    if exit_code != 0:
+        print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
+        print(f"  Translation failed (exit code {exit_code})")
+        with open(actualErrFilePath, 'r') as f:
+            output = f.read()
+            if output:
+                print(output)
+        recordFailure(testFilePath)
+        return
+
+    if path.getsize(actualErrFilePath) > 0:
+        with open(actualErrFilePath, 'r') as f:
+            print(f"  warning: compiler produced diagnostics on a successful translation:")
+            print(f.read())
+
+    testOk = checkOrUpdateBaseline("IrSsaDump", testFilePath, actualIrFilePath, expectedIrFilePath)
+
+    if testOk:
+        print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
+
+
 def runTestForData(filePath, compiler, workingDir, testMode):
     basename = os.path.basename(filePath)
     dirname = os.path.dirname(filePath)
@@ -229,6 +276,8 @@ def runTestForData(filePath, compiler, workingDir, testMode):
             runPPTest(compiler, workingDir, dirname, name)
         elif testMode == 'codegen':
             runCodegenTest(compiler, workingDir, dirname, name)
+        elif testMode == 'ir':
+            runIrTest(compiler, workingDir, dirname, name)
         else:
             raise Exception(f"Unknown test mode {testMode}")
 
@@ -249,7 +298,7 @@ def parseArguments():
     parser.add_argument('-c', '--compiler', type=str, required=True, help="specify path to compiler")
     parser.add_argument('-wd', '--working-dir', type=str, required=True, help="specify working dir for tests")
     parser.add_argument('-p', '--test-path', type=str, required=True, action='append', help='path to test')
-    parser.add_argument('-m', '--mode', choices=['parser', 'preprocessor', 'codegen'], default='parser', help='Which substystem to be tested')
+    parser.add_argument('-m', '--mode', choices=['parser', 'preprocessor', 'codegen', 'ir'], default='parser', help='Which substystem to be tested')
     parser.add_argument('--update-baselines', action='store_true',
                          help='write actual output as the new expected baseline for every test instead of comparing '
                               '(use after an intentional behavior change to regenerate golden files)')
