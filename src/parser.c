@@ -3563,7 +3563,9 @@ void compileFile(Configuration * config) {
 
   if (config->ppOutput) {
       context.firstToken = tokenizeBuffer(&context);
-      printDiagnostics(&context.diagnostics, config->verbose);
+      if (printDiagnostics(&context.diagnostics, config->verbose)) {
+          config->hadError = 1;
+      }
       printPPOutput(&context);
       return;
   }
@@ -3571,6 +3573,9 @@ void compileFile(Configuration * config) {
   AstFile *astFile = parseFile(&context);
 
   Boolean hasError = printDiagnostics(&context.diagnostics, config->verbose);
+  if (hasError) {
+      config->hadError = 1;
+  }
 
   if (config->memoryStatistics) {
       printMemoryStatistics(&context);

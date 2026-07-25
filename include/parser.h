@@ -47,6 +47,8 @@ typedef struct _Configuration {
   unsigned objOutput : 1;
 
   unsigned experimental : 1;
+
+  unsigned hadError : 1;
 } Configuration;
 
 

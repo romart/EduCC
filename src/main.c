@@ -462,7 +462,7 @@ int main(int argc, char** argv) {
 
   StringList *compiledObjFiles = compileFiles(chead.next, &config, tmpDir);
 
-  if (config.skipCodegen) return 0;
+  if (config.skipCodegen) return config.hadError ? 1 : 0;
 
   if (!config.objOutput && !config.ppOutput) {
     runLinker(config.outputFile ? config.outputFile : "a.out", compiledObjFiles, ohead.next, lhead.next, lDirHead.next);
@@ -472,5 +472,5 @@ int main(int argc, char** argv) {
       rmdir(tmpDir);
   }
 
-  return 0;
+  return config.hadError ? 1 : 0;
 }
