@@ -493,7 +493,6 @@ static IrInstruction *translateNameRef(AstExpression *expr) {
     return createSymbolConstant(s);
   } else if (s->kind == ValueSymbol) {
     AstValueDeclaration *v = s->variableDesc;
-    printf("Translate referenece to variable[%u] %s...", v->index2, v->name);
 
     if (v->kind == VD_PARAMETER || v->flags.bits.isLocal) {
       assert(v->index2 != -1);
@@ -501,8 +500,6 @@ static IrInstruction *translateNameRef(AstExpression *expr) {
       LocalValueInfo *info = &ctx->localOperandMap[v->index2];
       assert(info != NULL);
       assert(info->stackSlot != NULL);
-      printf(" found local stack slot %p at index %u\n", info->stackSlot,
-             v->index2);
       return info->stackSlot;
     } else {
       return createSymbolConstant(s);

@@ -1,0 +1,24 @@
+--- Phase: gvn ---
+Function 'calls_not_merged'
+Locals:
+   p:0|x = %2
+   r:-1|<ret_slot> = %5
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %6 = IR_DEF_CONST () [kind = symbol, name = opaque, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %16 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %14 = IR_RET (%11) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %7 = IR_CALL (%6, %3) [size = 0]
+  %9 = IR_CALL (%6, %3) [size = 0]
+  %11 = IR_E_ADD (%7, %9) []
+  %13 = IR_BRANCH () [target = #1]
+
+

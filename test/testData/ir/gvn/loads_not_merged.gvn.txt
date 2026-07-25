@@ -1,0 +1,28 @@
+--- Phase: gvn ---
+Function 'loads_not_merged'
+Locals:
+   p:0|p = %2
+   l:1|b = %15
+   l:2|a = %6
+   r:-1|<ret_slot> = %5
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %12 = IR_DEF_CONST () [kind = integer, v = 1, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %26 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %24 = IR_RET (%21) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %8 = IR_M_LOAD (%3) [load type = I32]
+  %13 = IR_E_ADD (%8, %12) []
+  %14 = IR_M_STORE (%3, %13) [store type = I32]
+  %17 = IR_M_LOAD (%3) [load type = I32]
+  %21 = IR_E_ADD (%8, %17) []
+  %23 = IR_BRANCH () [target = #1]
+
+

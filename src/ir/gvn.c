@@ -2,10 +2,308 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 #include "mem.h"
 #include "ir/ir.h"
 
 extern IrContext *ctx;
+
+// Dominator-based global value numbering (Simpson/Briggs-style DVNT).
+//
+// The dominator tree is walked in preorder carrying a scoped hash table of
+// expression -> value number. A redundant pure instruction is therefore
+// always replaced by a leader that dominates it by construction; entries
+// added while processing a block are popped once its dominator subtree is
+// done, so a computation in one branch can never shadow (or be "reused" by)
+// a sibling branch.
+//
+// Only pure instructions - those with no side effects whose value is fully
+// determined by (kind, result type, input VNs, extras) - participate in
+// value numbering. Everything else (loads, stores, calls, allocas, phis,
+// control flow) is assigned a fresh unique VN: loads are never merged since
+// there is no alias analysis yet, and side-effecting instructions must
+// never be merged at all.
+
+static Boolean isPureInstr(const IrInstruction *i) {
+  switch (i->kind) {
+  case IR_E_ADD:
+  case IR_E_SUB:
+  case IR_E_MUL:
+  case IR_E_DIV:
+  case IR_E_MOD:
+  case IR_E_SHL:
+  case IR_E_SHR:
+  case IR_E_AND:
+  case IR_E_OR:
+  case IR_E_XOR:
+  case IR_E_CMP:
+  case IR_E_FADD:
+  case IR_E_FSUB:
+  case IR_E_FMUL:
+  case IR_E_FDIV:
+  case IR_E_FMOD:
+  case IR_E_FCMP:
+  case IR_E_EQ:
+  case IR_E_NE:
+  case IR_E_LT:
+  case IR_E_LE:
+  case IR_E_GT:
+  case IR_E_GE:
+  case IR_E_FEQ:
+  case IR_E_FNE:
+  case IR_E_FLT:
+  case IR_E_FLE:
+  case IR_E_FGT:
+  case IR_E_FGE:
+  case IR_U_NOT:
+  case IR_U_BNOT:
+  case IR_E_BITCAST:
+  case IR_GET_ELEMENT_PTR:
+  case IR_DEF_CONST:
+  case IR_P_REG:
+    return TRUE;
+  default:
+    return FALSE;
+  }
+}
+
+static size_t computeExtrasCount(const IrInstruction *instr) {
+  switch (instr->kind) {
+  case IR_DEF_CONST:
+  case IR_P_REG:
+    return 1;
+  default:
+    return 0;
+  }
+}
+
+static Boolean isCommutativeInstr(enum IrIntructionKind kind) {
+  switch (kind) {
+  case IR_E_ADD:
+  case IR_E_MUL:
+  case IR_E_AND:
+  case IR_E_OR:
+  case IR_E_XOR:
+  case IR_E_EQ:
+  case IR_E_NE:
+  case IR_E_FADD:
+  case IR_E_FMUL:
+  case IR_E_FEQ:
+  case IR_E_FNE:
+    return TRUE;
+  default: return FALSE;
+  }
+}
+
+typedef struct {
+  enum IrIntructionKind kind;
+  enum IrTypeKind type;
+  size_t numOfInputs;
+  size_t numOfExtras;
+  uint32_t *inputs;
+  uint32_t *extras;
+} GVNExpression;
+
+
+static int gvn_hash(intptr_t ptr) {
+  const GVNExpression *gvne = (const GVNExpression *)ptr;
+
+  int h = (intptr_t) gvne->kind;
+
+  h *= 31;
+  h += (intptr_t) gvne->type;
+
+  h *= 31;
+  h += gvne->numOfInputs;
+
+  for (size_t i = 0; i < gvne->numOfInputs; ++i) {
+    h *= 31;
+    h += gvne->inputs[i];
+  }
+
+  h *= 31;
+  h += gvne->numOfExtras;
+
+  for (size_t i = 0; i < gvne->numOfExtras; ++i) {
+    h *= 31;
+    h += gvne->extras[i];
+  }
+
+  return h;
+}
+
+static int gvn_cmp(intptr_t a, intptr_t b) {
+  const GVNExpression *lhs = (const GVNExpression *)a;
+  const GVNExpression *rhs = (const GVNExpression *)b;
+
+  if (rhs->kind != lhs->kind) {
+    return rhs->kind - lhs->kind;
+  }
+
+  if (rhs->type != lhs->type) {
+    return rhs->type - lhs->type;
+  }
+
+  // Call could have different number of inputs
+  if (rhs->numOfInputs != lhs->numOfInputs) {
+    return rhs->numOfInputs - lhs->numOfInputs;
+  }
+
+  int icmp = memcmp(rhs->inputs, lhs->inputs, rhs->numOfInputs * sizeof (uint32_t));
+
+  if (icmp != 0) {
+    return icmp;
+  }
+
+  if (rhs->numOfExtras != lhs->numOfExtras) {
+    return rhs->numOfExtras - lhs->numOfExtras;
+  }
+
+  return memcmp(rhs->extras, lhs->extras, rhs->numOfExtras * sizeof (uint32_t));
+}
+
+
+typedef struct {
+  HashMap *table;  // GVNExpression* -> VN
+  Vector exprMap;  // VN -> leader IrInstruction*
+  Arena *arena;
+} VNTable;
+
+static int vn_cmp(const void *ap, const void *bp) {
+  uint32_t a = *(uint32_t *)ap;
+  uint32_t b = *(uint32_t *)bp;
+  return a < b ? 1 : a > b ? -1 : 0;
+}
+
+static void fillExtras(GVNExpression *gvne, const IrInstruction *i) {
+  switch (i->kind) {
+  case IR_DEF_CONST:
+    gvne->extras[0] = i->info.constant.cacheIdx;
+    break;
+  case IR_P_REG:
+    gvne->extras[0] = i->info.physReg;
+    break;
+  default:
+    return;
+  }
+}
+
+static GVNExpression *createGVNExpression(VNTable *vnt, const IrInstruction *i) {
+  size_t inputs = i->inputs.size;
+  size_t extras = computeExtrasCount(i);
+  GVNExpression *gvne = areanAllocate(vnt->arena, sizeof (GVNExpression) + ((inputs + extras) * sizeof (uint32_t)));
+  gvne->kind = i->kind;
+  gvne->type = i->type;
+
+  uint32_t *ptr = (uint32_t *)&gvne[1];
+  gvne->numOfInputs = inputs;
+  gvne->inputs = inputs != 0 ? ptr : NULL;
+
+  ptr += inputs;
+  gvne->numOfExtras = extras;
+  gvne->extras = extras != 0 ? ptr : NULL;
+
+  for (size_t idx = 0; idx < i->inputs.size; ++idx) {
+    IrInstruction *input = getInstructionFromVector(&i->inputs, idx);
+    // Defs dominate uses in SSA, so every input has been numbered already.
+    assert(input->algoIdx != (uint32_t)-1);
+    gvne->inputs[idx] = input->algoIdx;
+  }
+
+  if (isCommutativeInstr(i->kind)) {
+    qsort(gvne->inputs, gvne->numOfInputs, sizeof (uint32_t), &vn_cmp);
+  }
+
+  fillExtras(gvne, i);
+
+  return gvne;
+}
+
+static uint32_t assignUniqueVN(VNTable *vnt, IrInstruction *i) {
+  uint32_t vn = vnt->exprMap.size;
+  addInstructionToVector(&vnt->exprMap, i);
+  return vn;
+}
+
+static void gvnBlock(VNTable *vnt, IrBasicBlock *block) {
+  // Expressions first defined in this block; popped from the table when its
+  // dominator subtree is done so they are not visible to non-dominated blocks.
+  Vector scopeKeys = { 0 };
+  initVector(&scopeKeys, INITIAL_VECTOR_CAPACITY);
+
+  for (IrInstruction *instr = block->instrunctions.head; instr != NULL; instr = instr->next) {
+    if (!isPureInstr(instr)) {
+      instr->algoIdx = assignUniqueVN(vnt, instr);
+      continue;
+    }
+
+    GVNExpression *gvne = createGVNExpression(vnt, instr);
+    uint32_t newVN = vnt->exprMap.size;
+    uint32_t vn = putIfNotExistsToHashMap(vnt->table, (intptr_t)gvne, newVN);
+
+    if (vn == newVN) {
+      // First occurrence along this dominator path - becomes the leader.
+      addInstructionToVector(&vnt->exprMap, instr);
+      addToVector(&scopeKeys, (intptr_t)gvne);
+    } else {
+      IrInstruction *leader = getInstructionFromVector(&vnt->exprMap, vn);
+      assert(leader != instr);
+      replaceUsageWith(instr, leader); // the dead instruction is left for dce
+    }
+
+    instr->algoIdx = vn;
+  }
+
+  Vector *dominatees = &block->dominators.dominatees;
+  for (size_t idx = 0; idx < dominatees->size; ++idx) {
+    gvnBlock(vnt, getBlockFromVector(dominatees, idx));
+  }
+
+  for (size_t idx = 0; idx < scopeKeys.size; ++idx) {
+    removeFromHashMap(vnt->table, scopeKeys.storage[idx]);
+  }
+
+  releaseVector(&scopeKeys);
+}
+
+void gvn(IrFunction *func) {
+  VNTable vnt = { 0 };
+  vnt.arena = createArena("GVN Arena", DEFAULT_CHUNCK_SIZE);
+  vnt.table = createHashMap(DEFAULT_MAP_CAPACITY, &gvn_hash, &gvn_cmp);
+  initVector(&vnt.exprMap, ctx->instrCnt);
+
+  // Unreachable blocks are not visited by the walk; poison every algoIdx so
+  // a stale value can never be mistaken for a valid VN.
+  for (IrBasicBlock *bb = func->blocks.head; bb != NULL; bb = bb->next) {
+    for (IrInstruction *i = bb->instrunctions.head; i != NULL; i = i->next) {
+      i->algoIdx = (uint32_t)-1;
+    }
+  }
+
+  gvnBlock(&vnt, func->entry);
+
+  releaseHashMap(vnt.table);
+  releaseVector(&vnt.exprMap);
+  releaseArena(vnt.arena);
+
+  func->phases.gvn = 1;
+}
+
+#if 0 // PRE draft, to be finished in a follow-up ("Phase B").
+      // Partial redundancy elimination on top of the value numbering above:
+      // split critical edges, compute expression availability, then insert
+      // computations on incoming edges + a phi where an expression is only
+      // partially available. Known issues to fix before enabling:
+      //  - computeAvailability(): 'changed' re-fires forever because OUT is
+      //    overwritten with IN and the gen bits are re-added every sweep;
+      //    compare the freshly computed OUT against the previous one instead.
+      //  - insertComputationOnIncommingEdge() inserts the clone into 'block'
+      //    (the merge point) instead of 'pred'.
+      //  - cloneInstruction() adds phi inputs to the original, not the copy.
+      //  - No check that the leader's inputs dominate the insertion point.
+      //  - updateDomTreeInfo(): idom of the split block is 'from', not
+      //    'to'-s old idom.
+      //  - The postorder must be (re)computed after splitCriticalEdges().
 
 static void computePostOrderImpl(IrBasicBlock *block, Vector *rpo_order, BitSet *visited) {
   if (block->po != -1)
@@ -38,240 +336,8 @@ static void computePostOrder(IrFunction *func, Vector *rpo_order) {
   computePostOrderImpl(func->entry, rpo_order, &visited);
 
   assert(rpo_order->size - 1 == func->entry->po);
-  /* assert(func->exit->po == -1 || func->exit->po == 0); */
   releaseBitSet(&visited);
 }
-
-static uint32_t rpo(IrBasicBlock *block, Vector *rpo_order) {
-  return rpo_order->size - block->po - 1;
-}
-
-static size_t computeInputsCount(const IrInstruction *instr) {
-  return instr->inputs.size;
-}
-
-static size_t computeExtrasCount(const IrInstruction *instr) {
-
-  switch (instr->kind) {
-  case IR_M_COPY:
-  case IR_M_LOAD:
-    return 1;
-  case IR_DEF_CONST:
-  case IR_P_REG:
-    return 1;
-  default:
-    return 0;
-  }
-}
-
-static Boolean isCommutativeInstr(enum IrIntructionKind kind) {
-  switch (kind) {
-  case IR_E_ADD:
-  case IR_E_MUL:
-  case IR_E_AND:
-  case IR_E_OR:
-  case IR_E_XOR:
-  case IR_E_EQ:
-  case IR_E_NE:
-  case IR_E_FADD:
-  case IR_E_FMUL:
-  case IR_E_FEQ:
-  case IR_E_FNE:
-    return TRUE;
-  default: return FALSE;
-  }
-}
-
-typedef struct {
-  enum IrIntructionKind kind;
-  size_t numOfInputs;
-  size_t numOfExtras;
-  uint32_t *inputs;
-  uint32_t *extras;
-} GVNExpression;
-
-
-static int gvn_hash(intptr_t ptr) {
-  const GVNExpression *gvne = (const GVNExpression *)ptr;
-
-  int h = (intptr_t) gvne->kind;
-
-  h *= 31;
-  h += gvne->numOfInputs;
-
-  for (size_t i = 0; i < gvne->numOfInputs; ++i) {
-    h *= 31;
-    h += gvne->inputs[i];
-  }
-
-  h *= 31;
-  h += gvne->numOfExtras;
-
-  for (size_t i = 0; i < gvne->numOfExtras; ++i) {
-    h *= 31;
-    h += gvne->extras[i];
-  }
-
-  return h;
-}
-
-static int gvn_cmp(intptr_t a, intptr_t b) {
-  const GVNExpression *lhs = (const GVNExpression *)a;
-  const GVNExpression *rhs = (const GVNExpression *)b;
-
-  if (rhs->kind != lhs->kind) {
-    return rhs->kind - lhs->kind;
-  }
-
-  // Call could have different number of inputs
-  if (rhs->numOfInputs != lhs->numOfInputs) {
-    return rhs->numOfInputs - lhs->numOfInputs;
-  }
-
-  int icmp = memcmp(rhs->inputs, lhs->inputs, rhs->numOfInputs * sizeof (uint32_t));
-
-  if (icmp != 0) {
-    return icmp;
-  }
-
-  if (rhs->numOfExtras != lhs->numOfExtras) {
-    return rhs->numOfExtras - lhs->numOfExtras;
-  }
-
-  return memcmp(rhs->extras, lhs->extras, rhs->numOfExtras * sizeof (uint32_t));
-}
-
-
-typedef struct {
-  HashMap *table;
-  Vector exprMap;
-  uint32_t nextVN;
-  Arena *arena;
-} VNTable;
-
-static uint32_t getOrAddVN(VNTable *vnt, IrInstruction *i);
-
-static int vn_cmp(const void *ap, const void *bp) {
-  uint32_t a = *(uint32_t *)ap;
-  uint32_t b = *(uint32_t *)bp;
-  return b - a;
-}
-
-static void fillExtras(GVNExpression *gvne, const IrInstruction *i) {
-
-  static uint32_t memCnt = 0;
-  switch (i->kind) {
-  case IR_M_COPY:
-  case IR_M_LOAD:
-    gvne->extras[0] = memCnt++;
-    break;
-  case IR_DEF_CONST:
-    gvne->extras[0] = i->info.constant.cacheIdx;
-    break;
-  case IR_P_REG:
-    gvne->extras[0] = i->info.physReg;
-    break;
-  default:
-    return;
-  }
-}
-
-static void dumpGVNExpr(FILE *stream, const GVNExpression *e) {
-
-  fprintf(stream, "GVN {");
-  fprintf(stream, "kind = %d, ", e->kind);
-  fprintf(stream, "inputs = [");
-  for (int i = 0; i < e->numOfInputs; ++i) {
-    if (i != 0) fprintf(stream, ", ");
-    fprintf(stream, "%u", e->inputs[i]);
-  }
-  fprintf(stream, "], extras = [");
-  for (int i = 0; i < e->numOfExtras; ++i) {
-    if (i != 0) fprintf(stream, ", ");
-    fprintf(stream, "%u", e->extras[i]);
-  }
-
-  fprintf(stream, "] }");
-}
-
-static GVNExpression *createGVNExpression(VNTable *vnt, IrInstruction *i) {
-  size_t inputs = computeInputsCount(i);
-  size_t extras = computeExtrasCount(i);
-  GVNExpression *gvne = areanAllocate(vnt->arena, sizeof (GVNExpression) + ((inputs + extras) * sizeof (uint32_t)));
-  gvne->kind = i->kind;
-
-  uint32_t *ptr = (uint32_t *)&gvne[1];
-  gvne->numOfInputs = inputs;
-  gvne->inputs = inputs != 0 ? ptr : NULL;
-
-  ptr += inputs;
-  gvne->numOfExtras = extras;
-  gvne->extras = extras != 0 ? ptr : NULL;
-
-  for (size_t idx = 0; idx < i->inputs.size; ++idx) {
-    IrInstruction *input = getInstructionFromVector(&i->inputs, idx);
-    gvne->inputs[idx] = getOrAddVN(vnt, input);
-  }
-
-  if (isCommutativeInstr(i->kind)) {
-    qsort(gvne->inputs, gvne->numOfInputs, sizeof (uint32_t), &vn_cmp);
-  }
-
-  fillExtras(gvne, i);
-
-  return gvne;
-}
-
-static uint32_t getFromGVNTable(HashMap *table, const GVNExpression *gvne) {
-  uint32_t vn = getFromHashMap(table, (intptr_t)gvne);
-  return vn;
-}
-
-static Boolean isInGVNTable(HashMap *table, const GVNExpression *gvne) {
-  return isInHashMap(table, (intptr_t)gvne);
-}
-
-static uint32_t putIntoGVNTable(HashMap *table, const GVNExpression *gvne, uint32_t newValue) {
-  return putIfNotExistsToHashMap(table, (intptr_t)gvne, newValue);
-}
-
-static uint32_t getOrAddVN(VNTable *vnt, IrInstruction *i) {
-  if (i->kind == IR_PHI) {
-    if (i->algoIdx == -1) {
-        i->algoIdx = vnt->exprMap.size;
-        addInstructionToVector(&vnt->exprMap, (IrInstruction *)i);
-    }
-    return i->algoIdx;
-  }
-  GVNExpression *gvne = createGVNExpression(vnt, i);
-  printf("INSTR #%u -> ", i->id); dumpGVNExpr(stdout, gvne);
-
-  uint32_t newVN = vnt->exprMap.size;
-  uint32_t aVN = putIntoGVNTable(vnt->table, gvne, newVN);
-  if (aVN < newVN) {
-    printf(" ---> %u\n", aVN);
-    return aVN;
-  }
-
-  addInstructionToVector(&vnt->exprMap, (IrInstruction *)i);
-  assert(getInstructionFromVector(&vnt->exprMap, newVN) == i);
-
-  printf(" ---> %u\n", newVN);
-  return newVN;
-}
-
-static Boolean dominates(const IrBasicBlock *dom, const IrBasicBlock *block) {
-  const IrBasicBlock *cur = block;
-  while (cur != NULL) {
-    if (cur == dom)
-      return TRUE;
-
-    cur = cur->dominators.sdom;
-  }
-
-  return FALSE;
-}
-
 
 static Boolean isCriticalEdge(const IrBasicBlock *src, const IrBasicBlock *dst) {
   if (src->succs.size == 1)
@@ -328,8 +394,6 @@ static void splitCriticalEdge(IrInstruction *term, size_t succIdx) {
   IrBasicBlock *block = term->block;
   IrBasicBlock *succ = getBlockFromVector(&block->succs, succIdx);
 
-  printf("Split critical edge [#%u -> #%u]...", block->id, succ->id);
-
   Vector *preds = &succ->preds;
   size_t pIdx = 0;
   for (; pIdx < preds->size; ++pIdx) {
@@ -360,8 +424,6 @@ static void splitCriticalEdge(IrInstruction *term, size_t succIdx) {
     i->info.phi.phiBlocks.storage[pIdx] = (intptr_t)newBB;
   }
 
-  printf(" with #%u\n", newBB->id);
-
   updateDomTreeInfo(block, newBB, succ);
 }
 
@@ -379,18 +441,6 @@ static void splitCriticalEdges(IrFunction *func) {
       if (isCriticalEdge(block, succ)) {
         splitCriticalEdge(terminator, idx);
       }
-    }
-  }
-}
-
-static void buildValueNumberingInfo(Vector *poOrder, VNTable *gvnTable) {
-  for (size_t idx = poOrder->size - 1; idx != -1; --idx) {
-    IrBasicBlock *block = getBlockFromVector(poOrder, idx);
-    for (IrInstruction *instr = block->instrunctions.head; instr != NULL; instr = instr->next) {
-      instr->algoIdx = -1;
-      uint32_t vn = getOrAddVN(gvnTable, instr);
-      instr->algoIdx = vn;
-      printf("INSTR #%u assigned GVN %u\n", instr->id, vn);
     }
   }
 }
@@ -423,17 +473,9 @@ static void computeAvailability(Vector *poOrder, VNTable *gvnTable, BitSet *avai
       if (compareBitSets(&tmp, oldIn) != 0) {
         changed = TRUE;
       }
-     
-      printf("---======= BLOCK #%u =======---\n", block->id);
-      printf("B: TMP: "); printBitSet(stdout, &tmp); printf("\n");
-      printf("B: IN:  "); printBitSet(stdout, oldIn); printf("\n");
-      printf("B: OUT: "); printBitSet(stdout, oldOut); printf("\n");
 
       copyBitSet(&tmp, oldIn);
       copyBitSet(oldIn, oldOut);
-
-      printf("A: IN:  "); printBitSet(stdout, oldIn); printf("\n");
-      printf("A: OUT: "); printBitSet(stdout, oldOut); printf("\n");
 
       for (IrInstruction *i = block->instrunctions.head; i != NULL; i = i->next) {
         uint32_t vn = i->algoIdx;
@@ -442,7 +484,6 @@ static void computeAvailability(Vector *poOrder, VNTable *gvnTable, BitSet *avai
           changed = TRUE;
         }
       }
-      printf("X: OUT: "); printBitSet(stdout, oldOut); printf("\n");
     }
   }
 
@@ -530,7 +571,7 @@ static void removePartialRedundancy(IrFunction *func, BitSet *availIn, BitSet *a
         IrBasicBlock *pred = getBlockFromVector(preds, idx);
         BitSet *pOut = &availOut[pred->id];
         if (!getBit(pOut, vn)) {
-          insertComputationOnIncommingEdge(block, vn, phiInstr, other, pred); 
+          insertComputationOnIncommingEdge(block, vn, phiInstr, other, pred);
         } else {
           addPhiInput(phiInstr, other, pred);
         }
@@ -544,56 +585,4 @@ static void removePartialRedundancy(IrFunction *func, BitSet *availIn, BitSet *a
   releaseBitSet(&removeMark);
 }
 
-void gvn(IrFunction *func) {
-
-  Vector poOrderImpl = { 0 }, *poOrder = &poOrderImpl;
-  initVector(poOrder, func->numOfBlocks);
-
-  computePostOrder(func, poOrder);
-  VNTable gvnTable = { 0 };
-  gvnTable.arena = createArena("GVN Arena", DEFAULT_CHUNCK_SIZE);
-  gvnTable.table = createHashMap(DEFAULT_MAP_CAPACITY, &gvn_hash, &gvn_cmp);
-  initVector(&gvnTable.exprMap, ctx->instrCnt);
-
-  splitCriticalEdges(func);
-
-  BitSet *availIn = heapAllocate(sizeof (BitSet) * func->numOfBlocks);
-  BitSet *availOut = heapAllocate(sizeof (BitSet) * func->numOfBlocks);
-
-  buildValueNumberingInfo(poOrder, &gvnTable);
-  // for (size_t i = 0; i < func->numOfBlocks; ++i) {
-  //   initBitSet(&availIn[i], gvnTable.exprMap.size);
-  //   initBitSet(&availOut[i], gvnTable.exprMap.size);
-  // }
-  // computeAvailability(poOrder, &gvnTable, availIn, availOut);
-  // removePartialRedundancy(func, availIn, availOut, &gvnTable);
-
-  for (size_t idx = poOrder->size - 1; idx != -1; --idx) { 
-    IrBasicBlock *block = getBlockFromVector(poOrder, idx); 
-    for (IrInstruction *instr = block->instrunctions.head; instr != NULL; instr = instr->next) { 
-      uint32_t vn = getOrAddVN(&gvnTable, instr); 
-      IrInstruction *vnInstuction = getInstructionFromVector(&gvnTable.exprMap, vn); 
-      if (vnInstuction == instr) { 
-        continue; 
-      } 
-
-      if (dominates(vnInstuction->block, block)) { 
-        replaceUsageWith(instr, vnInstuction); 
-      } 
-    } 
-  } 
-
-  // for (size_t i = 0; i < func->numOfBlocks; ++i) {
-  //   releaseBitSet(&availIn[i]);
-  //   releaseBitSet(&availOut[i]);
-  // }
-
-  releaseHeap(availIn);
-  releaseHeap(availOut);
-
-  releaseHashMap(gvnTable.table);
-  releaseVector(&gvnTable.exprMap);
-  releaseVector(poOrder);
-  releaseArena(gvnTable.arena);
-}
-
+#endif // PRE draft

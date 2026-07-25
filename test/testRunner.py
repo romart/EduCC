@@ -20,6 +20,7 @@ else:
 numOfFailedTests = 0
 failedTests = []
 updateBaselines = False
+irPhase = 'ssa'
 
 
 def recordFailure(testFilePath):
@@ -219,12 +220,13 @@ def runPPTest(compiler, workingDir, dirname, name):
 
 
 def runIrTest(compiler, workingDir, dirname, name):
-    # Snapshots the IR right after buildSSA (via '-irDump:ssa', see
-    # -irDump:phase[,phase...] in src/main.c) so these fixtures test SSA
-    # construction in isolation, unaffected by whatever scp/gvn/dce
-    # currently do to the IR afterwards.
+    # Snapshots the IR right after the pass selected by --ir-phase (via
+    # '-irDump:<phase>', see -irDump:phase[,phase...] in src/main.c) so each
+    # fixture suite tests one pass in isolation, unaffected by whatever the
+    # later passes do to the IR afterwards - e.g. the ir/ssa suite runs with
+    # 'ssa' (right after buildSSA), the ir/gvn suite with 'gvn'.
     testFilePath = dirname + '/' + name + '.c'
-    expectedIrFilePath = dirname + '/' + name + '.ssa.txt'
+    expectedIrFilePath = dirname + '/' + name + '.' + irPhase + '.txt'
     expectedErrFilePath = dirname + '/' + name + '.err'
 
     outputDir = workingDir + '/' + dirname
@@ -237,7 +239,7 @@ def runIrTest(compiler, workingDir, dirname, name):
 
     err = open(actualErrFilePath, 'w+')
 
-    compilationCommand = [compiler, "-experimental", "-skipCodegen", "-oneline", "-irDump:ssa", actualIrFilePath, testFilePath]
+    compilationCommand = [compiler, "-experimental", "-skipCodegen", "-oneline", "-irDump:" + irPhase, actualIrFilePath, testFilePath]
     process = Popen(compilationCommand, stdout=subprocess.DEVNULL, stderr=err)
     exit_code = process.wait()
     err.close()
@@ -259,7 +261,7 @@ def runIrTest(compiler, workingDir, dirname, name):
             print(f"  warning: compiler produced diagnostics on a successful translation:")
             print(f.read())
 
-    testOk = checkOrUpdateBaseline("IrSsaDump", testFilePath, actualIrFilePath, expectedIrFilePath)
+    testOk = checkOrUpdateBaseline("IrDump:" + irPhase, testFilePath, actualIrFilePath, expectedIrFilePath)
 
     if testOk:
         print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
@@ -299,6 +301,9 @@ def parseArguments():
     parser.add_argument('-wd', '--working-dir', type=str, required=True, help="specify working dir for tests")
     parser.add_argument('-p', '--test-path', type=str, required=True, action='append', help='path to test')
     parser.add_argument('-m', '--mode', choices=['parser', 'preprocessor', 'codegen', 'ir'], default='parser', help='Which substystem to be tested')
+    parser.add_argument('--ir-phase', choices=['initial', 'ssa', 'scp', 'gvn', 'dce'], default='ssa',
+                         help="which pipeline phase 'ir' mode snapshots (selects the -irDump:<phase> flag "
+                              "and the <name>.<phase>.txt baseline suffix)")
     parser.add_argument('--update-baselines', action='store_true',
                          help='write actual output as the new expected baseline for every test instead of comparing '
                               '(use after an intentional behavior change to regenerate golden files)')
@@ -308,6 +313,7 @@ def parseArguments():
 
 def main():
     global updateBaselines
+    global irPhase
 
     args = parseArguments()
     testMode = args.mode
@@ -315,6 +321,7 @@ def main():
     workingDir = args.working_dir
     compiler = args.compiler
     updateBaselines = args.update_baselines
+    irPhase = args.ir_phase
 
     for testPath in testPaths:
         p = Path(testPath)
