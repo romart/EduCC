@@ -1,0 +1,53 @@
+--- Phase: dce ---
+Function 'pre_phi_translation_limit'
+Locals:
+   p:0|arr = %2
+   p:1|i = %5
+   p:2|k = %8
+   p:3|flag = %11
+   l:4|x = %15
+   r:-1|<ret_slot> = %14
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %23 = IR_DEF_CONST () [kind = integer, v = 2, id = 2]
+  %16 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %9 = IR_P_REG () [preg = $2]
+  %12 = IR_P_REG () [preg = $3]
+  %44 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #3, strict dom #3
+
+  %42 = IR_RET (%39) []
+
+BB #2, '<FIRST>', <- #0, -> #4 #5, strict dom #0, dominatees [#3, #4, #5]
+
+  %19 = IR_E_GT (%12, %16) []
+  %20 = IR_CBRANCH (%19) [taken = #4, non taken = #5]
+
+BB #3, '<if_exit>', <- #5 #4, -> #1, strict dom #2, dominatees [#1]
+
+  %54 = IR_PHI ([%55, #5], [%24, #4]) []
+  %45 = IR_PHI ([%16, #5], [%28, #4]) [var = x]
+  %35 = IR_GET_ELEMENT_PTR (%3, %54) [underlying type = signed int, index = %33]
+  %36 = IR_M_LOAD (%35) [load type = I32]
+  %38 = IR_E_ADD (%36, %9) []
+  %39 = IR_E_ADD (%45, %38) []
+  %41 = IR_BRANCH () [target = #1]
+
+BB #4, '<if_then>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %24 = IR_E_SHL (%6, %23) []
+  %25 = IR_GET_ELEMENT_PTR (%3, %24) [underlying type = signed int, index = %22]
+  %26 = IR_M_LOAD (%25) [load type = I32]
+  %28 = IR_E_ADD (%26, %9) []
+  %30 = IR_BRANCH () [target = #3]
+
+BB #5, '<crit_splitter>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %55 = IR_E_SHL (%6, %23) []
+  %53 = IR_BRANCH () [target = #3]
+
+

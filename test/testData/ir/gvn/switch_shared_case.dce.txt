@@ -1,0 +1,65 @@
+--- Phase: dce ---
+Function 'switch_shared_case'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   p:2|sel = %8
+   l:3|r = %12
+   r:-1|<ret_slot> = %11
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %13 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %9 = IR_P_REG () [preg = $2]
+  %39 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #3, strict dom #3
+
+  %37 = IR_RET (%34) []
+
+BB #2, '<FIRST>', <- #0, -> #4 #9 #6 #10 #11, strict dom #0, dominatees [#3, #4, #5, #6, #7, #9, #10, #11]
+
+  %16 = IR_TBRANCH (%9) [TABLE_SIZE = 4, default = #11]
+
+BB #3, '<switch_exit>', <- #11 #5 #7, -> #1, strict dom #2, dominatees [#1]
+
+  %50 = IR_PHI ([%51, #11], [%21, #5], [%52, #7]) []
+  %40 = IR_PHI ([%13, #11], [%21, #5], [%27, #7]) [var = r]
+  %34 = IR_E_ADD (%40, %50) []
+  %36 = IR_BRANCH () [target = #1]
+
+BB #4, '<case_block>', <- #2, -> #5, strict dom #2, domination frontier [#5]
+
+  %18 = IR_BRANCH () [target = #5]
+
+BB #5, '<case_block>', <- #9 #4, -> #3, strict dom #2, domination frontier [#3]
+
+  %21 = IR_E_ADD (%3, %6) []
+  %23 = IR_BRANCH () [target = #3]
+
+BB #6, '<case_block>', <- #2, -> #7, strict dom #2, domination frontier [#7]
+
+  %24 = IR_BRANCH () [target = #7]
+
+BB #7, '<case_block>', <- #10 #6, -> #3, strict dom #2, domination frontier [#3]
+
+  %27 = IR_E_SUB (%3, %6) []
+  %52 = IR_E_ADD (%3, %6) []
+  %29 = IR_BRANCH () [target = #3]
+
+BB #9, '<crit_splitter>', <- #2, -> #5, strict dom #2, domination frontier [#5]
+
+  %47 = IR_BRANCH () [target = #5]
+
+BB #10, '<crit_splitter>', <- #2, -> #7, strict dom #2, domination frontier [#7]
+
+  %48 = IR_BRANCH () [target = #7]
+
+BB #11, '<crit_splitter>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %51 = IR_E_ADD (%3, %6) []
+  %49 = IR_BRANCH () [target = #3]
+
+

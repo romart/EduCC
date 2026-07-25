@@ -1,0 +1,69 @@
+--- Phase: dce ---
+Function 'nested_loops'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   p:2|n = %8
+   p:3|m = %11
+   l:4|j = %25
+   l:5|i = %18
+   l:6|total = %15
+   r:-1|<ret_slot> = %14
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %39 = IR_DEF_CONST () [kind = integer, v = 1, id = 2]
+  %16 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %9 = IR_P_REG () [preg = $2]
+  %12 = IR_P_REG () [preg = $3]
+  %62 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #5, strict dom #5
+
+  %60 = IR_RET (%57) []
+
+BB #2, '<FIRST>', <- #0, -> #3, strict dom #0, dominatees [#3]
+
+  %20 = IR_BRANCH () [target = #3]
+
+BB #3, '<while_head>', <- #2 #8, -> #4 #5, strict dom #2, domination frontier [#3], dominatees [#4, #5]
+
+  %67 = IR_PHI ([%16, #2], [%50, #8]) [var = i]
+  %63 = IR_PHI ([%16, #2], [%47, #8]) [var = total]
+  %23 = IR_E_LT (%67, %9) []
+  %24 = IR_CBRANCH (%23) [taken = #4, non taken = #5]
+
+BB #4, '<while_body>', <- #3, -> #6, strict dom #3, domination frontier [#3], dominatees [#6]
+
+  %27 = IR_BRANCH () [target = #6]
+
+BB #5, '<while_exit>', <- #3, -> #1, strict dom #3, dominatees [#1]
+
+  %56 = IR_E_MUL (%3, %6) []
+  %57 = IR_E_ADD (%63, %56) []
+  %59 = IR_BRANCH () [target = #1]
+
+BB #6, '<while_head>', <- #4 #7, -> #7 #8, strict dom #4, domination frontier [#3, #6], dominatees [#7, #8]
+
+  %69 = IR_PHI ([%16, #4], [%40, #7]) [var = j]
+  %65 = IR_PHI ([%63, #4], [%36, #7]) [var = total]
+  %30 = IR_E_LT (%69, %12) []
+  %31 = IR_CBRANCH (%30) [taken = #7, non taken = #8]
+
+BB #7, '<while_body>', <- #6, -> #6, strict dom #6, domination frontier [#6]
+
+  %35 = IR_E_MUL (%3, %6) []
+  %36 = IR_E_ADD (%65, %35) []
+  %40 = IR_E_ADD (%69, %39) []
+  %42 = IR_BRANCH () [target = #6]
+
+BB #8, '<while_exit>', <- #6, -> #3, strict dom #6, domination frontier [#3]
+
+  %46 = IR_E_MUL (%3, %6) []
+  %47 = IR_E_ADD (%65, %46) []
+  %50 = IR_E_ADD (%67, %39) []
+  %52 = IR_BRANCH () [target = #3]
+
+

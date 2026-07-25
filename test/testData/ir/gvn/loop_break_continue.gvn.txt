@@ -1,0 +1,72 @@
+--- Phase: gvn ---
+Function 'loop_break_continue'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   p:2|n = %8
+   l:3|i = %15
+   l:4|sum = %12
+   r:-1|<ret_slot> = %11
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %32 = IR_DEF_CONST () [kind = integer, v = 7, id = 4]
+  %27 = IR_DEF_CONST () [kind = integer, v = 3, id = 3]
+  %23 = IR_DEF_CONST () [kind = integer, v = 1, id = 2]
+  %13 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %9 = IR_P_REG () [preg = $2]
+  %52 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #5, strict dom #5
+
+  %50 = IR_RET (%47) []
+
+BB #2, '<FIRST>', <- #0, -> #3, strict dom #0, dominatees [#3]
+
+  %17 = IR_BRANCH () [target = #3]
+
+BB #3, '<while_head>', <- #2 #7 #8, -> #4 #10, strict dom #2, domination frontier [#3], dominatees [#4, #5, #10]
+
+  %55 = IR_PHI ([%13, #2], [%24, #7], [%24, #8]) [var = i]
+  %53 = IR_PHI ([%13, #2], [%53, #7], [%40, #8]) [var = sum]
+  %20 = IR_E_LT (%55, %9) []
+  %21 = IR_CBRANCH (%20) [taken = #4, non taken = #10]
+
+BB #4, '<while_body>', <- #3, -> #7 #6, strict dom #3, domination frontier [#3, #5], dominatees [#6, #7]
+
+  %24 = IR_E_ADD (%55, %23) []
+  %28 = IR_E_EQ (%24, %27) []
+  %29 = IR_CBRANCH (%28) [taken = #7, non taken = #6]
+
+BB #5, '<while_exit>', <- #10 #9, -> #1, strict dom #3, dominatees [#1]
+
+  %46 = IR_E_ADD (%3, %6) []
+  %47 = IR_E_ADD (%53, %46) []
+  %49 = IR_BRANCH () [target = #1]
+
+BB #6, '<if_exit>', <- #4, -> #9 #8, strict dom #4, domination frontier [#3, #5], dominatees [#8, #9]
+
+  %33 = IR_E_EQ (%24, %32) []
+  %34 = IR_CBRANCH (%33) [taken = #9, non taken = #8]
+
+BB #7, '<if_then>', <- #4, -> #3, strict dom #4, domination frontier [#3]
+
+  %30 = IR_BRANCH () [target = #3]
+
+BB #8, '<if_exit>', <- #6, -> #3, strict dom #6, domination frontier [#3]
+
+  %39 = IR_E_ADD (%3, %6) []
+  %40 = IR_E_ADD (%53, %39) []
+  %42 = IR_BRANCH () [target = #3]
+
+BB #9, '<if_then>', <- #6, -> #5, strict dom #6, domination frontier [#5]
+
+  %35 = IR_BRANCH () [target = #5]
+
+BB #10, '<crit_splitter>', <- #3, -> #5, strict dom #3, domination frontier [#5]
+
+  %65 = IR_BRANCH () [target = #5]
+
+
