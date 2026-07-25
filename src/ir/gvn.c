@@ -175,6 +175,11 @@ typedef struct {
 } VNTable;
 
 static void initVNTable(VNTable *vnt) {
+  // initVector() insists on being handed a vector that has no storage yet,
+  // so the whole table starts from a clean slate rather than from whatever
+  // the caller's stack happened to hold.
+  memset(vnt, 0, sizeof (VNTable));
+
   vnt->arena = createArena("GVN Arena", DEFAULT_CHUNCK_SIZE);
   vnt->table = createHashMap(DEFAULT_MAP_CAPACITY, &gvn_hash, &gvn_cmp);
   vnt->liveExprs = 0;
