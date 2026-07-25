@@ -13,10 +13,24 @@ static IrBasicBlock *removeUnreachableBlock(IrBasicBlock *block, IrFunction *fun
     removeFromVector(&pred->succs, (intptr_t)block);
   }
 
-  Vector *succs = &block->succs;
-  for (size_t idx = 0; idx < succs->size; ++idx) {
-    IrBasicBlock *succ = getBlockFromVector(succs, idx);
-    removeFromVector(&succ->preds, (intptr_t)block);
+  // Leaving a successor has to go through removeSuccessor(): a phi there
+  // still lists this block as one of its incoming edges, and dropping the
+  // edge without dropping that entry would leave a live phi reading a value
+  // defined in a block that no longer exists. That use also keeps the value
+  // alive, so the erase loop below would wait forever for this block to go
+  // empty. removeSuccessor() shrinks block->succs, hence the index-free walk.
+  while (block->succs.size != 0) {
+    removeSuccessor(block, getBlockFromVector(&block->succs, 0));
+  }
+
+  // When this runs from buildDominatorInfo() the tree is about to be rebuilt
+  // anyway, but from dce() nothing rebuilds it - so a block that leaves the
+  // function must leave its dominator's child list with it, or the dump (and
+  // any later walk) still reports a block that is gone. Anything this block
+  // dominated is unreachable too and detaches itself the same way.
+  IrBasicBlock *idom = block->dominators.sdom;
+  if (idom != NULL) {
+    removeFromVector(&idom->dominators.dominatees, (intptr_t)block);
   }
 
   /* func->numOfBlocks -= 1; */

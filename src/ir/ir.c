@@ -549,8 +549,12 @@ static IrInstruction *processSinglePhiNode(IrInstruction *phiInstr, IrBasicBlock
       continue;
     }
 
-    removeFromVector(inputs, (intptr_t) input);
-    removeFromVector(blocks, (intptr_t) block);
+    // By index, not by value: the same definition can reach the phi along
+    // several edges, and removeFromVector() would drop that value's *first*
+    // occurrence, sliding the inputs out of step with the blocks they are
+    // paired with.
+    removeFromVectorAt(inputs, idx);
+    removeFromVectorAt(blocks, idx);
 
     assert(blocks->size == phiInstr->block->preds.size);
 
