@@ -33,7 +33,7 @@ else()
   )
   FetchContent_MakeAvailable(udis86_src)
 
-  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  # Python3 is already found (required) by the top-level CMakeLists.txt.
 
   # udis86's opcode tables (itab.c/itab.h) aren't checked in - they're
   # generated from docs/x86/optable.xml by this script, same as its own

@@ -1,24 +1,34 @@
-
-from asyncio.subprocess import DEVNULL
 from os import path
-from re import S
 import sys
 import os.path
 from pathlib import Path
 import argparse
 import subprocess
-from subprocess import Popen, PIPE
+from subprocess import Popen
 
-CRED    = '\33[31m'
-CGREEN  = '\33[32m'
-RESET = "\033[0;0m"
-CBOLD     = '\33[1m'
+# No color codes when not attached to a terminal (e.g. under `ctest`, whose
+# --output-junit report embeds raw stdout - ANSI escapes there show up as
+# NON-XML-CHAR noise instead of rendering as color).
+if sys.stdout.isatty():
+    CRED    = '\33[31m'
+    CGREEN  = '\33[32m'
+    RESET = "\033[0;0m"
+    CBOLD     = '\33[1m'
+else:
+    CRED = CGREEN = RESET = CBOLD = ''
 
-numOfFailedTests=0
+numOfFailedTests = 0
+failedTests = []
+updateBaselines = False
+
+
+def recordFailure(testFilePath):
+    global numOfFailedTests
+    numOfFailedTests = numOfFailedTests + 1
+    failedTests.append(testFilePath)
 
 
 def compareFilesLineByLine(marker, testFile, actualFile, expectedFile):
-    global numOfFailedTests
     with open(expectedFile) as expected, open(actualFile) as actual:
         expt = expected.readlines()
         actl = actual.readlines()
@@ -26,33 +36,44 @@ def compareFilesLineByLine(marker, testFile, actualFile, expectedFile):
         if len(expt) != len(actl):
             print(CBOLD + CRED + f"Test {testFile} -- FAIL" + RESET)
             print(f" {marker}: actual output len ({len(actl)}) differs from expected len ({len(expt)})")
-            numOfFailedTests = numOfFailedTests + 1
+            recordFailure(testFile)
             return False
-        else:
-            i = 0
-            
-            while (i < len(expt)):
-                e = expt[i].rstrip()
-                a = actl[i].rstrip()
-                if (e != a):
-                    print(CBOLD + CRED + f"Test {testFile} -- FAIL" + RESET)
-                    print(f" {marker}: actual output differs from expected in line {i + 1}")
-                    print(f"  ACTUAL:   {a}")
-                    print(f"  EXPECTED: {e}")
-                    numOfFailedTests = numOfFailedTests + 1
-                    return False
-                i = i + 1
+
+        for i in range(len(expt)):
+            e = expt[i].rstrip()
+            a = actl[i].rstrip()
+            if (e != a):
+                print(CBOLD + CRED + f"Test {testFile} -- FAIL" + RESET)
+                print(f" {marker}: actual output differs from expected in line {i + 1}")
+                print(f"  ACTUAL:   {a}")
+                print(f"  EXPECTED: {e}")
+                recordFailure(testFile)
+                return False
     return True
 
-def updateExpectedFromActualIfNeed(marker, actualFile, expectedFile):
-    if (not path.exists(expectedFile)):
-        print(f"  info: no {marker} expected file, create it")
-        result = open(actualFile).read()
-        open(expectedFile, 'w+').write(result)
+
+def checkOrUpdateBaseline(marker, testFile, actualFile, expectedFile):
+    # With --update-baselines, always accept the actual output as the new
+    # baseline instead of comparing (this is the only way baselines are
+    # written - a missing baseline no longer auto-passes and auto-creates
+    # itself, since that made it too easy to silently bake in a regression).
+    if updateBaselines:
+        existed = path.exists(expectedFile)
+        content = open(actualFile).read()
+        open(expectedFile, 'w+').write(content)
+        print(f"  info: {marker} baseline {'updated' if existed else 'created'} ({expectedFile})")
+        return True
+
+    if not path.exists(expectedFile):
+        print(CBOLD + CRED + f"Test {testFile} -- FAIL" + RESET)
+        print(f"  {marker}: no baseline file ({expectedFile}); run with --update-baselines to create one")
+        recordFailure(testFile)
+        return False
+
+    return compareFilesLineByLine(marker, testFile, actualFile, expectedFile)
 
 
 def runParserTest(compiler, workingDir, dirname, name):
-    global numOfFailedTests
     testFilePath = dirname + '/' + name + '.c'
     expectedAstFilePath = dirname + '/' + name + '.txt'
     expectedErrFilePath = dirname + '/' + name + '.err'
@@ -68,36 +89,37 @@ def runParserTest(compiler, workingDir, dirname, name):
 
     err = open(actualErrFilePath, 'w+')
 
-    compialtionCommand = [compiler, "-skipCodegen", "-oneline" , "-astDump", actualAstFilePath, "-astCanonDump", actualAstCanonFilePath, testFilePath];
-#    print(compialtionCommand)
-    process = Popen(compialtionCommand, stdout=DEVNULL, stderr=err)
+    compilationCommand = [compiler, "-skipCodegen", "-oneline", "-astDump", actualAstFilePath, "-astCanonDump", actualAstCanonFilePath, testFilePath]
+    process = Popen(compilationCommand, stdout=subprocess.DEVNULL, stderr=err)
     exit_code = process.wait()
-    if exit_code != 0:
+    err.close()
+
+    # A positive exit code just means the compiler reported diagnostics
+    # (expected for tests under parser/negative) - only a negative code
+    # (killed by a signal, e.g. a crash/assertion) is an actual tooling
+    # failure here.
+    if exit_code < 0:
         print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-        print(f"  Process crashed (exit code {exit_code})")
-        numOfFailedTests = numOfFailedTests + 1
-    else:
-        testOk = True
-        if (path.exists(expectedAstFilePath)):
-            testOk = compareFilesLineByLine("AstDump", testFilePath, actualAstFilePath, expectedAstFilePath)
+        print(f"  Process crashed (signal {-exit_code})")
+        recordFailure(testFilePath)
+        return
 
-        if (testOk and path.exists(expectedErrFilePath)):
-            testOk = compareFilesLineByLine("Stderr", testFilePath, actualErrFilePath, expectedErrFilePath)
+    testOk = checkOrUpdateBaseline("AstDump", testFilePath, actualAstFilePath, expectedAstFilePath)
 
-        if (testOk and path.exists(actualAstCanonFilePath) and path.exists(expectedAstCanonFilePath)):
-            testOk = compareFilesLineByLine("AstCanonDump", testFilePath, actualAstCanonFilePath, expectedAstCanonFilePath)
+    if testOk:
+        testOk = checkOrUpdateBaseline("Stderr", testFilePath, actualErrFilePath, expectedErrFilePath)
 
-        if (testOk):
-            print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
+    # Negative tests have errors, so canonicalization (and thus the canon
+    # dump) never runs for them - only compare it when the compiler
+    # actually produced one.
+    if testOk and path.exists(actualAstCanonFilePath):
+        testOk = checkOrUpdateBaseline("AstCanonDump", testFilePath, actualAstCanonFilePath, expectedAstCanonFilePath)
 
-        updateExpectedFromActualIfNeed("AstDump", actualAstFilePath, expectedAstFilePath)
-        updateExpectedFromActualIfNeed("Stderr", actualErrFilePath, expectedErrFilePath)
-        if (path.exists(actualAstCanonFilePath)):
-            updateExpectedFromActualIfNeed("AstCanonDump", actualAstCanonFilePath, expectedAstCanonFilePath)
+    if testOk:
+        print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
 
 
 def runCodegenTest(compiler, workingDir, dirname, name):
-    global numOfFailedTests
     testFilePath = dirname + '/' + name + '.c'
     argsFilePath = dirname + '/' + name + '.args'
 
@@ -109,9 +131,8 @@ def runCodegenTest(compiler, workingDir, dirname, name):
     errFilePath = outputDir + '/' + name + '.err'
     binFileName = outputDir + '/' + name
 
-
     if path.exists(binFileName):
-        os.remove(binFileName);
+        os.remove(binFileName)
 
     args = []
     if path.exists(argsFilePath):
@@ -122,40 +143,49 @@ def runCodegenTest(compiler, workingDir, dirname, name):
         args.append("")
 
     err = open(errFilePath, 'w+')
-    compialtionCommand = [compiler, "-oneline" , "-o", binFileName, testFilePath, "-lm"]
-#    print(compialtionCommand)
-    compilation = Popen(compialtionCommand, stdout=sys.stdout, stderr=err)
+    compilationCommand = [compiler, "-oneline", "-o", binFileName, testFilePath, "-lm"]
+    compilation = Popen(compilationCommand, stdout=sys.stdout, stderr=err)
     exit_code = compilation.wait()
+    err.close()
+
+    # Codegen fixtures are expected to compile cleanly - a nonzero exit
+    # (whether "had diagnostic errors" or "killed by a signal") is a real
+    # failure here, unlike in the parser/pp suites which also exercise the
+    # error-reporting paths on purpose.
+    if exit_code != 0:
+        print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
+        print(f"  Compilation failed (exit code {exit_code})")
+        with open(errFilePath, 'r') as f:
+            output = f.read()
+            if output:
+                print(output)
+        recordFailure(testFilePath)
+        return
 
     if path.getsize(errFilePath) > 0:
-        print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-        print(f"Errors in stderr")
+        # Exit code 0 means these are warnings, not errors - don't fail the
+        # test over them, but surface them since they're still worth seeing.
         with open(errFilePath, 'r') as f:
+            print(f"  warning: compiler produced diagnostics on a successful compile:")
             print(f.read())
-        numOfFailedTests = numOfFailedTests + 1
-    elif exit_code != 0:
-        print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-        print(f"  Compilation crashed (exit code {exit_code})")
-        numOfFailedTests = numOfFailedTests + 1
-    else:
-        for arg in args:
-            runCommand = [binFileName]
+
+    for arg in args:
+        runCommand = [binFileName]
+        if arg:
+            runCommand.extend(arg.split())
+        execution = Popen(runCommand, stdout=sys.stdout, stderr=sys.stderr)
+        exit_code = execution.wait()
+        if exit_code != 0:
+            print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
+            print(f"  Execution exit code is not 0 ({exit_code})")
             if arg:
-                runCommand.extend(arg.split())
-            execution = Popen(runCommand, stdout=sys.stdout, stderr=sys.stderr)
-            exit_code = execution.wait()
-            if exit_code != 0:
-                print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-                print(f"  Execution exit code is not 0 ({exit_code})")
-                if arg:
-                    print(f"  Argument: '{arg}'")
-                numOfFailedTests = numOfFailedTests + 1
-            else:
-                print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
+                print(f"  Argument: '{arg}'")
+            recordFailure(testFilePath)
+        else:
+            print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
 
 
 def runPPTest(compiler, workingDir, dirname, name):
-    global numOfFailedTests
     testFilePath = dirname + '/' + name + '.c'
     expectFilePath = dirname + '/' + name + '.expect'
 
@@ -167,40 +197,32 @@ def runPPTest(compiler, workingDir, dirname, name):
     actualFilePath = outputDir + '/' + name + '.actual'
 
     if path.exists(actualFilePath):
-        os.remove(actualFilePath);
+        os.remove(actualFilePath)
 
     out = open(actualFilePath, 'w+')
 
-    compialtionCommand = [compiler, "-E", testFilePath]
-#    print(compialtionCommand)
-    compilation = Popen(compialtionCommand, stdout=out, stderr=sys.stderr)
+    compilationCommand = [compiler, "-E", testFilePath]
+    compilation = Popen(compilationCommand, stdout=out, stderr=sys.stderr)
     exit_code = compilation.wait()
+    out.close()
 
-    if exit_code != 0:
+    if exit_code < 0:
         print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-        print(f"  Compilation crashed (exit code {exit_code})")
-        numOfFailedTests = numOfFailedTests + 1
-    else:
-        testOk = True
-        if (path.exists(expectFilePath)):
-            testOk = compareFilesLineByLine("preprocessed", testFilePath, actualFilePath, expectFilePath)
+        print(f"  Process crashed (signal {-exit_code})")
+        recordFailure(testFilePath)
+        return
 
-        if (testOk):
-            print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
+    testOk = checkOrUpdateBaseline("preprocessed", testFilePath, actualFilePath, expectFilePath)
 
-        updateExpectedFromActualIfNeed("preprocessed", actualFilePath, expectFilePath)
+    if testOk:
+        print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
 
 
 def runTestForData(filePath, compiler, workingDir, testMode):
-    global numOfFailedTests
-    # print(f"processing {filePath}")
     basename = os.path.basename(filePath)
     dirname = os.path.dirname(filePath)
-    index_of_dot = basename.index('.')
-    suffix = basename[index_of_dot + 1:]
-    # print(f"dirname: {dirname}, baseName: {basename}, suffix: {suffix}")
-    name = basename[:index_of_dot]
-    if (suffix == "c"):
+    name, ext = os.path.splitext(basename)
+    if (ext == ".c"):
         if (testMode == 'parser'):
             runParserTest(compiler, workingDir, dirname, name)
         elif testMode == 'preprocessor':
@@ -211,10 +233,11 @@ def runTestForData(filePath, compiler, workingDir, testMode):
             raise Exception(f"Unknown test mode {testMode}")
 
 
-
-def walkDirectory(path, indent, block):
-    for file in path.iterdir():
-        # print('\t' * indent + f"Walk path {path}")
+def walkDirectory(dirPath, indent, block):
+    # Sorted so run order (and thus failure order in the output) is
+    # deterministic across machines/runs instead of depending on whatever
+    # order the filesystem happens to hand back.
+    for file in sorted(dirPath.iterdir()):
         if file.is_dir():
             walkDirectory(file, indent + 1, block)
         else:
@@ -227,45 +250,38 @@ def parseArguments():
     parser.add_argument('-wd', '--working-dir', type=str, required=True, help="specify working dir for tests")
     parser.add_argument('-p', '--test-path', type=str, required=True, action='append', help='path to test')
     parser.add_argument('-m', '--mode', choices=['parser', 'preprocessor', 'codegen'], default='parser', help='Which substystem to be tested')
+    parser.add_argument('--update-baselines', action='store_true',
+                         help='write actual output as the new expected baseline for every test instead of comparing '
+                              '(use after an intentional behavior change to regenerate golden files)')
 
     return parser.parse_args()
 
-def main():
-    global numOfFailedTests
-    compiler = ''
-    workingDir = ''
-    testPaths = []
 
-    testMode = ''
+def main():
+    global updateBaselines
 
     args = parseArguments()
     testMode = args.mode
     testPaths = args.test_path
     workingDir = args.working_dir
     compiler = args.compiler
+    updateBaselines = args.update_baselines
 
     for testPath in testPaths:
-        path = Path(testPath)
-        if path.exists():
-            if path.is_dir():
-                walkDirectory(path, 0, lambda a: runTestForData(a, compiler, workingDir, testMode))
-
+        p = Path(testPath)
+        if p.exists():
+            if p.is_dir():
+                walkDirectory(p, 0, lambda a: runTestForData(a, compiler, workingDir, testMode))
 
     if numOfFailedTests:
         print(CBOLD + CRED + f"Failed tests: {numOfFailedTests}" + RESET)
+        for t in failedTests:
+            print(f"  {t}")
     else:
         print(CBOLD + CGREEN + f"All tests passed" + RESET)
 
-    exit (numOfFailedTests)
-
+    exit(numOfFailedTests)
 
 
 if __name__ == "__main__":
-   main()
-
-
-
-
-
-
-
+    main()

@@ -57,7 +57,7 @@ build/bin/main -experimental -irDump hw.ir.txt ./test/testData/codegen/simple/gv
 
 ## Tests
 
-Tests are plain data-driven fixtures under `test/testData/{parser,pp,codegen}` run via `test/testRunner.py` against a built `build/bin/main`. There is no single "run all tests" wrapper script — invoke the runner per subsystem, pointing `--compiler` at the built binary and `--working-dir` at a scratch directory for outputs:
+Tests are plain data-driven fixtures under `test/testData/{parser,pp,codegen}` run via `test/testRunner.py` against a built `build/bin/main`. `cmake --build build && cd build && ctest --output-on-failure` runs all three suites in one shot (each wired up as its own CTest test with a timeout — see `CMakeLists.txt`'s `educc_add_test`); `ctest --output-junit results.xml` produces a CI-friendly report. For scoping to a subdirectory or passing extra flags, invoke the runner directly, pointing `--compiler` at the built binary and `--working-dir` at a scratch directory for outputs:
 
 ```sh
 # Parser/AST-dump tests (compares -astDump/-astCanonDump/stderr against *.txt/*.canon.txt/*.err)
@@ -72,9 +72,9 @@ python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/cod
 
 Notes on the runner's behavior:
 - `-p/--test-path` can be repeated and can point at a single subdirectory (e.g. `test/testData/codegen/tinyc`) to scope to one test group.
-- If an expected file (`*.txt`, `*.err`, `*.canon.txt`, `*.expect`) doesn't exist yet, the runner **auto-creates it from actual output** instead of failing — check `git diff` / `git status` after running to make sure you're not silently baking in a regression as the new "expected" output.
-- Codegen tests actually execute the compiled binary and check its exit code; a `<name>.args` file (one arg-string per line) runs the binary once per line.
-- Nonzero process exit at the runner level is the failed-test count.
+- If an expected file (`*.txt`, `*.err`, `*.canon.txt`, `*.expect`) doesn't exist yet, the test **fails** rather than silently passing — pass `--update-baselines` to (re)write every baseline from current actual output instead of comparing, then review with `git diff` before committing. There's no silent auto-baselining anymore.
+- Codegen tests actually execute the compiled binary and check its exit code; a `<name>.args` file (one arg-string per line) runs the binary once per line. A nonzero compiler exit code fails the test; a zero exit with warnings on stderr does not (see the exit-code contract note in Architecture below).
+- Nonzero process exit at the runner level is the failed-test count; on failure it also lists every failed test's path. Directory walks are sorted, so run order (and failure order) is deterministic across machines.
 
 ## Architecture
 
@@ -82,7 +82,7 @@ Pipeline, driven from `src/main.c` → `compileFile()` in `src/parser.c`:
 
 1. **Preprocessing** (`src/pp.c`, `src/lexer.c`) — full macro expansion, `#include`, conditionals, `#pragma once`. `-E` stops here.
 2. **Parsing** (`src/parser.c`, ~3.6k lines) builds an AST (`src/tree.c`, `include/tree.h`) while interleaving **semantic analysis** (`src/sema.c`) — types, scopes, symbol resolution happen during parsing, not as a separate pass. `AstFile` / `AstTranslationUnit` is the top-level unit.
-3. Diagnostics (`src/diagnostics.c`, `include/diagnostics.h`) accumulate through parsing/sema; the diagnostic catalog itself is data-driven via `include/diagnosticList.h` (`DIAGNOSTIC_DEF(severity, category, ID, format)` X-macro consumed with `#define DIAGNOSTIC_DEF ... #include "diagnosticList.h"`). Add new diagnostics there, not ad hoc.
+3. Diagnostics (`src/diagnostics.c`, `include/diagnostics.h`) accumulate through parsing/sema; the diagnostic catalog itself is data-driven via `include/diagnosticList.h` (`DIAGNOSTIC_DEF(severity, category, ID, format)` X-macro consumed with `#define DIAGNOSTIC_DEF ... #include "diagnosticList.h"`). Add new diagnostics there, not ad hoc. Exit-code contract: `Configuration.hadError` (set in `compileFile()` whenever `printDiagnostics()` reports an error) makes `main()` return `1`; a clean compile with only warnings still returns `0` — don't conflate the two when scripting around the compiler.
 4. After a clean parse, compilation forks into **two independent backend pipelines** selected by `-experimental`:
    - **Legacy pipeline** (default): `cannonizeAstFile()` (`src/cannonization.c`) lowers/normalizes the AST (e.g. desugaring composite ops), then `generateCodeForFile()` (`src/codegen_common.c`) walks the canonicalized AST directly to machine code via an arch-specific vtable (`ArchCodegen{generateFunction, generateVaribale}`, see `include/codegen.h`), implemented per-arch in `src/x86_64/codegen_x86_64.c` + `instructions_x86_64.c` and `src/riscv64/codegen_riscv64.c` + `instructions_riscv64.c`. Output is assembled straight into an in-memory ELF (`src/elf.c`, `include/_elf.h`) — there's no external assembler.
    - **Experimental IR pipeline** (`-experimental`): `translateAstToIr()` (`src/ir/ast2ir.c`) lowers AST to a CFG-based SSA-capable IR (`include/ir/ir.h`, `include/ir/instructionList.h`). Passes: `buildSSA` (`src/ir/ssa.c`), `buildDominatorInfo` (`src/ir/dominators.c`), `gvn` — global value numbering (`src/ir/gvn.c`), `scp`/`cp` — (sparse) constant propagation (`src/ir/cp.c`, `src/ir/evaluator.c`), `dce` — dead code elimination (`src/ir/dce.c`). `IrFunction.phases` bitflags (`initalIr`/`ssa`/`cp_1`/`gvn`) track which passes a function has been through. This pipeline currently only lowers/optimizes and dumps (`src/ir/irdump.c`, `.dot` CFG output); it does not yet emit machine code — codegen for `-experimental` is a work in progress.

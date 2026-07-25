@@ -46,7 +46,17 @@ clangd (and most editor integrations) will pick up `compile_commands.json` from 
 
 ## Tests
 
-Tests are data-driven fixtures under `test/testData/{parser,pp,codegen}`, run with `test/testRunner.py` against a built compiler:
+Tests are data-driven fixtures under `test/testData/{parser,pp,codegen}`. The easiest way to run all of them is `ctest`, from the build directory:
+
+```sh
+cmake -B build -S . -DCMAKE_EXPORT_COMPILE_COMMANDS=ON  # only needed once, or after editing CMakeLists.txt
+cmake --build build -j$(nproc)
+cd build && ctest --output-on-failure
+```
+
+This runs all three suites (`parser`, `preprocessor`, `codegen`) with a per-suite timeout, and can produce a CI-friendly report with `ctest --output-junit results.xml`. Use `ctest -R codegen` to run just one suite.
+
+To run a suite directly (e.g. to pass extra flags, or scope to a single subdirectory), use `test/testRunner.py`:
 
 ```sh
 # Parser/AST-dump tests
@@ -59,7 +69,15 @@ python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/pp 
 python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/codegen -m codegen
 ```
 
-`-p` can be repeated or point at a single subdirectory (e.g. `test/testData/codegen/tinyc`) to scope a run. A nonzero exit code equals the number of failed tests.
+`-p` can be repeated or point at a single subdirectory (e.g. `test/testData/codegen/tinyc`) to scope a run. A nonzero exit code equals the number of failed tests, and any failures are listed by path at the end of the run.
+
+A test whose expected/baseline file (`*.txt`, `*.err`, `*.canon.txt`, `*.expect`) doesn't exist yet **fails** rather than silently passing. After adding a new test, or after an intentional change to compiler output, regenerate baselines explicitly:
+
+```sh
+python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/parser -m parser --update-baselines
+```
+
+Then review the result with `git diff` before committing — this only *writes* what the compiler currently outputs, it doesn't judge whether that output is correct.
 
 ## Bootstrapping
 
