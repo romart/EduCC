@@ -271,6 +271,13 @@ struct _IrContext {
     struct _IrInstruction *stackOp;
     struct _IrInstruction *lastOp;
 
+    // Per-phase IR dump support (see enum IrDumpPhase in parser.h and
+    // '-irDump:phase[,phase...]'). irDumpStream is opened/closed by the
+    // caller (compileFile in parser.c); NULL when no per-phase dumping was
+    // requested (irDumpPhases == 0, the legacy '-irDump' behavior).
+    unsigned irDumpPhases;
+    FILE *irDumpStream;
+
     // TODO: declarations
 };
 
@@ -392,6 +399,8 @@ void dce(IrFunction *func);
 void scp(IrFunction *func);
 void gvn(IrFunction *func);
 // ------------- dump utils ---------------------------------
+int32_t dumpIrFunction(FILE *stream, const IrFunction *f);
+void dumpIrFunctionPhase(FILE *stream, const IrFunction *f, const char *phaseName);
 void dumpIrFunctionList(const char *fileName, const IrFunctionList *functions);
 void buildDotGraphForFunctionList(const char *fileName, const IrFunctionList *functions);
 

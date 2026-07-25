@@ -277,6 +277,43 @@ static StringList* compileFiles(StringList *files, Configuration *config, const 
   return coHead.next;
 }
 
+// Parses a comma-separated phase list from '-irDump:phase[,phase...]' (spec
+// points right after the ':') into a bitmask of enum IrDumpPhase. Returns 0
+// (an empty/invalid mask, since no defined phase is bit value 0) if spec is
+// empty or contains an unknown phase name.
+static unsigned parseIrDumpPhases(const char *spec) {
+  static const struct { const char *name; enum IrDumpPhase phase; } knownPhases[] = {
+    { "initial", IR_DUMP_PHASE_INITIAL },
+    { "ssa",     IR_DUMP_PHASE_SSA },
+    { "scp",     IR_DUMP_PHASE_SCP },
+    { "gvn",     IR_DUMP_PHASE_GVN },
+    { "dce",     IR_DUMP_PHASE_DCE },
+  };
+
+  unsigned mask = 0;
+  const char *tokenStart = spec;
+
+  for (;;) {
+    const char *tokenEnd = strchr(tokenStart, ',');
+    size_t tokenLen = tokenEnd ? (size_t)(tokenEnd - tokenStart) : strlen(tokenStart);
+
+    unsigned matched = 0;
+    for (size_t i = 0; i < sizeof(knownPhases) / sizeof(knownPhases[0]); ++i) {
+      if (strlen(knownPhases[i].name) == tokenLen && strncmp(knownPhases[i].name, tokenStart, tokenLen) == 0) {
+        mask |= knownPhases[i].phase;
+        matched = 1;
+        break;
+      }
+    }
+    if (!matched) return 0;
+
+    if (!tokenEnd) break;
+    tokenStart = tokenEnd + 1;
+  }
+
+  return mask;
+}
+
 int main(int argc, char** argv) {
   if (argc < 2) return -1;
   argc--; argv++;
@@ -320,7 +357,14 @@ int main(int argc, char** argv) {
           fprintf(stderr, "file name expected after '-astCanonDump' option");
           return 2;
         }
-    } else if (strcmp("-irDump", arg) == 0) {
+    } else if (strncmp("-irDump", arg, 7) == 0 && (arg[7] == '\0' || arg[7] == ':')) {
+        if (arg[7] == ':') {
+          config.irDumpPhases = parseIrDumpPhases(&arg[8]);
+          if (config.irDumpPhases == 0) {
+            fprintf(stderr, "unknown ir dump phase in '%s' (expected a comma-separated list of: initial, ssa, scp, gvn, dce)\n", arg);
+            return 2;
+          }
+        }
         unsigned idx = ++i;
         if (idx < argc) {
           config.irDumpFileName = argv[idx];

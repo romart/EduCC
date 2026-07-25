@@ -320,6 +320,12 @@ int32_t dumpIrFunction(FILE *stream, const IrFunction *f) {
 	return r;
 }
 
+void dumpIrFunctionPhase(FILE *stream, const IrFunction *f, const char *phaseName) {
+  fprintf(stream, "--- Phase: %s ---\n", phaseName);
+  dumpIrFunction(stream, f);
+  fputc('\n', stream);
+}
+
 void dumpIrFunctionList(const char *fileName, const IrFunctionList *functions) {
   FILE *f = fopen(fileName, "w");
   if (f == NULL) {

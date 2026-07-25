@@ -2418,19 +2418,33 @@ static uint32_t buildInitialIr(IrFunction *func,
   return 0;
 }
 
+static void dumpRequestedPhase(IrFunction *func, enum IrDumpPhase phase, const char *name) {
+  if (ctx->irDumpStream && (ctx->irDumpPhases & phase)) {
+    dumpIrFunctionPhase(ctx->irDumpStream, func, name);
+  }
+}
+
 static IrFunction *translateFunction(AstFunctionDefinition *function) {
   resetIrContext(ctx);
   IrFunction *func = newIrFunction(function);
 
   buildInitialIr(func, function);
   assert(func->numOfBlocks == ctx->bbCnt);
+  dumpRequestedPhase(func, IR_DUMP_PHASE_INITIAL, "initial");
+
   buildSSA(func);
   assert(func->numOfBlocks == ctx->bbCnt);
+  dumpRequestedPhase(func, IR_DUMP_PHASE_SSA, "ssa");
+
   scp(func);
   assert(func->numOfBlocks == ctx->bbCnt);
+  dumpRequestedPhase(func, IR_DUMP_PHASE_SCP, "scp");
 
   gvn(func);
+  dumpRequestedPhase(func, IR_DUMP_PHASE_GVN, "gvn");
+
   dce(func);
+  dumpRequestedPhase(func, IR_DUMP_PHASE_DCE, "dce");
 
   return func;
 }

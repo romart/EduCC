@@ -23,6 +23,21 @@ enum Arch {
     RISCV64
 };
 
+// Bitmask values for Configuration.irDumpPhases, selected via
+// '-irDump:phase[,phase...] <file>'. Each bit requests a snapshot of the IR
+// taken immediately after the named pass in translateFunction() (ast2ir.c),
+// so e.g. an SSA test can dump right after buildSSA without being coupled to
+// whatever later passes (scp/gvn/dce) currently do. A mask of 0 (plain
+// '-irDump <file>', no ':' suffix) keeps the legacy behavior of dumping only
+// the fully-processed IR once translation of the whole file completes.
+enum IrDumpPhase {
+    IR_DUMP_PHASE_INITIAL = 1u << 0,
+    IR_DUMP_PHASE_SSA     = 1u << 1,
+    IR_DUMP_PHASE_SCP     = 1u << 2,
+    IR_DUMP_PHASE_GVN     = 1u << 3,
+    IR_DUMP_PHASE_DCE     = 1u << 4,
+};
+
 typedef struct _Configuration {
 
   const char *fileToCompile;
@@ -35,6 +50,8 @@ typedef struct _Configuration {
   StringList *macroses;
 
   enum Arch arch;
+
+  unsigned irDumpPhases; // bitmask of enum IrDumpPhase values; 0 == legacy final-only dump
 
   unsigned errWarns: 1;
   unsigned logTokens: 1;

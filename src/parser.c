@@ -3589,10 +3589,33 @@ void compileFile(Configuration * config) {
     if (config->experimental) {
       IrContext irCtx;
       initializeIrContext(&irCtx, &context);
+
+      // Per-phase dumping ('-irDump:phase[,phase...]') snapshots IR inline
+      // as translateFunction() runs each pass, since later passes mutate
+      // the same in-place structures - so the stream has to be open and
+      // wired into the IrContext *before* translateAstToIr() runs, not
+      // dumped from the final IrFunctionList afterwards. Plain '-irDump'
+      // (irDumpPhases == 0) keeps the old one-shot-at-the-end behavior.
+      FILE *irDumpStream = NULL;
+      if (config->irDumpFileName && config->irDumpPhases) {
+        irDumpStream = fopen(config->irDumpFileName, "w");
+        if (irDumpStream == NULL) {
+          fprintf(stderr, "cannot open ir dump file '%s'\n", config->irDumpFileName);
+        } else {
+          irCtx.irDumpStream = irDumpStream;
+          irCtx.irDumpPhases = config->irDumpPhases;
+        }
+      }
+
       IrFunctionList irFunctions = translateAstToIr(astFile);
 
-      if (config->irDumpFileName) {
+      if (irDumpStream) {
+        fclose(irDumpStream);
+      } else if (config->irDumpFileName) {
         dumpIrFunctionList(config->irDumpFileName, &irFunctions);
+      }
+
+      if (config->irDumpFileName) {
         buildDotGraphForFunctionList("cfg.dot", &irFunctions);
       }
 
