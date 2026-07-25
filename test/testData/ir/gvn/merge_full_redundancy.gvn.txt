@@ -29,7 +29,7 @@ BB #3, '<if_exit>', <- #4 #5, -> #1, strict dom #2, dominatees [#1]
   %44 = IR_PHI ([%19, #4], [%24, #5]) []
   %37 = IR_PHI ([%19, #4], [%24, #5]) [var = x]
   %30 = IR_E_ADD (%3, %6) []
-  %31 = IR_E_ADD (%37, %44) []
+  %31 = IR_E_ADD (%44, %44) []
   %33 = IR_BRANCH () [target = #1]
 
 BB #4, '<if_then>', <- #2, -> #3, strict dom #2, domination frontier [#3]

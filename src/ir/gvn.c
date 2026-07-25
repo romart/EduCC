@@ -764,6 +764,102 @@ static void pre(VNTable *vnt, IrFunction *func) {
   releaseVector(&poOrder);
 }
 
+// -============================ Phi dedup ============================-
+//
+// Neither stage above value-numbers a phi: what it evaluates to depends on
+// the edge control arrived by, not on its operands alone, so it cannot be
+// hashed like an expression. Duplicates do pile up though - mem2reg emits
+// one phi per promoted variable, and pre() adds its own for every value it
+// merges, so a join block routinely ends up holding several phis carrying
+// the same value along the same edges.
+//
+// Two phis of one block are interchangeable exactly when they map every
+// incoming edge to the same definition: control enters by a single edge, and
+// both then yield whatever that edge carries. Comparing the operands by
+// identity keeps this independent of value numbering, which is what makes it
+// safe to run on phis whose inputs come back around a loop edge.
+
+static Boolean phisAreEqual(const IrInstruction *lhs, const IrInstruction *rhs) {
+  assert(lhs->kind == IR_PHI && rhs->kind == IR_PHI);
+  assert(lhs->block == rhs->block);
+
+  if (lhs->type != rhs->type)
+    return FALSE;
+
+  const Vector *lEdges = &lhs->info.phi.phiBlocks;
+  const Vector *rEdges = &rhs->info.phi.phiBlocks;
+
+  if (lEdges->size != rEdges->size)
+    return FALSE;
+
+  // The entries are the block's predecessors in no particular order, so pair
+  // them up by edge rather than by position.
+  for (size_t l = 0; l < lEdges->size; ++l) {
+    const IrBasicBlock *edge = getBlockFromVector(lEdges, l);
+    const IrInstruction *value = getInstructionFromVector(&lhs->inputs, l);
+    Boolean matched = FALSE;
+
+    for (size_t r = 0; r < rEdges->size; ++r) {
+      if (getBlockFromVector(rEdges, r) != edge)
+        continue;
+
+      // A predecessor listed twice (a branch with both arms to this block)
+      // is only matched at its first entry, so an unequal pairing is
+      // reported as a difference rather than searched past.
+      if (getInstructionFromVector(&rhs->inputs, r) != value)
+        return FALSE;
+
+      matched = TRUE;
+      break;
+    }
+
+    if (!matched)
+      return FALSE;
+  }
+
+  return TRUE;
+}
+
+static Boolean dedupPhisInBlock(IrBasicBlock *block) {
+  Boolean changed = FALSE;
+
+  for (IrInstruction *phi = block->instrunctions.head;
+       phi != NULL && phi->kind == IR_PHI; phi = phi->next) {
+    IrInstruction *candidate = phi->next;
+
+    while (candidate != NULL && candidate->kind == IR_PHI) {
+      IrInstruction *dup = candidate;
+      candidate = candidate->next;
+
+      // Testing 'uses' first is what makes the fixed point below terminate:
+      // a duplicate is rewired exactly once, and afterwards it has no users
+      // left to report progress with.
+      if (dup->uses.size != 0 && phisAreEqual(phi, dup)) {
+        replaceUsageWith(dup, phi); // the dead phi is left for dce
+        changed = TRUE;
+      }
+    }
+  }
+
+  return changed;
+}
+
+static void dedupPhis(IrFunction *func) {
+  // Merging a pair of phis can make two of their users equal in turn - and a
+  // user may itself be a phi, in an earlier block or the same one - so the
+  // sweep repeats until nothing more collapses.
+  Boolean changed = TRUE;
+
+  while (changed) {
+    changed = FALSE;
+    for (IrBasicBlock *block = func->blocks.head; block != NULL; block = block->next) {
+      if (dedupPhisInBlock(block)) {
+        changed = TRUE;
+      }
+    }
+  }
+}
+
 void gvn(IrFunction *func) {
   VNTable vnt;
   initVNTable(&vnt);
@@ -779,6 +875,10 @@ void gvn(IrFunction *func) {
   pre(&vnt, func);
 
   releaseVNTable(&vnt);
+
+  // Stage three: the phis the two stages above could not consider, including
+  // the ones stage two has just introduced.
+  dedupPhis(func);
 
   func->phases.gvn = 1;
 }

@@ -30,7 +30,7 @@ BB #3, '<if_exit>', <- #4 #5, -> #1, strict dom #2, dominatees [#1]
 
   %53 = IR_PHI ([%22, #4], [%33, #5]) [var = ptr2]
   %51 = IR_PHI ([%22, #4], [%33, #5]) [var = ptr1]
-  %42 = IR_M_LOAD (%51) [load type = I32]
+  %42 = IR_M_LOAD (%53) [load type = I32]
   %44 = IR_M_LOAD (%53) [load type = I32]
   %45 = IR_E_ADD (%42, %44) []
   %47 = IR_BRANCH () [target = #1]

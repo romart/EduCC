@@ -1,43 +1,43 @@
---- Phase: dce ---
-Function 'merge_full_redundancy'
+--- Phase: gvn ---
+Function 'phi_swapped_edges'
 Locals:
    p:0|a = %2
    p:1|b = %5
    p:2|flag = %8
-   l:3|x = %12
+   l:3|y = %13
+   l:4|x = %12
    r:-1|<ret_slot> = %11
 BB #0, '<entry>', -> #2, dominatees [#2]
 
-  %14 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %15 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
   %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
   %3 = IR_P_REG () [preg = $0]
   %6 = IR_P_REG () [preg = $1]
   %9 = IR_P_REG () [preg = $2]
-  %36 = IR_BRANCH () [target = #2]
+  %35 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #3, strict dom #3
 
-  %34 = IR_RET (%31) []
+  %33 = IR_RET (%30) []
 
 BB #2, '<FIRST>', <- #0, -> #4 #5, strict dom #0, dominatees [#3, #4, #5]
 
-  %15 = IR_E_GT (%9, %14) []
-  %16 = IR_CBRANCH (%15) [taken = #4, non taken = #5]
+  %16 = IR_E_GT (%9, %15) []
+  %17 = IR_CBRANCH (%16) [taken = #4, non taken = #5]
 
 BB #3, '<if_exit>', <- #4 #5, -> #1, strict dom #2, dominatees [#1]
 
-  %44 = IR_PHI ([%19, #4], [%24, #5]) []
-  %31 = IR_E_ADD (%44, %44) []
-  %33 = IR_BRANCH () [target = #1]
+  %38 = IR_PHI ([%6, #4], [%3, #5]) [var = y]
+  %36 = IR_PHI ([%3, #4], [%6, #5]) [var = x]
+  %30 = IR_E_SUB (%36, %38) []
+  %32 = IR_BRANCH () [target = #1]
 
 BB #4, '<if_then>', <- #2, -> #3, strict dom #2, domination frontier [#3]
 
-  %19 = IR_E_ADD (%3, %6) []
-  %21 = IR_BRANCH () [target = #3]
+  %22 = IR_BRANCH () [target = #3]
 
 BB #5, '<if_else>', <- #2, -> #3, strict dom #2, domination frontier [#3]
 
-  %24 = IR_E_ADD (%3, %6) []
-  %26 = IR_BRANCH () [target = #3]
+  %27 = IR_BRANCH () [target = #3]
 
 
