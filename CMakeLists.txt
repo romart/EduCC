@@ -37,9 +37,12 @@ set(SOURCES
   src/codegen_common.c
   src/x86_64/instructions_x86_64.c
   src/x86_64/codegen_x86_64.c
+  src/x86_64/target_x86_64.c
   src/riscv64/codegen_riscv64.c
   src/riscv64/instructions_riscv64.c
+  src/riscv64/target_riscv64.c
   src/ir/ir.c
+  src/ir/target.c
   src/ir/irdump.c
   src/ir/ast2ir.c
   src/ir/dominators.c

@@ -11,9 +11,9 @@ BB #0, '<entry>', -> #2, dominatees [#2]
 
   %15 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
   %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
-  %3 = IR_P_REG () [preg = $0]
-  %6 = IR_P_REG () [preg = $1]
-  %9 = IR_P_REG () [preg = $2]
+  %3 = IR_P_REG () [preg = $rdi]
+  %6 = IR_P_REG () [preg = $rsi]
+  %9 = IR_P_REG () [preg = $rdx]
   %35 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #3, strict dom #3

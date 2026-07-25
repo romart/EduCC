@@ -109,6 +109,7 @@ void initializeIrContext(IrContext *_ctx, ParserContext* pctx) {
     // TODO: check for NULL
     _ctx->irArena = createArena("IR Arena", 8 * DEFAULT_CHUNCK_SIZE);
     _ctx->pctx = pctx;
+    _ctx->target = getTargetDescriptor(pctx->config->arch);
     _ctx->labelMap = createHashMap(DEFAULT_MAP_CAPACITY, &stringHashCode, &stringCmp);
     initVector(&_ctx->constantCache, INITIAL_VECTOR_CAPACITY);
     initVector(&_ctx->allocas, INITIAL_VECTOR_CAPACITY);

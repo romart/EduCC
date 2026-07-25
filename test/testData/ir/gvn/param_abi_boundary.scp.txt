@@ -1,0 +1,47 @@
+--- Phase: scp ---
+Function 'param_abi_boundary'
+Locals:
+   p:0|i0 = %2
+   p:1|i1 = %5
+   p:2|i2 = %8
+   p:3|i3 = %11
+   p:4|i4 = %14
+   p:5|i5 = %17
+   p:6|i6 = %21
+   p:7|f0 = %22
+   p:8|f1 = %25
+   p:9|f2 = %28
+   p:10|f3 = %31
+   p:11|f4 = %34
+   p:12|f5 = %37
+   p:13|f6 = %40
+   p:14|f7 = %43
+   p:15|f8 = %47
+   r:-1|<ret_slot> = %48
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %46 = IR_DEF_CONST () [kind = integer, v = 24, id = 2]
+  %20 = IR_DEF_CONST () [kind = integer, v = 16, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %0 = IR_P_REG () [preg = $rsp]
+  %18 = IR_P_REG () [preg = $r9]
+  %21 = IR_E_ADD (%0, %20) []
+  %44 = IR_P_REG () [preg = $xmm7]
+  %47 = IR_E_ADD (%0, %46) []
+  %61 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %59 = IR_RET (%56) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %50 = IR_M_LOAD (%47) [load type = F64]
+  %51 = IR_E_FADD (%44, %50) []
+  %53 = IR_M_LOAD (%21) [load type = I32]
+  %54 = IR_E_ADD (%18, %53) []
+  %55 = IR_E_BITCAST (%54) [I32->F64]
+  %56 = IR_E_FADD (%51, %55) []
+  %58 = IR_BRANCH () [target = #1]
+
+

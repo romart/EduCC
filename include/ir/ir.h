@@ -5,6 +5,7 @@
 #include "tree.h"
 #include "mem.h"
 #include "utils.h"
+#include "ir/target.h"
 
 
 struct _IrBasicBlockListNode {
@@ -243,6 +244,11 @@ typedef struct _LocalValueInfo {
 struct _IrContext {
     Arena *irArena;
     struct _ParserContext *pctx;
+
+    // Selected by -march. Owns the physical register namespace that IR_P_REG
+    // ids live in, so anything creating or interpreting a P_REG has to go
+    // through it rather than inventing ids.
+    const TargetDescriptor *target;
 
     uint32_t functionCnt;
     uint32_t bbCnt;

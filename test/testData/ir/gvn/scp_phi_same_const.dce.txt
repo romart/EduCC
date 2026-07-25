@@ -9,7 +9,7 @@ BB #0, '<entry>', -> #2, dominatees [#2]
   %11 = IR_DEF_CONST () [kind = integer, v = 7, id = 2]
   %8 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
   %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
-  %3 = IR_P_REG () [preg = $0]
+  %3 = IR_P_REG () [preg = $rdi]
   %21 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #3, strict dom #3

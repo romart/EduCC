@@ -6,8 +6,12 @@
 #include <assert.h>
 #include <signal.h>
 
-static const uint32_t R_FP_PARAM_COUNT = 10;
-static const uint32_t R_PARAM_COUNT = 10;
+// How many arguments of each class the selected target passes in registers.
+// These used to be two made-up 10s here, which is why the va_list register
+// save area below and the parameter classification disagreed with every real
+// ABI; they now come from the TargetDescriptor (see include/ir/target.h).
+#define R_PARAM_COUNT (ctx->target->intArgRegCount)
+#define R_FP_PARAM_COUNT (ctx->target->fpArgRegCount)
 
 extern IrContext *ctx;
 
@@ -2117,17 +2121,6 @@ static void generateExitBlock(IrFunction *func, TypeRef *returnType) {
   termintateBlock(ret);
 }
 
-typedef struct {
-  AstValueDeclaration *declaration;
-  LocalValueInfo *lvi;
-  union {
-    int32_t stackOffset;
-    int32_t pregId;
-  } loc;
-  uint32_t idx;
-  Boolean isRegister;
-} ParamtersABIInfo;
-
 static void initializeParamterLocal(IrBasicBlock *entryBB,
                                     IrInstruction *stackPtrOp,
                                     ParamtersABIInfo *paramInfo) {
@@ -2150,7 +2143,7 @@ static void initializeParamterLocal(IrBasicBlock *entryBB,
         makePointedType(ctx->pctx, astType->flags.storage, astType);
     lvi->stackSlot = stackSlot;
 
-    IrInstruction *regInstr = newPhysRegister(type, paramInfo->loc.pregId);
+    IrInstruction *regInstr = newPhysRegister(type, paramInfo->loc.physReg);
     addInstruction(regInstr);
 
     addStoreInstr(stackSlot, regInstr, NULL);
@@ -2170,62 +2163,22 @@ static void initializeParamterLocal(IrBasicBlock *entryBB,
   }
 }
 
+// Parameter classification itself lives in the TargetDescriptor now (see
+// classifyParametersGeneric in src/ir/target.c); this only wires the result
+// up to the LocalValueInfo slots the rest of the translation indexes by.
 static uint32_t computeParametersABIInfo(AstFunctionDeclaration *declaration,
                                          ParamtersABIInfo *infos,
                                          size_t numberOfParams,
                                          LocalValueInfo *lvis) {
 
-  unsigned intRegParams = 0;
-  unsigned fpRegParams = 0;
+  ctx->target->classifyParameters(ctx->target, declaration, infos,
+                                  numberOfParams);
 
-  int32_t baseOffset = 0; // from rbp;
-  int32_t stackParamOffset =
-      sizeof(intptr_t) + sizeof(intptr_t); // rbp itself + return pc
-
-  uint32_t idx = 0;
-  for (AstValueDeclaration *param = declaration->parameters; param;
-       param = param->next, idx++) {
-    TypeRef *paramType = param->type;
-    assert(idx < numberOfParams);
-    ParamtersABIInfo *pi = &infos[idx];
-    LocalValueInfo *lvi = &lvis[idx];
-    pi->lvi = lvi;
-    pi->idx = idx;
-    pi->declaration = param;
-
-    size_t size = max(computeTypeSize(paramType), sizeof(intptr_t));
-    size_t align = max(typeAlignment(paramType), sizeof(intptr_t));
-
-    if (isCompositeType(paramType) && size > sizeof(intptr_t)) {
-      int32_t alignedOffset = ALIGN_SIZE(stackParamOffset, align);
-      pi->isRegister = FALSE;
-      pi->loc.stackOffset = alignedOffset;
-    } else if (isRealType(paramType)) {
-      if (fpRegParams < R_FP_PARAM_COUNT && size <= 8) {
-        pi->isRegister = TRUE;
-        pi->loc.pregId = fpRegParams++;
-      } else {
-        int32_t alignedOffset = ALIGN_SIZE(stackParamOffset, align);
-        pi->isRegister = FALSE;
-        pi->loc.stackOffset = alignedOffset;
-        stackParamOffset = alignedOffset + size;
-      }
-    } else {
-      if (intRegParams < R_PARAM_COUNT) {
-        baseOffset += size;
-        baseOffset = ALIGN_SIZE(baseOffset, align);
-        pi->isRegister = TRUE;
-        pi->loc.pregId = intRegParams++;
-      } else {
-        int32_t alignedOffset = ALIGN_SIZE(stackParamOffset, align);
-        pi->isRegister = FALSE;
-        pi->loc.stackOffset = alignedOffset;
-        stackParamOffset = alignedOffset + size;
-      }
-    }
+  for (uint32_t idx = 0; idx < numberOfParams; ++idx) {
+    infos[idx].lvi = &lvis[idx];
   }
 
-  return idx;
+  return numberOfParams;
 }
 
 static size_t generateVaArea(AstValueDeclaration *va_area,
@@ -2250,9 +2203,22 @@ static size_t generateVaArea(AstValueDeclaration *va_area,
 
   const static int32_t dataSize = sizeof(intptr_t);
   assert(va_area);
+
+  // These have to be the member offsets of __va_elem as sdk/include/stdarg.h
+  // declares it - {unsigned gp_offset; unsigned fp_offset; void
+  // *overflow_arg_area; const void *reg_save_area;}, so 0/4/8/16 - because
+  // this only writes the area and translateVaArg() reads it back through
+  // findStructualMember() on the real struct. The two sides disagreeing is
+  // silent: va_arg just picks up the wrong field.
+  //
+  // fp_offset_off used to be initialized from itself rather than from
+  // gp_offset_off, so it took whatever the stack held; that fed the two
+  // offsets below it and made the emitted IR differ between runs of the same
+  // input. overflow_arg_area also advanced by a pointer rather than by the
+  // second uint32_t that actually precedes it.
   int32_t gp_offset_off = 0;
-  int32_t fp_offset_off = fp_offset_off + sizeof(uint32_t);
-  int32_t overflow_arg_area_ptr_off = fp_offset_off + dataSize;
+  int32_t fp_offset_off = gp_offset_off + sizeof(uint32_t);
+  int32_t overflow_arg_area_ptr_off = fp_offset_off + sizeof(uint32_t);
   int32_t reg_save_area_ptr_off = overflow_arg_area_ptr_off + dataSize;
 
   int32_t gp_va_area = ALIGN_SIZE(reg_save_area_ptr_off + dataSize, dataSize);
@@ -2352,8 +2318,8 @@ static uint32_t buildInitialIr(IrFunction *func,
   ParamtersABIInfo *paramABIInfo =
       heapAllocate(numOfParams * sizeof(ParamtersABIInfo));
 
-  static const uint32_t R_SP = 3;
-  IrInstruction *stackPtrOp = ctx->stackOp = newPhysRegister(IR_PTR, R_SP);
+  IrInstruction *stackPtrOp = ctx->stackOp =
+      newPhysRegister(IR_PTR, ctx->target->sp);
   addInstructionHead(func->entry, stackPtrOp);
 
   computeParametersABIInfo(declaration, paramABIInfo, numOfParams,

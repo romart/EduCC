@@ -10,8 +10,8 @@ Locals:
 BB #0, '<entry>', -> #2, dominatees [#2]
 
   %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
-  %3 = IR_P_REG () [preg = $0]
-  %6 = IR_P_REG () [preg = $1]
+  %3 = IR_P_REG () [preg = $rdi]
+  %6 = IR_P_REG () [preg = $rsi]
   %30 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #2, strict dom #2

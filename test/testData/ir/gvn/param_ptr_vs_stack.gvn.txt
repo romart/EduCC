@@ -1,0 +1,37 @@
+--- Phase: gvn ---
+Function 'param_ptr_vs_stack'
+Locals:
+   p:0|a0 = %2
+   p:1|a1 = %5
+   p:2|a2 = %8
+   p:3|p3 = %11
+   p:4|a4 = %14
+   p:5|a5 = %17
+   p:6|a6 = %21
+   p:7|a7 = %23
+   r:-1|<ret_slot> = %24
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %22 = IR_DEF_CONST () [kind = integer, v = 24, id = 2]
+  %20 = IR_DEF_CONST () [kind = integer, v = 16, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %0 = IR_P_REG () [preg = $rsp]
+  %12 = IR_P_REG () [preg = $rcx]
+  %21 = IR_E_ADD (%0, %20) []
+  %23 = IR_E_ADD (%0, %22) []
+  %35 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %33 = IR_RET (%30) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %26 = IR_M_LOAD (%12) [load type = I32]
+  %27 = IR_M_LOAD (%21) [load type = I32]
+  %28 = IR_E_ADD (%26, %27) []
+  %29 = IR_M_LOAD (%23) [load type = I32]
+  %30 = IR_E_ADD (%28, %29) []
+  %32 = IR_BRANCH () [target = #1]
+
+

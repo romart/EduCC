@@ -1,0 +1,84 @@
+#include "ir/target.h"
+#include "sema.h"
+
+#include <assert.h>
+
+const TargetDescriptor *getTargetDescriptor(enum Arch arch) {
+  switch (arch) {
+  case X86_64:
+    return &targetX86_64;
+  case RISCV64:
+    return &targetRiscv64;
+  default:
+    unreachable("Unknown target architecture");
+  }
+
+  return NULL;
+}
+
+const char *physRegName(const TargetDescriptor *target, uint32_t reg) {
+  if (target == NULL || reg >= target->numPhysRegs) {
+    return NULL;
+  }
+
+  return target->regName[reg];
+}
+
+void classifyParametersGeneric(const TargetDescriptor *target,
+                               AstFunctionDeclaration *declaration,
+                               ParamtersABIInfo *infos, size_t numberOfParams) {
+
+  uint32_t intRegParams = 0;
+  uint32_t fpRegParams = 0;
+
+  // The first stack parameter sits above the saved frame pointer and the
+  // return address that the call itself pushed.
+  int32_t stackParamOffset = sizeof(intptr_t) + sizeof(intptr_t);
+
+  uint32_t idx = 0;
+  for (AstValueDeclaration *param = declaration->parameters; param != NULL;
+       param = param->next, ++idx) {
+    TypeRef *paramType = param->type;
+    assert(idx < numberOfParams);
+
+    ParamtersABIInfo *pi = &infos[idx];
+    pi->idx = idx;
+    pi->declaration = param;
+
+    size_t size = max(computeTypeSize(paramType), sizeof(intptr_t));
+    size_t align = max(typeAlignment(paramType), sizeof(intptr_t));
+
+    Boolean inRegister = FALSE;
+
+    if (isCompositeType(paramType) && size > sizeof(intptr_t)) {
+      // TODO: SysV splits an aggregate of <= 16 bytes into two eightbytes and
+      // passes those in registers; riscv64 LP64D has its own rules. Both are
+      // approximated here by passing everything oversized on the stack, which
+      // is ABI-incompatible for small structs. This is the point where the
+      // two targets will need separate classifyParameters implementations.
+      inRegister = FALSE;
+    } else if (isRealType(paramType)) {
+      inRegister = fpRegParams < target->fpArgRegCount && size <= sizeof(intptr_t);
+      if (inRegister) {
+        pi->loc.physReg = target->fpArgRegs[fpRegParams++];
+      }
+    } else {
+      inRegister = intRegParams < target->intArgRegCount;
+      if (inRegister) {
+        pi->loc.physReg = target->intArgRegs[intRegParams++];
+      }
+    }
+
+    pi->isRegister = inRegister;
+
+    if (!inRegister) {
+      int32_t alignedOffset = ALIGN_SIZE(stackParamOffset, align);
+      pi->loc.stackOffset = alignedOffset;
+      // Every stack parameter has to advance the cursor, aggregates included -
+      // otherwise two of them are handed the same slot.
+      stackParamOffset = alignedOffset + size;
+    }
+  }
+
+  assert(idx == numberOfParams);
+}

@@ -4,6 +4,8 @@
 #include "treeDump.h"
 #include <assert.h>
 
+extern IrContext *ctx;
+
 struct _IrInstructionDumpInfo {
   const char *mnemonic;
   const char *comment;
@@ -191,9 +193,18 @@ static int32_t dumpIrInstructionExtra(FILE *stream, const IrInstruction *instr) 
         r += fprintf(stream, ", count = %c%u", '%', instr->info.copy.elementCount->id);
     }
     break;
-  case IR_P_REG:
-    r += fprintf(stream, "preg = $%u", instr->info.physReg);
+  case IR_P_REG: {
+    // Print the name rather than the raw id. The ids are target register
+    // numbers, so '$7' says nothing while '$rdi' says which ABI slot this is -
+    // which is the whole thing these dumps are being read for.
+    const char *name = physRegName(ctx->target, instr->info.physReg);
+    if (name != NULL) {
+      r += fprintf(stream, "preg = $%s", name);
+    } else {
+      r += fprintf(stream, "preg = $%u", instr->info.physReg);
+    }
     break;
+  }
   case IR_E_BITCAST:
 	r += dumpIrType(stream, instr->info.fromCastType);
 	r += fprintf(stream, "->");
