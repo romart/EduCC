@@ -916,7 +916,11 @@ static IrInstruction *translateReference(AstExpression *expr) {
 static IrInstruction *translateDeReference(AstExpression *expr) {
   assert(expr->op == EU_DEREF);
 
-  IrInstruction *lvalue = translateLValue(expr->unaryExpr.argument);
+  // The address `*E` designates is the *value* of E, so the operand is always
+  // evaluated as an rvalue, no matter how the dereference itself is consumed.
+  // (For flat operands - arrays/structs - the rvalue *is* the address, so
+  // translateRValue does not insert a load and this stays a no-op.)
+  IrInstruction *lvalue = translateRValue(expr->unaryExpr.argument);
   TypeRef *valueType = expr->type;
   TypeRef *ptrType = expr->unaryExpr.argument->type;
   assert(isPointerLikeType(ptrType) || isFunctionalType(ptrType));
