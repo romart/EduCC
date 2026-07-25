@@ -110,4 +110,9 @@ if(BUILD_TESTING)
   # Compares '-irDump:gvn' output (IR right after the gvn pass, before dce
   # sweeps the replaced instructions) against golden dumps.
   educc_add_test(ir_gvn ir/gvn ir 60 gvn)
+  # The same fixtures one pass later: '-irDump:dce' is what survives once dce
+  # sweeps the instructions gvn superseded, so the two suites read as a
+  # before/after pair over one shared set of .c files - ir_gvn pins down what
+  # gvn rewrote, ir_dce that the leftovers actually go away.
+  educc_add_test(ir_dce ir/gvn ir 60 dce)
 endif()

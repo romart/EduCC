@@ -1,0 +1,25 @@
+--- Phase: dce ---
+Function 'commutative'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $0]
+  %6 = IR_P_REG () [preg = $1]
+  %28 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %26 = IR_RET (%23) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %11 = IR_E_ADD (%3, %6) []
+  %15 = IR_E_MUL (%11, %11) []
+  %23 = IR_E_ADD (%15, %15) []
+  %25 = IR_BRANCH () [target = #1]
+
+
