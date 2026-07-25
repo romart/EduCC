@@ -1,30 +1,37 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-make clean all
+rm -rf ./build
+cmake -B build -S .
+cmake --build build
 
 rm -rf ./bootstrap
 mkdir -p ./bootstrap
 
 cp build/bin/main bootstrap/main_gcc
 rm -rf build
-COMPILER=bootstrap/main_gcc make clean all
+cmake -B build -S . -DCMAKE_C_COMPILER="$(pwd)/bootstrap/main_gcc"
+cmake --build build
 
 
 
 cp build/bin/main bootstrap/main2
 rm -rf build
-COMPILER=bootstrap/main2 make clean all
+cmake -B build -S . -DCMAKE_C_COMPILER="$(pwd)/bootstrap/main2"
+cmake --build build
 
 
 
 cp build/bin/main bootstrap/main3
 rm -rf build
-COMPILER=bootstrap/main3 make clean all
+cmake -B build -S . -DCMAKE_C_COMPILER="$(pwd)/bootstrap/main3"
+cmake --build build
 
 
 cp build/bin/main bootstrap/main4
 rm -rf build
-COMPILER=bootstrap/main4 make clean all
+cmake -B build -S . -DCMAKE_C_COMPILER="$(pwd)/bootstrap/main4"
+cmake --build build
 
 cp build/bin/main bootstrap/main5
 
