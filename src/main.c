@@ -343,7 +343,7 @@ int main(int argc, char** argv) {
     } else if (strcmp("-S", arg) == 0) {
       config.asmDump = 1;
     } else if (strcmp("-experimental", arg) == 0) {
-	  config.experimental = 1;
+      config.experimental = 1;
     } else if (strcmp("-c", arg) == 0) {
         config.objOutput = 1;
         continue;

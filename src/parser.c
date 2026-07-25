@@ -3586,35 +3586,35 @@ void compileFile(Configuration * config) {
   }
 
   if (!hasError) {
-	if (config->experimental) {
-	  IrContext irCtx;
-	  initializeIrContext(&irCtx, &context);
-	  IrFunctionList irFunctions = translateAstToIr(astFile);
+    if (config->experimental) {
+      IrContext irCtx;
+      initializeIrContext(&irCtx, &context);
+      IrFunctionList irFunctions = translateAstToIr(astFile);
 
-	  if (config->irDumpFileName) {
-		dumpIrFunctionList(config->irDumpFileName, &irFunctions);
-		buildDotGraphForFunctionList("cfg.dot", &irFunctions);
-	  }
+      if (config->irDumpFileName) {
+        dumpIrFunctionList(config->irDumpFileName, &irFunctions);
+        buildDotGraphForFunctionList("cfg.dot", &irFunctions);
+      }
 
-	  releaseIrContext(&irCtx);
-	} else {
-	  cannonizeAstFile(&context, astFile);
-	  if (config->canonDumpFileName) {
-		dumpFile(astFile, context.typeDefinitions, config->canonDumpFileName);
-	  }
+      releaseIrContext(&irCtx);
+    } else {
+      cannonizeAstFile(&context, astFile);
+      if (config->canonDumpFileName) {
+        dumpFile(astFile, context.typeDefinitions, config->canonDumpFileName);
+      }
 
-	  if (!config->skipCodegen) {
-		ArchCodegen cg = {0};
-		if (config->arch == X86_64) {
-		  initArchCodegen_x86_64(&cg);
-		} else if (config->arch == RISCV64) {
-		  initArchCodegen_riscv64(&cg);
-		} else {
-		  unreachable("Unknown arch");
-		}
-		GeneratedFile *genFile = generateCodeForFile(&context, &cg, astFile);
-	  }
-	}
+      if (!config->skipCodegen) {
+        ArchCodegen cg = {0};
+        if (config->arch == X86_64) {
+          initArchCodegen_x86_64(&cg);
+        } else if (config->arch == RISCV64) {
+          initArchCodegen_riscv64(&cg);
+        } else {
+          unreachable("Unknown arch");
+        }
+        GeneratedFile *genFile = generateCodeForFile(&context, &cg, astFile);
+      }
+    }
   }
 
   releaseContext(&context);
