@@ -1,0 +1,46 @@
+--- Phase: scp ---
+Function 'frame_dynamic_alloca'
+Locals:
+   p:0|n = %2
+   l:1|<v.0.length> = %7
+   l:2|v = %14
+   l:3|fixed = %6
+   r:-1|<ret_slot> = %5
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %29 = IR_DEF_CONST () [kind = integer, v = 1, id = 4]
+  %17 = IR_DEF_CONST () [kind = integer, v = 2, id = 3]
+  %16 = IR_DEF_CONST () [kind = integer, v = 0, id = 2]
+  %12 = IR_DEF_CONST () [kind = integer, v = 4, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %45 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %43 = IR_RET (%40) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %6 = IR_ALLOCA (%1) [size = 8, declaration = 3 | 'fixed']
+  %9 = IR_E_BITCAST (%3) [I32->U64]
+  %13 = IR_E_MUL (%9, %12) []
+  %14 = IR_ALLOCA (%13) [size = %13, declaration = 2 | 'v']
+  %15 = IR_M_LOAD (%14) [load type = PTR]
+  %19 = IR_GET_ELEMENT_PTR (%15, %16) [underlying type = signed int, index = %16]
+  %21 = IR_M_STORE (%19, %3) [store type = I32]
+  %23 = IR_GET_ELEMENT_PTR (%6, %16) [underlying type = signed int, index = %16]
+  %24 = IR_M_LOAD (%14) [load type = PTR]
+  %26 = IR_GET_ELEMENT_PTR (%24, %16) [underlying type = signed int, index = %16]
+  %27 = IR_M_LOAD (%26) [load type = I32]
+  %28 = IR_M_STORE (%23, %27) [store type = I32]
+  %31 = IR_GET_ELEMENT_PTR (%6, %12) [underlying type = signed int, index = %29]
+  %33 = IR_M_STORE (%31, %3) [store type = I32]
+  %35 = IR_GET_ELEMENT_PTR (%6, %16) [underlying type = signed int, index = %16]
+  %36 = IR_M_LOAD (%35) [load type = I32]
+  %38 = IR_GET_ELEMENT_PTR (%6, %12) [underlying type = signed int, index = %29]
+  %39 = IR_M_LOAD (%38) [load type = I32]
+  %40 = IR_E_ADD (%36, %39) []
+  %42 = IR_BRANCH () [target = #1]
+
+

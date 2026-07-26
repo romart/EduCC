@@ -1,6 +1,16 @@
 --- Phase: mir ---
 MachineFunction 'if_cascade' [target = x86_64]
-VRegs: <none>
+VRegs:
+  %v0 : gp/4 ; %67
+  %v1 : gp/4 ; %21
+  %v2 : gp/4 ; %59
+  %v3 : gp/4 ; %68
+  %v4 : gp/4 ; %57
+  %v5 : gp/4 ; %31
+  %v6 : gp/4 ; %55
+  %v7 : gp/4 ; %13
+  %v8 : gp/4 ; %40
+Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
 
 MBB #1, '<exit>', ir #1, <- #3
@@ -10,19 +20,27 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
 MBB #3, '<if_exit>', ir #3, <- #4 #6, -> #1
 
 MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  %v0 = MOP_COPY.4 %v1 ; %67
+  %v2 = MOP_COPY.4 %v1 ; %59
 
 MBB #5, '<if_else>', ir #5, <- #2, -> #7 #8
 
 MBB #6, '<if_exit>', ir #6, <- #7 #9, -> #3
+  %v0 = MOP_COPY.4 %v3 ; %67
+  %v2 = MOP_COPY.4 %v4 ; %59
 
 MBB #7, '<if_then>', ir #7, <- #5, -> #6
+  %v4 = MOP_COPY.4 %v5 ; %57
 
 MBB #8, '<if_else>', ir #8, <- #5, -> #10 #11
 
 MBB #9, '<if_exit>', ir #9, <- #11 #10, -> #6
+  %v4 = MOP_COPY.4 %v6 ; %57
 
 MBB #10, '<if_then>', ir #10, <- #8, -> #9
+  %v6 = MOP_COPY.4 %v8 ; %55
 
 MBB #11, '<crit_splitter>', ir #11, <- #8, -> #9
+  %v6 = MOP_COPY.4 %v7 ; %55
 
 

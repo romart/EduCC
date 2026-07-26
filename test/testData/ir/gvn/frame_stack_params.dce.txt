@@ -1,0 +1,53 @@
+--- Phase: dce ---
+Function 'frame_stack_params'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   p:2|c = %8
+   p:3|d = %11
+   p:4|e = %14
+   p:5|f = %17
+   p:6|g = %21
+   p:7|h = %23
+   p:8|s = %25
+   l:9|arr = %27
+   r:-1|<ret_slot> = %26
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %62 = IR_DEF_CONST () [kind = integer, v = 4, id = 7]
+  %34 = IR_DEF_CONST () [kind = integer, v = 1, id = 6]
+  %29 = IR_DEF_CONST () [kind = integer, v = 2, id = 5]
+  %28 = IR_DEF_CONST () [kind = integer, v = 0, id = 4]
+  %24 = IR_DEF_CONST () [kind = integer, v = 32, id = 3]
+  %22 = IR_DEF_CONST () [kind = integer, v = 24, id = 2]
+  %20 = IR_DEF_CONST () [kind = integer, v = 16, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %0 = IR_P_REG () [preg = $rsp]
+  %21 = IR_E_ADD (%0, %20) []
+  %23 = IR_E_ADD (%0, %22) []
+  %25 = IR_E_ADD (%0, %24) []
+  %54 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %52 = IR_RET (%49) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %27 = IR_ALLOCA (%20) [size = 16, declaration = 9 | 'arr']
+  %31 = IR_GET_ELEMENT_PTR (%27, %28) [underlying type = signed int, index = %28]
+  %32 = IR_M_LOAD (%21) [load type = I32]
+  %33 = IR_M_STORE (%31, %32) [store type = I32]
+  %36 = IR_GET_ELEMENT_PTR (%27, %62) [underlying type = signed int, index = %34]
+  %37 = IR_M_LOAD (%23) [load type = I32]
+  %38 = IR_M_STORE (%36, %37) [store type = I32]
+  %41 = IR_M_LOAD (%31) [load type = I32]
+  %44 = IR_M_LOAD (%36) [load type = I32]
+  %45 = IR_E_ADD (%41, %44) []
+  %46 = IR_GET_ELEMENT_PTR (%25, %28) [underlying type = signed long, member = a]
+  %47 = IR_M_LOAD (%46) [load type = I64]
+  %48 = IR_E_BITCAST (%47) [I64->I32]
+  %49 = IR_E_ADD (%45, %48) []
+  %51 = IR_BRANCH () [target = #1]
+
+

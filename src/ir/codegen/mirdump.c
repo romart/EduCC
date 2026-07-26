@@ -225,6 +225,50 @@ static int32_t dumpMachineBlockHeader(FILE *stream, const MachineBasicBlock *mbb
   return r;
 }
 
+static const char *frameObjectKindName(enum MachineFrameObjectKind kind) {
+  switch (kind) {
+  case MFO_LOCAL: return "local";
+  case MFO_INCOMING_PARAM: return "param";
+  case MFO_DYNAMIC_ALLOCA_SAVE: return "sp-save";
+  default: return "?";
+  }
+}
+
+static int32_t dumpMachineFrame(FILE *stream, const MachineFunction *mf) {
+  const MachineFrame *frame = &mf->frame;
+
+  if (frame->objects.size == 0) {
+    return fprintf(stream, "Frame: <empty>\n");
+  }
+
+  int32_t r = fprintf(stream, "Frame: %u bytes%s\n", frame->size,
+                      frame->hasDynamicAlloca ? ", dynamic" : "");
+
+  for (size_t idx = 0; idx < frame->objects.size; ++idx) {
+    const MachineFrameObject *obj = machineFrameObjectAt(mf, (int32_t)idx);
+
+    r += fprintf(stream, "  fi#%lu : %s ", idx, frameObjectKindName(obj->kind));
+
+    if (obj->isDynamic) {
+      r += fprintf(stream, "dynamic");
+    } else {
+      r += fprintf(stream, "%u/%u @ %d", obj->size, obj->alignment, obj->offset);
+    }
+
+    if (obj->declaration != NULL) {
+      r += fprintf(stream, " '%s'", obj->declaration->name);
+    }
+
+    if (obj->origin != NULL) {
+      r += fprintf(stream, " ; %c%u", '%', obj->origin->id);
+    }
+
+    r += fputc('\n', stream);
+  }
+
+  return r;
+}
+
 int32_t dumpMachineFunction(FILE *stream, const MachineFunction *mf) {
   const char *name = mf->ast ? mf->ast->declaration->name : "<unnamed>";
   int32_t r = fprintf(stream, "MachineFunction '%s' [target = %s]\n", name, mf->target->name);
@@ -235,9 +279,15 @@ int32_t dumpMachineFunction(FILE *stream, const MachineFunction *mf) {
     r += fprintf(stream, "VRegs:\n");
     for (size_t idx = 0; idx < mf->vregs.size; ++idx) {
       const VRegInfo *vri = (const VRegInfo *)getFromVector(&mf->vregs, idx);
-      r += fprintf(stream, "  %cv%lu : %s/%u\n", '%', idx, regClassName(vri->rc), vri->size);
+      r += fprintf(stream, "  %cv%lu : %s/%u", '%', idx, regClassName(vri->rc), vri->size);
+      if (vri->origin != NULL) {
+        r += fprintf(stream, " ; %c%u", '%', vri->origin->id);
+      }
+      r += fputc('\n', stream);
     }
   }
+
+  r += dumpMachineFrame(stream, mf);
 
   for (const MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
     r += dumpMachineBlockHeader(stream, mbb);

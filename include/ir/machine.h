@@ -140,7 +140,54 @@ typedef struct _MachineBasicBlock {
 typedef struct _VRegInfo {
   enum RegClass rc;
   uint8_t size; // in bytes
+
+  // The IR value this register holds, or NULL for one the backend invented
+  // (the temporary that breaks a copy cycle, a spill slot's reload). Only ever
+  // read by the dumper - without it a dump is a wall of %v numbers with
+  // nothing to check them against.
+  const struct _IrInstruction *origin;
 } VRegInfo;
+
+enum MachineFrameObjectKind {
+  // A local that outlived mem2reg - address-taken, an aggregate, or a VLA -
+  // and so still needs memory rather than a register.
+  MFO_LOCAL = 0,
+  // An argument the caller left on the stack. It is above the frame pointer
+  // and was laid out by the ABI, not by us; it is listed so that everything
+  // reachable through a frame index is reachable the same way.
+  MFO_INCOMING_PARAM,
+  // Where the stack pointer is parked before a dynamically sized allocation
+  // moves it, so the frame can be restored.
+  MFO_DYNAMIC_ALLOCA_SAVE,
+};
+
+typedef struct _MachineFrameObject {
+  enum MachineFrameObjectKind kind;
+
+  uint32_t size;      // 0 when the size is only known at run time
+  uint32_t alignment; // in bytes, always a power of two
+
+  // Displacement from the frame pointer: negative for anything this frame
+  // allocates, positive for an incoming stack argument. Meaningless while
+  // 'isDynamic' is set - such an allocation has no fixed home.
+  int32_t offset;
+
+  Boolean isDynamic;
+
+  const struct _IrInstruction *origin;  // the IR_ALLOCA, when there is one
+  struct _AstValueDeclaration *declaration; // the C variable, when there is one
+} MachineFrameObject;
+
+typedef struct _MachineFrame {
+  Vector objects; // of MachineFrameObject *, indexed by frame index
+
+  // Bytes reserved below the frame pointer. The spill area is *not* included:
+  // its size is unknown until register allocation is done, which is why the
+  // prologue is emitted in stage 3 and not here.
+  uint32_t size;
+
+  Boolean hasDynamicAlloca;
+} MachineFrame;
 
 typedef struct _MachineFunction {
   struct _IrFunction *ir;
@@ -155,6 +202,24 @@ typedef struct _MachineFunction {
   size_t numBlocks;
 
   Vector vregs; // of VRegInfo *, indexed by (register id - FIRST_VREG)
+
+  // Which virtual register holds each IR value, indexed by IrInstruction.id
+  // (per-function and dense enough to index directly, if sparse after dce);
+  // NO_REG for values that have not been asked for. Entries are handed out
+  // lazily by machineVregForValue().
+  //
+  // Naming an IR value is not one stage's private business: stage 0 needs
+  // vregs for the values phis carry before selection has run, and selection
+  // has to reach the same answer for those same values afterwards. One map
+  // both consult is what keeps them from disagreeing.
+  Vector irToVreg;
+
+  MachineFrame frame;
+
+  // Which frame object holds each IR value, indexed by IrInstruction.id and
+  // biased the same way as irToVreg. Only IR_ALLOCA values are ever in here;
+  // it is how selection turns one into an MO_FRAME_IDX operand.
+  Vector irToFrameIdx;
 
   // Everything below the MachineFunction is allocated from here. Today this is
   // the shared IrContext arena, which is what keeps the lifetime honest while
@@ -193,8 +258,22 @@ uint32_t createVirtualRegister(MachineFunction *mf, enum RegClass rc, uint8_t si
 VRegInfo *virtualRegisterInfo(const MachineFunction *mf, uint32_t reg);
 enum RegClass machineRegisterClass(const MachineFunction *mf, uint32_t reg);
 
+// The virtual register holding an IR value, created on first ask. See
+// MachineFunction.irToVreg.
+uint32_t machineVregForValue(MachineFunction *mf, const struct _IrInstruction *value);
+
+// ------------- frame ------------------------
+int32_t addMachineFrameObject(MachineFunction *mf, enum MachineFrameObjectKind kind, uint32_t size,
+                              uint32_t alignment);
+MachineFrameObject *machineFrameObjectAt(const MachineFunction *mf, int32_t frameIdx);
+// The frame slot an IR_ALLOCA was given, or -1 if it was not given one.
+int32_t machineFrameIndexForValue(const MachineFunction *mf, const struct _IrInstruction *value);
+
 // ------------- build phase ------------------------
 MachineFunction *buildMachineFunction(struct _IrFunction *f);
+
+// ------------- stage 0: prepare / legalize ------------------------
+MachineFunction *prepareMachineFunction(struct _IrFunction *f);
 
 // ------------- dump utils ------------------------
 int32_t dumpMachineFunction(FILE *stream, const MachineFunction *mf);

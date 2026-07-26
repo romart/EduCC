@@ -1,0 +1,71 @@
+--- Phase: scp ---
+Function 'phi_swap_cycle'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   p:2|c = %8
+   p:3|n = %11
+   l:4|t = %36
+   l:5|t = %20
+   r:-1|<ret_slot> = %14
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %53 = IR_DEF_CONST () [kind = integer, v = 10, id = 4]
+  %50 = IR_DEF_CONST () [kind = integer, v = 100, id = 3]
+  %28 = IR_DEF_CONST () [kind = integer, v = 1, id = 2]
+  %17 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %6 = IR_P_REG () [preg = $rsi]
+  %9 = IR_P_REG () [preg = $rdx]
+  %12 = IR_P_REG () [preg = $rcx]
+  %62 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #8, strict dom #8
+
+  %60 = IR_RET (%57) []
+
+BB #2, '<FIRST>', <- #0, -> #3, strict dom #0, dominatees [#3]
+
+  %15 = IR_BRANCH () [target = #3]
+
+BB #3, '<while_head>', <- #2 #4, -> #4 #5, strict dom #2, domination frontier [#3], dominatees [#4, #5]
+
+  %75 = IR_PHI ([%12, #2], [%29, #4]) [var = n]
+  %69 = IR_PHI ([%6, #2], [%65, #4]) [var = b]
+  %65 = IR_PHI ([%3, #2], [%69, #4]) [var = a]
+  %18 = IR_E_GT (%75, %17) []
+  %19 = IR_CBRANCH (%18) [taken = #4, non taken = #5]
+
+BB #4, '<while_body>', <- #3, -> #3, strict dom #3, domination frontier [#3]
+
+  %29 = IR_E_SUB (%75, %28) []
+  %31 = IR_BRANCH () [target = #3]
+
+BB #5, '<while_exit>', <- #3, -> #6, strict dom #3, dominatees [#6]
+
+  %32 = IR_BRANCH () [target = #6]
+
+BB #6, '<while_head>', <- #5 #7, -> #7 #8, strict dom #5, domination frontier [#6], dominatees [#7, #8]
+
+  %73 = IR_PHI ([%75, #5], [%46, #7]) [var = n]
+  %71 = IR_PHI ([%9, #5], [%63, #7]) [var = c]
+  %67 = IR_PHI ([%69, #5], [%71, #7]) [var = b]
+  %63 = IR_PHI ([%65, #5], [%67, #7]) [var = a]
+  %34 = IR_E_LT (%73, %17) []
+  %35 = IR_CBRANCH (%34) [taken = #7, non taken = #8]
+
+BB #7, '<while_body>', <- #6, -> #6, strict dom #6, domination frontier [#6]
+
+  %46 = IR_E_ADD (%73, %28) []
+  %48 = IR_BRANCH () [target = #6]
+
+BB #8, '<while_exit>', <- #6, -> #1, strict dom #6, dominatees [#1]
+
+  %51 = IR_E_MUL (%63, %50) []
+  %54 = IR_E_MUL (%67, %53) []
+  %55 = IR_E_ADD (%51, %54) []
+  %57 = IR_E_ADD (%55, %71) []
+  %59 = IR_BRANCH () [target = #1]
+
+

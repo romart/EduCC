@@ -2417,7 +2417,7 @@ static IrFunction *translateFunction(AstFunctionDefinition *function) {
   // Machine IR is built unconditionally rather than only when it is dumped:
   // it is on the way to being the only way this pipeline produces code, and a
   // path that runs only under a debug flag is a path that rots.
-  func->machine = buildMachineFunction(func);
+  func->machine = prepareMachineFunction(func);
   if (ctx->irDumpStream && (ctx->irDumpPhases & IR_DUMP_PHASE_MIR)) {
     dumpMachineFunctionPhase(ctx->irDumpStream, func->machine, "mir");
   }

@@ -1,6 +1,7 @@
 --- Phase: mir ---
 MachineFunction 'calls_not_merged' [target = x86_64]
 VRegs: <none>
+Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
 
 MBB #1, '<exit>', ir #1, <- #2

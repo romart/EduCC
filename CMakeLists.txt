@@ -53,6 +53,7 @@ set(SOURCES
   src/ir/gvn.c
   src/ir/codegen/machine.c
   src/ir/codegen/mirdump.c
+  src/ir/codegen/prepare.c
 )
 
 add_executable(main ${SOURCES})

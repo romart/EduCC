@@ -1,11 +1,19 @@
 --- Phase: mir ---
 MachineFunction 'scp_dead_backedge' [target = x86_64]
-VRegs: <none>
+VRegs:
+  %v0 : gp/4 ; %38
+  %v1 : gp/4 ; %10
+  %v2 : gp/4 ; %36
+  %v3 : gp/4 ; %21
+  %v4 : gp/4 ; %27
+Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
 
 MBB #1, '<exit>', ir #1, <- #5
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  %v0 = MOP_COPY.4 %v1 ; %38
+  %v2 = MOP_COPY.4 %v1 ; %36
 
 MBB #3, '<while_head>', ir #3, <- #2 #6, -> #4 #5
 
@@ -14,5 +22,7 @@ MBB #4, '<while_body>', ir #4, <- #3, -> #6
 MBB #5, '<while_exit>', ir #5, <- #3, -> #1
 
 MBB #6, '<if_exit>', ir #6, <- #4, -> #3
+  %v0 = MOP_COPY.4 %v3 ; %38
+  %v2 = MOP_COPY.4 %v4 ; %36
 
 

@@ -1,6 +1,10 @@
 --- Phase: mir ---
 MachineFunction 'scp_div_guard' [target = x86_64]
-VRegs: <none>
+VRegs:
+  %v0 : gp/4 ; %25
+  %v1 : gp/4 ; %14
+  %v2 : gp/4 ; %19
+Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
 
 MBB #1, '<exit>', ir #1, <- #4 #3
@@ -8,7 +12,9 @@ MBB #1, '<exit>', ir #1, <- #4 #3
 MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
 
 MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %25
 
 MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %25
 
 

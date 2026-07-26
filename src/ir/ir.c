@@ -597,6 +597,127 @@ void removeSuccessor(IrBasicBlock *block, IrBasicBlock *succ) {
   processPhiNodes(succ, block);
 }
 
+// -============================ Critical edges ============================-
+//
+// An edge is critical when its source has several successors and its target
+// several predecessors: there is nowhere on it to put anything. Splitting one
+// means interposing a block that only jumps on, which gives every edge a place
+// of its own to hold code that must run exactly when that edge is taken.
+//
+// Two passes need this and need it at different times, which is why it lives
+// here rather than in either of them: gvn's pre() splits so a computation
+// cloned into a predecessor is never executed speculatively, and codegen's
+// stage 0 (src/ir/codegen/prepare.c) splits so phi destruction has an edge to
+// put its copies on. The two are independent - dce runs in between and both
+// removes blocks and rewires branches, so the property gvn established cannot
+// be assumed still to hold by the time codegen looks.
+
+Boolean isCriticalEdge(const IrBasicBlock *src, const IrBasicBlock *dst) {
+  if (src->succs.size == 1)
+    return FALSE;
+
+  return dst->preds.size != 1;
+}
+
+static void updateTerminatorTarget(IrInstruction *term, IrBasicBlock *oldTarget, IrBasicBlock *newTarget) {
+  if (term->kind == IR_CBRANCH) {
+    if (term->info.branch.notTaken == oldTarget) {
+      term->info.branch.notTaken = newTarget;
+    } else {
+      term->info.branch.taken = newTarget;
+    }
+  } else if (term->kind == IR_TBRANCH) {
+    SwitchTable *st = term->info.switchTable;
+    if (st->defaultBB == oldTarget) {
+      st->defaultBB = newTarget;
+    } else {
+      for (uint32_t i = 0; i < st->caseCount; ++i) {
+        IrBasicBlock *cur = st->caseBlocks[i].block;
+        if (cur == oldTarget) {
+          st->caseBlocks[i].block = newTarget;
+          return;
+        }
+      }
+    }
+  } else {
+    unreachable("Unexpected terminator kind");
+  }
+}
+
+static void updateDomTreeInfo(IrBasicBlock *from, IrBasicBlock *split, IrBasicBlock *to) {
+  // The split block's only predecessor is 'from', so 'from' is its idom.
+  split->dominators.sdom = from;
+  addBlockToVector(&from->dominators.dominatees, split);
+
+  // 'to' keeps its other predecessors, so 'split' does not strictly
+  // dominate it: DF(split) = { to }. No other frontier changes: every
+  // block dominating 'from' strictly dominates 'split' (its only pred),
+  // so 'split' enters no frontier, and 'to'-s frontier memberships are
+  // unaffected because 'split' is dominated by exactly the dominators
+  // of 'from'.
+  addBlockToVector(&split->dominators.dominationFrontier, to);
+}
+
+static void splitCriticalEdge(IrInstruction *term, size_t succIdx) {
+  IrBasicBlock *block = term->block;
+  IrBasicBlock *succ = getBlockFromVector(&block->succs, succIdx);
+
+  Vector *preds = &succ->preds;
+  size_t pIdx = 0;
+  for (; pIdx < preds->size; ++pIdx) {
+    IrBasicBlock *pred = getBlockFromVector(preds, pIdx);
+    if (pred == block)
+      break;
+  }
+
+  assert(pIdx < preds->size);
+
+  IrBasicBlock *newBB = newBasicBlock("<crit_splitter>");
+
+  block->succs.storage[succIdx] = (intptr_t)newBB;
+  preds->storage[pIdx] = (intptr_t)newBB;
+
+  addToVector(&newBB->preds, (intptr_t)block);
+  addToVector(&newBB->succs, (intptr_t)succ);
+
+  IrInstruction *gotoI = newGotoInstruction(succ);
+  addInstructionHead(newBB, gotoI);
+  newBB->term = gotoI;
+  updateTerminatorTarget(term, succ, newBB);
+
+  for (IrInstruction *i = succ->instrunctions.head; i != NULL; i = i->next) {
+    if (i->kind != IR_PHI) {
+      break;
+    }
+
+    IrBasicBlock *curEdge = (IrBasicBlock *)i->info.phi.phiBlocks.storage[pIdx];
+    assert(curEdge == block);
+    i->info.phi.phiBlocks.storage[pIdx] = (intptr_t)newBB;
+  }
+
+  updateDomTreeInfo(block, newBB, succ);
+}
+
+void splitCriticalEdges(IrFunction *func) {
+  for (IrBasicBlock *block = func->blocks.head; block != NULL; block = block->next) {
+    Vector *succs = &block->succs;
+    IrInstruction *terminator = block->term;
+    assert(terminator != NULL);
+
+    // A computed goto's targets cannot be rewritten; leave its edges alone
+    // (pre() refuses to insert on them instead).
+    if (terminator->kind == IR_IBRANCH)
+      continue;
+
+    for (size_t idx = 0; idx < succs->size; ++idx) {
+      IrBasicBlock *succ = getBlockFromVector(succs, idx);
+      if (isCriticalEdge(block, succ)) {
+        splitCriticalEdge(terminator, idx);
+      }
+    }
+  }
+}
+
 void removeFromBlockList(IrBasicBlockList *list, IrBasicBlock *block) {
   /* IrBasicBlockListNode *bn = list->head; */
   /* while (bn != NULL) { */

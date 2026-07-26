@@ -25,6 +25,9 @@ MachineFunction *createMachineFunction(IrFunction *f) {
   mf->id = f->id;
 
   initVector(&mf->vregs, INITIAL_VECTOR_CAPACITY);
+  initVector(&mf->irToVreg, INITIAL_VECTOR_CAPACITY);
+  initVector(&mf->irToFrameIdx, INITIAL_VECTOR_CAPACITY);
+  initVector(&mf->frame.objects, INITIAL_VECTOR_CAPACITY);
 
   return mf;
 }
@@ -213,6 +216,71 @@ VRegInfo *virtualRegisterInfo(const MachineFunction *mf, uint32_t reg) {
   return (VRegInfo *)getFromVector(&mf->vregs, idx);
 }
 
+// A value's register class and width follow from its IR type alone - there is
+// no per-value choice to make - so both stages that hand out vregs derive them
+// the same way rather than each passing in what it thinks the value is.
+static enum RegClass irTypeRegClass(enum IrTypeKind type) {
+  return isFloatIrType(type) ? RC_FP : RC_GP;
+}
+
+static uint8_t irTypeSize(enum IrTypeKind type) {
+  switch (type) {
+  case IR_BOOL:
+  case IR_I8:
+  case IR_U8:
+    return 1;
+  case IR_I16:
+  case IR_U16:
+    return 2;
+  case IR_I32:
+  case IR_U32:
+  case IR_F32:
+    return 4;
+  case IR_I64:
+  case IR_U64:
+  case IR_F64:
+    return 8;
+  // x87's 80-bit format occupies 16 bytes once aligned. Nothing can hold one
+  // in a register of either class, which is the point of the soft-float
+  // lowering docs/ir-codegen-design.md section 10 leaves open; sizing it here
+  // is only so a long double value can be named before that lands.
+  case IR_F80:
+    return 16;
+  // An aggregate is named by its address, never held whole.
+  case IR_P_AGG:
+  case IR_PTR:
+  case IR_REF:
+  case IR_LITERAL:
+  case IR_LABEL:
+    return 8;
+  default:
+    unreachable("IR type has no machine width");
+  }
+
+  return 0;
+}
+
+uint32_t machineVregForValue(MachineFunction *mf, const IrInstruction *value) {
+  assert(value->type != IR_VOID && "value-less instruction has no register");
+
+  Vector *map = &mf->irToVreg;
+
+  // Biased by one so that "never asked for" and "vreg id 0" stay distinguishable
+  // in a vector whose unwritten entries are zero.
+  if (value->id < map->size) {
+    intptr_t stored = getFromVector(map, value->id);
+    if (stored != 0) {
+      return (uint32_t)stored - 1;
+    }
+  }
+
+  uint32_t reg = createVirtualRegister(mf, irTypeRegClass(value->type), irTypeSize(value->type));
+  virtualRegisterInfo(mf, reg)->origin = value;
+  putAtVector(map, value->id, (intptr_t)reg + 1);
+
+  return reg;
+}
+
 enum RegClass machineRegisterClass(const MachineFunction *mf, uint32_t reg) {
   if (isVirtualRegister(reg)) {
     return virtualRegisterInfo(mf, reg)->rc;
@@ -223,6 +291,42 @@ enum RegClass machineRegisterClass(const MachineFunction *mf, uint32_t reg) {
   }
 
   return RC_NONE;
+}
+
+// ------------- frame ------------------------
+
+int32_t addMachineFrameObject(MachineFunction *mf, enum MachineFrameObjectKind kind, uint32_t size,
+                              uint32_t alignment) {
+  MachineFrameObject *obj = areanAllocate(mf->arena, sizeof(MachineFrameObject));
+
+  memset(obj, 0, sizeof(MachineFrameObject));
+
+  obj->kind = kind;
+  obj->size = size;
+  obj->alignment = alignment;
+
+  int32_t frameIdx = (int32_t)mf->frame.objects.size;
+  addToVector(&mf->frame.objects, (intptr_t)obj);
+
+  return frameIdx;
+}
+
+MachineFrameObject *machineFrameObjectAt(const MachineFunction *mf, int32_t frameIdx) {
+  assert(frameIdx >= 0 && (size_t)frameIdx < mf->frame.objects.size);
+  return (MachineFrameObject *)getFromVector(&mf->frame.objects, frameIdx);
+}
+
+int32_t machineFrameIndexForValue(const MachineFunction *mf, const IrInstruction *value) {
+  const Vector *map = &mf->irToFrameIdx;
+
+  if (value->id >= map->size) {
+    return -1;
+  }
+
+  // Biased by one, so an unwritten entry reads back as "no slot" rather than
+  // as frame index 0. See MachineFunction.irToFrameIdx.
+  intptr_t stored = getFromVector(map, value->id);
+  return stored == 0 ? -1 : (int32_t)stored - 1;
 }
 
 // ------------- build phase ------------------------

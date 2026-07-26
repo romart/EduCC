@@ -1,22 +1,40 @@
 --- Phase: mir ---
 MachineFunction 'nested_loops' [target = x86_64]
-VRegs: <none>
+VRegs:
+  %v0 : gp/4 ; %67
+  %v1 : gp/4 ; %16
+  %v2 : gp/4 ; %63
+  %v3 : gp/4 ; %50
+  %v4 : gp/4 ; %47
+  %v5 : gp/4 ; %69
+  %v6 : gp/4 ; %65
+  %v7 : gp/4 ; %40
+  %v8 : gp/4 ; %36
+Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
 
 MBB #1, '<exit>', ir #1, <- #5
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  %v0 = MOP_COPY.4 %v1 ; %67
+  %v2 = MOP_COPY.4 %v1 ; %63
 
 MBB #3, '<while_head>', ir #3, <- #2 #8, -> #4 #5
 
 MBB #4, '<while_body>', ir #4, <- #3, -> #6
+  %v5 = MOP_COPY.4 %v1 ; %69
+  %v6 = MOP_COPY.4 %v2 ; %65
 
 MBB #5, '<while_exit>', ir #5, <- #3, -> #1
 
 MBB #6, '<while_head>', ir #6, <- #4 #7, -> #7 #8
 
 MBB #7, '<while_body>', ir #7, <- #6, -> #6
+  %v5 = MOP_COPY.4 %v7 ; %69
+  %v6 = MOP_COPY.4 %v8 ; %65
 
 MBB #8, '<while_exit>', ir #8, <- #6, -> #3
+  %v0 = MOP_COPY.4 %v3 ; %67
+  %v2 = MOP_COPY.4 %v4 ; %63
 
 

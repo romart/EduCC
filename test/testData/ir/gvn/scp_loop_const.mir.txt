@@ -1,15 +1,25 @@
 --- Phase: mir ---
 MachineFunction 'scp_loop_const' [target = x86_64]
-VRegs: <none>
+VRegs:
+  %v0 : gp/4 ; %35
+  %v1 : gp/4 ; %7
+  %v2 : gp/4 ; %33
+  %v3 : gp/4 ; %24
+  %v4 : gp/4 ; %20
+Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
 
 MBB #1, '<exit>', ir #1, <- #5
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  %v0 = MOP_COPY.4 %v1 ; %35
+  %v2 = MOP_COPY.4 %v1 ; %33
 
 MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
 
 MBB #4, '<while_body>', ir #4, <- #3, -> #3
+  %v0 = MOP_COPY.4 %v3 ; %35
+  %v2 = MOP_COPY.4 %v4 ; %33
 
 MBB #5, '<while_exit>', ir #5, <- #3, -> #1
 

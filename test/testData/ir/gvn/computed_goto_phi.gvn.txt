@@ -1,0 +1,67 @@
+--- Phase: gvn ---
+Function 'computed_goto_phi'
+Locals:
+   p:0|n = %2
+   p:1|k = %5
+   l:2|acc = %11
+   l:3|tab = %10
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #4, dominatees [#4]
+
+  %49 = IR_DEF_CONST () [kind = integer, v = 20, id = 6]
+  %44 = IR_DEF_CONST () [kind = integer, v = 10, id = 5]
+  %19 = IR_DEF_CONST () [kind = integer, v = 1, id = 4]
+  %14 = IR_DEF_CONST () [kind = integer, v = 3, id = 3]
+  %12 = IR_DEF_CONST () [kind = integer, v = 0, id = 2]
+  %9 = IR_DEF_CONST () [kind = integer, v = 16, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %6 = IR_P_REG () [preg = $rsi]
+  %55 = IR_BRANCH () [target = #4]
+
+BB #1, '<exit>', <- #2 #3, strict dom #4
+
+  %56 = IR_PHI ([%45, #2], [%50, #3]) []
+  %53 = IR_RET (%56) []
+
+BB #2, 'A', <- #6 #5, -> #1, strict dom #4, domination frontier [#1]
+
+  %58 = IR_PHI ([%28, #6], [%36, #5]) [var = acc]
+  %45 = IR_E_ADD (%58, %44) []
+  %47 = IR_BRANCH () [target = #1]
+
+BB #3, 'B', <- #6 #5, -> #1, strict dom #4, domination frontier [#1]
+
+  %60 = IR_PHI ([%28, #6], [%36, #5]) [var = acc]
+  %50 = IR_E_ADD (%60, %49) []
+  %52 = IR_BRANCH () [target = #1]
+
+BB #4, '<FIRST>', <- #0, -> #6 #5, strict dom #0, dominatees [#1, #2, #3, #5, #6]
+
+  %10 = IR_ALLOCA (%9) [size = 16, declaration = 3 | 'tab']
+  %16 = IR_GET_ELEMENT_PTR (%10, %12) [underlying type = *void, index = %12]
+  %17 = IR_CFG_LABEL () [block = #2]
+  %18 = IR_M_STORE (%16, %17) [store type = LABEL]
+  %21 = IR_GET_ELEMENT_PTR (%10, %1) [underlying type = *void, index = %19]
+  %22 = IR_CFG_LABEL () [block = #3]
+  %23 = IR_M_STORE (%21, %22) [store type = LABEL]
+  %25 = IR_E_GT (%3, %12) []
+  %26 = IR_CBRANCH (%25) [taken = #6, non taken = #5]
+
+BB #5, '<if_exit>', <- #4, -> #2 #3, strict dom #4, domination frontier [#2, #3]
+
+  %36 = IR_E_SUB (%3, %19) []
+  %39 = IR_E_SHL (%6, %14) []
+  %40 = IR_GET_ELEMENT_PTR (%10, %39) [underlying type = *void, index = %38]
+  %41 = IR_M_LOAD (%40) [load type = PTR]
+  %42 = IR_IBRANCH (%41) []
+
+BB #6, '<if_then>', <- #4, -> #2 #3, strict dom #4, domination frontier [#2, #3]
+
+  %28 = IR_E_ADD (%3, %19) []
+  %31 = IR_E_SHL (%6, %14) []
+  %32 = IR_GET_ELEMENT_PTR (%10, %31) [underlying type = *void, index = %30]
+  %33 = IR_M_LOAD (%32) [load type = PTR]
+  %34 = IR_IBRANCH (%33) []
+
+
