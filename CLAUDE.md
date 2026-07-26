@@ -75,6 +75,7 @@ Notes on the runner's behavior:
 - If an expected file (`*.txt`, `*.err`, `*.canon.txt`, `*.expect`) doesn't exist yet, the test **fails** rather than silently passing — pass `--update-baselines` to (re)write every baseline from current actual output instead of comparing, then review with `git diff` before committing. There's no silent auto-baselining anymore.
 - Codegen tests actually execute the compiled binary and check its exit code; a `<name>.args` file (one arg-string per line) runs the binary once per line. A nonzero compiler exit code fails the test; a zero exit with warnings on stderr does not (see the exit-code contract note in Architecture below).
 - Nonzero process exit at the runner level is the failed-test count; on failure it also lists every failed test's path. Directory walks are sorted, so run order (and failure order) is deterministic across machines.
+- A test can be **muted** by placing a `<name>.muted` file next to its `<name>.c`, with the reason as the file's contents (printed whenever the test runs). This is for known-broken fixtures kept in the repo so a bug stays reproducible: the test still runs and reports, but its failures don't count towards the exit code. If a muted test passes every check, the summary flags it under `MUTED TESTS THAT NOW PASS` so the stale marker gets deleted — loudly, but without failing the run. `--update-baselines` deliberately skips muted tests rather than baking their known-wrong output into a golden file.
 
 ## Architecture
 

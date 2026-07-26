@@ -100,7 +100,18 @@ if(BUILD_TESTING)
               ${extraArgs}
       WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     )
-    set_tests_properties(${name} PROPERTIES TIMEOUT ${timeoutSeconds})
+    # A muted test (see '<name>.muted' in test/testRunner.py) does not count
+    # towards the runner's exit code, which is deliberately still "the number
+    # of failed tests" for anything scripting around it. That leaves one gap:
+    # a muted test that starts passing prints its notice and, since the run
+    # succeeded, ctest shows nothing - so the stale marker would sit there
+    # forever, which defeats the point of keeping the fixture. Failing the
+    # ctest entry on that one line closes it without giving the runner a
+    # second, ambiguous failure mode; --output-on-failure then prints exactly
+    # which marker file to delete.
+    set_tests_properties(${name} PROPERTIES
+      TIMEOUT ${timeoutSeconds}
+      FAIL_REGULAR_EXPRESSION "MUTED TESTS THAT NOW PASS")
   endfunction()
 
   educc_add_test(parser parser parser 60)

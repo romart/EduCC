@@ -12,15 +12,67 @@ from subprocess import Popen
 if sys.stdout.isatty():
     CRED    = '\33[31m'
     CGREEN  = '\33[32m'
+    CYELLOW = '\33[33m'
     RESET = "\033[0;0m"
     CBOLD     = '\33[1m'
 else:
-    CRED = CGREEN = RESET = CBOLD = ''
+    CRED = CGREEN = CYELLOW = RESET = CBOLD = ''
 
 numOfFailedTests = 0
 failedTests = []
 updateBaselines = False
 irPhase = 'ssa'
+
+# A test is muted by putting a '<name>.muted' file next to its '<name>.c'; the
+# file's contents are the reason, printed whenever the test runs. Muted tests
+# still run - they are known-broken fixtures kept in the repo so a bug stays
+# reproducible, and skipping them outright would mean nobody ever notices when
+# one starts passing again.
+MUTE_MARKER_EXT = '.muted'
+
+# Reason for the test currently running, or None. Module-global for the same
+# reason irPhase/updateBaselines are: every runXTest() reports its own result,
+# and threading a flag through all four of them buys nothing.
+currentMuteReason = None
+
+mutedFailures = set()   # muted tests that failed, i.e. the marker is doing its job
+mutedPasses = set()     # muted tests that passed - candidates for unmuting
+
+
+def muteMarkerPath(dirname, name):
+    return dirname + '/' + name + MUTE_MARKER_EXT
+
+
+def readMuteReason(dirname, name):
+    markerPath = muteMarkerPath(dirname, name)
+    if not path.exists(markerPath):
+        return None
+    with open(markerPath) as marker:
+        reason = marker.read().strip()
+    return reason if reason else '(no reason recorded in the marker file)'
+
+
+def failTest(testFilePath, headline):
+    """Reports a failed check. Muted tests report but do not count."""
+    if currentMuteReason is not None:
+        print(CBOLD + CYELLOW + f"Test {testFilePath} -- FAIL (muted)" + RESET)
+        print(f"  {headline}")
+        mutedFailures.add(testFilePath)
+        return
+
+    print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
+    print(f"  {headline}")
+    recordFailure(testFilePath)
+
+
+def passTest(testFilePath):
+    """Reports a passing check, flagging one that was expected to fail."""
+    if currentMuteReason is not None:
+        print(CBOLD + CYELLOW + f"Test {testFilePath} -- OK (muted)" + RESET)
+        mutedPasses.add(testFilePath)
+        return
+
+    print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
 
 
 def recordFailure(testFilePath):
@@ -35,20 +87,16 @@ def compareFilesLineByLine(marker, testFile, actualFile, expectedFile):
         actl = actual.readlines()
 
         if len(expt) != len(actl):
-            print(CBOLD + CRED + f"Test {testFile} -- FAIL" + RESET)
-            print(f" {marker}: actual output len ({len(actl)}) differs from expected len ({len(expt)})")
-            recordFailure(testFile)
+            failTest(testFile, f"{marker}: actual output len ({len(actl)}) differs from expected len ({len(expt)})")
             return False
 
         for i in range(len(expt)):
             e = expt[i].rstrip()
             a = actl[i].rstrip()
             if (e != a):
-                print(CBOLD + CRED + f"Test {testFile} -- FAIL" + RESET)
-                print(f" {marker}: actual output differs from expected in line {i + 1}")
+                failTest(testFile, f"{marker}: actual output differs from expected in line {i + 1}")
                 print(f"  ACTUAL:   {a}")
                 print(f"  EXPECTED: {e}")
-                recordFailure(testFile)
                 return False
     return True
 
@@ -59,6 +107,13 @@ def checkOrUpdateBaseline(marker, testFile, actualFile, expectedFile):
     # written - a missing baseline no longer auto-passes and auto-creates
     # itself, since that made it too easy to silently bake in a regression).
     if updateBaselines:
+        # Never bake a muted test's output into a baseline: muted means the
+        # output is known to be wrong, so recording it would turn the bug into
+        # the expected result and make the test fail once it is fixed.
+        if currentMuteReason is not None:
+            print(f"  info: {marker} baseline left alone ({expectedFile}); test is muted")
+            return True
+
         existed = path.exists(expectedFile)
         content = open(actualFile).read()
         open(expectedFile, 'w+').write(content)
@@ -66,9 +121,7 @@ def checkOrUpdateBaseline(marker, testFile, actualFile, expectedFile):
         return True
 
     if not path.exists(expectedFile):
-        print(CBOLD + CRED + f"Test {testFile} -- FAIL" + RESET)
-        print(f"  {marker}: no baseline file ({expectedFile}); run with --update-baselines to create one")
-        recordFailure(testFile)
+        failTest(testFile, f"{marker}: no baseline file ({expectedFile}); run with --update-baselines to create one")
         return False
 
     return compareFilesLineByLine(marker, testFile, actualFile, expectedFile)
@@ -100,9 +153,7 @@ def runParserTest(compiler, workingDir, dirname, name):
     # (killed by a signal, e.g. a crash/assertion) is an actual tooling
     # failure here.
     if exit_code < 0:
-        print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-        print(f"  Process crashed (signal {-exit_code})")
-        recordFailure(testFilePath)
+        failTest(testFilePath, f"Process crashed (signal {-exit_code})")
         return
 
     testOk = checkOrUpdateBaseline("AstDump", testFilePath, actualAstFilePath, expectedAstFilePath)
@@ -117,7 +168,7 @@ def runParserTest(compiler, workingDir, dirname, name):
         testOk = checkOrUpdateBaseline("AstCanonDump", testFilePath, actualAstCanonFilePath, expectedAstCanonFilePath)
 
     if testOk:
-        print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
+        passTest(testFilePath)
 
 
 def runCodegenTest(compiler, workingDir, dirname, name):
@@ -154,13 +205,11 @@ def runCodegenTest(compiler, workingDir, dirname, name):
     # failure here, unlike in the parser/pp suites which also exercise the
     # error-reporting paths on purpose.
     if exit_code != 0:
-        print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-        print(f"  Compilation failed (exit code {exit_code})")
+        failTest(testFilePath, f"Compilation failed (exit code {exit_code})")
         with open(errFilePath, 'r') as f:
             output = f.read()
             if output:
                 print(output)
-        recordFailure(testFilePath)
         return
 
     if path.getsize(errFilePath) > 0:
@@ -177,13 +226,11 @@ def runCodegenTest(compiler, workingDir, dirname, name):
         execution = Popen(runCommand, stdout=sys.stdout, stderr=sys.stderr)
         exit_code = execution.wait()
         if exit_code != 0:
-            print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-            print(f"  Execution exit code is not 0 ({exit_code})")
+            failTest(testFilePath, f"Execution exit code is not 0 ({exit_code})")
             if arg:
                 print(f"  Argument: '{arg}'")
-            recordFailure(testFilePath)
         else:
-            print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
+            passTest(testFilePath)
 
 
 def runPPTest(compiler, workingDir, dirname, name):
@@ -208,15 +255,13 @@ def runPPTest(compiler, workingDir, dirname, name):
     out.close()
 
     if exit_code < 0:
-        print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-        print(f"  Process crashed (signal {-exit_code})")
-        recordFailure(testFilePath)
+        failTest(testFilePath, f"Process crashed (signal {-exit_code})")
         return
 
     testOk = checkOrUpdateBaseline("preprocessed", testFilePath, actualFilePath, expectFilePath)
 
     if testOk:
-        print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
+        passTest(testFilePath)
 
 
 def runIrTest(compiler, workingDir, dirname, name):
@@ -247,13 +292,11 @@ def runIrTest(compiler, workingDir, dirname, name):
     # These fixtures are expected to translate to IR cleanly, same
     # contract as the codegen suite - a nonzero exit is a real failure.
     if exit_code != 0:
-        print(CBOLD + CRED + f"Test {testFilePath} -- FAIL" + RESET)
-        print(f"  Translation failed (exit code {exit_code})")
+        failTest(testFilePath, f"Translation failed (exit code {exit_code})")
         with open(actualErrFilePath, 'r') as f:
             output = f.read()
             if output:
                 print(output)
-        recordFailure(testFilePath)
         return
 
     if path.getsize(actualErrFilePath) > 0:
@@ -264,14 +307,26 @@ def runIrTest(compiler, workingDir, dirname, name):
     testOk = checkOrUpdateBaseline("IrDump:" + irPhase, testFilePath, actualIrFilePath, expectedIrFilePath)
 
     if testOk:
-        print(CBOLD + CGREEN + f"Test {testFilePath} -- OK" + RESET)
+        passTest(testFilePath)
 
 
 def runTestForData(filePath, compiler, workingDir, testMode):
+    global currentMuteReason
+
     basename = os.path.basename(filePath)
     dirname = os.path.dirname(filePath)
     name, ext = os.path.splitext(basename)
-    if (ext == ".c"):
+    if (ext != ".c"):
+        return
+
+    currentMuteReason = readMuteReason(dirname, name)
+    if currentMuteReason is not None:
+        reasonLines = currentMuteReason.splitlines()
+        print(CBOLD + CYELLOW + f"Test {dirname}/{name}.c -- muted: {reasonLines[0]}" + RESET)
+        for reasonLine in reasonLines[1:]:
+            print(f"    {reasonLine}")
+
+    try:
         if (testMode == 'parser'):
             runParserTest(compiler, workingDir, dirname, name)
         elif testMode == 'preprocessor':
@@ -282,6 +337,8 @@ def runTestForData(filePath, compiler, workingDir, testMode):
             runIrTest(compiler, workingDir, dirname, name)
         else:
             raise Exception(f"Unknown test mode {testMode}")
+    finally:
+        currentMuteReason = None
 
 
 def walkDirectory(dirPath, indent, block):
@@ -296,14 +353,19 @@ def walkDirectory(dirPath, indent, block):
 
 
 def parseArguments():
-    parser = argparse.ArgumentParser(description="Runs all or a subset of the ART test suite.")
+    parser = argparse.ArgumentParser(
+        description="Runs all or a subset of the ART test suite. A test is muted by placing a "
+                    "'<name>.muted' file next to its '<name>.c', with the reason as its contents; "
+                    "a muted test still runs and reports, but its failures do not count towards "
+                    "the exit code, and it is called out in the summary if it starts passing.")
     parser.add_argument('-c', '--compiler', type=str, required=True, help="specify path to compiler")
     parser.add_argument('-wd', '--working-dir', type=str, required=True, help="specify working dir for tests")
     parser.add_argument('-p', '--test-path', type=str, required=True, action='append', help='path to test')
     parser.add_argument('-m', '--mode', choices=['parser', 'preprocessor', 'codegen', 'ir'], default='parser', help='Which substystem to be tested')
-    parser.add_argument('--ir-phase', choices=['initial', 'ssa', 'scp', 'gvn', 'dce'], default='ssa',
+    parser.add_argument('--ir-phase', choices=['initial', 'ssa', 'scp', 'gvn', 'dce', 'mir'], default='ssa',
                          help="which pipeline phase 'ir' mode snapshots (selects the -irDump:<phase> flag "
-                              "and the <name>.<phase>.txt baseline suffix)")
+                              "and the <name>.<phase>.txt baseline suffix). 'mir' is the odd one out: it "
+                              "dumps the MachineFunction built from the optimized IR, not the IR itself")
     parser.add_argument('--update-baselines', action='store_true',
                          help='write actual output as the new expected baseline for every test instead of comparing '
                               '(use after an intentional behavior change to regenerate golden files)')
@@ -335,6 +397,26 @@ def main():
             print(f"  {t}")
     else:
         print(CBOLD + CGREEN + f"All tests passed" + RESET)
+
+    if mutedFailures:
+        print(CBOLD + CYELLOW + f"Muted tests still failing (not counted): {len(mutedFailures)}" + RESET)
+        for t in sorted(mutedFailures):
+            print(f"  {t}")
+
+    # A muted test that passes every check means the bug it pins down is fixed
+    # and the marker is now hiding a working test. Reported loudly but not
+    # counted as a failure: turning someone's bug fix into a red build would
+    # only teach them to delete the fixture. A test that failed at least one
+    # check is still doing its job, even if another check passed.
+    #
+    # Not reported under --update-baselines: that run compares nothing, so
+    # every baseline-driven test "passes" and a muted one would be flagged
+    # stale on no evidence at all.
+    stalelyMuted = set() if updateBaselines else mutedPasses - mutedFailures
+    if stalelyMuted:
+        print(CBOLD + CYELLOW + f"MUTED TESTS THAT NOW PASS: {len(stalelyMuted)}" + RESET)
+        for t in sorted(stalelyMuted):
+            print(f"  {t} -- delete {os.path.splitext(t)[0] + MUTE_MARKER_EXT} to unmute it")
 
     exit(numOfFailedTests)
 
