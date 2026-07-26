@@ -1,0 +1,88 @@
+--- Phase: isel ---
+MachineFunction 'computed_goto_phi' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %56
+  %v1 : gp/4 ; %45
+  %v2 : gp/4 ; %50
+  %v3 : gp/4 ; %58
+  %v4 : gp/4 ; %28
+  %v5 : gp/4 ; %36
+  %v6 : gp/4 ; %60
+  %v7 : gp/4 ; %12
+  %v8 : gp/8 ; %9
+  %v9 : gp/8 ; %1
+  %v10 : gp/4 ; %3
+  %v11 : gp/4 ; %6
+  %v12 : gp/8 ; %10
+  %v13 : gp/8 ; %16
+  %v14 : gp/8 ; %17
+  %v15 : gp/8 ; %21
+  %v16 : gp/8 ; %22
+  %v17 : gp/4 ; %25
+  %v18 : gp/8 ; %39
+  %v19 : gp/8 ; %40
+  %v20 : gp/8 ; %41
+  %v21 : gp/8 ; %31
+  %v22 : gp/8 ; %32
+  %v23 : gp/8 ; %33
+Frame: 16 bytes
+  fi#0 : local 16/8 @ -16 'tab' ; %10
+MBB #0, '<entry>', ir #0, -> #4
+  %v7 = mov.4 0 ; %12
+  %v8 = mov.8 16 ; %9
+  %v9 = mov.8 8 ; %1
+  %v10 = MOP_COPY.4 $rdi ; %3
+  %v11 = MOP_COPY.4 $rsi ; %6
+
+MBB #4, '<FIRST>', ir #4, <- #0, -> #6 #5
+  %v12 = MOP_UNSELECTED(IR_ALLOCA) %v8 ; %10
+  %v13 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v12, %v7 ; %16
+  %v14 = MOP_UNSELECTED(IR_CFG_LABEL) ; %17
+  MOP_UNSELECTED(IR_M_STORE) %v13, %v14 ; %18
+  %v15 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v12, %v9 ; %21
+  %v16 = MOP_UNSELECTED(IR_CFG_LABEL) ; %22
+  MOP_UNSELECTED(IR_M_STORE) %v15, %v16 ; %23
+  %v17 = mov.4 0 ; %25
+  cmp.4 %v10, %v7 ; %25
+  %v17 = setg.1 ; %25
+  test.4 %v17, %v17 ; %26
+  jne #6 ; %26
+
+MBB #5, '<if_exit>', ir #5, <- #4, -> #2 #3
+  %v5 = MOP_COPY.4 %v10 ; %36
+  %v5 = sub.4 %v5, 1 ; %36
+  %v18 = MOP_COPY.4 %v11 ; %39
+  %v18 = shl.8 %v18, 3 ; %39
+  %v19 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v12, %v18 ; %40
+  %v20 = MOP_UNSELECTED(IR_M_LOAD) %v19 ; %41
+  %v3 = MOP_COPY.4 %v5 ; %58
+  %v6 = MOP_COPY.4 %v5 ; %60
+  MOP_UNSELECTED(IR_IBRANCH) %v20 ; %42
+
+MBB #6, '<if_then>', ir #6, <- #4, -> #2 #3
+  %v4 = MOP_COPY.4 %v10 ; %28
+  %v4 = add.4 %v4, 1 ; %28
+  %v21 = MOP_COPY.4 %v11 ; %31
+  %v21 = shl.8 %v21, 3 ; %31
+  %v22 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v12, %v21 ; %32
+  %v23 = MOP_UNSELECTED(IR_M_LOAD) %v22 ; %33
+  %v3 = MOP_COPY.4 %v4 ; %58
+  %v6 = MOP_COPY.4 %v4 ; %60
+  MOP_UNSELECTED(IR_IBRANCH) %v23 ; %34
+
+MBB #3, 'B', ir #3, <- #6 #5, -> #1
+  %v2 = MOP_COPY.4 %v6 ; %50
+  %v2 = add.4 %v2, 20 ; %50
+  %v0 = MOP_COPY.4 %v2 ; %56
+  jmp #1 ; %52
+
+MBB #2, 'A', ir #2, <- #6 #5, -> #1
+  %v1 = MOP_COPY.4 %v3 ; %45
+  %v1 = add.4 %v1, 10 ; %45
+  %v0 = MOP_COPY.4 %v1 ; %56
+
+MBB #1, '<exit>', ir #1, <- #2 #3
+  $rax = MOP_COPY.4 %v0 ; %53
+  ret ; %53
+
+

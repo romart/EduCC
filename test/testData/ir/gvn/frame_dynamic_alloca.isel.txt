@@ -1,0 +1,57 @@
+--- Phase: isel ---
+MachineFunction 'frame_dynamic_alloca' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %16
+  %v1 : gp/8 ; %12
+  %v2 : gp/8 ; %1
+  %v3 : gp/4 ; %3
+  %v4 : gp/8 ; %6
+  %v5 : gp/8 ; %9
+  %v6 : gp/8 ; %13
+  %v7 : gp/8 ; %14
+  %v8 : gp/8 ; %15
+  %v9 : gp/8 ; %19
+  %v10 : gp/8 ; %23
+  %v11 : gp/8 ; %24
+  %v12 : gp/8 ; %26
+  %v13 : gp/4 ; %27
+  %v14 : gp/8 ; %31
+  %v15 : gp/4 ; %36
+  %v16 : gp/4 ; %39
+  %v17 : gp/4 ; %40
+Frame: 16 bytes, dynamic
+  fi#0 : sp-save 8/8 @ -8
+  fi#1 : local 8/4 @ -16 'fixed' ; %6
+  fi#2 : local dynamic 'v' ; %14
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = mov.4 0 ; %16
+  %v1 = mov.8 4 ; %12
+  %v2 = mov.8 8 ; %1
+  %v3 = MOP_COPY.4 $rdi ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v4 = MOP_UNSELECTED(IR_ALLOCA) %v2 ; %6
+  %v5 = MOP_UNSELECTED(IR_E_BITCAST) %v3 ; %9
+  %v6 = MOP_COPY.8 %v5 ; %13
+  %v6 = imul.8 %v6, %v1 ; %13
+  %v7 = MOP_UNSELECTED(IR_ALLOCA) %v6 ; %14
+  %v8 = MOP_UNSELECTED(IR_M_LOAD) %v7 ; %15
+  %v9 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v8, %v0 ; %19
+  MOP_UNSELECTED(IR_M_STORE) %v9, %v3 ; %21
+  %v10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v4, %v0 ; %23
+  %v11 = MOP_UNSELECTED(IR_M_LOAD) %v7 ; %24
+  %v12 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v11, %v0 ; %26
+  %v13 = MOP_UNSELECTED(IR_M_LOAD) %v12 ; %27
+  MOP_UNSELECTED(IR_M_STORE) %v10, %v13 ; %28
+  %v14 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v4, %v1 ; %31
+  MOP_UNSELECTED(IR_M_STORE) %v14, %v3 ; %33
+  %v15 = MOP_UNSELECTED(IR_M_LOAD) %v10 ; %36
+  %v16 = MOP_UNSELECTED(IR_M_LOAD) %v14 ; %39
+  %v17 = MOP_COPY.4 %v15 ; %40
+  %v17 = add.4 %v17, %v16 ; %40
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 %v17 ; %43
+  ret ; %43
+
+

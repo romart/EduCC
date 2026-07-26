@@ -1,0 +1,45 @@
+--- Phase: isel ---
+MachineFunction 'scp_div_guard' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %25
+  %v1 : gp/4 ; %14
+  %v2 : gp/4 ; %19
+  %v3 : gp/4 ; %17
+  %v4 : gp/4 ; %12
+  %v5 : gp/4 ; %7
+  %v6 : gp/4 ; %3
+  %v7 : gp/4 ; %10
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v3 = mov.4 1 ; %17
+  %v4 = mov.4 10 ; %12
+  %v5 = mov.4 0 ; %7
+  %v6 = MOP_COPY.4 $rdi ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  %v7 = mov.4 0 ; %10
+  cmp.4 %v6, %v5 ; %10
+  %v7 = setg.1 ; %10
+  test.4 %v7, %v7 ; %11
+  jne #4 ; %11
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  $rax = MOP_COPY.4 %v3 ; %19
+  $rdx = cdq.4 [implicit $rax] ; %19
+  idiv.4 %v5 [implicit-def $rax, implicit-def $rdx, implicit $rax, implicit $rdx] ; %19
+  %v2 = MOP_COPY.4 $rdx ; %19
+  %v0 = MOP_COPY.4 %v2 ; %25
+  jmp #1 ; %21
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $rax = MOP_COPY.4 %v4 ; %14
+  $rdx = cdq.4 [implicit $rax] ; %14
+  idiv.4 %v5 [implicit-def $rax, implicit-def $rdx, implicit $rax, implicit $rdx] ; %14
+  %v1 = MOP_COPY.4 $rax ; %14
+  %v0 = MOP_COPY.4 %v1 ; %25
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $rax = MOP_COPY.4 %v0 ; %22
+  ret ; %22
+
+

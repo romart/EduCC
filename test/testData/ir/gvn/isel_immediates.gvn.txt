@@ -1,0 +1,43 @@
+--- Phase: gvn ---
+Function 'isel_immediates'
+Locals:
+   p:0|x = %2
+   p:1|d = %5
+   l:2|left = %32
+   l:3|scaled = %27
+   l:4|shared = %19
+   l:5|huge = %14
+   l:6|small = %9
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %33 = IR_DEF_CONST () [kind = integer, v = 3, id = 5]
+  %29 = IR_DEF_CONST () [kind = integer, v = 5, id = 4]
+  %21 = IR_DEF_CONST () [kind = integer, v = 100, id = 3]
+  %16 = IR_DEF_CONST () [kind = integer, v = 78187493520, id = 2]
+  %11 = IR_DEF_CONST () [kind = integer, v = 7, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %6 = IR_P_REG () [preg = $rsi]
+  %50 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %48 = IR_RET (%45) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %12 = IR_E_ADD (%3, %11) []
+  %17 = IR_E_ADD (%3, %16) []
+  %22 = IR_E_ADD (%3, %21) []
+  %24 = IR_E_DIV (%21, %6) []
+  %25 = IR_E_ADD (%22, %24) []
+  %30 = IR_E_SHL (%3, %29) []
+  %35 = IR_E_SUB (%33, %3) []
+  %39 = IR_E_ADD (%12, %17) []
+  %41 = IR_E_ADD (%39, %25) []
+  %43 = IR_E_ADD (%41, %30) []
+  %45 = IR_E_ADD (%43, %35) []
+  %47 = IR_BRANCH () [target = #1]
+
+

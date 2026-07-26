@@ -1,0 +1,38 @@
+--- Phase: isel ---
+MachineFunction 'array_of_structs' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %18
+  %v1 : gp/8 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/4 ; %9
+  %v4 : gp/8 ; %16
+  %v5 : gp/8 ; %17
+  %v6 : gp/8 ; %19
+  %v7 : gp/4 ; %20
+  %v8 : gp/4 ; %28
+  %v9 : gp/4 ; %32
+  %v10 : gp/4 ; %34
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = mov.8 4 ; %18
+  %v1 = MOP_COPY.8 $rdi ; %3
+  %v2 = MOP_COPY.4 $rsi ; %6
+  %v3 = MOP_COPY.4 $rdx ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v4 = MOP_COPY.4 %v2 ; %16
+  %v4 = shl.8 %v4, 3 ; %16
+  %v5 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v1, %v4 ; %17
+  %v6 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v5, %v0 ; %19
+  %v7 = MOP_UNSELECTED(IR_M_LOAD) %v6 ; %20
+  %v8 = MOP_UNSELECTED(IR_M_LOAD) %v6 ; %28
+  %v9 = MOP_COPY.4 %v7 ; %32
+  %v9 = add.4 %v9, %v8 ; %32
+  %v10 = MOP_COPY.4 %v9 ; %34
+  %v10 = add.4 %v10, %v3 ; %34
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 %v10 ; %37
+  ret ; %37
+
+

@@ -1,0 +1,79 @@
+--- Phase: gvn ---
+Function 'isel_int_ops'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   p:2|s = %8
+   p:3|k = %11
+   l:4|acc = %15
+   r:-1|<ret_slot> = %14
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %78 = IR_DEF_CONST () [kind = integer, v = 252645135, id = 5]
+  %70 = IR_DEF_CONST () [kind = integer, v = 2, id = 4]
+  %60 = IR_DEF_CONST () [kind = integer, v = 1, id = 3]
+  %39 = IR_DEF_CONST () [kind = integer, v = 3, id = 2]
+  %16 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %6 = IR_P_REG () [preg = $rsi]
+  %9 = IR_P_REG () [preg = $rdx]
+  %12 = IR_P_REG () [preg = $rcx]
+  %87 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #5, strict dom #5
+
+  %85 = IR_RET (%82) []
+
+BB #2, '<FIRST>', <- #0, -> #4 #7, strict dom #0, dominatees [#3, #4, #7]
+
+  %21 = IR_U_BNOT (%9) []
+  %22 = IR_E_BITCAST (%21) [I32->U32]
+  %23 = IR_E_ADD (%16, %22) []
+  %27 = IR_U_NOT (%12) []
+  %28 = IR_E_BITCAST (%27) [I32->U32]
+  %29 = IR_E_ADD (%23, %28) []
+  %34 = IR_E_SHL (%3, %12) []
+  %35 = IR_E_ADD (%29, %34) []
+  %40 = IR_E_SHR (%3, %39) []
+  %41 = IR_E_ADD (%35, %40) []
+  %46 = IR_E_DIV (%3, %6) []
+  %47 = IR_E_ADD (%41, %46) []
+  %52 = IR_E_MOD (%3, %6) []
+  %53 = IR_E_ADD (%47, %52) []
+  %57 = IR_E_LT (%3, %6) []
+  %58 = IR_CBRANCH (%57) [taken = #4, non taken = #7]
+
+BB #3, '<if_exit>', <- #7 #4, -> #6 #8, strict dom #2, dominatees [#5, #6, #8]
+
+  %90 = IR_PHI ([%53, #7], [%62, #4]) [var = acc]
+  %67 = IR_E_GT (%3, %6) []
+  %68 = IR_CBRANCH (%67) [taken = #6, non taken = #8]
+
+BB #4, '<if_then>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %62 = IR_E_ADD (%53, %60) []
+  %64 = IR_BRANCH () [target = #3]
+
+BB #5, '<if_exit>', <- #8 #6, -> #1, strict dom #3, dominatees [#1]
+
+  %88 = IR_PHI ([%90, #8], [%72, #6]) [var = acc]
+  %80 = IR_E_XOR (%6, %78) []
+  %81 = IR_E_OR (%3, %80) []
+  %82 = IR_E_AND (%88, %81) []
+  %84 = IR_BRANCH () [target = #1]
+
+BB #6, '<if_then>', <- #3, -> #5, strict dom #3, domination frontier [#5]
+
+  %72 = IR_E_ADD (%90, %70) []
+  %74 = IR_BRANCH () [target = #5]
+
+BB #7, '<crit_splitter>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %98 = IR_BRANCH () [target = #3]
+
+BB #8, '<crit_splitter>', <- #3, -> #5, strict dom #3, domination frontier [#5]
+
+  %99 = IR_BRANCH () [target = #5]
+
+

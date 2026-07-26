@@ -1,0 +1,26 @@
+--- Phase: isel ---
+MachineFunction 'loads_not_merged' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %3
+  %v1 : gp/4 ; %8
+  %v2 : gp/4 ; %13
+  %v3 : gp/4 ; %17
+  %v4 : gp/4 ; %21
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = MOP_COPY.8 $rdi ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v1 = MOP_UNSELECTED(IR_M_LOAD) %v0 ; %8
+  %v2 = MOP_COPY.4 %v1 ; %13
+  %v2 = add.4 %v2, 1 ; %13
+  MOP_UNSELECTED(IR_M_STORE) %v0, %v2 ; %14
+  %v3 = MOP_UNSELECTED(IR_M_LOAD) %v0 ; %17
+  %v4 = MOP_COPY.4 %v1 ; %21
+  %v4 = add.4 %v4, %v3 ; %21
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 %v4 ; %24
+  ret ; %24
+
+

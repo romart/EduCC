@@ -1,0 +1,37 @@
+--- Phase: isel ---
+MachineFunction 'param_ptr_vs_stack' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %0
+  %v1 : gp/8 ; %12
+  %v2 : gp/8 ; %21
+  %v3 : gp/8 ; %23
+  %v4 : gp/4 ; %26
+  %v5 : gp/4 ; %27
+  %v6 : gp/4 ; %28
+  %v7 : gp/4 ; %29
+  %v8 : gp/4 ; %30
+Frame: 0 bytes
+  fi#0 : param 4/4 @ 16 'a6'
+  fi#1 : param 4/4 @ 24 'a7'
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = MOP_COPY.8 $rsp ; %0
+  %v1 = MOP_COPY.8 $rcx ; %12
+  %v2 = MOP_COPY.8 %v0 ; %21
+  %v2 = add.8 %v2, 16 ; %21
+  %v3 = MOP_COPY.8 %v0 ; %23
+  %v3 = add.8 %v3, 24 ; %23
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v4 = MOP_UNSELECTED(IR_M_LOAD) %v1 ; %26
+  %v5 = MOP_UNSELECTED(IR_M_LOAD) %v2 ; %27
+  %v6 = MOP_COPY.4 %v4 ; %28
+  %v6 = add.4 %v6, %v5 ; %28
+  %v7 = MOP_UNSELECTED(IR_M_LOAD) %v3 ; %29
+  %v8 = MOP_COPY.4 %v6 ; %30
+  %v8 = add.4 %v8, %v7 ; %30
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 %v8 ; %33
+  ret ; %33
+
+

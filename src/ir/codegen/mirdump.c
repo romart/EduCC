@@ -117,16 +117,20 @@ static int32_t dumpMachineOperand(FILE *stream, const MachineFunction *mf,
   return r;
 }
 
-static int32_t dumpMachineOpcode(FILE *stream, const MachineInstr *mi) {
+static int32_t dumpMachineOpcode(FILE *stream, const MachineFunction *mf, const MachineInstr *mi) {
   int32_t r = 0;
 
   if (mi->opcode < MOP_GENERIC_COUNT) {
     r += fprintf(stream, "%s", genericOpcodeNames[mi->opcode]);
+    // Which IR instruction has no rule yet is the entire content of a
+    // placeholder, and the trailing '; %n' does not carry it - ids go sparse
+    // and nobody remembers what %41 was.
+    if (mi->opcode == MOP_UNSELECTED && mi->origin != NULL) {
+      r += fprintf(stream, "(%s)", irInstructionMnemonic(mi->origin->kind));
+    }
   } else {
-    // TODO: target opcodes take their mnemonic from the target descriptor once
-    // instruction selection exists and there is a table to take it from
-    // (see docs/ir-codegen-design.md, step 4). Nothing creates one yet.
-    r += fprintf(stream, "op#%u", mi->opcode);
+    const char *name = targetOpcodeName(mf->target, mi->opcode);
+    r += name != NULL ? fprintf(stream, "%s", name) : fprintf(stream, "op#%u", mi->opcode);
   }
 
   if (mi->opSize != 0) {
@@ -162,7 +166,7 @@ static int32_t dumpMachineInstr(FILE *stream, const MachineFunction *mf,
     r += fprintf(stream, " = ");
   }
 
-  r += dumpMachineOpcode(stream, mi);
+  r += dumpMachineOpcode(stream, mf, mi);
 
   first = TRUE;
   for (uint16_t idx = mi->numDefs; idx < mi->numOperands; ++idx) {

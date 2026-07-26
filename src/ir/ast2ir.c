@@ -1,5 +1,6 @@
 
 #include "ir/ir.h"
+#include "ir/isel.h"
 #include "ir/machine.h"
 #include "sema.h"
 #include "tree.h"
@@ -2421,6 +2422,11 @@ static IrFunction *translateFunction(AstFunctionDefinition *function) {
   func->machine = prepareMachineFunction(func);
   if (ctx->irDumpStream && (ctx->irDumpPhases & IR_DUMP_PHASE_MIR)) {
     dumpMachineFunctionPhase(ctx->irDumpStream, func->machine, "mir");
+  }
+
+  selectInstructions(func->machine);
+  if (ctx->irDumpStream && (ctx->irDumpPhases & IR_DUMP_PHASE_ISEL)) {
+    dumpMachineFunctionPhase(ctx->irDumpStream, func->machine, "isel");
   }
 
   return func;

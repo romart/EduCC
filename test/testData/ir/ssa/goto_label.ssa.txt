@@ -1,0 +1,105 @@
+--- Phase: ssa ---
+Function 'goto_label_forward'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   l:2|r = %9
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %31 = IR_DEF_CONST () [kind = integer, v = 1, id = 2]
+  %10 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %6 = IR_P_REG () [preg = $rsi]
+  %37 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #6 #5, strict dom #2
+
+  %38 = IR_PHI ([%26, #6], [%32, #5]) []
+  %35 = IR_RET (%38) []
+
+BB #2, '<FIRST>', <- #0, -> #4 #3, strict dom #0, dominatees [#1, #3, #4, #5]
+
+  %13 = IR_E_LT (%3, %10) []
+  %14 = IR_CBRANCH (%13) [taken = #4, non taken = #3]
+
+BB #3, '<if_exit>', <- #2, -> #7 #6, strict dom #2, domination frontier [#1, #5], dominatees [#6, #7]
+
+  %18 = IR_E_ADD (%10, %3) []
+  %21 = IR_E_LT (%6, %10) []
+  %22 = IR_CBRANCH (%21) [taken = #7, non taken = #6]
+
+BB #4, '<if_then>', <- #2, -> #5, strict dom #2, domination frontier [#5]
+
+  %15 = IR_BRANCH () [target = #5]
+
+BB #5, 'fail', <- #4 #7, -> #1, strict dom #2, domination frontier [#1]
+
+  %32 = IR_E_SUB (%10, %31) []
+  %34 = IR_BRANCH () [target = #1]
+
+BB #6, '<if_exit>', <- #3, -> #1, strict dom #3, domination frontier [#1]
+
+  %26 = IR_E_ADD (%18, %6) []
+  %30 = IR_BRANCH () [target = #1]
+
+BB #7, '<if_then>', <- #3, -> #5, strict dom #3, domination frontier [#5]
+
+  %23 = IR_BRANCH () [target = #5]
+
+
+--- Phase: ssa ---
+Function 'goto_label_irreducible'
+Locals:
+   p:0|a = %2
+   p:1|n = %5
+   l:2|i = %9
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %26 = IR_DEF_CONST () [kind = integer, v = 1, id = 2]
+  %10 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %6 = IR_P_REG () [preg = $rsi]
+  %35 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #8, strict dom #8
+
+  %33 = IR_RET (%38) []
+
+BB #2, '<FIRST>', <- #0, -> #4 #3, strict dom #0, dominatees [#3, #4, #5, #6]
+
+  %13 = IR_CBRANCH (%3) [taken = #4, non taken = #3]
+
+BB #3, '<if_exit>', <- #2, -> #6, strict dom #2, domination frontier [#6]
+
+  %15 = IR_BRANCH () [target = #6]
+
+BB #4, '<if_then>', <- #2, -> #5, strict dom #2, domination frontier [#5]
+
+  %14 = IR_BRANCH () [target = #5]
+
+BB #5, 'middle', <- #4 #7, -> #6, strict dom #2, domination frontier [#6]
+
+  %36 = IR_PHI ([%10, #4], [%22, #7]) [var = i]
+  %27 = IR_E_ADD (%36, %26) []
+  %29 = IR_BRANCH () [target = #6]
+
+BB #6, '<while_head>', <- #3 #5, -> #7 #8, strict dom #2, domination frontier [#5], dominatees [#7, #8]
+
+  %38 = IR_PHI ([%10, #3], [%27, #5]) [var = i]
+  %18 = IR_E_LT (%38, %6) []
+  %19 = IR_CBRANCH (%18) [taken = #7, non taken = #8]
+
+BB #7, '<while_body>', <- #6, -> #5, strict dom #6, domination frontier [#5]
+
+  %22 = IR_E_ADD (%38, %3) []
+  %24 = IR_BRANCH () [target = #5]
+
+BB #8, '<while_exit>', <- #6, -> #1, strict dom #6, dominatees [#1]
+
+  %32 = IR_BRANCH () [target = #1]
+
+

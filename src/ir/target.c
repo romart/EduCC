@@ -1,4 +1,5 @@
 #include "ir/target.h"
+#include "ir/machine.h"
 #include "sema.h"
 
 #include <assert.h>
@@ -22,6 +23,15 @@ const char *physRegName(const TargetDescriptor *target, uint32_t reg) {
   }
 
   return target->regName[reg];
+}
+
+const char *targetOpcodeName(const TargetDescriptor *target, uint32_t opcode) {
+  if (target == NULL || target->opcodeName == NULL || opcode < MOP_TARGET_FIRST) {
+    return NULL;
+  }
+
+  uint32_t idx = opcode - MOP_TARGET_FIRST;
+  return idx < target->numOpcodes ? target->opcodeName[idx] : NULL;
 }
 
 void classifyParametersGeneric(const TargetDescriptor *target,

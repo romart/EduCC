@@ -1,5 +1,6 @@
 #include "ir/target.h"
 #include "instructions_x86_64.h"
+#include "machine_x86_64.h"
 
 // Flat physical register namespace for x86-64:
 //
@@ -38,6 +39,22 @@ static const char *const x86RegName[IR_PHYS_REG_MAX] = {
   [FP(12)] = "xmm12", [FP(13)] = "xmm13", [FP(14)] = "xmm14", [FP(15)] = "xmm15"
 };
 
+// Indexed by (opcode - MOP_TARGET_FIRST). Built from the same X-macros as
+// enum X86Opcode and in the same order, so the two cannot drift apart.
+const char *const x86OpcodeName[X86_OPCODE_NUM] = {
+#define X86_OPCODE_DEF(m, n) n
+  X86_OPCODES,
+#undef X86_OPCODE_DEF
+
+#define X86_CC_DEF(m, n) "set" n
+  X86_CONDITIONS,
+#undef X86_CC_DEF
+
+#define X86_CC_DEF(m, n) "j" n
+  X86_CONDITIONS
+#undef X86_CC_DEF
+};
+
 // SysV AMD64: rdi, rsi, rdx, rcx, r8, r9 then the stack.
 static const uint32_t x86IntArgRegs[] = {
   R_EDI, R_ESI, R_EDX, R_ECX, R_R8, R_R9
@@ -54,6 +71,9 @@ const TargetDescriptor targetX86_64 = {
   .numPhysRegs = X86_PHYS_REG_COUNT,
   .regClass = x86RegClass,
   .regName = x86RegName,
+
+  .opcodeName = x86OpcodeName,
+  .numOpcodes = X86_OPCODE_NUM,
 
   .sp = R_ESP,
   .fp = R_EBP,

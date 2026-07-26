@@ -34,9 +34,18 @@ struct _MachineFunction;
 // numbers its own ISA opcodes from MOP_TARGET_FIRST upwards. Keeping both in
 // one integer means a MachineInstr never has to say which namespace its opcode
 // came from.
+//
+// MOP_UNSELECTED is the placeholder selection leaves behind for an IR
+// instruction it has no rule for yet - loads, calls, floats, everything
+// outside the integer subset stage 1 covers today. It is deliberately
+// well-formed rather than a hole: it defines the value's register and uses its
+// inputs, so the machine function stays a connected graph that liveness and
+// the dumper can walk. What it is *not* is emittable, which is what
+// MachineFunction.hasUnselected records.
 #define MACHINE_GENERIC_OPCODES                                             \
   MOP_DEF(PHI, "phi node, destroyed by stage 0 - never reaches allocation"), \
-  MOP_DEF(COPY, "register to register move, either register class")
+  MOP_DEF(COPY, "register to register move, either register class"),        \
+  MOP_DEF(UNSELECTED, "an IR instruction stage 1 has no rule for yet")
 
 enum MachineGenericOpcode {
 #define MOP_DEF(m, _) MOP_##m
@@ -216,6 +225,13 @@ typedef struct _MachineFunction {
 
   MachineFrame frame;
 
+  // Set when selection left at least one MOP_UNSELECTED behind, i.e. this
+  // function contains something stage 1 cannot express yet. Register
+  // allocation is still meaningful on such a function - the placeholder has
+  // ordinary defs and uses - but emission is not, so stage 3 has to refuse it
+  // rather than emit nonsense for the opcode it does not recognise.
+  Boolean hasUnselected;
+
   // Which frame object holds each IR value, indexed by IrInstruction.id and
   // biased the same way as irToVreg. Only IR_ALLOCA values are ever in here;
   // it is how selection turns one into an MO_FRAME_IDX operand.
@@ -243,6 +259,10 @@ MachineInstr *createMachineInstr(MachineFunction *mf, uint32_t opcode, uint16_t 
                                  uint16_t numUses);
 void addMachineInstrTail(MachineBasicBlock *mbb, MachineInstr *mi);
 void addMachineInstrHead(MachineBasicBlock *mbb, MachineInstr *mi);
+// Inserts 'mi' immediately ahead of 'at', which must already be in a block.
+// Selection needs this because stage 0 got to the block first: the phi copies
+// it left at the tail carry values *out* of the block and have to stay there.
+void addMachineInstrBefore(MachineInstr *at, MachineInstr *mi);
 void eraseMachineInstr(MachineInstr *mi);
 
 MachineOperand *machineOperandAt(MachineInstr *mi, uint16_t idx);
@@ -254,6 +274,8 @@ void setBlockOperand(MachineInstr *mi, uint16_t idx, MachineBasicBlock *mbb);
 void setSymbolOperand(MachineInstr *mi, uint16_t idx, struct _Symbol *symbol);
 
 // ------------- virtual registers ------------------------
+// irTypeMachineSize() is declared in ir/ir.h, with the other questions one can
+// ask about an IR type - this header cannot name enum IrTypeKind.
 uint32_t createVirtualRegister(MachineFunction *mf, enum RegClass rc, uint8_t size);
 VRegInfo *virtualRegisterInfo(const MachineFunction *mf, uint32_t reg);
 enum RegClass machineRegisterClass(const MachineFunction *mf, uint32_t reg);
@@ -261,6 +283,10 @@ enum RegClass machineRegisterClass(const MachineFunction *mf, uint32_t reg);
 // The virtual register holding an IR value, created on first ask. See
 // MachineFunction.irToVreg.
 uint32_t machineVregForValue(MachineFunction *mf, const struct _IrInstruction *value);
+// Whether a value has been named already, without naming it. Selection asks
+// this before deciding to fold a constant away: if stage 0 already put the
+// value in a register, that is settled.
+Boolean machineHasVregForValue(const MachineFunction *mf, const struct _IrInstruction *value);
 
 // ------------- frame ------------------------
 int32_t addMachineFrameObject(MachineFunction *mf, enum MachineFrameObjectKind kind, uint32_t size,
@@ -274,6 +300,9 @@ MachineFunction *buildMachineFunction(struct _IrFunction *f);
 
 // ------------- stage 0: prepare / legalize ------------------------
 MachineFunction *prepareMachineFunction(struct _IrFunction *f);
+
+// The machine block mirroring an IR block, or NULL if there is none.
+MachineBasicBlock *machineBlockForIrBlock(MachineFunction *mf, const struct _IrBasicBlock *ir);
 
 // ------------- dump utils ------------------------
 int32_t dumpMachineFunction(FILE *stream, const MachineFunction *mf);

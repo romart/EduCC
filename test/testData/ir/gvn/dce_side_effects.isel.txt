@@ -1,0 +1,24 @@
+--- Phase: isel ---
+MachineFunction 'dce_side_effects' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %19
+  %v1 : gp/4 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/4 ; %20
+  %v4 : gp/4 ; %30
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = MOP_UNSELECTED(IR_DEF_CONST) ; %19
+  %v1 = MOP_COPY.4 $rdi ; %3
+  %v2 = MOP_COPY.4 $rsi ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v3 = MOP_UNSELECTED(IR_CALL) %v0, %v1 ; %20
+  %v4 = MOP_COPY.4 %v1 ; %30
+  %v4 = sub.4 %v4, %v2 ; %30
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 %v4 ; %33
+  ret ; %33
+
+

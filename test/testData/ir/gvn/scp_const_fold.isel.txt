@@ -1,0 +1,18 @@
+--- Phase: isel ---
+MachineFunction 'scp_const_fold' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %3
+  %v1 : gp/4 ; %22
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = MOP_COPY.4 $rdi ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v1 = MOP_COPY.4 %v0 ; %22
+  %v1 = add.4 %v1, 100 ; %22
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 %v1 ; %25
+  ret ; %25
+
+

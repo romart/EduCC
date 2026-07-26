@@ -21,6 +21,11 @@ static struct _IrInstructionDumpInfo irInstructionsInfo[] = {
 };
 
 
+const char *irInstructionMnemonic(enum IrIntructionKind kind) {
+  size_t count = sizeof(irInstructionsInfo) / sizeof(irInstructionsInfo[0]);
+  return kind < count ? irInstructionsInfo[kind].mnemonic : "IR_?";
+}
+
 static int32_t dumpIrType(FILE *stream, const enum IrTypeKind type) {
 	switch (type) {
 	  case IR_BOOL: return fprintf(stream, "BOOL");

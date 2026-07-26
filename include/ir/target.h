@@ -51,6 +51,14 @@ typedef struct _TargetDescriptor {
   const enum RegClass *regClass;  // [IR_PHYS_REG_MAX]
   const char *const *regName;     // [IR_PHYS_REG_MAX], for IR dumps
 
+  // Mnemonics for this target's own machine opcodes, indexed by
+  // (opcode - MOP_TARGET_FIRST); NULL for a target with no selector yet.
+  // Naming is the only thing the target-independent side ever needs to do with
+  // a target opcode, so a table is enough and there is no descriptor per
+  // instruction to keep in step with it.
+  const char *const *opcodeName;
+  uint32_t numOpcodes;
+
   uint32_t sp;  // stack pointer
   uint32_t fp;  // frame pointer
 
@@ -87,5 +95,10 @@ void classifyParametersGeneric(const TargetDescriptor *target,
                                ParamtersABIInfo *infos, size_t numberOfParams);
 
 const char *physRegName(const TargetDescriptor *target, uint32_t reg);
+
+// The mnemonic for one of this target's machine opcodes, or NULL if the target
+// does not name it. Generic opcodes are not this function's business - see
+// MACHINE_GENERIC_OPCODES.
+const char *targetOpcodeName(const TargetDescriptor *target, uint32_t opcode);
 
 #endif  // __IR_TARGET_H__

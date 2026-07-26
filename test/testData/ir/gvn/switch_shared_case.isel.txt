@@ -1,0 +1,65 @@
+--- Phase: isel ---
+MachineFunction 'switch_shared_case' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %50
+  %v1 : gp/4 ; %51
+  %v2 : gp/4 ; %40
+  %v3 : gp/4 ; %13
+  %v4 : gp/4 ; %21
+  %v5 : gp/4 ; %52
+  %v6 : gp/4 ; %27
+  %v7 : gp/4 ; %3
+  %v8 : gp/4 ; %6
+  %v9 : gp/4 ; %9
+  %v10 : gp/4 ; %34
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v3 = mov.4 0 ; %13
+  %v7 = MOP_COPY.4 $rdi ; %3
+  %v8 = MOP_COPY.4 $rsi ; %6
+  %v9 = MOP_COPY.4 $rdx ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #8 #6 #9 #10
+  MOP_UNSELECTED(IR_TBRANCH) %v9 ; %16
+
+MBB #10, '<crit_splitter>', ir #11, <- #2, -> #3
+  %v1 = MOP_COPY.4 %v7 ; %51
+  %v1 = add.4 %v1, %v8 ; %51
+  %v0 = MOP_COPY.4 %v1 ; %50
+  %v2 = MOP_COPY.4 %v3 ; %40
+  jmp #3 ; %49
+
+MBB #9, '<crit_splitter>', ir #10, <- #2, -> #7
+  jmp #7 ; %48
+
+MBB #6, '<case_block>', ir #6, <- #2, -> #7
+
+MBB #7, '<case_block>', ir #7, <- #9 #6, -> #3
+  %v6 = MOP_COPY.4 %v7 ; %27
+  %v6 = sub.4 %v6, %v8 ; %27
+  %v5 = MOP_COPY.4 %v7 ; %52
+  %v5 = add.4 %v5, %v8 ; %52
+  %v0 = MOP_COPY.4 %v5 ; %50
+  %v2 = MOP_COPY.4 %v6 ; %40
+  jmp #3 ; %29
+
+MBB #8, '<crit_splitter>', ir #9, <- #2, -> #5
+  jmp #5 ; %47
+
+MBB #4, '<case_block>', ir #4, <- #2, -> #5
+
+MBB #5, '<case_block>', ir #5, <- #8 #4, -> #3
+  %v4 = MOP_COPY.4 %v7 ; %21
+  %v4 = add.4 %v4, %v8 ; %21
+  %v0 = MOP_COPY.4 %v4 ; %50
+  %v2 = MOP_COPY.4 %v4 ; %40
+
+MBB #3, '<switch_exit>', ir #3, <- #10 #5 #7, -> #1
+  %v10 = MOP_COPY.4 %v2 ; %34
+  %v10 = add.4 %v10, %v0 ; %34
+
+MBB #1, '<exit>', ir #1, <- #3
+  $rax = MOP_COPY.4 %v10 ; %37
+  ret ; %37
+
+

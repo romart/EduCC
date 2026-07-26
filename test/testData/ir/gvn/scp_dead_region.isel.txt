@@ -1,0 +1,26 @@
+--- Phase: isel ---
+MachineFunction 'scp_dead_region' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %17
+  %v1 : gp/4 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/4 ; %9
+  %v4 : gp/4 ; %15
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = mov.4 0 ; %17
+  %v1 = MOP_COPY.4 $rdi ; %3
+  %v2 = MOP_COPY.4 $rsi ; %6
+  %v3 = MOP_COPY.4 $rdx ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  %v4 = MOP_COPY.4 %v1 ; %15
+  %v4 = sub.4 %v4, %v2 ; %15
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+
+MBB #1, '<exit>', ir #1, <- #3
+  $rax = MOP_COPY.4 %v4 ; %40
+  ret ; %40
+
+

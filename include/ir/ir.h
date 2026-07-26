@@ -387,6 +387,13 @@ void resetIrContext(IrContext *_ctx);
 Boolean isConstantInstr(const IrInstruction *i);
 Boolean isLeafInstr(const IrInstruction *instr);
 
+// The machine width of a value of this type, in bytes. Width and register
+// class both follow from the type alone, so everything needing either derives
+// it here rather than each caller passing in what it thinks the value is.
+// Implemented in src/ir/codegen/machine.c, where the register file it answers
+// for lives.
+uint8_t irTypeMachineSize(enum IrTypeKind k);
+
 Boolean isFloatIrType(enum IrTypeKind k);
 Boolean isIntegerIrType(enum IrTypeKind k);
 Boolean isSignedIrType(enum IrTypeKind k);
@@ -413,6 +420,7 @@ void dce(IrFunction *func);
 void scp(IrFunction *func);
 void gvn(IrFunction *func);
 // ------------- dump utils ---------------------------------
+const char *irInstructionMnemonic(enum IrIntructionKind kind);
 int32_t dumpIrFunction(FILE *stream, const IrFunction *f);
 void dumpIrFunctionPhase(FILE *stream, const IrFunction *f, const char *phaseName);
 void dumpIrFunctionList(const char *fileName, const IrFunctionList *functions);

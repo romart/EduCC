@@ -1,0 +1,18 @@
+--- Phase: isel ---
+MachineFunction 'stores_not_merged' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %3
+  %v1 : gp/4 ; %6
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = MOP_COPY.8 $rdi ; %3
+  %v1 = MOP_COPY.4 $rsi ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  MOP_UNSELECTED(IR_M_STORE) %v0, %v1 ; %10
+  MOP_UNSELECTED(IR_M_STORE) %v0, %v1 ; %13
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %15
+
+

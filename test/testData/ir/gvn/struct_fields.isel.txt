@@ -1,0 +1,34 @@
+--- Phase: isel ---
+MachineFunction 'struct_fields' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %11
+  %v1 : gp/8 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/8 ; %12
+  %v4 : gp/4 ; %13
+  %v5 : gp/4 ; %15
+  %v6 : gp/4 ; %20
+  %v7 : gp/4 ; %22
+  %v8 : gp/4 ; %26
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = mov.8 0 ; %11
+  %v1 = MOP_COPY.8 $rdi ; %3
+  %v2 = MOP_COPY.4 $rsi ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v3 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v1, %v0 ; %12
+  %v4 = MOP_UNSELECTED(IR_M_LOAD) %v3 ; %13
+  %v5 = MOP_COPY.4 %v4 ; %15
+  %v5 = add.4 %v5, %v2 ; %15
+  %v6 = MOP_UNSELECTED(IR_M_LOAD) %v3 ; %20
+  %v7 = MOP_COPY.4 %v6 ; %22
+  %v7 = add.4 %v7, %v2 ; %22
+  %v8 = MOP_COPY.4 %v5 ; %26
+  %v8 = add.4 %v8, %v7 ; %26
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 %v8 ; %29
+  ret ; %29
+
+

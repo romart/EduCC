@@ -131,6 +131,26 @@ void addMachineInstrHead(MachineBasicBlock *mbb, MachineInstr *mi) {
   }
 }
 
+void addMachineInstrBefore(MachineInstr *at, MachineInstr *mi) {
+  MachineBasicBlock *mbb = at->parent;
+  assert(mbb != NULL);
+  assert(mi->parent == NULL);
+  assert(mi->next == NULL && mi->prev == NULL);
+
+  mi->parent = mbb;
+  mi->next = at;
+  mi->prev = at->prev;
+
+  if (at->prev != NULL) {
+    at->prev->next = mi;
+  } else {
+    assert(mbb->instructions.head == at);
+    mbb->instructions.head = mi;
+  }
+
+  at->prev = mi;
+}
+
 void eraseMachineInstr(MachineInstr *mi) {
   MachineBasicBlock *mbb = mi->parent;
   assert(mbb != NULL);
@@ -223,7 +243,7 @@ static enum RegClass irTypeRegClass(enum IrTypeKind type) {
   return isFloatIrType(type) ? RC_FP : RC_GP;
 }
 
-static uint8_t irTypeSize(enum IrTypeKind type) {
+uint8_t irTypeMachineSize(enum IrTypeKind type) {
   switch (type) {
   case IR_BOOL:
   case IR_I8:
@@ -274,11 +294,16 @@ uint32_t machineVregForValue(MachineFunction *mf, const IrInstruction *value) {
     }
   }
 
-  uint32_t reg = createVirtualRegister(mf, irTypeRegClass(value->type), irTypeSize(value->type));
+  uint32_t reg = createVirtualRegister(mf, irTypeRegClass(value->type), irTypeMachineSize(value->type));
   virtualRegisterInfo(mf, reg)->origin = value;
   putAtVector(map, value->id, (intptr_t)reg + 1);
 
   return reg;
+}
+
+Boolean machineHasVregForValue(const MachineFunction *mf, const IrInstruction *value) {
+  const Vector *map = &mf->irToVreg;
+  return value->id < map->size && getFromVector(map, value->id) != 0;
 }
 
 enum RegClass machineRegisterClass(const MachineFunction *mf, uint32_t reg) {
@@ -327,6 +352,20 @@ int32_t machineFrameIndexForValue(const MachineFunction *mf, const IrInstruction
   // as frame index 0. See MachineFunction.irToFrameIdx.
   intptr_t stored = getFromVector(map, value->id);
   return stored == 0 ? -1 : (int32_t)stored - 1;
+}
+
+// The machine block mirroring a given IR block. A walk rather than a map: the
+// callers - phi destruction, then selection resolving a branch target - touch
+// each edge once, and carrying the build's id->block table forward is more
+// state to keep honest than this costs to recompute.
+MachineBasicBlock *machineBlockForIrBlock(MachineFunction *mf, const IrBasicBlock *ir) {
+  for (MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
+    if (mbb->ir == ir) {
+      return mbb;
+    }
+  }
+
+  return NULL;
 }
 
 // ------------- build phase ------------------------

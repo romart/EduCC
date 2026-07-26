@@ -1,0 +1,58 @@
+--- Phase: isel ---
+MachineFunction 'isel_immediates' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %33
+  %v1 : gp/8 ; %21
+  %v2 : gp/8 ; %16
+  %v3 : gp/8 ; %3
+  %v4 : gp/8 ; %6
+  %v5 : gp/8 ; %12
+  %v6 : gp/8 ; %17
+  %v7 : gp/8 ; %22
+  %v8 : gp/8 ; %24
+  %v9 : gp/8 ; %25
+  %v10 : gp/8 ; %30
+  %v11 : gp/8 ; %35
+  %v12 : gp/8 ; %39
+  %v13 : gp/8 ; %41
+  %v14 : gp/8 ; %43
+  %v15 : gp/8 ; %45
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = mov.8 3 ; %33
+  %v1 = mov.8 100 ; %21
+  %v2 = mov.8 78187493520 ; %16
+  %v3 = MOP_COPY.8 $rdi ; %3
+  %v4 = MOP_COPY.8 $rsi ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v5 = MOP_COPY.8 %v3 ; %12
+  %v5 = add.8 %v5, 7 ; %12
+  %v6 = MOP_COPY.8 %v3 ; %17
+  %v6 = add.8 %v6, %v2 ; %17
+  %v7 = MOP_COPY.8 %v3 ; %22
+  %v7 = add.8 %v7, %v1 ; %22
+  $rax = MOP_COPY.8 %v1 ; %24
+  $rdx = cdq.8 [implicit $rax] ; %24
+  idiv.8 %v4 [implicit-def $rax, implicit-def $rdx, implicit $rax, implicit $rdx] ; %24
+  %v8 = MOP_COPY.8 $rax ; %24
+  %v9 = MOP_COPY.8 %v7 ; %25
+  %v9 = add.8 %v9, %v8 ; %25
+  %v10 = MOP_COPY.8 %v3 ; %30
+  %v10 = shl.8 %v10, 5 ; %30
+  %v11 = MOP_COPY.8 %v0 ; %35
+  %v11 = sub.8 %v11, %v3 ; %35
+  %v12 = MOP_COPY.8 %v5 ; %39
+  %v12 = add.8 %v12, %v6 ; %39
+  %v13 = MOP_COPY.8 %v12 ; %41
+  %v13 = add.8 %v13, %v9 ; %41
+  %v14 = MOP_COPY.8 %v13 ; %43
+  %v14 = add.8 %v14, %v10 ; %43
+  %v15 = MOP_COPY.8 %v14 ; %45
+  %v15 = add.8 %v15, %v11 ; %45
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.8 %v15 ; %48
+  ret ; %48
+
+

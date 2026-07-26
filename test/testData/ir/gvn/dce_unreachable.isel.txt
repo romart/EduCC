@@ -1,0 +1,37 @@
+--- Phase: isel ---
+MachineFunction 'dce_unreachable' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %35
+  %v1 : gp/4 ; %15
+  %v2 : gp/4 ; %20
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+  %v5 : gp/4 ; %11
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v3 = MOP_COPY.4 $rdi ; %3
+  %v4 = MOP_COPY.4 $rsi ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  %v5 = mov.4 0 ; %11
+  cmp.4 %v3, %v4 ; %11
+  %v5 = setg.1 ; %11
+  test.4 %v5, %v5 ; %12
+  jne #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  %v2 = MOP_COPY.4 %v3 ; %20
+  %v2 = sub.4 %v2, %v4 ; %20
+  %v0 = MOP_COPY.4 %v2 ; %35
+  jmp #1 ; %22
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  %v1 = MOP_COPY.4 %v3 ; %15
+  %v1 = add.4 %v1, %v4 ; %15
+  %v0 = MOP_COPY.4 %v1 ; %35
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $rax = MOP_COPY.4 %v0 ; %32
+  ret ; %32
+
+

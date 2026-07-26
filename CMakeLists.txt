@@ -38,6 +38,7 @@ set(SOURCES
   src/x86_64/instructions_x86_64.c
   src/x86_64/codegen_x86_64.c
   src/x86_64/target_x86_64.c
+  src/x86_64/isel_x86_64.c
   src/riscv64/codegen_riscv64.c
   src/riscv64/instructions_riscv64.c
   src/riscv64/target_riscv64.c
@@ -54,6 +55,7 @@ set(SOURCES
   src/ir/codegen/machine.c
   src/ir/codegen/mirdump.c
   src/ir/codegen/prepare.c
+  src/ir/codegen/isel.c
 )
 
 add_executable(main ${SOURCES})
@@ -141,4 +143,10 @@ if(BUILD_TESTING)
   # '-irDump:mir' dumps the MachineFunction, so this suite pins down the CFG
   # the backend is handed and, as selection lands, what it selects into it.
   educc_add_test(ir_mir ir/gvn ir 60 mir)
+  # The same MachineFunction one stage later: '-irDump:isel' is what stage 1
+  # selected into those blocks. Split from ir_mir rather than folded into it so
+  # that the two read as a before/after pair - ir_mir pins down the CFG, the
+  # frame and the phi copies, ir_isel the instructions - and so a change to
+  # selection cannot silently rewrite the baselines for stage 0.
+  educc_add_test(ir_isel ir/gvn ir 60 isel)
 endif()

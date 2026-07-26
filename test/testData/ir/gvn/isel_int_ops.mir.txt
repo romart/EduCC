@@ -1,0 +1,32 @@
+--- Phase: mir ---
+MachineFunction 'isel_int_ops' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %90
+  %v1 : gp/4 ; %53
+  %v2 : gp/4 ; %62
+  %v3 : gp/4 ; %88
+  %v4 : gp/4 ; %72
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #5
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
+
+MBB #3, '<if_exit>', ir #3, <- #7 #4, -> #6 #8
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  %v0 = MOP_COPY.4 %v2 ; %90
+
+MBB #5, '<if_exit>', ir #5, <- #8 #6, -> #1
+
+MBB #6, '<if_then>', ir #6, <- #3, -> #5
+  %v3 = MOP_COPY.4 %v4 ; %88
+
+MBB #7, '<crit_splitter>', ir #7, <- #2, -> #3
+  %v0 = MOP_COPY.4 %v1 ; %90
+
+MBB #8, '<crit_splitter>', ir #8, <- #3, -> #5
+  %v3 = MOP_COPY.4 %v0 ; %88
+
+

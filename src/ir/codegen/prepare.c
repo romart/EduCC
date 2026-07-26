@@ -151,20 +151,10 @@ static void sequentializeCopies(MachineFunction *mf, MachineBasicBlock *mbb, Par
   }
 }
 
-// The machine block mirroring a given IR block. buildMachineFunction() keeps
-// the two block lists in the same order, so this is a walk rather than a map;
-// phi destruction touches each edge once, and the alternative - carrying the
-// build's id->block table forward - is more state to keep honest than this
-// costs to recompute.
 static MachineBasicBlock *machineBlockOf(MachineFunction *mf, const IrBasicBlock *ir) {
-  for (MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
-    if (mbb->ir == ir) {
-      return mbb;
-    }
-  }
-
-  unreachable("IR block has no machine block");
-  return NULL;
+  MachineBasicBlock *mbb = machineBlockForIrBlock(mf, ir);
+  assert(mbb != NULL && "IR block has no machine block");
+  return mbb;
 }
 
 static size_t countPhis(const IrBasicBlock *block) {
