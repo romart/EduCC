@@ -2043,6 +2043,7 @@ static void collectTranslationInfoStmt(const AstStatement *stmt) {
     return;
   case SK_BREAK:
   case SK_CONTINUE:
+  case SK_GOTO_L:
     return;
   case SK_RETURN:
   case SK_GOTO_P:
