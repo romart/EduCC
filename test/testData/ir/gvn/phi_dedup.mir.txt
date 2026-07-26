@@ -1,0 +1,22 @@
+--- Phase: mir ---
+MachineFunction 'phi_dedup' [target = x86_64]
+VRegs: <none>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
+
+MBB #3, '<if_exit>', ir #3, <- #4 #5, -> #7 #8
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+
+MBB #5, '<if_else>', ir #5, <- #2, -> #3
+
+MBB #6, '<if_exit>', ir #6, <- #8 #7, -> #1
+
+MBB #7, '<if_then>', ir #7, <- #3, -> #6
+
+MBB #8, '<crit_splitter>', ir #8, <- #3, -> #6
+
+

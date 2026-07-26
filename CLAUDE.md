@@ -45,7 +45,7 @@ The CLI intentionally mimics a subset of GCC flags (`-o`, `-c`, `-I`, `-L`, `-l`
 - `-experimental` — route compilation through the new AST→IR pipeline (see Architecture) instead of the legacy direct-from-AST codegen.
 - `-march x86_64|riscv64` — select backend (default `x86_64`).
 - `-astDump <file>` / `-astCanonDump <file>` — dump the AST before/after canonicalization.
-- `-irDump <file>` — dump the IR (experimental pipeline); also emits `cfg.dot` for the CFG. Optionally `-irDump:phase[,phase...] <file>` (phases: `initial`, `ssa`, `scp`, `gvn`, `dce`) snapshots the IR immediately after each named pass in `translateFunction()` (`src/ir/ast2ir.c`) instead of only the fully-processed result — e.g. `-irDump:ssa` captures IR right after `buildSSA`, unaffected by whatever `scp`/`gvn`/`dce` do afterwards.
+- `-irDump <file>` — dump the IR (experimental pipeline); also emits `cfg.dot` for the CFG. Optionally `-irDump:phase[,phase...] <file>` (phases: `initial`, `ssa`, `scp`, `gvn`, `dce`, `mir`) snapshots the IR immediately after each named pass in `translateFunction()` (`src/ir/ast2ir.c`) instead of only the fully-processed result — e.g. `-irDump:ssa` captures IR right after `buildSSA`, unaffected by whatever `scp`/`gvn`/`dce` do afterwards. `mir` is the odd one out: it dumps the `MachineFunction` built from the optimized IR (`src/ir/codegen/`), in machine-IR rather than IR form.
 - `-skipCodegen` — stop after parsing/sema (used heavily by parser tests).
 - `-oneline` — non-verbose output (used by the test runner).
 - `-logtokens`, `-memstat` — debug tracing / arena memory statistics.

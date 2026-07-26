@@ -33,6 +33,11 @@ struct _IrFunction {
 
     struct _IrInstruction *retOperand;
 
+    // The machine-level form of this function, built once the optimization
+    // passes are done with it (see buildMachineFunction in ir/machine.h). NULL
+    // until then.
+    struct _MachineFunction *machine;
+
     size_t numOfLocalSlots;
     size_t numOfBlocks;
     struct _LocalValueInfo *localOperandMap;

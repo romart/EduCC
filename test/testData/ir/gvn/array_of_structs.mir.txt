@@ -1,0 +1,10 @@
+--- Phase: mir ---
+MachineFunction 'array_of_structs' [target = x86_64]
+VRegs: <none>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+

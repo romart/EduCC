@@ -1,0 +1,22 @@
+--- Phase: mir ---
+MachineFunction 'short_circuit' [target = x86_64]
+VRegs: <none>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #5 #7
+
+MBB #3, '<if_exit>', ir #3, <- #8 #4, -> #1
+
+MBB #4, '<if_then>', ir #4, <- #6, -> #3
+
+MBB #5, '< && >', ir #5, <- #2, -> #6
+
+MBB #6, '< &&-exit>', ir #6, <- #7 #5, -> #4 #8
+
+MBB #7, '<crit_splitter>', ir #7, <- #2, -> #6
+
+MBB #8, '<crit_splitter>', ir #8, <- #6, -> #3
+
+

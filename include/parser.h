@@ -36,6 +36,9 @@ enum IrDumpPhase {
     IR_DUMP_PHASE_SCP     = 1u << 2,
     IR_DUMP_PHASE_GVN     = 1u << 3,
     IR_DUMP_PHASE_DCE     = 1u << 4,
+    // Not an IR phase but a machine-IR one: the MachineFunction built from the
+    // optimized IR, dumped in its own format (see dumpMachineFunction).
+    IR_DUMP_PHASE_MIR     = 1u << 5,
 };
 
 typedef struct _Configuration {

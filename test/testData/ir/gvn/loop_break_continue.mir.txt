@@ -1,0 +1,26 @@
+--- Phase: mir ---
+MachineFunction 'loop_break_continue' [target = x86_64]
+VRegs: <none>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #5
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+
+MBB #3, '<while_head>', ir #3, <- #2 #7 #8, -> #4 #10
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #7 #6
+
+MBB #5, '<while_exit>', ir #5, <- #10 #9, -> #1
+
+MBB #6, '<if_exit>', ir #6, <- #4, -> #9 #8
+
+MBB #7, '<if_then>', ir #7, <- #4, -> #3
+
+MBB #8, '<if_exit>', ir #8, <- #6, -> #3
+
+MBB #9, '<if_then>', ir #9, <- #6, -> #5
+
+MBB #10, '<crit_splitter>', ir #10, <- #3, -> #5
+
+

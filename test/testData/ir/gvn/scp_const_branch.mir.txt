@@ -1,0 +1,12 @@
+--- Phase: mir ---
+MachineFunction 'scp_const_branch' [target = x86_64]
+VRegs: <none>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+
+

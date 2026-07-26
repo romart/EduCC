@@ -1,0 +1,18 @@
+--- Phase: mir ---
+MachineFunction 'scp_dead_backedge' [target = x86_64]
+VRegs: <none>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #5
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+
+MBB #3, '<while_head>', ir #3, <- #2 #6, -> #4 #5
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #6
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+
+MBB #6, '<if_exit>', ir #6, <- #4, -> #3
+
+

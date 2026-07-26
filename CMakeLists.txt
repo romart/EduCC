@@ -51,6 +51,8 @@ set(SOURCES
   src/ir/cp.c
   src/ir/evaluator.c
   src/ir/gvn.c
+  src/ir/codegen/machine.c
+  src/ir/codegen/mirdump.c
 )
 
 add_executable(main ${SOURCES})
@@ -134,4 +136,8 @@ if(BUILD_TESTING)
   # before/after pair over one shared set of .c files - ir_gvn pins down what
   # gvn rewrote, ir_dce that the leftovers actually go away.
   educc_add_test(ir_dce ir/gvn ir 60 dce)
+  # Not an IR phase but the machine IR built from what ir_dce leaves behind:
+  # '-irDump:mir' dumps the MachineFunction, so this suite pins down the CFG
+  # the backend is handed and, as selection lands, what it selects into it.
+  educc_add_test(ir_mir ir/gvn ir 60 mir)
 endif()

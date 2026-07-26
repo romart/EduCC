@@ -1,5 +1,6 @@
 
 #include "ir/ir.h"
+#include "ir/machine.h"
 #include "sema.h"
 #include "tree.h"
 #include "types.h"
@@ -2412,6 +2413,14 @@ static IrFunction *translateFunction(AstFunctionDefinition *function) {
 
   dce(func);
   dumpRequestedPhase(func, IR_DUMP_PHASE_DCE, "dce");
+
+  // Machine IR is built unconditionally rather than only when it is dumped:
+  // it is on the way to being the only way this pipeline produces code, and a
+  // path that runs only under a debug flag is a path that rots.
+  func->machine = buildMachineFunction(func);
+  if (ctx->irDumpStream && (ctx->irDumpPhases & IR_DUMP_PHASE_MIR)) {
+    dumpMachineFunctionPhase(ctx->irDumpStream, func->machine, "mir");
+  }
 
   return func;
 }

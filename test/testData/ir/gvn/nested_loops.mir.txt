@@ -1,0 +1,22 @@
+--- Phase: mir ---
+MachineFunction 'nested_loops' [target = x86_64]
+VRegs: <none>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #5
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+
+MBB #3, '<while_head>', ir #3, <- #2 #8, -> #4 #5
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #6
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+
+MBB #6, '<while_head>', ir #6, <- #4 #7, -> #7 #8
+
+MBB #7, '<while_body>', ir #7, <- #6, -> #6
+
+MBB #8, '<while_exit>', ir #8, <- #6, -> #3
+
+
