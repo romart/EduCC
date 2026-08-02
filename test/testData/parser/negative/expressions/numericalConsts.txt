@@ -54,17 +54,17 @@ FILE test/testData/parser/negative/expressions/numericalConsts.c
   FUN signed int testInteger 
   BEGIN
     signed int s = \
-      12345465456465
+      (signed int)12345465456465
     unsigned int u = \
-      12344545645656
+      (unsigned int)12344545645656
     unsigned int u2 = \
-      12545646545463
+      (unsigned int)12545646545463
     unsigned int umax = \
       (unsigned int)4294967295
     unsigned int utoomax = \
       (unsigned int)4294967296
     signed int utool = \
-      4294967295
+      (signed int)4294967295
     signed long l = \
       9223372036854775807
     signed long l2 = \

@@ -1,6 +1,7 @@
 
 
 #include <assert.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 #include "tokens.h"
@@ -322,6 +323,55 @@ static AstExpression *va_arg_expression(ParserContext *ctx, Coordinates *coords,
   return result;
 }
 
+// The type of an integer constant, per C99 6.4.4.1: the first type in a list
+// that can represent its value, where the list starts at whatever its suffix
+// requires. A decimal constant never becomes unsigned by widening - 'int,
+// long, long long' - while a hexadecimal or octal one may, which is why the
+// two lists differ and why the spelling has to be looked at rather than just
+// the value.
+//
+// EduCC's 'long' is 64 bits, so 'long long' adds nothing and the lists stop at
+// T_S8/T_U8. A constant too large even for those is out of range in any type;
+// it keeps the widest one rather than being diagnosed, which is a gap this
+// function is the right place to close when there is a diagnostic to report.
+static TypeId integerConstantType(const Token *token) {
+  uint64_t v = token->value.iv;
+
+  // '0x...' and '0...' take the list including the unsigned types; a plain
+  // decimal literal does not. A bare '0' is octal by the standard's reading
+  // and reaches the same answer either way.
+  Boolean isDecimal = token->length > 0 && token->pos[0] != '0';
+
+  if (token->code == UL_CONSTANT) {
+    return T_U8;
+  }
+
+  if (token->code == U_CONSTANT) {
+    return v <= UINT32_MAX ? T_U4 : T_U8;
+  }
+
+  if (token->code == L_CONSTANT) {
+    if (v <= INT64_MAX) {
+      return T_S8;
+    }
+    return isDecimal ? T_S8 : T_U8;
+  }
+
+  if (v <= INT32_MAX) {
+    return T_S4;
+  }
+
+  if (!isDecimal && v <= UINT32_MAX) {
+    return T_U4;
+  }
+
+  if (v <= INT64_MAX) {
+    return T_S8;
+  }
+
+  return isDecimal ? T_S8 : T_U8;
+}
+
 /**
 primary_expression
     : IDENTIFIER
@@ -367,10 +417,19 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx) {
           break;
         case C_CONSTANT: typeId = T_S1; goto iconst;
         case C16_CONSTANT: typeId = T_S2; goto iconst;
-        case ENUM_CONST: //enum constant is int32_t aka T_S4
-        case I_CONSTANT: typeId = T_S4; goto iconst;
-        case U_CONSTANT: typeId = T_U4; goto iconst;
-        case L_CONSTANT: typeId = T_S8; goto iconst;
+        case ENUM_CONST: typeId = T_S4; goto iconst; // an enum constant is an int, whatever its value
+        case I_CONSTANT:
+        case U_CONSTANT:
+        case L_CONSTANT:
+          // The suffix says the *narrowest* type the constant may have, not
+          // the type it has: 6.4.4.1 gives it the first type in a list that
+          // can represent its value. Without this every literal is an int, so
+          // sizeof(0x7ff0000000000000) is 4 and, worse, the value does not fit
+          // the type the rest of the compiler is told it has - the IR pipeline
+          // then materializes it with a four-byte move and silently drops the
+          // top half.
+          typeId = integerConstantType(ctx->token);
+          goto iconst;
         case UL_CONSTANT: typeId = T_U8; goto iconst;
         iconst: {
             int64_t l = ctx->token->value.iv;
