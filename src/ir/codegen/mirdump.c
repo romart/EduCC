@@ -234,6 +234,7 @@ static const char *frameObjectKindName(enum MachineFrameObjectKind kind) {
   case MFO_LOCAL: return "local";
   case MFO_INCOMING_PARAM: return "param";
   case MFO_DYNAMIC_ALLOCA_SAVE: return "sp-save";
+  case MFO_SPILL: return "spill";
   default: return "?";
   }
 }
@@ -257,6 +258,11 @@ static int32_t dumpMachineFrame(FILE *stream, const MachineFunction *mf) {
       r += fprintf(stream, "dynamic");
     } else {
       r += fprintf(stream, "%u/%u @ %d", obj->size, obj->alignment, obj->offset);
+    }
+
+    if (obj->vreg != 0) {
+      r += fprintf(stream, " ");
+      r += dumpMachineRegister(stream, mf, obj->vreg);
     }
 
     if (obj->declaration != NULL) {
@@ -292,6 +298,26 @@ int32_t dumpMachineFunction(FILE *stream, const MachineFunction *mf) {
   }
 
   r += dumpMachineFrame(stream, mf);
+
+  // Both of these are empty until register allocation has run, and are printed
+  // only when they are not, so that a dump taken before it looks exactly as it
+  // did before there was an allocator.
+  if (mf->usedPhysRegs != 0) {
+    r += fprintf(stream, "Physical registers used:");
+    for (uint32_t reg = 0; reg < IR_PHYS_REG_MAX; ++reg) {
+      if (mf->usedPhysRegs & ((uint64_t)1 << reg)) {
+        r += fputc(' ', stream);
+        r += dumpMachineRegister(stream, mf, reg);
+      }
+    }
+    r += fputc('\n', stream);
+  }
+
+  if (mf->hasUnallocated) {
+    // Which is to say: what follows still names virtual registers. Worth a
+    // line of its own rather than being left for the reader to notice.
+    r += fprintf(stream, "Registers: not allocated\n");
+  }
 
   for (const MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
     r += dumpMachineBlockHeader(stream, mbb);

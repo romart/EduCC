@@ -70,6 +70,19 @@ typedef struct _TargetDescriptor {
   uint32_t intRetReg;
   uint32_t fpRetReg;
 
+  // Registers the trivial "spill everything" allocator may use as scratch,
+  // per register class (see docs/ir-codegen-design.md section 7 stage A). They
+  // have to be registers *instruction selection never names itself*: the
+  // allocator leaves every physical operand alone, so an ABI argument
+  // register, a return register, or one the ISA fixes for a divide or a shift
+  // would be reloaded over while the value it holds is still wanted. That
+  // constraint is what keeps this a target's answer and not a generic one.
+  //
+  // Indexed by enum RegClass; the RC_NONE entry is unused and NULL. A target
+  // with no entries has no backend yet and is skipped by the allocator.
+  const uint32_t *scratchRegs[RC_CLASS_COUNT];
+  uint32_t scratchRegCount[RC_CLASS_COUNT];
+
   // Both targets currently point this at classifyParametersGeneric(): they
   // differ only in which registers they use and how many, and that is data,
   // not code. The hook exists because the aggregate-passing rules they both

@@ -45,7 +45,7 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
   %v12 = add.4 %v12, %v11 ; %23
   %v13 = mov.4 0 ; %27
   test.4 %v9, %v9 ; %27
-  %v13 = sete.1 ; %27
+  %v13 = sete.1 %v13 ; %27
   %v14 = MOP_UNSELECTED(IR_E_BITCAST) %v13 ; %28
   %v15 = MOP_COPY.4 %v12 ; %29
   %v15 = add.4 %v15, %v14 ; %29
@@ -72,7 +72,7 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
   %v1 = add.4 %v1, %v22 ; %53
   %v23 = mov.4 0 ; %57
   cmp.4 %v6, %v7 ; %57
-  %v23 = setb.1 ; %57
+  %v23 = setb.1 %v23 ; %57
   test.4 %v23, %v23 ; %58
   jne #4 ; %58
 
@@ -88,7 +88,7 @@ MBB #4, '<if_then>', ir #4, <- #2, -> #3
 MBB #3, '<if_exit>', ir #3, <- #7 #4, -> #6 #8
   %v24 = mov.4 0 ; %67
   cmp.4 %v6, %v7 ; %67
-  %v24 = seta.1 ; %67
+  %v24 = seta.1 %v24 ; %67
   test.4 %v24, %v24 ; %68
   jne #6 ; %68
 

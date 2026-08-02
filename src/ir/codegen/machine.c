@@ -151,6 +151,26 @@ void addMachineInstrBefore(MachineInstr *at, MachineInstr *mi) {
   at->prev = mi;
 }
 
+void addMachineInstrAfter(MachineInstr *at, MachineInstr *mi) {
+  MachineBasicBlock *mbb = at->parent;
+  assert(mbb != NULL);
+  assert(mi->parent == NULL);
+  assert(mi->next == NULL && mi->prev == NULL);
+
+  mi->parent = mbb;
+  mi->prev = at;
+  mi->next = at->next;
+
+  if (at->next != NULL) {
+    at->next->prev = mi;
+  } else {
+    assert(mbb->instructions.tail == at);
+    mbb->instructions.tail = mi;
+  }
+
+  at->next = mi;
+}
+
 void eraseMachineInstr(MachineInstr *mi) {
   MachineBasicBlock *mbb = mi->parent;
   assert(mbb != NULL);
@@ -352,6 +372,19 @@ int32_t machineFrameIndexForValue(const MachineFunction *mf, const IrInstruction
   // as frame index 0. See MachineFunction.irToFrameIdx.
   intptr_t stored = getFromVector(map, value->id);
   return stored == 0 ? -1 : (int32_t)stored - 1;
+}
+
+// Objects grow downwards from the frame pointer, so an object occupies
+// [-offset, -offset + size) and it is 'offset' that has to come out aligned.
+// Adding the size first and rounding afterwards is what achieves that.
+int32_t placeMachineFrameObject(MachineFunction *mf, int32_t offset, int32_t frameIdx) {
+  MachineFrameObject *obj = machineFrameObjectAt(mf, frameIdx);
+
+  offset += obj->size;
+  offset = ALIGN_SIZE(offset, obj->alignment);
+  obj->offset = -offset;
+
+  return offset;
 }
 
 // The machine block mirroring a given IR block. A walk rather than a map: the

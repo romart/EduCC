@@ -39,9 +39,12 @@ enum IrDumpPhase {
     // Not IR phases but machine-IR ones, dumped in their own format (see
     // dumpMachineFunction): 'mir' is the MachineFunction as stage 0 leaves it -
     // the CFG, the frame and the phi copies, with no instructions selected yet -
-    // and 'isel' is the same function after stage 1 has filled the blocks in.
+    // 'isel' is the same function after stage 1 has filled the blocks in, and
+    // 'ra' is it once stage 2 has replaced every virtual register with a real
+    // one and given the ones it could not keep a frame slot.
     IR_DUMP_PHASE_MIR     = 1u << 5,
     IR_DUMP_PHASE_ISEL    = 1u << 6,
+    IR_DUMP_PHASE_RA      = 1u << 7,
 };
 
 typedef struct _Configuration {

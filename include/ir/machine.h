@@ -42,10 +42,19 @@ struct _MachineFunction;
 // inputs, so the machine function stays a connected graph that liveness and
 // the dumper can walk. What it is *not* is emittable, which is what
 // MachineFunction.hasUnselected records.
+//
+// MOP_SPILL/MOP_RELOAD are the register allocator's two moves between a
+// register and a frame slot. They are generic rather than per-target because
+// the allocator that creates them is, and because every target spells them as
+// one store and one load - stage 3 expands each into a single emit* call. The
+// frame index is operand 0 in both, so the def-before-use operand order still
+// holds: a reload defines a register, a spill defines nothing.
 #define MACHINE_GENERIC_OPCODES                                             \
   MOP_DEF(PHI, "phi node, destroyed by stage 0 - never reaches allocation"), \
   MOP_DEF(COPY, "register to register move, either register class"),        \
-  MOP_DEF(UNSELECTED, "an IR instruction stage 1 has no rule for yet")
+  MOP_DEF(UNSELECTED, "an IR instruction stage 1 has no rule for yet"),     \
+  MOP_DEF(SPILL, "store a register into its frame slot"),                   \
+  MOP_DEF(RELOAD, "load a register back out of its frame slot")
 
 enum MachineGenericOpcode {
 #define MOP_DEF(m, _) MOP_##m
@@ -168,6 +177,11 @@ enum MachineFrameObjectKind {
   // Where the stack pointer is parked before a dynamically sized allocation
   // moves it, so the frame can be restored.
   MFO_DYNAMIC_ALLOCA_SAVE,
+  // A virtual register's home, handed out by register allocation. Unlike the
+  // three above, these do not exist until stage 2 has run, which is why the
+  // frame is sized twice - once here for what the IR asked for, once by the
+  // allocator for what it had to spill.
+  MFO_SPILL,
 };
 
 typedef struct _MachineFrameObject {
@@ -182,6 +196,12 @@ typedef struct _MachineFrameObject {
   int32_t offset;
 
   Boolean isDynamic;
+
+  // Which virtual register this is the home of; 0 - never a valid register id,
+  // see FIRST_VREG - for everything that is not an MFO_SPILL. Only the dumper
+  // reads it, and without it a frame of spill slots is a list of anonymous
+  // offsets with nothing to check against the code that uses them.
+  uint32_t vreg;
 
   const struct _IrInstruction *origin;  // the IR_ALLOCA, when there is one
   struct _AstValueDeclaration *declaration; // the C variable, when there is one
@@ -232,6 +252,19 @@ typedef struct _MachineFunction {
   // rather than emit nonsense for the opcode it does not recognise.
   Boolean hasUnselected;
 
+  // Set when register allocation declined this function - see
+  // allocateRegisters(). Like hasUnselected it is a statement about
+  // emittability and not about well-formedness: the machine function is
+  // exactly as selection left it, virtual registers and all.
+  Boolean hasUnallocated;
+
+  // Which physical registers the finished code names, as a bit per register id
+  // (IR_PHYS_REG_MAX is 64, so one word covers the namespace). Filled in by
+  // register allocation, which is the first point at which the answer is
+  // settled, and read by stage 3 to decide which callee-saved registers the
+  // prologue has to preserve.
+  uint64_t usedPhysRegs;
+
   // Which frame object holds each IR value, indexed by IrInstruction.id and
   // biased the same way as irToVreg. Only IR_ALLOCA values are ever in here;
   // it is how selection turns one into an MO_FRAME_IDX operand.
@@ -263,6 +296,7 @@ void addMachineInstrHead(MachineBasicBlock *mbb, MachineInstr *mi);
 // Selection needs this because stage 0 got to the block first: the phi copies
 // it left at the tail carry values *out* of the block and have to stay there.
 void addMachineInstrBefore(MachineInstr *at, MachineInstr *mi);
+void addMachineInstrAfter(MachineInstr *at, MachineInstr *mi);
 void eraseMachineInstr(MachineInstr *mi);
 
 MachineOperand *machineOperandAt(MachineInstr *mi, uint16_t idx);
@@ -294,6 +328,13 @@ int32_t addMachineFrameObject(MachineFunction *mf, enum MachineFrameObjectKind k
 MachineFrameObject *machineFrameObjectAt(const MachineFunction *mf, int32_t frameIdx);
 // The frame slot an IR_ALLOCA was given, or -1 if it was not given one.
 int32_t machineFrameIndexForValue(const MachineFunction *mf, const struct _IrInstruction *value);
+
+// Gives an object a frame-pointer-relative home, 'offset' bytes into a frame
+// that grows downwards, and returns the new depth. Shared by the two stages
+// that place objects - stage 0 for what the IR asked for, stage 2 for what it
+// had to spill - so that the second cannot round or sign things differently
+// from the first.
+int32_t placeMachineFrameObject(MachineFunction *mf, int32_t offset, int32_t frameIdx);
 
 // ------------- build phase ------------------------
 MachineFunction *buildMachineFunction(struct _IrFunction *f);

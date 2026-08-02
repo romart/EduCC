@@ -44,7 +44,7 @@ MBB #4, '<FIRST>', ir #4, <- #0, -> #6 #5
   MOP_UNSELECTED(IR_M_STORE) %v15, %v16 ; %23
   %v17 = mov.4 0 ; %25
   cmp.4 %v10, %v7 ; %25
-  %v17 = setg.1 ; %25
+  %v17 = setg.1 %v17 ; %25
   test.4 %v17, %v17 ; %26
   jne #6 ; %26
 

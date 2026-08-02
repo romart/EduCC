@@ -18,7 +18,7 @@ MBB #0, '<entry>', ir #0, -> #2
 MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
   %v6 = mov.4 0 ; %15
   cmp.4 %v5, 0 ; %15
-  %v6 = setg.1 ; %15
+  %v6 = setg.1 %v6 ; %15
   test.4 %v6, %v6 ; %16
   jne #4 ; %16
 

@@ -27,7 +27,7 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #3
 MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
   %v8 = mov.4 0 ; %20
   cmp.4 %v0, %v7 ; %20
-  %v8 = setl.1 ; %20
+  %v8 = setl.1 %v8 ; %20
   test.4 %v8, %v8 ; %21
   jne #4 ; %21
 

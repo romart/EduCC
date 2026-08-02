@@ -65,6 +65,31 @@ static const uint32_t x86FpArgRegs[] = {
   FP(0), FP(1), FP(2), FP(3), FP(4), FP(5), FP(6), FP(7)
 };
 
+// Scratch for the trivial allocator - see TargetDescriptor.scratchRegs for
+// what disqualifies a register. On x86-64 that rules out a lot: rdi/rsi/rdx/
+// rcx/r8/r9 carry arguments, rax the return value and the quotient, rdx the
+// remainder, rcx a variable shift count, and rsp/rbp are the frame. What is
+// left is rbx and r10..r15.
+//
+// r10 and r11 come first because they are the only two of those that are
+// caller-saved, so a function that needs no more than two - which is every
+// function stage 1 can currently emit, since nothing it selects names more
+// than two distinct virtual registers - costs the prologue nothing. rbx is
+// the headroom for a three-operand instruction, and being callee-saved it
+// shows up in MachineFunction.usedPhysRegs for stage 3 to preserve.
+//
+// The three suggested in docs/ir-codegen-design.md section 7 - rax, rdx, rsi -
+// cannot be used: all three are named by selection itself.
+static const uint32_t x86GpScratchRegs[] = {
+  R_R10, R_R11, R_EBX
+};
+
+// xmm0..xmm7 are the argument registers and xmm0 the return register, so
+// scratch starts above them. All of xmm8..xmm15 are caller-saved.
+static const uint32_t x86FpScratchRegs[] = {
+  FP(8), FP(9), FP(10)
+};
+
 const TargetDescriptor targetX86_64 = {
   .name = "x86_64",
 
@@ -85,6 +110,12 @@ const TargetDescriptor targetX86_64 = {
 
   .intRetReg = R_EAX,
   .fpRetReg = FP(0),
+
+  .scratchRegs = { [RC_GP] = x86GpScratchRegs, [RC_FP] = x86FpScratchRegs },
+  .scratchRegCount = {
+    [RC_GP] = sizeof(x86GpScratchRegs) / sizeof(x86GpScratchRegs[0]),
+    [RC_FP] = sizeof(x86FpScratchRegs) / sizeof(x86FpScratchRegs[0])
+  },
 
   .classifyParameters = &classifyParametersGeneric
 };

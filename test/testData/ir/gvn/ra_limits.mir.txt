@@ -1,0 +1,60 @@
+--- Phase: mir ---
+MachineFunction 'ra_byte_setcc' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %69
+  %v1 : gp/8 ; %8
+  %v2 : gp/4 ; %67
+  %v3 : gp/4 ; %58
+  %v4 : gp/4 ; %53
+  %v5 : gp/4 ; %50
+  %v6 : gp/8 ; %41
+  %v7 : gp/8 ; %46
+Frame: 176 bytes
+  fi#0 : local 144/8 @ -144 '__va_area__' ; %7
+  fi#1 : local 24/8 @ -168 'ap' ; %19
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #8
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+
+MBB #3, '<do_body>', ir #3, <- #2 #13, -> #4
+
+MBB #4, '<do_tail>', ir #4, <- #3, -> #13 #5
+
+MBB #5, '<do_exit>', ir #5, <- #4, -> #6
+  %v0 = MOP_COPY.4 %v1 ; %69
+  %v2 = MOP_COPY.4 %v1 ; %67
+
+MBB #6, '<for_head>', ir #6, <- #5 #9, -> #7 #8
+
+MBB #7, '<for_body>', ir #7, <- #6, -> #10 #11
+
+MBB #8, '<for_exit>', ir #8, <- #6, -> #1
+
+MBB #9, '<for_mod>', ir #9, <- #12, -> #6
+  %v0 = MOP_COPY.4 %v3 ; %69
+  %v2 = MOP_COPY.4 %v4 ; %67
+
+MBB #10, '<va_arg_mem>', ir #10, <- #7, -> #12
+  %v5 = MOP_COPY.4 %v7 ; %50
+
+MBB #11, '<va_arg_update>', ir #11, <- #7, -> #12
+  %v5 = MOP_COPY.4 %v6 ; %50
+
+MBB #12, '<va_arg_done>', ir #12, <- #11 #10, -> #9
+
+MBB #13, '<crit_splitter>', ir #13, <- #4, -> #3
+
+
+--- Phase: mir ---
+MachineFunction 'ra_scratch_budget' [target = x86_64]
+VRegs: <none>
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+

@@ -12,7 +12,7 @@ MBB #0, '<entry>', ir #0, -> #2
 MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
   %v2 = mov.4 0 ; %9
   cmp.4 %v1, 0 ; %9
-  %v2 = setg.1 ; %9
+  %v2 = setg.1 %v2 ; %9
   test.4 %v2, %v2 ; %10
   jne #4 ; %10
 

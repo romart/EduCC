@@ -1,6 +1,7 @@
 
 #include "ir/ir.h"
 #include "ir/isel.h"
+#include "ir/regalloc.h"
 #include "ir/machine.h"
 #include "sema.h"
 #include "tree.h"
@@ -2427,6 +2428,11 @@ static IrFunction *translateFunction(AstFunctionDefinition *function) {
   selectInstructions(func->machine);
   if (ctx->irDumpStream && (ctx->irDumpPhases & IR_DUMP_PHASE_ISEL)) {
     dumpMachineFunctionPhase(ctx->irDumpStream, func->machine, "isel");
+  }
+
+  allocateRegisters(func->machine);
+  if (ctx->irDumpStream && (ctx->irDumpPhases & IR_DUMP_PHASE_RA)) {
+    dumpMachineFunctionPhase(ctx->irDumpStream, func->machine, "ra");
   }
 
   return func;

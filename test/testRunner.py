@@ -362,7 +362,7 @@ def parseArguments():
     parser.add_argument('-wd', '--working-dir', type=str, required=True, help="specify working dir for tests")
     parser.add_argument('-p', '--test-path', type=str, required=True, action='append', help='path to test')
     parser.add_argument('-m', '--mode', choices=['parser', 'preprocessor', 'codegen', 'ir'], default='parser', help='Which substystem to be tested')
-    parser.add_argument('--ir-phase', choices=['initial', 'ssa', 'scp', 'gvn', 'dce', 'mir', 'isel'], default='ssa',
+    parser.add_argument('--ir-phase', choices=['initial', 'ssa', 'scp', 'gvn', 'dce', 'mir', 'isel', 'ra'], default='ssa',
                          help="which pipeline phase 'ir' mode snapshots (selects the -irDump:<phase> flag "
                               "and the <name>.<phase>.txt baseline suffix). 'mir' and 'isel' are the odd "
                               "ones out: they dump the MachineFunction rather than the IR - 'mir' as stage 0 "

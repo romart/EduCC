@@ -1,0 +1,149 @@
+--- Phase: isel ---
+MachineFunction 'ra_byte_setcc' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %69
+  %v1 : gp/8 ; %8
+  %v2 : gp/4 ; %67
+  %v3 : gp/4 ; %58
+  %v4 : gp/4 ; %53
+  %v5 : gp/4 ; %50
+  %v6 : gp/8 ; %41
+  %v7 : gp/8 ; %46
+  %v8 : gp/8 ; %11
+  %v9 : gp/8 ; %9
+  %v10 : gp/8 ; %6
+  %v11 : gp/8 ; %1
+  %v12 : gp/4 ; %3
+  %v13 : gp/8 ; %7
+  %v14 : gp/8 ; %10
+  %v15 : gp/8 ; %12
+  %v16 : gp/8 ; %16
+  %v17 : gp/8 ; %17
+  %v18 : gp/8 ; %19
+  %v19 : gp/8 ; %23
+  %v20 : gp/4 ; %32
+  %v21 : gp/8 ; %34
+  %v22 : gp/8 ; %35
+  %v23 : gp/1 ; %37
+  %v24 : gp/8 ; %39
+  %v25 : gp/8 ; %40
+  %v26 : gp/4 ; %42
+  %v27 : gp/8 ; %45
+  %v28 : gp/8 ; %47
+  %v29 : gp/4 ; %51
+Frame: 176 bytes
+  fi#0 : local 144/8 @ -144 '__va_area__' ; %7
+  fi#1 : local 24/8 @ -168 'ap' ; %19
+MBB #0, '<entry>', ir #0, -> #2
+  %v8 = mov.8 16 ; %11
+  %v9 = mov.8 24 ; %9
+  %v1 = mov.8 0 ; %8
+  %v10 = mov.8 144 ; %6
+  %v11 = mov.8 8 ; %1
+  %v12 = MOP_COPY.4 $rdi ; %3
+  %v13 = MOP_UNSELECTED(IR_ALLOCA) %v10 ; %7
+  %v14 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v13, %v9 ; %10
+  %v15 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v13, %v8 ; %12
+  MOP_UNSELECTED(IR_M_STORE) %v15, %v14 ; %13
+  %v16 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v13, %v1 ; %16
+  %v17 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v13, %v11 ; %17
+  MOP_UNSELECTED(IR_M_STORE) %v17, %v16 ; %18
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  %v18 = MOP_UNSELECTED(IR_ALLOCA) %v9 ; %19
+
+MBB #3, '<do_body>', ir #3, <- #2 #13, -> #4
+  %v19 = MOP_UNSELECTED(IR_E_BITCAST) %v13 ; %23
+  MOP_UNSELECTED(IR_M_COPY) %v18, %v19, %v9 ; %24
+
+MBB #4, '<do_tail>', ir #4, <- #3, -> #13 #5
+  test.8 %v1, %v1 ; %26
+  jne #13 ; %26
+
+MBB #5, '<do_exit>', ir #5, <- #4, -> #6
+  %v0 = MOP_COPY.4 %v1 ; %69
+  %v2 = MOP_COPY.4 %v1 ; %67
+
+MBB #6, '<for_head>', ir #6, <- #5 #9, -> #7 #8
+  %v20 = mov.4 0 ; %32
+  cmp.4 %v0, %v12 ; %32
+  %v20 = setl.1 %v20 ; %32
+  test.4 %v20, %v20 ; %33
+  jne #7 ; %33
+
+MBB #8, '<for_exit>', ir #8, <- #6, -> #1
+
+MBB #1, '<exit>', ir #1, <- #8
+  $rax = MOP_COPY.4 %v2 ; %64
+  ret ; %64
+
+MBB #7, '<for_body>', ir #7, <- #6, -> #10 #11
+  %v21 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v18, %v1 ; %34
+  %v22 = MOP_UNSELECTED(IR_M_LOAD) %v21 ; %35
+  cmp.8 %v22, 48 ; %37
+  %v23 = setge.1 ; %37
+  test.1 %v23, %v23 ; %38
+  jne #10 ; %38
+
+MBB #11, '<va_arg_update>', ir #11, <- #7, -> #12
+  %v24 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v18, %v8 ; %39
+  %v25 = MOP_UNSELECTED(IR_M_LOAD) %v24 ; %40
+  %v6 = MOP_COPY.8 %v25 ; %41
+  %v6 = add.8 %v6, %v22 ; %41
+  %v26 = MOP_COPY.8 %v22 ; %42
+  %v26 = add.4 %v26, %v11 ; %42
+  MOP_UNSELECTED(IR_M_STORE) %v21, %v26 ; %43
+  %v5 = MOP_COPY.4 %v6 ; %50
+  jmp #12 ; %44
+
+MBB #10, '<va_arg_mem>', ir #10, <- #7, -> #12
+  %v27 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v18, %v11 ; %45
+  %v7 = MOP_UNSELECTED(IR_M_LOAD) %v27 ; %46
+  %v28 = MOP_COPY.8 %v7 ; %47
+  %v28 = add.8 %v28, %v11 ; %47
+  MOP_UNSELECTED(IR_M_STORE) %v27, %v28 ; %48
+  %v5 = MOP_COPY.4 %v7 ; %50
+
+MBB #12, '<va_arg_done>', ir #12, <- #11 #10, -> #9
+  %v29 = MOP_UNSELECTED(IR_M_LOAD) %v5 ; %51
+  %v4 = MOP_COPY.4 %v2 ; %53
+  %v4 = add.4 %v4, %v29 ; %53
+
+MBB #9, '<for_mod>', ir #9, <- #12, -> #6
+  %v3 = MOP_COPY.4 %v0 ; %58
+  %v3 = add.4 %v3, 1 ; %58
+  %v0 = MOP_COPY.4 %v3 ; %69
+  %v2 = MOP_COPY.4 %v4 ; %67
+  jmp #6 ; %60
+
+MBB #13, '<crit_splitter>', ir #13, <- #4, -> #3
+  jmp #3 ; %75
+
+
+--- Phase: isel ---
+MachineFunction 'ra_scratch_budget' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %9
+  %v1 : gp/4 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/4 ; %15
+  %v4 : gp/4 ; %18
+  %v5 : gp/4 ; %10
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = MOP_UNSELECTED(IR_DEF_CONST) ; %9
+  %v1 = MOP_COPY.4 $rdi ; %3
+  %v2 = MOP_COPY.4 $rsi ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v3 = MOP_COPY.4 %v1 ; %15
+  %v3 = add.4 %v3, %v2 ; %15
+  %v4 = MOP_COPY.4 %v1 ; %18
+  %v4 = sub.4 %v4, %v2 ; %18
+  %v5 = MOP_UNSELECTED(IR_CALL) %v0, %v1, %v2, %v3, %v4 ; %10
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 %v5 ; %21
+  ret ; %21
+
+

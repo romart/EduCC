@@ -1,0 +1,129 @@
+--- Phase: gvn ---
+Function 'ra_byte_setcc'
+Locals:
+   p:0|n = %2
+   l:1|i = %27
+   l:2|sum = %20
+   l:3|ap = %19
+   r:-1|<ret_slot> = %5
+   l:5|__va_area__ = %7
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %56 = IR_DEF_CONST () [kind = integer, v = 1, id = 6]
+  %36 = IR_DEF_CONST () [kind = integer, v = 48, id = 5]
+  %11 = IR_DEF_CONST () [kind = integer, v = 16, id = 4]
+  %9 = IR_DEF_CONST () [kind = integer, v = 24, id = 3]
+  %8 = IR_DEF_CONST () [kind = integer, v = 0, id = 2]
+  %6 = IR_DEF_CONST () [kind = integer, v = 144, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %7 = IR_ALLOCA (%6) [size = 144, declaration = 5 | '__va_area__']
+  %10 = IR_GET_ELEMENT_PTR (%7, %9) [underlying type = C void]
+  %12 = IR_GET_ELEMENT_PTR (%7, %11) [underlying type = *void]
+  %13 = IR_M_STORE (%12, %10) [store type = PTR]
+  %16 = IR_GET_ELEMENT_PTR (%7, %8) [underlying type = C void]
+  %17 = IR_GET_ELEMENT_PTR (%7, %1) [underlying type = *void]
+  %18 = IR_M_STORE (%17, %16) [store type = PTR]
+  %66 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #8, strict dom #8
+
+  %64 = IR_RET (%67) []
+
+BB #2, '<FIRST>', <- #0, -> #3, strict dom #0, dominatees [#3]
+
+  %19 = IR_ALLOCA (%9) [size = 24, declaration = 3 | 'ap']
+  %22 = IR_BRANCH () [target = #3]
+
+BB #3, '<do_body>', <- #2 #13, -> #4, strict dom #2, domination frontier [#3], dominatees [#4]
+
+  %23 = IR_E_BITCAST (%7) [PTR->PTR]
+  %24 = IR_M_COPY (%19, %23, %9) [elementType = STRUCT __va_elem]
+  %25 = IR_BRANCH () [target = #4]
+
+BB #4, '<do_tail>', <- #3, -> #13 #5, strict dom #3, domination frontier [#3], dominatees [#5, #13]
+
+  %26 = IR_CBRANCH (%8) [taken = #13, non taken = #5]
+
+BB #5, '<do_exit>', <- #4, -> #6, strict dom #4, dominatees [#6]
+
+  %29 = IR_BRANCH () [target = #6]
+
+BB #6, '<for_head>', <- #5 #9, -> #7 #8, strict dom #5, domination frontier [#6], dominatees [#7, #8]
+
+  %69 = IR_PHI ([%8, #5], [%58, #9]) [var = i]
+  %67 = IR_PHI ([%8, #5], [%53, #9]) [var = sum]
+  %32 = IR_E_LT (%69, %3) []
+  %33 = IR_CBRANCH (%32) [taken = #7, non taken = #8]
+
+BB #7, '<for_body>', <- #6, -> #10 #11, strict dom #6, domination frontier [#6], dominatees [#10, #11, #12]
+
+  %34 = IR_GET_ELEMENT_PTR (%19, %8) [underlying type = unsigned int]
+  %35 = IR_M_LOAD (%34) [load type = I64]
+  %37 = IR_E_GE (%35, %36) []
+  %38 = IR_CBRANCH (%37) [taken = #10, non taken = #11]
+
+BB #8, '<for_exit>', <- #6, -> #1, strict dom #6, dominatees [#1]
+
+  %63 = IR_BRANCH () [target = #1]
+
+BB #9, '<for_mod>', <- #12, -> #6, strict dom #12, domination frontier [#6]
+
+  %58 = IR_E_ADD (%69, %56) []
+  %60 = IR_BRANCH () [target = #6]
+
+BB #10, '<va_arg_mem>', <- #7, -> #12, strict dom #7, domination frontier [#12]
+
+  %45 = IR_GET_ELEMENT_PTR (%19, %1) [underlying type = *void]
+  %46 = IR_M_LOAD (%45) [load type = PTR]
+  %47 = IR_E_ADD (%46, %1) []
+  %48 = IR_M_STORE (%45, %47) [store type = PTR]
+  %49 = IR_BRANCH () [target = #12]
+
+BB #11, '<va_arg_update>', <- #7, -> #12, strict dom #7, domination frontier [#12]
+
+  %39 = IR_GET_ELEMENT_PTR (%19, %11) [underlying type = *C void]
+  %40 = IR_M_LOAD (%39) [load type = PTR]
+  %41 = IR_E_ADD (%40, %35) []
+  %42 = IR_E_ADD (%35, %1) []
+  %43 = IR_M_STORE (%34, %42) [store type = U32]
+  %44 = IR_BRANCH () [target = #12]
+
+BB #12, '<va_arg_done>', <- #11 #10, -> #9, strict dom #7, domination frontier [#6], dominatees [#9]
+
+  %50 = IR_PHI ([%41, #11], [%46, #10]) []
+  %51 = IR_M_LOAD (%50) [load type = I32]
+  %53 = IR_E_ADD (%67, %51) []
+  %55 = IR_BRANCH () [target = #9]
+
+BB #13, '<crit_splitter>', <- #4, -> #3, strict dom #4, domination frontier [#3]
+
+  %75 = IR_BRANCH () [target = #3]
+
+
+--- Phase: gvn ---
+Function 'ra_scratch_budget'
+Locals:
+   p:0|a = %2
+   p:1|b = %5
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %9 = IR_DEF_CONST () [kind = symbol, name = ra_limits_callee, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %6 = IR_P_REG () [preg = $rsi]
+  %23 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %21 = IR_RET (%10) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %15 = IR_E_ADD (%3, %6) []
+  %18 = IR_E_SUB (%3, %6) []
+  %10 = IR_CALL (%9, %3, %6, %15, %18) [size = 0]
+  %20 = IR_BRANCH () [target = #1]
+
+

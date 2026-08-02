@@ -203,15 +203,49 @@ static void selectBitwiseNot(MachineBuilder *b, const IrInstruction *i) {
 // It has to happen before the compare, not after: a move leaves the flags
 // alone, so it is harmless there, whereas afterwards it would overwrite the
 // answer the setcc is about to read out of them.
-static void selectZeroExtendedSetup(MachineBuilder *b, uint32_t dst, uint8_t size) {
+//
+// Returns whether it emitted anything, because that is exactly the question
+// "does the setcc read its own destination?" - see selectSetcc below.
+static Boolean selectZeroExtendedSetup(MachineBuilder *b, uint32_t dst, uint8_t size) {
   if (size <= 1) {
-    return;
+    return FALSE;
   }
 
   MachineInstr *zero = buildMachineInstr(b, X86_MOV, 1, 1);
   setRegisterOperand(zero, 0, dst);
   setImmediateOperand(zero, 1, 0);
   zero->opSize = size;
+
+  return TRUE;
+}
+
+// A setcc writes the low byte of its destination and leaves the rest as it
+// found it. That makes it a read-modify-write of the whole register whenever
+// the register is wider than a byte, and it is written down as one - operand 0
+// defines it, operand 1 reads it - rather than as a plain def.
+//
+// Saying so is not decoration. The three upper bytes come from the zeroing
+// move above, and nothing else in the machine function records that the setcc
+// depends on it. A register allocator that believes the def is total will
+// happily put the move's result somewhere the setcc never sees: the trivial
+// allocator spills the zero to the frame and then reloads a *different* value
+// into the scratch register the setcc writes, so the three bytes stored back
+// are whatever the comparison's operand left behind. The dependency has to be
+// in the operand list for the allocator to keep it.
+//
+// When the destination is a single byte there is no zeroing move and the def
+// really is total, so the use is left off - claiming a read of a register
+// nothing has written would be a use before def, and liveness would be right
+// to complain about it.
+static void selectSetcc(MachineBuilder *b, uint32_t opcode, uint32_t dst, Boolean readsDst) {
+  MachineInstr *set = buildMachineInstr(b, opcode, 1, readsDst ? 1 : 0);
+
+  setRegisterOperand(set, 0, dst);
+  if (readsDst) {
+    setRegisterOperand(set, 1, dst);
+  }
+
+  set->opSize = 1;
 }
 
 static void selectLogicalNot(MachineBuilder *b, const IrInstruction *i) {
@@ -219,17 +253,14 @@ static void selectLogicalNot(MachineBuilder *b, const IrInstruction *i) {
   uint32_t dst = machineBuilderVreg(b, i);
   const IrInstruction *arg = inputAt(i, 0);
 
-  selectZeroExtendedSetup(b, dst, size);
+  Boolean zeroed = selectZeroExtendedSetup(b, dst, size);
 
   MachineInstr *test = buildMachineInstr(b, X86_TEST, 0, 2);
   setRegisterOperand(test, 0, machineBuilderVreg(b, arg));
   setRegisterOperand(test, 1, machineBuilderVreg(b, arg));
   test->opSize = valueSize(arg);
 
-  MachineInstr *set = buildMachineInstr(b, X86_SETE, 1, 0);
-  setRegisterOperand(set, 0, dst);
-  // A setcc writes the low byte of its destination and only ever that.
-  set->opSize = 1;
+  selectSetcc(b, X86_SETE, dst, zeroed);
 }
 
 // -============================ Compares ============================-
@@ -258,7 +289,7 @@ static void selectCompare(MachineBuilder *b, const IrInstruction *i) {
   Boolean isUnsigned = isUnsignedCompare(lhs->type);
   uint32_t dst = machineBuilderVreg(b, i);
 
-  selectZeroExtendedSetup(b, dst, valueSize(i));
+  Boolean zeroed = selectZeroExtendedSetup(b, dst, valueSize(i));
 
   MachineInstr *cmp = buildMachineInstr(b, X86_CMP, 0, 2);
   // The left-hand side is never an immediate: x86 encodes the immediate as the
@@ -267,11 +298,7 @@ static void selectCompare(MachineBuilder *b, const IrInstruction *i) {
   setValueOperand(b, cmp, 1, inputAt(i, 1));
   cmp->opSize = valueSize(lhs);
 
-  MachineInstr *set = buildMachineInstr(b, setOpcodeFor(i->kind, isUnsigned), 1, 0);
-  setRegisterOperand(set, 0, dst);
-  // A setcc names the low byte of its destination and only ever that; the
-  // zeroing above is what accounts for the rest.
-  set->opSize = 1;
+  selectSetcc(b, setOpcodeFor(i->kind, isUnsigned), dst, zeroed);
 }
 
 // -============================ Terminators ============================-

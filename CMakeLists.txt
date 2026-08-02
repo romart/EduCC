@@ -56,6 +56,7 @@ set(SOURCES
   src/ir/codegen/mirdump.c
   src/ir/codegen/prepare.c
   src/ir/codegen/isel.c
+  src/ir/codegen/regalloc.c
 )
 
 add_executable(main ${SOURCES})
@@ -149,4 +150,10 @@ if(BUILD_TESTING)
   # frame and the phi copies, ir_isel the instructions - and so a change to
   # selection cannot silently rewrite the baselines for stage 0.
   educc_add_test(ir_isel ir/gvn ir 60 isel)
+  # And one stage later again: '-irDump:ra' is the same function with every
+  # virtual register replaced by a real one, which is what stage 3 will be
+  # handed. Same reason for the split - stage 2 rewrites operands throughout,
+  # so folding it into ir_isel would let an allocation change quietly rewrite
+  # the baselines that pin down selection.
+  educc_add_test(ir_ra ir/gvn ir 60 ra)
 endif()

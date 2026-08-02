@@ -35,7 +35,7 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #3
 MBB #3, '<while_head>', ir #3, <- #2 #8, -> #4 #5
   %v13 = mov.4 0 ; %23
   cmp.4 %v0, %v11 ; %23
-  %v13 = setl.1 ; %23
+  %v13 = setl.1 %v13 ; %23
   test.4 %v13, %v13 ; %24
   jne #4 ; %24
 
@@ -56,7 +56,7 @@ MBB #4, '<while_body>', ir #4, <- #3, -> #6
 MBB #6, '<while_head>', ir #6, <- #4 #7, -> #7 #8
   %v16 = mov.4 0 ; %30
   cmp.4 %v5, %v12 ; %30
-  %v16 = setl.1 ; %30
+  %v16 = setl.1 %v16 ; %30
   test.4 %v16, %v16 ; %31
   jne #7 ; %31
 

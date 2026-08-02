@@ -231,30 +231,20 @@ static void destroyPhiNodes(MachineFunction *mf) {
 //   [ fp +  0    ]  saved frame pointer
 //   [ fp -  ..   ]  stack-pointer save slot    (only with a dynamic alloca)
 //   [ fp -  ..   ]  locals that survived mem2reg
-//   [ fp -  ..   ]  callee-saved registers     <- stage 3
 //   [ fp -  ..   ]  spill area                 <- stage 2, size unknown here
+//   [ fp -  ..   ]  callee-saved registers     <- stage 3
 //
 // Only the middle is this pass's business. The two below it are sized by
-// decisions nobody has made yet - which registers a function ends up clobbering
-// and how much the allocator has to spill - which is exactly why offsets are
-// left symbolic as MO_FRAME_IDX operands and only resolved during emission.
+// decisions nobody has made yet - how much the allocator has to spill, and
+// which registers a function ends up clobbering - which is exactly why offsets
+// are left symbolic as MO_FRAME_IDX operands and only resolved during
+// emission. Each of those stages appends to the frame the one before handed
+// it, so neither has to know the other's size and their order is a free
+// choice.
 //
 // Everything that reaches this point as an IR_ALLOCA needs memory by
 // definition: mem2reg promoted every local it could into a value, so what is
 // left is address-taken, an aggregate, or dynamically sized.
-
-// Objects grow downwards from the frame pointer, so an object occupies
-// [-offset, -offset + size) and it is 'offset' that has to come out aligned.
-// Adding the size first and rounding afterwards is what achieves that.
-static int32_t placeFrameObject(MachineFunction *mf, int32_t offset, int32_t frameIdx) {
-  MachineFrameObject *obj = machineFrameObjectAt(mf, frameIdx);
-
-  offset += obj->size;
-  offset = ALIGN_SIZE(offset, obj->alignment);
-  obj->offset = -offset;
-
-  return offset;
-}
 
 static void layoutIncomingParameters(MachineFunction *mf) {
   const IrFunction *f = mf->ir;
@@ -310,7 +300,7 @@ static void layoutFrame(MachineFunction *mf) {
   if (mf->frame.hasDynamicAlloca) {
     int32_t saveIdx = addMachineFrameObject(mf, MFO_DYNAMIC_ALLOCA_SAVE, sizeof(intptr_t),
                                             sizeof(intptr_t));
-    offset = placeFrameObject(mf, offset, saveIdx);
+    offset = placeMachineFrameObject(mf, offset, saveIdx);
   }
 
   for (size_t idx = 0; idx < allocas.size; ++idx) {
@@ -336,7 +326,7 @@ static void layoutFrame(MachineFunction *mf) {
       obj->isDynamic = TRUE;
       obj->size = 0;
     } else {
-      offset = placeFrameObject(mf, offset, frameIdx);
+      offset = placeMachineFrameObject(mf, offset, frameIdx);
     }
 
     putAtVector(&mf->irToFrameIdx, i->id, (intptr_t)frameIdx + 1);

@@ -29,7 +29,7 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #3
 MBB #3, '<while_head>', ir #3, <- #2 #7 #8, -> #4 #10
   %v8 = mov.4 0 ; %20
   cmp.4 %v0, %v7 ; %20
-  %v8 = setl.1 ; %20
+  %v8 = setl.1 %v8 ; %20
   test.4 %v8, %v8 ; %21
   jne #4 ; %21
 
@@ -41,14 +41,14 @@ MBB #4, '<while_body>', ir #4, <- #3, -> #7 #6
   %v3 = add.4 %v3, 1 ; %24
   %v9 = mov.4 0 ; %28
   cmp.4 %v3, 3 ; %28
-  %v9 = sete.1 ; %28
+  %v9 = sete.1 %v9 ; %28
   test.4 %v9, %v9 ; %29
   jne #7 ; %29
 
 MBB #6, '<if_exit>', ir #6, <- #4, -> #9 #8
   %v10 = mov.4 0 ; %33
   cmp.4 %v3, 7 ; %33
-  %v10 = sete.1 ; %33
+  %v10 = sete.1 %v10 ; %33
   test.4 %v10, %v10 ; %34
   jne #9 ; %34
 
