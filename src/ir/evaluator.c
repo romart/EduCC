@@ -71,6 +71,35 @@ static enum IrTypeClass irTypeClass(enum IrTypeKind k) {
   }
 }
 
+// An integer constant converted to another integer type, per C's conversion
+// rules: reduce it modulo the target's width, then read the result back with
+// the target's signedness.
+//
+// The stored value is always the mathematical value of the constant in its own
+// type, so widening needs no work beyond re-reading it - it is narrowing, and
+// the change of sign at the same width, that actually compute something.
+static int64_const_t convertIntegerConstant(int64_const_t v, enum IrTypeKind toT) {
+  // A conversion to bool is a test against zero, not a truncation: (_Bool)256
+  // is 1, where taking the low byte would make it 0.
+  if (toT == IR_BOOL) {
+    return v != 0;
+  }
+
+  uint32_t bits = (uint32_t)irTypeMachineSize(toT) * 8u;
+  if (bits >= sizeof(int64_const_t) * 8u) {
+    return v;
+  }
+
+  uint64_t truncated = (uint64_t)v & ((1ULL << bits) - 1ULL);
+
+  if (isUnsignedIrType(toT)) {
+    return (int64_const_t)truncated;
+  }
+
+  uint64_t signBit = 1ULL << (bits - 1u);
+  return (int64_const_t)((truncated ^ signBit) - signBit);
+}
+
 IrInstruction *evaluateBitCast(IrInstruction *i, IrInstruction *arg) {
   assert(isConstantInstr(arg));
 
@@ -80,20 +109,33 @@ IrInstruction *evaluateBitCast(IrInstruction *i, IrInstruction *arg) {
   enum IrTypeClass fromC = irTypeClass(fromT);
   enum IrTypeClass toC = irTypeClass(toT);
 
-  if (fromC == toC)
-    return arg;
-
   if (toC == IR_TC_FLOAT) {
+    if (fromC == IR_TC_FLOAT) {
+      return fromT == toT ? arg : createFloatConstant(toT, arg->info.constant.data.f);
+    }
     return createFloatConstant(toT, (float80_const_t)arg->info.constant.data.i);
   }
 
   if (fromC == IR_TC_FLOAT) {
     int64_const_t ic = (int64_const_t)arg->info.constant.data.f;
-    return createIntegerConstant(toT, ic);
+    return createIntegerConstant(toT, convertIntegerConstant(ic, toT));
   }
 
-  // be more accuare with pointers
-  return arg;
+  // Everything left is integer-to-integer, counting pointers: a pointer is a
+  // 64-bit integer here and casting one to an integer type of the same width
+  // changes nothing but the label.
+  //
+  // Returning 'arg' unchanged whenever the two sat in the same class was the
+  // bug this replaced. It kept the *source's* type as well as its value, so a
+  // narrowing cast folded to a constant that had never been narrowed - (char)300
+  // stayed 300 - and a widening one left a value that does not fit the type
+  // downstream believes it has, which instruction selection then materializes
+  // with a move too narrow to carry it.
+  if (fromT == toT) {
+    return arg;
+  }
+
+  return createIntegerConstant(toT, convertIntegerConstant(arg->info.constant.data.i, toT));
 }
 
 static IrInstruction *evaluateBitCastInternal(IrInstruction *i) {
