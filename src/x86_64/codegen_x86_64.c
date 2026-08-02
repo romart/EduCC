@@ -11,7 +11,7 @@
 #include "sema.h"
 #include "instructions_x86_64.h"
 
-static void disassemble(FILE *output, uint8_t *buffer, size_t size) {
+void disassemble(FILE *output, uint8_t *buffer, size_t size) {
   ud_t ud_obj;
 
   ud_init(&ud_obj);

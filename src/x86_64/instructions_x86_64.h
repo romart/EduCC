@@ -2,6 +2,8 @@
 #ifndef __INSTR_X86_64_H__
 #define __INSTR_X86_64_H__ 1
 
+#include <stdio.h>
+
 #include "instructions.h"
 
 enum JumpCondition {
@@ -207,5 +209,9 @@ void emitMovdq(struct _GeneratedFunction *f, uint8_t prefix, uint8_t opcode, uin
 void emitCmovRR(struct _GeneratedFunction *f, enum JumpCondition cc, enum Registers from, enum Registers to, Boolean isW);
 
 void emitMoveCR_Reloc(struct _GeneratedFunction *f, Relocation *reloc, enum Registers reg);
+
+// udis86 over a range of emitted bytes, for -S. Shared by both backends so
+// that what one prints can be diffed against what the other does.
+void disassemble(FILE *output, uint8_t *buffer, size_t size);
 
 #endif // __INSTR_X86_64_H__
