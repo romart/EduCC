@@ -6,7 +6,7 @@ VRegs:
   %v2 : gp/4 ; %62
   %v3 : gp/4 ; %88
   %v4 : gp/4 ; %72
-  %v5 : gp/4 ; %16
+  %v5 : gp/4 ; %98
   %v6 : gp/4 ; %3
   %v7 : gp/4 ; %6
   %v8 : gp/4 ; %9
@@ -30,7 +30,7 @@ VRegs:
   %v26 : gp/4 ; %81
   %v27 : gp/4 ; %82
 Frame: 112 bytes
-  fi#0 : spill 4/4 @ -4 %v5 ; %16
+  fi#0 : spill 4/4 @ -4 %v5 ; %98
   fi#1 : spill 4/4 @ -8 %v6 ; %3
   fi#2 : spill 4/4 @ -12 %v7 ; %6
   fi#3 : spill 4/4 @ -16 %v8 ; %9
@@ -60,7 +60,7 @@ Frame: 112 bytes
   fi#27 : spill 4/4 @ -112 %v27 ; %82
 Physical registers used: $rax $rcx $rdx $rsi $rdi $r10 $r11
 MBB #0, '<entry>', ir #0, -> #2
-  $r10 = mov.4 0 ; %16
+  $r10 = mov.4 0 ; %98
   MOP_SPILL.4 fi#0, $r10
   $r10 = MOP_COPY.4 $rdi ; %3
   MOP_SPILL.4 fi#1, $r10
@@ -177,7 +177,7 @@ MBB #7, '<crit_splitter>', ir #7, <- #2, -> #3
   $r11 = MOP_RELOAD.4 fi#18
   $r10 = MOP_COPY.4 $r11 ; %90
   MOP_SPILL.4 fi#20, $r10
-  jmp #3 ; %98
+  jmp #3 ; %102
 
 MBB #4, '<if_then>', ir #4, <- #2, -> #3
   $r11 = MOP_RELOAD.4 fi#18
@@ -207,7 +207,7 @@ MBB #8, '<crit_splitter>', ir #8, <- #3, -> #5
   $r11 = MOP_RELOAD.4 fi#20
   $r10 = MOP_COPY.4 $r11 ; %88
   MOP_SPILL.4 fi#23, $r10
-  jmp #5 ; %99
+  jmp #5 ; %103
 
 MBB #6, '<if_then>', ir #6, <- #3, -> #5
   $r11 = MOP_RELOAD.4 fi#20

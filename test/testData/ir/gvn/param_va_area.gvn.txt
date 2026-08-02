@@ -2,16 +2,19 @@
 Function 'param_va_area'
 Locals:
    p:0|n = %2
-   l:1|d = %19
-   l:2|i = %20
-   l:3|ap = %21
+   l:1|d = %20
+   l:2|i = %21
+   l:3|ap = %23
    r:-1|<ret_slot> = %5
    l:5|__va_area__ = %7
 BB #0, '<entry>', -> #2, dominatees [#2]
 
-  %49 = IR_DEF_CONST () [kind = integer, v = 112, id = 7]
-  %46 = IR_DEF_CONST () [kind = integer, v = 4, id = 6]
-  %29 = IR_DEF_CONST () [kind = integer, v = 48, id = 5]
+  %52 = IR_DEF_CONST () [kind = integer, v = 112, id = 10]
+  %49 = IR_DEF_CONST () [kind = integer, v = 4, id = 9]
+  %32 = IR_DEF_CONST () [kind = integer, v = 48, id = 8]
+  %28 = IR_DEF_CONST () [kind = integer, v = 0, id = 7]
+  %22 = IR_DEF_CONST () [kind = integer, v = 24, id = 6]
+  %17 = IR_DEF_CONST () [kind = integer, v = 8, id = 5]
   %11 = IR_DEF_CONST () [kind = integer, v = 16, id = 4]
   %9 = IR_DEF_CONST () [kind = integer, v = 24, id = 3]
   %8 = IR_DEF_CONST () [kind = integer, v = 0, id = 2]
@@ -22,89 +25,89 @@ BB #0, '<entry>', -> #2, dominatees [#2]
   %12 = IR_GET_ELEMENT_PTR (%7, %11) [underlying type = *void]
   %13 = IR_M_STORE (%12, %10) [store type = PTR]
   %16 = IR_GET_ELEMENT_PTR (%7, %8) [underlying type = C void]
-  %17 = IR_GET_ELEMENT_PTR (%7, %1) [underlying type = *void]
-  %18 = IR_M_STORE (%17, %16) [store type = PTR]
-  %21 = IR_ALLOCA (%9) [size = 24, declaration = 3 | 'ap']
-  %74 = IR_BRANCH () [target = #2]
+  %18 = IR_GET_ELEMENT_PTR (%7, %17) [underlying type = *void]
+  %19 = IR_M_STORE (%18, %16) [store type = PTR]
+  %23 = IR_ALLOCA (%22) [size = 24, declaration = 3 | 'ap']
+  %77 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #11, strict dom #11
 
-  %72 = IR_RET (%69) []
+  %75 = IR_RET (%72) []
 
 BB #2, '<FIRST>', <- #0, -> #3, strict dom #0, dominatees [#3]
 
-  %22 = IR_BRANCH () [target = #3]
+  %24 = IR_BRANCH () [target = #3]
 
 BB #3, '<do_body>', <- #2 #12, -> #4, strict dom #2, domination frontier [#3], dominatees [#4]
 
-  %23 = IR_E_BITCAST (%7) [PTR->PTR]
-  %24 = IR_M_COPY (%21, %23, %9) [elementType = STRUCT __va_elem]
-  %25 = IR_BRANCH () [target = #4]
+  %25 = IR_E_BITCAST (%7) [PTR->PTR]
+  %26 = IR_M_COPY (%23, %25, %22) [elementType = STRUCT __va_elem]
+  %27 = IR_BRANCH () [target = #4]
 
 BB #4, '<do_tail>', <- #3, -> #12 #5, strict dom #3, domination frontier [#3], dominatees [#5, #12]
 
-  %26 = IR_CBRANCH (%8) [taken = #12, non taken = #5]
+  %29 = IR_CBRANCH (%28) [taken = #12, non taken = #5]
 
 BB #5, '<do_exit>', <- #4, -> #6 #7, strict dom #4, dominatees [#6, #7, #8]
 
-  %27 = IR_GET_ELEMENT_PTR (%21, %8) [underlying type = unsigned int]
-  %28 = IR_M_LOAD (%27) [load type = I64]
-  %30 = IR_E_GE (%28, %29) []
-  %31 = IR_CBRANCH (%30) [taken = #6, non taken = #7]
+  %30 = IR_GET_ELEMENT_PTR (%23, %8) [underlying type = unsigned int]
+  %31 = IR_M_LOAD (%30) [load type = I64]
+  %33 = IR_E_GE (%31, %32) []
+  %34 = IR_CBRANCH (%33) [taken = #6, non taken = #7]
 
 BB #6, '<va_arg_mem>', <- #5, -> #8, strict dom #5, domination frontier [#8]
 
-  %38 = IR_GET_ELEMENT_PTR (%21, %1) [underlying type = *void]
-  %39 = IR_M_LOAD (%38) [load type = PTR]
-  %40 = IR_E_ADD (%39, %1) []
-  %41 = IR_M_STORE (%38, %40) [store type = PTR]
-  %42 = IR_BRANCH () [target = #8]
+  %41 = IR_GET_ELEMENT_PTR (%23, %17) [underlying type = *void]
+  %42 = IR_M_LOAD (%41) [load type = PTR]
+  %43 = IR_E_ADD (%42, %17) []
+  %44 = IR_M_STORE (%41, %43) [store type = PTR]
+  %45 = IR_BRANCH () [target = #8]
 
 BB #7, '<va_arg_update>', <- #5, -> #8, strict dom #5, domination frontier [#8]
 
-  %32 = IR_GET_ELEMENT_PTR (%21, %11) [underlying type = *C void]
-  %33 = IR_M_LOAD (%32) [load type = PTR]
-  %34 = IR_E_ADD (%33, %28) []
-  %35 = IR_E_ADD (%28, %1) []
-  %36 = IR_M_STORE (%27, %35) [store type = U32]
-  %37 = IR_BRANCH () [target = #8]
+  %35 = IR_GET_ELEMENT_PTR (%23, %11) [underlying type = *C void]
+  %36 = IR_M_LOAD (%35) [load type = PTR]
+  %37 = IR_E_ADD (%36, %31) []
+  %38 = IR_E_ADD (%31, %17) []
+  %39 = IR_M_STORE (%30, %38) [store type = U32]
+  %40 = IR_BRANCH () [target = #8]
 
 BB #8, '<va_arg_done>', <- #7 #6, -> #9 #10, strict dom #5, dominatees [#9, #10, #11]
 
-  %43 = IR_PHI ([%34, #7], [%39, #6]) []
-  %44 = IR_M_LOAD (%43) [load type = I32]
-  %47 = IR_GET_ELEMENT_PTR (%21, %46) [underlying type = unsigned int]
-  %48 = IR_M_LOAD (%47) [load type = I64]
-  %50 = IR_E_GE (%48, %49) []
-  %51 = IR_CBRANCH (%50) [taken = #9, non taken = #10]
+  %46 = IR_PHI ([%37, #7], [%42, #6]) []
+  %47 = IR_M_LOAD (%46) [load type = I32]
+  %50 = IR_GET_ELEMENT_PTR (%23, %49) [underlying type = unsigned int]
+  %51 = IR_M_LOAD (%50) [load type = I64]
+  %53 = IR_E_GE (%51, %52) []
+  %54 = IR_CBRANCH (%53) [taken = #9, non taken = #10]
 
 BB #9, '<va_arg_mem>', <- #8, -> #11, strict dom #8, domination frontier [#11]
 
-  %58 = IR_GET_ELEMENT_PTR (%21, %1) [underlying type = *void]
-  %59 = IR_M_LOAD (%58) [load type = PTR]
-  %60 = IR_E_ADD (%59, %1) []
-  %61 = IR_M_STORE (%58, %60) [store type = PTR]
-  %62 = IR_BRANCH () [target = #11]
+  %61 = IR_GET_ELEMENT_PTR (%23, %17) [underlying type = *void]
+  %62 = IR_M_LOAD (%61) [load type = PTR]
+  %63 = IR_E_ADD (%62, %17) []
+  %64 = IR_M_STORE (%61, %63) [store type = PTR]
+  %65 = IR_BRANCH () [target = #11]
 
 BB #10, '<va_arg_update>', <- #8, -> #11, strict dom #8, domination frontier [#11]
 
-  %52 = IR_GET_ELEMENT_PTR (%21, %11) [underlying type = *C void]
-  %53 = IR_M_LOAD (%52) [load type = PTR]
-  %54 = IR_E_ADD (%53, %48) []
-  %55 = IR_E_ADD (%48, %1) []
-  %56 = IR_M_STORE (%47, %55) [store type = U32]
-  %57 = IR_BRANCH () [target = #11]
+  %55 = IR_GET_ELEMENT_PTR (%23, %11) [underlying type = *C void]
+  %56 = IR_M_LOAD (%55) [load type = PTR]
+  %57 = IR_E_ADD (%56, %51) []
+  %58 = IR_E_ADD (%51, %17) []
+  %59 = IR_M_STORE (%50, %58) [store type = U32]
+  %60 = IR_BRANCH () [target = #11]
 
 BB #11, '<va_arg_done>', <- #10 #9, -> #1, strict dom #8, dominatees [#1]
 
-  %63 = IR_PHI ([%54, #10], [%59, #9]) []
-  %64 = IR_M_LOAD (%63) [load type = F64]
-  %68 = IR_E_BITCAST (%44) [I32->F64]
-  %69 = IR_E_FADD (%64, %68) []
-  %71 = IR_BRANCH () [target = #1]
+  %66 = IR_PHI ([%57, #10], [%62, #9]) []
+  %67 = IR_M_LOAD (%66) [load type = F64]
+  %71 = IR_E_BITCAST (%47) [I32->F64]
+  %72 = IR_E_FADD (%67, %71) []
+  %74 = IR_BRANCH () [target = #1]
 
 BB #12, '<crit_splitter>', <- #4, -> #3, strict dom #4, domination frontier [#3]
 
-  %79 = IR_BRANCH () [target = #3]
+  %82 = IR_BRANCH () [target = #3]
 
 

@@ -86,6 +86,25 @@ int p_or(int *p, int *q) {
     return p || q;
 }
 
+// A string literal as an operand. Its IR type is IR_LITERAL, which says "the
+// address of a literal" rather than how wide the value is - it is not a type
+// anything computes with. Comparing it against zero, which is what making the
+// operand yield 0/1 requires, therefore needs a *pointer* zero: asking for an
+// integer zero of type IR_LITERAL builds a constant whose payload and whose
+// type disagree about which union member is live. That went unnoticed while
+// the constant cache was keyed on value alone, because the lookup quietly
+// handed back some other zero created earlier; keying it on the type as well
+// turned it into a crash on the first EduCC source file containing 'x && "s"'.
+// IR_REF, the symbol equivalent, takes the same path, but a bare '&g' operand
+// is a tautology gcc warns about, so it is not spelled out here.
+int lit_and(int a) {
+    return a && "text";
+}
+
+int lit_or(int a) {
+    return a || "text";
+}
+
 // Side-effect counters for the short-circuit checks. Touching a global makes
 // these fall back to the legacy backend, which is the point - the count is
 // observed from the other side of the boundary.
@@ -178,6 +197,13 @@ int main(void) {
     calls = 0;
     if ((bump(5) || bump(9)) != 1) return 32;
     if (calls != 1) return 33;
+
+    // A string literal is a non-null address, so it is always true - but the
+    // result still has to be exactly 1, not the address.
+    if (lit_and(0) != 0) return 34;
+    if (lit_and(1) != 1) return 35;
+    if (lit_or(0) != 1) return 36;
+    if (lit_or(1) != 1) return 37;
 
     return 0;
 }

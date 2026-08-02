@@ -5,7 +5,7 @@ Frame: 16 bytes
   fi#0 : param 4/4 @ 16 'g'
   fi#1 : param 4/4 @ 24 'h'
   fi#2 : param 24/8 @ 32 's'
-  fi#3 : local 16/4 @ -16 'arr' ; %27
+  fi#3 : local 16/4 @ -16 'arr' ; %28
 MBB #0, '<entry>', ir #0, -> #2
 
 MBB #1, '<exit>', ir #1, <- #2

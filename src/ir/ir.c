@@ -742,6 +742,15 @@ void removeFromBlockList(IrBasicBlockList *list, IrBasicBlock *block) {
 
 typedef struct _ConstantCacheData {
     enum IrConstKind kind;
+    // Part of the key, not just a record of it: a constant instruction carries
+    // the width and signedness everything downstream reads off it, so 0 asked
+    // for as IR_I32 and 0 asked for as IR_U64 are two different instructions
+    // even though they hold the same bits. Keying on the value alone handed
+    // back whichever one happened to be built first, so a caller could ask for
+    // an I32 and be given a U64 - which is what made both arms of a ternary in
+    // tinyc/46_grep.c come out with different types and trip
+    // translateTernary's same-type assertion.
+    enum IrTypeKind type;
     IrConstantData data;
     IrInstruction *value;
 } ConstantCacheData;
@@ -758,7 +767,7 @@ static IrInstruction *getFromCache(const ConstantCacheData *data) {
     const ConstantCacheData **cacheData = (const ConstantCacheData **)ctx->constantCache.storage;
     for (size_t i = 0; i < ctx->constantCache.size; ++i) {
         ConstantCacheData *cacheData = getCCDFromVector(&ctx->constantCache, i);
-        if (cacheData->kind == data->kind) {
+        if (cacheData->kind == data->kind && cacheData->type == data->type) {
             switch (data->kind) {
             case  IR_CK_INTEGER:
                 if (data->data.i == cacheData->data.i) {
@@ -787,7 +796,36 @@ static IrInstruction *getFromCache(const ConstantCacheData *data) {
     return NULL;
 }
 
+// Which union member of IrConstantData a constant of this type holds. The kind
+// is not independent information: a float type carries a float and nothing
+// else, and IR_LITERAL/IR_REF exist only to say "string" and "symbol" - they
+// are not machine types anything can compute with. So the two are redundant,
+// and redundant-but-separately-stored is exactly the shape of the bug above.
+// The kind stays, because three of its four readers (isel, cp, irdump) want a
+// four-way discriminator and deriving it there would mean re-deriving it at
+// every use; but it is checked against the type here, at the one place both
+// are known, so the two can never drift apart the way the value and the type
+// did.
+static enum IrConstKind constKindOfType(enum IrTypeKind type) {
+    switch (type) {
+    case IR_F32:
+    case IR_F64:
+    case IR_F80:
+      return IR_CK_FLOAT;
+    case IR_LITERAL:
+      return IR_CK_LITERAL;
+    case IR_REF:
+      return IR_CK_SYMBOL;
+    default:
+      return IR_CK_INTEGER;
+    }
+}
+
 static IrInstruction *getOrAddConstant(ConstantCacheData *data, enum IrTypeKind type) {
+
+    assert(data->kind == constKindOfType(type));
+
+    data->type = type;
 
     IrInstruction *cached = getFromCache(data);
 

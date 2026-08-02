@@ -760,9 +760,21 @@ static IrInstruction *translateLogicalExpression(AstExpression *expr) {
 
   if (!yieldsBoolean(rightOp)) {
     Boolean isFloatOperand = isRealType(expr->binaryExpr.right->type);
+    // The zero has to match the operand's machine type, and for a string
+    // literal or a symbol that is not the operand's own type: IR_LITERAL and
+    // IR_REF say "this is the address of a literal / of a symbol", not how
+    // wide it is, and nothing computes with them. Comparing one against zero
+    // is an ordinary null-pointer test, so the zero is IR_PTR. Asking for an
+    // *integer* constant of type IR_LITERAL - which is what 'flag && "text"'
+    // did - builds a constant whose payload and whose type disagree about
+    // which union member is live, and every later reader picks the wrong one.
+    enum IrTypeKind zeroType = rightOp->type;
+    if (zeroType == IR_LITERAL || zeroType == IR_REF)
+      zeroType = IR_PTR;
+
     IrInstruction *zero = isFloatOperand
-                              ? createFloatConstant(rightOp->type, 0.0)
-                              : createIntegerConstant(rightOp->type, 0);
+                              ? createFloatConstant(zeroType, 0.0)
+                              : createIntegerConstant(zeroType, 0);
     rightBool =
         addBinaryOpeartion(isFloatOperand ? IR_E_FNE : IR_E_NE, rightOp, zero,
                            irType, expr->type, expr);

@@ -1,253 +1,261 @@
 --- Phase: ra ---
 MachineFunction 'ra_byte_setcc' [target = x86_64]
 VRegs:
-  %v0 : gp/4 ; %69
-  %v1 : gp/8 ; %8
-  %v2 : gp/4 ; %67
-  %v3 : gp/4 ; %53
-  %v4 : gp/4 ; %58
-  %v5 : gp/4 ; %50
-  %v6 : gp/8 ; %41
-  %v7 : gp/8 ; %46
-  %v8 : gp/8 ; %11
-  %v9 : gp/8 ; %9
-  %v10 : gp/8 ; %6
-  %v11 : gp/8 ; %1
-  %v12 : gp/4 ; %3
-  %v13 : gp/8 ; %7
-  %v14 : gp/8 ; %10
-  %v15 : gp/8 ; %12
-  %v16 : gp/8 ; %16
-  %v17 : gp/8 ; %17
-  %v18 : gp/8 ; %21
-  %v19 : gp/8 ; %24
-  %v20 : gp/4 ; %32
-  %v21 : gp/8 ; %34
-  %v22 : gp/8 ; %35
-  %v23 : gp/1 ; %37
-  %v24 : gp/8 ; %39
-  %v25 : gp/8 ; %40
-  %v26 : gp/4 ; %42
-  %v27 : gp/8 ; %45
-  %v28 : gp/8 ; %47
-  %v29 : gp/4 ; %51
-Frame: 400 bytes
+  %v0 : gp/4 ; %72
+  %v1 : gp/4 ; %24
+  %v2 : gp/4 ; %70
+  %v3 : gp/4 ; %56
+  %v4 : gp/4 ; %61
+  %v5 : gp/4 ; %53
+  %v6 : gp/8 ; %44
+  %v7 : gp/8 ; %49
+  %v8 : gp/8 ; %22
+  %v9 : gp/8 ; %17
+  %v10 : gp/8 ; %11
+  %v11 : gp/8 ; %9
+  %v12 : gp/8 ; %8
+  %v13 : gp/8 ; %6
+  %v14 : gp/4 ; %3
+  %v15 : gp/8 ; %7
+  %v16 : gp/8 ; %10
+  %v17 : gp/8 ; %12
+  %v18 : gp/8 ; %16
+  %v19 : gp/8 ; %18
+  %v20 : gp/8 ; %23
+  %v21 : gp/8 ; %27
+  %v22 : gp/4 ; %35
+  %v23 : gp/8 ; %37
+  %v24 : gp/8 ; %38
+  %v25 : gp/1 ; %40
+  %v26 : gp/8 ; %42
+  %v27 : gp/8 ; %43
+  %v28 : gp/4 ; %45
+  %v29 : gp/8 ; %48
+  %v30 : gp/8 ; %50
+  %v31 : gp/4 ; %54
+Frame: 416 bytes
   fi#0 : local 144/8 @ -144 '__va_area__' ; %7
-  fi#1 : local 24/8 @ -168 'ap' ; %21
-  fi#2 : spill 8/8 @ -184 %v8 ; %11
-  fi#3 : spill 8/8 @ -192 %v9 ; %9
-  fi#4 : spill 8/8 @ -200 %v1 ; %8
-  fi#5 : spill 8/8 @ -208 %v10 ; %6
-  fi#6 : spill 8/8 @ -216 %v11 ; %1
-  fi#7 : spill 4/4 @ -220 %v12 ; %3
-  fi#8 : spill 8/8 @ -232 %v13 ; %7
-  fi#9 : spill 8/8 @ -240 %v14 ; %10
-  fi#10 : spill 8/8 @ -248 %v15 ; %12
-  fi#11 : spill 8/8 @ -256 %v16 ; %16
-  fi#12 : spill 8/8 @ -264 %v17 ; %17
-  fi#13 : spill 8/8 @ -272 %v18 ; %21
-  fi#14 : spill 8/8 @ -280 %v19 ; %24
-  fi#15 : spill 4/4 @ -284 %v0 ; %69
-  fi#16 : spill 4/4 @ -288 %v2 ; %67
-  fi#17 : spill 4/4 @ -292 %v20 ; %32
-  fi#18 : spill 8/8 @ -304 %v21 ; %34
-  fi#19 : spill 8/8 @ -312 %v22 ; %35
-  fi#20 : spill 1/1 @ -313 %v23 ; %37
-  fi#21 : spill 8/8 @ -328 %v24 ; %39
-  fi#22 : spill 8/8 @ -336 %v25 ; %40
-  fi#23 : spill 8/8 @ -344 %v6 ; %41
-  fi#24 : spill 4/4 @ -348 %v26 ; %42
-  fi#25 : spill 4/4 @ -352 %v5 ; %50
-  fi#26 : spill 8/8 @ -360 %v27 ; %45
-  fi#27 : spill 8/8 @ -368 %v7 ; %46
-  fi#28 : spill 8/8 @ -376 %v28 ; %47
-  fi#29 : spill 4/4 @ -380 %v29 ; %51
-  fi#30 : spill 4/4 @ -384 %v3 ; %53
-  fi#31 : spill 4/4 @ -388 %v4 ; %58
+  fi#1 : local 24/8 @ -168 'ap' ; %23
+  fi#2 : spill 4/4 @ -180 %v1 ; %24
+  fi#3 : spill 8/8 @ -192 %v8 ; %22
+  fi#4 : spill 8/8 @ -200 %v9 ; %17
+  fi#5 : spill 8/8 @ -208 %v10 ; %11
+  fi#6 : spill 8/8 @ -216 %v11 ; %9
+  fi#7 : spill 8/8 @ -224 %v12 ; %8
+  fi#8 : spill 8/8 @ -232 %v13 ; %6
+  fi#9 : spill 4/4 @ -236 %v14 ; %3
+  fi#10 : spill 8/8 @ -248 %v15 ; %7
+  fi#11 : spill 8/8 @ -256 %v16 ; %10
+  fi#12 : spill 8/8 @ -264 %v17 ; %12
+  fi#13 : spill 8/8 @ -272 %v18 ; %16
+  fi#14 : spill 8/8 @ -280 %v19 ; %18
+  fi#15 : spill 8/8 @ -288 %v20 ; %23
+  fi#16 : spill 8/8 @ -296 %v21 ; %27
+  fi#17 : spill 4/4 @ -300 %v0 ; %72
+  fi#18 : spill 4/4 @ -304 %v2 ; %70
+  fi#19 : spill 4/4 @ -308 %v22 ; %35
+  fi#20 : spill 8/8 @ -320 %v23 ; %37
+  fi#21 : spill 8/8 @ -328 %v24 ; %38
+  fi#22 : spill 1/1 @ -329 %v25 ; %40
+  fi#23 : spill 8/8 @ -344 %v26 ; %42
+  fi#24 : spill 8/8 @ -352 %v27 ; %43
+  fi#25 : spill 8/8 @ -360 %v6 ; %44
+  fi#26 : spill 4/4 @ -364 %v28 ; %45
+  fi#27 : spill 4/4 @ -368 %v5 ; %53
+  fi#28 : spill 8/8 @ -376 %v29 ; %48
+  fi#29 : spill 8/8 @ -384 %v7 ; %49
+  fi#30 : spill 8/8 @ -392 %v30 ; %50
+  fi#31 : spill 4/4 @ -396 %v31 ; %54
+  fi#32 : spill 4/4 @ -400 %v3 ; %56
+  fi#33 : spill 4/4 @ -404 %v4 ; %61
 Physical registers used: $rax $rbx $rdi $r10 $r11
 MBB #0, '<entry>', ir #0, -> #2
-  $r10 = mov.8 16 ; %11
-  MOP_SPILL.8 fi#2, $r10
-  $r10 = mov.8 24 ; %9
+  $r10 = mov.4 0 ; %24
+  MOP_SPILL.4 fi#2, $r10
+  $r10 = mov.8 24 ; %22
   MOP_SPILL.8 fi#3, $r10
-  $r10 = mov.8 0 ; %8
+  $r10 = mov.8 8 ; %17
   MOP_SPILL.8 fi#4, $r10
-  $r10 = mov.8 144 ; %6
+  $r10 = mov.8 16 ; %11
   MOP_SPILL.8 fi#5, $r10
-  $r10 = mov.8 8 ; %1
+  $r10 = mov.8 24 ; %9
   MOP_SPILL.8 fi#6, $r10
-  $r10 = MOP_COPY.4 $rdi ; %3
-  MOP_SPILL.4 fi#7, $r10
-  $r11 = MOP_RELOAD.8 fi#5
-  $r10 = MOP_UNSELECTED(IR_ALLOCA) $r11 ; %7
+  $r10 = mov.8 0 ; %8
+  MOP_SPILL.8 fi#7, $r10
+  $r10 = mov.8 144 ; %6
   MOP_SPILL.8 fi#8, $r10
+  $r10 = MOP_COPY.4 $rdi ; %3
+  MOP_SPILL.4 fi#9, $r10
   $r11 = MOP_RELOAD.8 fi#8
-  $rbx = MOP_RELOAD.8 fi#3
-  $r10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) $r11, $rbx ; %10
-  MOP_SPILL.8 fi#9, $r10
-  $r11 = MOP_RELOAD.8 fi#8
-  $rbx = MOP_RELOAD.8 fi#2
-  $r10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) $r11, $rbx ; %12
+  $r10 = MOP_UNSELECTED(IR_ALLOCA) $r11 ; %7
   MOP_SPILL.8 fi#10, $r10
-  $r10 = MOP_RELOAD.8 fi#10
-  $r11 = MOP_RELOAD.8 fi#9
-  MOP_UNSELECTED(IR_M_STORE) $r10, $r11 ; %13
-  $r11 = MOP_RELOAD.8 fi#8
-  $rbx = MOP_RELOAD.8 fi#4
-  $r10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) $r11, $rbx ; %16
-  MOP_SPILL.8 fi#11, $r10
-  $r11 = MOP_RELOAD.8 fi#8
+  $r11 = MOP_RELOAD.8 fi#10
   $rbx = MOP_RELOAD.8 fi#6
-  $r10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) $r11, $rbx ; %17
+  $r10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) $r11, $rbx ; %10
+  MOP_SPILL.8 fi#11, $r10
+  $r11 = MOP_RELOAD.8 fi#10
+  $rbx = MOP_RELOAD.8 fi#5
+  $r10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) $r11, $rbx ; %12
   MOP_SPILL.8 fi#12, $r10
   $r10 = MOP_RELOAD.8 fi#12
   $r11 = MOP_RELOAD.8 fi#11
-  MOP_UNSELECTED(IR_M_STORE) $r10, $r11 ; %18
-  $r11 = MOP_RELOAD.8 fi#3
-  $r10 = MOP_UNSELECTED(IR_ALLOCA) $r11 ; %21
+  MOP_UNSELECTED(IR_M_STORE) $r10, $r11 ; %13
+  $r11 = MOP_RELOAD.8 fi#10
+  $rbx = MOP_RELOAD.8 fi#7
+  $r10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) $r11, $rbx ; %16
   MOP_SPILL.8 fi#13, $r10
+  $r11 = MOP_RELOAD.8 fi#10
+  $rbx = MOP_RELOAD.8 fi#4
+  $r10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) $r11, $rbx ; %18
+  MOP_SPILL.8 fi#14, $r10
+  $r10 = MOP_RELOAD.8 fi#14
+  $r11 = MOP_RELOAD.8 fi#13
+  MOP_UNSELECTED(IR_M_STORE) $r10, $r11 ; %19
+  $r11 = MOP_RELOAD.8 fi#3
+  $r10 = MOP_UNSELECTED(IR_ALLOCA) $r11 ; %23
+  MOP_SPILL.8 fi#15, $r10
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #3
 
 MBB #3, '<do_body>', ir #3, <- #2 #13, -> #4
-  $r11 = MOP_RELOAD.8 fi#8
-  $r10 = MOP_UNSELECTED(IR_E_BITCAST) $r11 ; %24
-  MOP_SPILL.8 fi#14, $r10
-  $r10 = MOP_RELOAD.8 fi#13
-  $r11 = MOP_RELOAD.8 fi#14
+  $r11 = MOP_RELOAD.8 fi#10
+  $r10 = MOP_UNSELECTED(IR_E_BITCAST) $r11 ; %27
+  MOP_SPILL.8 fi#16, $r10
+  $r10 = MOP_RELOAD.8 fi#15
+  $r11 = MOP_RELOAD.8 fi#16
   $rbx = MOP_RELOAD.8 fi#3
-  MOP_UNSELECTED(IR_M_COPY) $r10, $r11, $rbx ; %25
+  MOP_UNSELECTED(IR_M_COPY) $r10, $r11, $rbx ; %28
 
 MBB #4, '<do_tail>', ir #4, <- #3, -> #13 #5
-  $r10 = MOP_RELOAD.8 fi#4
-  test.8 $r10, $r10 ; %27
-  jne #13 ; %27
+  $r10 = MOP_RELOAD.4 fi#2
+  test.4 $r10, $r10 ; %30
+  jne #13 ; %30
 
 MBB #5, '<do_exit>', ir #5, <- #4, -> #6
-  $r11 = MOP_RELOAD.8 fi#4
-  $r10 = MOP_COPY.4 $r11 ; %69
-  MOP_SPILL.4 fi#15, $r10
-  $r11 = MOP_RELOAD.8 fi#4
-  $r10 = MOP_COPY.4 $r11 ; %67
-  MOP_SPILL.4 fi#16, $r10
+  $r11 = MOP_RELOAD.4 fi#2
+  $r10 = MOP_COPY.4 $r11 ; %72
+  MOP_SPILL.4 fi#17, $r10
+  $r11 = MOP_RELOAD.4 fi#2
+  $r10 = MOP_COPY.4 $r11 ; %70
+  MOP_SPILL.4 fi#18, $r10
 
 MBB #6, '<for_head>', ir #6, <- #5 #9, -> #7 #8
-  $r10 = mov.4 0 ; %32
-  MOP_SPILL.4 fi#17, $r10
-  $r10 = MOP_RELOAD.4 fi#16
-  $r11 = MOP_RELOAD.4 fi#7
-  cmp.4 $r10, $r11 ; %32
-  $r10 = MOP_RELOAD.4 fi#17
-  $r10 = setl.1 $r10 ; %32
-  MOP_SPILL.4 fi#17, $r10
-  $r10 = MOP_RELOAD.4 fi#17
-  test.4 $r10, $r10 ; %33
-  jne #7 ; %33
+  $r10 = mov.4 0 ; %35
+  MOP_SPILL.4 fi#19, $r10
+  $r10 = MOP_RELOAD.4 fi#18
+  $r11 = MOP_RELOAD.4 fi#9
+  cmp.4 $r10, $r11 ; %35
+  $r10 = MOP_RELOAD.4 fi#19
+  $r10 = setl.1 $r10 ; %35
+  MOP_SPILL.4 fi#19, $r10
+  $r10 = MOP_RELOAD.4 fi#19
+  test.4 $r10, $r10 ; %36
+  jne #7 ; %36
 
 MBB #8, '<for_exit>', ir #8, <- #6, -> #1
 
 MBB #1, '<exit>', ir #1, <- #8
-  $r10 = MOP_RELOAD.4 fi#15
-  $rax = MOP_COPY.4 $r10 ; %64
-  ret ; %64
+  $r10 = MOP_RELOAD.4 fi#17
+  $rax = MOP_COPY.4 $r10 ; %67
+  ret ; %67
 
 MBB #7, '<for_body>', ir #7, <- #6, -> #10 #11
-  $r11 = MOP_RELOAD.8 fi#13
-  $rbx = MOP_RELOAD.8 fi#4
-  $r10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) $r11, $rbx ; %34
-  MOP_SPILL.8 fi#18, $r10
-  $r11 = MOP_RELOAD.8 fi#18
-  $r10 = MOP_UNSELECTED(IR_M_LOAD) $r11 ; %35
-  MOP_SPILL.8 fi#19, $r10
-  $r10 = MOP_RELOAD.8 fi#19
-  cmp.8 $r10, 48 ; %37
-  $r10 = setge.1 ; %37
-  MOP_SPILL.1 fi#20, $r10
-  $r10 = MOP_RELOAD.1 fi#20
-  test.1 $r10, $r10 ; %38
-  jne #10 ; %38
+  $r11 = MOP_RELOAD.8 fi#15
+  $rbx = MOP_RELOAD.8 fi#7
+  $r10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) $r11, $rbx ; %37
+  MOP_SPILL.8 fi#20, $r10
+  $r11 = MOP_RELOAD.8 fi#20
+  $r10 = MOP_UNSELECTED(IR_M_LOAD) $r11 ; %38
+  MOP_SPILL.8 fi#21, $r10
+  $r10 = MOP_RELOAD.8 fi#21
+  cmp.8 $r10, 48 ; %40
+  $r10 = setge.1 ; %40
+  MOP_SPILL.1 fi#22, $r10
+  $r10 = MOP_RELOAD.1 fi#22
+  test.1 $r10, $r10 ; %41
+  jne #10 ; %41
 
 MBB #11, '<va_arg_update>', ir #11, <- #7, -> #12
-  $r11 = MOP_RELOAD.8 fi#13
-  $rbx = MOP_RELOAD.8 fi#2
-  $r10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) $r11, $rbx ; %39
-  MOP_SPILL.8 fi#21, $r10
-  $r11 = MOP_RELOAD.8 fi#21
-  $r10 = MOP_UNSELECTED(IR_M_LOAD) $r11 ; %40
-  MOP_SPILL.8 fi#22, $r10
-  $r11 = MOP_RELOAD.8 fi#22
-  $r10 = MOP_COPY.8 $r11 ; %41
+  $r11 = MOP_RELOAD.8 fi#15
+  $rbx = MOP_RELOAD.8 fi#5
+  $r10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) $r11, $rbx ; %42
   MOP_SPILL.8 fi#23, $r10
-  $r10 = MOP_RELOAD.8 fi#23
-  $r11 = MOP_RELOAD.8 fi#19
-  $r10 = add.8 $r10, $r11 ; %41
-  MOP_SPILL.8 fi#23, $r10
-  $r11 = MOP_RELOAD.8 fi#19
-  $r10 = MOP_COPY.8 $r11 ; %42
-  MOP_SPILL.4 fi#24, $r10
-  $r10 = MOP_RELOAD.4 fi#24
-  $r11 = MOP_RELOAD.8 fi#6
-  $r10 = add.4 $r10, $r11 ; %42
-  MOP_SPILL.4 fi#24, $r10
-  $r10 = MOP_RELOAD.8 fi#18
-  $r11 = MOP_RELOAD.4 fi#24
-  MOP_UNSELECTED(IR_M_STORE) $r10, $r11 ; %43
   $r11 = MOP_RELOAD.8 fi#23
-  $r10 = MOP_COPY.4 $r11 ; %50
-  MOP_SPILL.4 fi#25, $r10
-  jmp #12 ; %44
+  $r10 = MOP_UNSELECTED(IR_M_LOAD) $r11 ; %43
+  MOP_SPILL.8 fi#24, $r10
+  $r11 = MOP_RELOAD.8 fi#24
+  $r10 = MOP_COPY.8 $r11 ; %44
+  MOP_SPILL.8 fi#25, $r10
+  $r10 = MOP_RELOAD.8 fi#25
+  $r11 = MOP_RELOAD.8 fi#21
+  $r10 = add.8 $r10, $r11 ; %44
+  MOP_SPILL.8 fi#25, $r10
+  $r11 = MOP_RELOAD.8 fi#21
+  $r10 = MOP_COPY.8 $r11 ; %45
+  MOP_SPILL.4 fi#26, $r10
+  $r10 = MOP_RELOAD.4 fi#26
+  $r11 = MOP_RELOAD.8 fi#4
+  $r10 = add.4 $r10, $r11 ; %45
+  MOP_SPILL.4 fi#26, $r10
+  $r10 = MOP_RELOAD.8 fi#20
+  $r11 = MOP_RELOAD.4 fi#26
+  MOP_UNSELECTED(IR_M_STORE) $r10, $r11 ; %46
+  $r11 = MOP_RELOAD.8 fi#25
+  $r10 = MOP_COPY.4 $r11 ; %53
+  MOP_SPILL.4 fi#27, $r10
+  jmp #12 ; %47
 
 MBB #10, '<va_arg_mem>', ir #10, <- #7, -> #12
-  $r11 = MOP_RELOAD.8 fi#13
-  $rbx = MOP_RELOAD.8 fi#6
-  $r10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) $r11, $rbx ; %45
-  MOP_SPILL.8 fi#26, $r10
-  $r11 = MOP_RELOAD.8 fi#26
-  $r10 = MOP_UNSELECTED(IR_M_LOAD) $r11 ; %46
-  MOP_SPILL.8 fi#27, $r10
-  $r11 = MOP_RELOAD.8 fi#27
-  $r10 = MOP_COPY.8 $r11 ; %47
+  $r11 = MOP_RELOAD.8 fi#15
+  $rbx = MOP_RELOAD.8 fi#4
+  $r10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) $r11, $rbx ; %48
   MOP_SPILL.8 fi#28, $r10
-  $r10 = MOP_RELOAD.8 fi#28
-  $r11 = MOP_RELOAD.8 fi#6
-  $r10 = add.8 $r10, $r11 ; %47
-  MOP_SPILL.8 fi#28, $r10
-  $r10 = MOP_RELOAD.8 fi#26
   $r11 = MOP_RELOAD.8 fi#28
-  MOP_UNSELECTED(IR_M_STORE) $r10, $r11 ; %48
-  $r11 = MOP_RELOAD.8 fi#27
-  $r10 = MOP_COPY.4 $r11 ; %50
-  MOP_SPILL.4 fi#25, $r10
+  $r10 = MOP_UNSELECTED(IR_M_LOAD) $r11 ; %49
+  MOP_SPILL.8 fi#29, $r10
+  $r11 = MOP_RELOAD.8 fi#29
+  $r10 = MOP_COPY.8 $r11 ; %50
+  MOP_SPILL.8 fi#30, $r10
+  $r10 = MOP_RELOAD.8 fi#30
+  $r11 = MOP_RELOAD.8 fi#4
+  $r10 = add.8 $r10, $r11 ; %50
+  MOP_SPILL.8 fi#30, $r10
+  $r10 = MOP_RELOAD.8 fi#28
+  $r11 = MOP_RELOAD.8 fi#30
+  MOP_UNSELECTED(IR_M_STORE) $r10, $r11 ; %51
+  $r11 = MOP_RELOAD.8 fi#29
+  $r10 = MOP_COPY.4 $r11 ; %53
+  MOP_SPILL.4 fi#27, $r10
 
 MBB #12, '<va_arg_done>', ir #12, <- #11 #10, -> #9
-  $r11 = MOP_RELOAD.4 fi#25
-  $r10 = MOP_UNSELECTED(IR_M_LOAD) $r11 ; %51
-  MOP_SPILL.4 fi#29, $r10
-  $r11 = MOP_RELOAD.4 fi#15
-  $r10 = MOP_COPY.4 $r11 ; %53
-  MOP_SPILL.4 fi#30, $r10
-  $r10 = MOP_RELOAD.4 fi#30
-  $r11 = MOP_RELOAD.4 fi#29
-  $r10 = add.4 $r10, $r11 ; %53
-  MOP_SPILL.4 fi#30, $r10
+  $r11 = MOP_RELOAD.4 fi#27
+  $r10 = MOP_UNSELECTED(IR_M_LOAD) $r11 ; %54
+  MOP_SPILL.4 fi#31, $r10
+  $r11 = MOP_RELOAD.4 fi#17
+  $r10 = MOP_COPY.4 $r11 ; %56
+  MOP_SPILL.4 fi#32, $r10
+  $r10 = MOP_RELOAD.4 fi#32
+  $r11 = MOP_RELOAD.4 fi#31
+  $r10 = add.4 $r10, $r11 ; %56
+  MOP_SPILL.4 fi#32, $r10
 
 MBB #9, '<for_mod>', ir #9, <- #12, -> #6
-  $r11 = MOP_RELOAD.4 fi#16
-  $r10 = MOP_COPY.4 $r11 ; %58
-  MOP_SPILL.4 fi#31, $r10
-  $r10 = MOP_RELOAD.4 fi#31
-  $r10 = add.4 $r10, 1 ; %58
-  MOP_SPILL.4 fi#31, $r10
-  $r11 = MOP_RELOAD.4 fi#30
-  $r10 = MOP_COPY.4 $r11 ; %69
-  MOP_SPILL.4 fi#15, $r10
-  $r11 = MOP_RELOAD.4 fi#31
-  $r10 = MOP_COPY.4 $r11 ; %67
-  MOP_SPILL.4 fi#16, $r10
-  jmp #6 ; %60
+  $r11 = MOP_RELOAD.4 fi#18
+  $r10 = MOP_COPY.4 $r11 ; %61
+  MOP_SPILL.4 fi#33, $r10
+  $r10 = MOP_RELOAD.4 fi#33
+  $r10 = add.4 $r10, 1 ; %61
+  MOP_SPILL.4 fi#33, $r10
+  $r11 = MOP_RELOAD.4 fi#32
+  $r10 = MOP_COPY.4 $r11 ; %72
+  MOP_SPILL.4 fi#17, $r10
+  $r11 = MOP_RELOAD.4 fi#33
+  $r10 = MOP_COPY.4 $r11 ; %70
+  MOP_SPILL.4 fi#18, $r10
+  jmp #6 ; %63
 
 MBB #13, '<crit_splitter>', ir #13, <- #4, -> #3
-  jmp #3 ; %75
+  jmp #3 ; %78
 
 
 --- Phase: ra ---

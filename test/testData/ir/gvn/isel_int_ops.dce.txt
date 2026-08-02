@@ -9,6 +9,10 @@ Locals:
    r:-1|<ret_slot> = %14
 BB #0, '<entry>', -> #2, dominatees [#2]
 
+  %101 = IR_DEF_CONST () [kind = integer, v = 1, id = 9]
+  %100 = IR_DEF_CONST () [kind = integer, v = 2, id = 8]
+  %99 = IR_DEF_CONST () [kind = integer, v = 252645135, id = 7]
+  %98 = IR_DEF_CONST () [kind = integer, v = 0, id = 6]
   %78 = IR_DEF_CONST () [kind = integer, v = 252645135, id = 5]
   %70 = IR_DEF_CONST () [kind = integer, v = 2, id = 4]
   %60 = IR_DEF_CONST () [kind = integer, v = 1, id = 3]
@@ -29,7 +33,7 @@ BB #2, '<FIRST>', <- #0, -> #4 #7, strict dom #0, dominatees [#3, #4, #7]
 
   %21 = IR_U_BNOT (%9) []
   %22 = IR_E_BITCAST (%21) [I32->U32]
-  %23 = IR_E_ADD (%16, %22) []
+  %23 = IR_E_ADD (%98, %22) []
   %27 = IR_U_NOT (%12) []
   %28 = IR_E_BITCAST (%27) [I32->U32]
   %29 = IR_E_ADD (%23, %28) []
@@ -52,28 +56,28 @@ BB #3, '<if_exit>', <- #7 #4, -> #6 #8, strict dom #2, dominatees [#5, #6, #8]
 
 BB #4, '<if_then>', <- #2, -> #3, strict dom #2, domination frontier [#3]
 
-  %62 = IR_E_ADD (%53, %60) []
+  %62 = IR_E_ADD (%53, %101) []
   %64 = IR_BRANCH () [target = #3]
 
 BB #5, '<if_exit>', <- #8 #6, -> #1, strict dom #3, dominatees [#1]
 
   %88 = IR_PHI ([%90, #8], [%72, #6]) [var = acc]
-  %80 = IR_E_XOR (%6, %78) []
+  %80 = IR_E_XOR (%6, %99) []
   %81 = IR_E_OR (%3, %80) []
   %82 = IR_E_AND (%88, %81) []
   %84 = IR_BRANCH () [target = #1]
 
 BB #6, '<if_then>', <- #3, -> #5, strict dom #3, domination frontier [#5]
 
-  %72 = IR_E_ADD (%90, %70) []
+  %72 = IR_E_ADD (%90, %100) []
   %74 = IR_BRANCH () [target = #5]
 
 BB #7, '<crit_splitter>', <- #2, -> #3, strict dom #2, domination frontier [#3]
 
-  %98 = IR_BRANCH () [target = #3]
+  %102 = IR_BRANCH () [target = #3]
 
 BB #8, '<crit_splitter>', <- #3, -> #5, strict dom #3, domination frontier [#5]
 
-  %99 = IR_BRANCH () [target = #5]
+  %103 = IR_BRANCH () [target = #5]
 
 
