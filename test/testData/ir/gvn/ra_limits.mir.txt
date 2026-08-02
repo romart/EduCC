@@ -4,14 +4,14 @@ VRegs:
   %v0 : gp/4 ; %69
   %v1 : gp/8 ; %8
   %v2 : gp/4 ; %67
-  %v3 : gp/4 ; %58
-  %v4 : gp/4 ; %53
+  %v3 : gp/4 ; %53
+  %v4 : gp/4 ; %58
   %v5 : gp/4 ; %50
   %v6 : gp/8 ; %41
   %v7 : gp/8 ; %46
 Frame: 176 bytes
   fi#0 : local 144/8 @ -144 '__va_area__' ; %7
-  fi#1 : local 24/8 @ -168 'ap' ; %19
+  fi#1 : local 24/8 @ -168 'ap' ; %21
 MBB #0, '<entry>', ir #0, -> #2
 
 MBB #1, '<exit>', ir #1, <- #8

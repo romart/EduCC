@@ -26,6 +26,7 @@ BB #0, '<entry>', -> #2, dominatees [#2]
   %21 = IR_E_ADD (%0, %20) []
   %23 = IR_E_ADD (%0, %22) []
   %25 = IR_E_ADD (%0, %24) []
+  %27 = IR_ALLOCA (%20) [size = 16, declaration = 9 | 'arr']
   %54 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #2, strict dom #2
@@ -34,7 +35,6 @@ BB #1, '<exit>', <- #2, strict dom #2
 
 BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
-  %27 = IR_ALLOCA (%20) [size = 16, declaration = 9 | 'arr']
   %31 = IR_GET_ELEMENT_PTR (%27, %28) [underlying type = signed int, index = %28]
   %32 = IR_M_LOAD (%21) [load type = I32]
   %33 = IR_M_STORE (%31, %32) [store type = I32]

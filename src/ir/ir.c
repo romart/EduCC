@@ -130,7 +130,18 @@ void resetIrContext(IrContext *_ctx) {
   clearVector(&_ctx->constantCache);
   clearVector(&_ctx->allocas);
   clearVector(&_ctx->referencedBlocks);
-  // clear ctx->labelMap
+
+  // A label is scoped to the function it appears in (C99 6.2.1p3), so the
+  // block standing for it must not outlive that function either. Two
+  // functions in one translation unit naming the same label is ordinary C,
+  // and carrying the map over means the second one finds the first one's
+  // block: the goto is wired into a foreign, already terminated block, and
+  // translation walks straight into it. There is no clear operation on
+  // HashMap, so the map is replaced outright.
+  releaseHashMap(_ctx->labelMap);
+  _ctx->labelMap =
+      createHashMap(DEFAULT_MAP_CAPACITY, &stringHashCode, &stringCmp);
+
   _ctx->bbCnt = _ctx->opCnt = _ctx->instrCnt = _ctx->vregCnt = 0;
 }
 

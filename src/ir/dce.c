@@ -50,7 +50,7 @@ static void dfs(IrBasicBlock *block, BitSet *visited) {
   }
 }
 
-static Boolean removeUnusedInstructions(IrBasicBlock *block) {
+static Boolean removeUnusedInstructions(IrBasicBlock *block, size_t *erased) {
   IrInstruction *instr = block->instrunctions.tail;
   while (instr != NULL) {
     IrInstruction *p = instr->prev;
@@ -58,6 +58,7 @@ static Boolean removeUnusedInstructions(IrBasicBlock *block) {
     if (instr->uses.size == 0) {
       eraseInstruction(instr);
       releaseInstruction(instr);
+      *erased += 1;
     }
     instr = p;
   }
@@ -65,16 +66,32 @@ static Boolean removeUnusedInstructions(IrBasicBlock *block) {
   return block->instrunctions.head == NULL;
 }
 
+// Erases every instruction of every unreachable block. One sweep is not
+// enough: an instruction only goes when nothing uses it, and the users of one
+// unreachable instruction are usually other unreachable instructions further
+// down, so a use is dropped only once its user has been erased. Sweeping until
+// nothing is left cascades through those chains whatever order they are in.
+//
+// Everything still standing after a sweep that erased nothing is used from
+// outside the unreachable set, which means a live instruction reads a value
+// defined in dead code. That is IR this pass cannot fix - erasing the
+// definition would leave the use dangling, and keeping it would leave the
+// function holding a block it no longer lists. It is also not supposed to
+// happen: the only definitions whose uses are not dominated by them are the
+// allocas of jumped-over declarations, and those are emitted in the entry
+// block for exactly this reason (createLocalSlot in src/ir/ast2ir.c). So the
+// no-progress case is a bug elsewhere, and it stops here rather than looping
+// forever waiting for a use count that will never fall.
 static void unlinkAndEraseInstructions(IrFunction *func, Vector *ublocks) {
 
-  size_t i = 0;
-
   while (ublocks->size != 0) {
+    size_t erased = 0;
+
     for (size_t i = 0; i < ublocks->size;) {
       IrBasicBlock *block = getBlockFromVector(ublocks, i);
 
       // TODO: deal with phi-nodes
-      Boolean empty = removeUnusedInstructions(block);
+      Boolean empty = removeUnusedInstructions(block, &erased);
       if (empty) {
         removeFromVector(ublocks, (intptr_t) block);
         continue;
@@ -82,6 +99,9 @@ static void unlinkAndEraseInstructions(IrFunction *func, Vector *ublocks) {
 
       ++i;
     }
+
+    assert(erased != 0 &&
+           "unreachable block defines a value used from a reachable one");
   }
 }
 

@@ -9,7 +9,7 @@ VRegs:
   %v5 : gp/4 ; %36
   %v6 : gp/4 ; %60
 Frame: 16 bytes
-  fi#0 : local 16/8 @ -16 'tab' ; %10
+  fi#0 : local 16/8 @ -16 'tab' ; %11
 MBB #0, '<entry>', ir #0, -> #4
 
 MBB #1, '<exit>', ir #1, <- #2 #3

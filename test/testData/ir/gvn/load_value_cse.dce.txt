@@ -3,9 +3,9 @@ Function 'load_value_cse'
 Locals:
    p:0|p = %2
    p:1|k = %5
-   l:2|z = %18
-   l:3|y = %13
-   l:4|x = %9
+   l:2|z = %9
+   l:3|y = %10
+   l:4|x = %11
    r:-1|<ret_slot> = %8
 BB #0, '<entry>', -> #2, dominatees [#2]
 
@@ -20,9 +20,9 @@ BB #1, '<exit>', <- #2, strict dom #2
 
 BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
-  %11 = IR_M_LOAD (%3) [load type = I32]
-  %16 = IR_E_ADD (%11, %6) []
-  %25 = IR_E_ADD (%16, %16) []
+  %13 = IR_M_LOAD (%3) [load type = I32]
+  %17 = IR_E_ADD (%13, %6) []
+  %25 = IR_E_ADD (%17, %17) []
   %27 = IR_BRANCH () [target = #1]
 
 

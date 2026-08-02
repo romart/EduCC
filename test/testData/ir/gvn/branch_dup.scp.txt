@@ -4,8 +4,8 @@ Locals:
    p:0|arr = %2
    p:1|index = %5
    p:2|flag = %8
-   l:3|ptr2 = %13
-   l:4|ptr1 = %12
+   l:3|ptr2 = %12
+   l:4|ptr1 = %13
    r:-1|<ret_slot> = %11
 BB #0, '<entry>', -> #2, dominatees [#2]
 
@@ -28,10 +28,10 @@ BB #2, '<FIRST>', <- #0, -> #4 #5, strict dom #0, dominatees [#3, #4, #5]
 
 BB #3, '<if_exit>', <- #4 #5, -> #1, strict dom #2, dominatees [#1]
 
-  %53 = IR_PHI ([%27, #4], [%38, #5]) [var = ptr2]
-  %51 = IR_PHI ([%22, #4], [%33, #5]) [var = ptr1]
-  %42 = IR_M_LOAD (%51) [load type = I32]
-  %44 = IR_M_LOAD (%53) [load type = I32]
+  %53 = IR_PHI ([%22, #4], [%33, #5]) [var = ptr1]
+  %51 = IR_PHI ([%27, #4], [%38, #5]) [var = ptr2]
+  %42 = IR_M_LOAD (%53) [load type = I32]
+  %44 = IR_M_LOAD (%51) [load type = I32]
   %45 = IR_E_ADD (%42, %44) []
   %47 = IR_BRANCH () [target = #1]
 

@@ -2,10 +2,10 @@
 MachineFunction 'scp_dead_backedge' [target = x86_64]
 VRegs:
   %v0 : gp/4 ; %38
-  %v1 : gp/4 ; %10
+  %v1 : gp/4 ; %11
   %v2 : gp/4 ; %36
-  %v3 : gp/4 ; %21
-  %v4 : gp/4 ; %27
+  %v3 : gp/4 ; %27
+  %v4 : gp/4 ; %21
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
 

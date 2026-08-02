@@ -4,13 +4,13 @@ Locals:
    p:0|items = %2
    p:1|i = %5
    p:2|k = %8
-   l:3|w2 = %22
-   l:4|w1 = %12
+   l:3|w2 = %12
+   l:4|w1 = %13
    r:-1|<ret_slot> = %11
 BB #0, '<entry>', -> #2, dominatees [#2]
 
-  %18 = IR_DEF_CONST () [kind = integer, v = 4, id = 2]
-  %15 = IR_DEF_CONST () [kind = integer, v = 3, id = 1]
+  %19 = IR_DEF_CONST () [kind = integer, v = 4, id = 2]
+  %16 = IR_DEF_CONST () [kind = integer, v = 3, id = 1]
   %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
   %3 = IR_P_REG () [preg = $rdi]
   %6 = IR_P_REG () [preg = $rsi]
@@ -23,15 +23,15 @@ BB #1, '<exit>', <- #2, strict dom #2
 
 BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
-  %16 = IR_E_SHL (%6, %15) []
-  %17 = IR_GET_ELEMENT_PTR (%3, %16) [underlying type = STRUCT Item, index = %14]
-  %19 = IR_GET_ELEMENT_PTR (%17, %18) [underlying type = signed int, member = weight]
-  %20 = IR_M_LOAD (%19) [load type = I32]
-  %25 = IR_E_SHL (%6, %15) []
+  %17 = IR_E_SHL (%6, %16) []
+  %18 = IR_GET_ELEMENT_PTR (%3, %17) [underlying type = STRUCT Item, index = %15]
+  %20 = IR_GET_ELEMENT_PTR (%18, %19) [underlying type = signed int, member = weight]
+  %21 = IR_M_LOAD (%20) [load type = I32]
+  %25 = IR_E_SHL (%6, %16) []
   %26 = IR_GET_ELEMENT_PTR (%3, %25) [underlying type = STRUCT Item, index = %24]
-  %27 = IR_GET_ELEMENT_PTR (%26, %18) [underlying type = signed int, member = weight]
+  %27 = IR_GET_ELEMENT_PTR (%26, %19) [underlying type = signed int, member = weight]
   %28 = IR_M_LOAD (%27) [load type = I32]
-  %32 = IR_E_ADD (%20, %28) []
+  %32 = IR_E_ADD (%21, %28) []
   %34 = IR_E_ADD (%32, %9) []
   %36 = IR_BRANCH () [target = #1]
 

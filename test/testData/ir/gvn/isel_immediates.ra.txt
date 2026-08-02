@@ -2,16 +2,16 @@
 MachineFunction 'isel_immediates' [target = x86_64]
 VRegs:
   %v0 : gp/8 ; %33
-  %v1 : gp/8 ; %21
-  %v2 : gp/8 ; %16
+  %v1 : gp/8 ; %23
+  %v2 : gp/8 ; %19
   %v3 : gp/8 ; %3
   %v4 : gp/8 ; %6
-  %v5 : gp/8 ; %12
-  %v6 : gp/8 ; %17
-  %v7 : gp/8 ; %22
-  %v8 : gp/8 ; %24
-  %v9 : gp/8 ; %25
-  %v10 : gp/8 ; %30
+  %v5 : gp/8 ; %16
+  %v6 : gp/8 ; %20
+  %v7 : gp/8 ; %24
+  %v8 : gp/8 ; %26
+  %v9 : gp/8 ; %27
+  %v10 : gp/8 ; %31
   %v11 : gp/8 ; %35
   %v12 : gp/8 ; %39
   %v13 : gp/8 ; %41
@@ -19,16 +19,16 @@ VRegs:
   %v15 : gp/8 ; %45
 Frame: 128 bytes
   fi#0 : spill 8/8 @ -8 %v0 ; %33
-  fi#1 : spill 8/8 @ -16 %v1 ; %21
-  fi#2 : spill 8/8 @ -24 %v2 ; %16
+  fi#1 : spill 8/8 @ -16 %v1 ; %23
+  fi#2 : spill 8/8 @ -24 %v2 ; %19
   fi#3 : spill 8/8 @ -32 %v3 ; %3
   fi#4 : spill 8/8 @ -40 %v4 ; %6
-  fi#5 : spill 8/8 @ -48 %v5 ; %12
-  fi#6 : spill 8/8 @ -56 %v6 ; %17
-  fi#7 : spill 8/8 @ -64 %v7 ; %22
-  fi#8 : spill 8/8 @ -72 %v8 ; %24
-  fi#9 : spill 8/8 @ -80 %v9 ; %25
-  fi#10 : spill 8/8 @ -88 %v10 ; %30
+  fi#5 : spill 8/8 @ -48 %v5 ; %16
+  fi#6 : spill 8/8 @ -56 %v6 ; %20
+  fi#7 : spill 8/8 @ -64 %v7 ; %24
+  fi#8 : spill 8/8 @ -72 %v8 ; %26
+  fi#9 : spill 8/8 @ -80 %v9 ; %27
+  fi#10 : spill 8/8 @ -88 %v10 ; %31
   fi#11 : spill 8/8 @ -96 %v11 ; %35
   fi#12 : spill 8/8 @ -104 %v12 ; %39
   fi#13 : spill 8/8 @ -112 %v13 ; %41
@@ -38,9 +38,9 @@ Physical registers used: $rax $rdx $rsi $rdi $r10 $r11
 MBB #0, '<entry>', ir #0, -> #2
   $r10 = mov.8 3 ; %33
   MOP_SPILL.8 fi#0, $r10
-  $r10 = mov.8 100 ; %21
+  $r10 = mov.8 100 ; %23
   MOP_SPILL.8 fi#1, $r10
-  $r10 = mov.8 78187493520 ; %16
+  $r10 = mov.8 78187493520 ; %19
   MOP_SPILL.8 fi#2, $r10
   $r10 = MOP_COPY.8 $rdi ; %3
   MOP_SPILL.8 fi#3, $r10
@@ -49,44 +49,44 @@ MBB #0, '<entry>', ir #0, -> #2
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   $r11 = MOP_RELOAD.8 fi#3
-  $r10 = MOP_COPY.8 $r11 ; %12
+  $r10 = MOP_COPY.8 $r11 ; %16
   MOP_SPILL.8 fi#5, $r10
   $r10 = MOP_RELOAD.8 fi#5
-  $r10 = add.8 $r10, 7 ; %12
+  $r10 = add.8 $r10, 7 ; %16
   MOP_SPILL.8 fi#5, $r10
   $r11 = MOP_RELOAD.8 fi#3
-  $r10 = MOP_COPY.8 $r11 ; %17
+  $r10 = MOP_COPY.8 $r11 ; %20
   MOP_SPILL.8 fi#6, $r10
   $r10 = MOP_RELOAD.8 fi#6
   $r11 = MOP_RELOAD.8 fi#2
-  $r10 = add.8 $r10, $r11 ; %17
+  $r10 = add.8 $r10, $r11 ; %20
   MOP_SPILL.8 fi#6, $r10
   $r11 = MOP_RELOAD.8 fi#3
-  $r10 = MOP_COPY.8 $r11 ; %22
+  $r10 = MOP_COPY.8 $r11 ; %24
   MOP_SPILL.8 fi#7, $r10
   $r10 = MOP_RELOAD.8 fi#7
   $r11 = MOP_RELOAD.8 fi#1
-  $r10 = add.8 $r10, $r11 ; %22
+  $r10 = add.8 $r10, $r11 ; %24
   MOP_SPILL.8 fi#7, $r10
   $r10 = MOP_RELOAD.8 fi#1
-  $rax = MOP_COPY.8 $r10 ; %24
-  $rdx = cdq.8 [implicit $rax] ; %24
+  $rax = MOP_COPY.8 $r10 ; %26
+  $rdx = cdq.8 [implicit $rax] ; %26
   $r10 = MOP_RELOAD.8 fi#4
-  idiv.8 $r10 [implicit-def $rax, implicit-def $rdx, implicit $rax, implicit $rdx] ; %24
-  $r10 = MOP_COPY.8 $rax ; %24
+  idiv.8 $r10 [implicit-def $rax, implicit-def $rdx, implicit $rax, implicit $rdx] ; %26
+  $r10 = MOP_COPY.8 $rax ; %26
   MOP_SPILL.8 fi#8, $r10
   $r11 = MOP_RELOAD.8 fi#7
-  $r10 = MOP_COPY.8 $r11 ; %25
+  $r10 = MOP_COPY.8 $r11 ; %27
   MOP_SPILL.8 fi#9, $r10
   $r10 = MOP_RELOAD.8 fi#9
   $r11 = MOP_RELOAD.8 fi#8
-  $r10 = add.8 $r10, $r11 ; %25
+  $r10 = add.8 $r10, $r11 ; %27
   MOP_SPILL.8 fi#9, $r10
   $r11 = MOP_RELOAD.8 fi#3
-  $r10 = MOP_COPY.8 $r11 ; %30
+  $r10 = MOP_COPY.8 $r11 ; %31
   MOP_SPILL.8 fi#10, $r10
   $r10 = MOP_RELOAD.8 fi#10
-  $r10 = shl.8 $r10, 5 ; %30
+  $r10 = shl.8 $r10, 5 ; %31
   MOP_SPILL.8 fi#10, $r10
   $r11 = MOP_RELOAD.8 fi#0
   $r10 = MOP_COPY.8 $r11 ; %35

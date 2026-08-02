@@ -3,7 +3,7 @@ MachineFunction 'frame_dynamic_alloca' [target = x86_64]
 VRegs: <none>
 Frame: 16 bytes, dynamic
   fi#0 : sp-save 8/8 @ -8
-  fi#1 : local 8/4 @ -16 'fixed' ; %6
+  fi#1 : local 8/4 @ -16 'fixed' ; %7
   fi#2 : local dynamic 'v' ; %14
 MBB #0, '<entry>', ir #0, -> #2
 

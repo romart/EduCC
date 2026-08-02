@@ -1,18 +1,18 @@
 --- Phase: ra ---
 MachineFunction 'scp_const_switch' [target = x86_64]
 VRegs:
-  %v0 : gp/4 ; %10
+  %v0 : gp/4 ; %11
   %v1 : gp/4 ; %3
   %v2 : gp/4 ; %6
   %v3 : gp/4 ; %30
 Frame: 16 bytes
-  fi#0 : spill 4/4 @ -4 %v0 ; %10
+  fi#0 : spill 4/4 @ -4 %v0 ; %11
   fi#1 : spill 4/4 @ -8 %v1 ; %3
   fi#2 : spill 4/4 @ -12 %v2 ; %6
   fi#3 : spill 4/4 @ -16 %v3 ; %30
 Physical registers used: $rax $rsi $rdi $r10 $r11
 MBB #0, '<entry>', ir #0, -> #2
-  $r10 = mov.4 2 ; %10
+  $r10 = mov.4 2 ; %11
   MOP_SPILL.4 fi#0, $r10
   $r10 = MOP_COPY.4 $rdi ; %3
   MOP_SPILL.4 fi#1, $r10

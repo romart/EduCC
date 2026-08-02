@@ -2,20 +2,20 @@
 Function 'loop_sum'
 Locals:
    p:0|n = %2
-   l:1|i = %9
-   l:2|sum = %6
+   l:1|i = %6
+   l:2|sum = %7
    r:-1|<ret_slot> = %5
 BB #0, '<entry>', -> #2, dominatees [#2]
 
   %21 = IR_DEF_CONST () [kind = integer, v = 1, id = 2]
-  %7 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %8 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
   %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
   %3 = IR_P_REG () [preg = $rdi]
   %30 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #5, strict dom #5
 
-  %28 = IR_RET (%31) []
+  %28 = IR_RET (%33) []
 
 BB #2, '<FIRST>', <- #0, -> #3, strict dom #0, dominatees [#3]
 
@@ -23,15 +23,15 @@ BB #2, '<FIRST>', <- #0, -> #3, strict dom #0, dominatees [#3]
 
 BB #3, '<while_head>', <- #2 #4, -> #4 #5, strict dom #2, domination frontier [#3], dominatees [#4, #5]
 
-  %33 = IR_PHI ([%7, #2], [%22, #4]) [var = i]
-  %31 = IR_PHI ([%7, #2], [%18, #4]) [var = sum]
-  %14 = IR_E_LT (%33, %3) []
+  %33 = IR_PHI ([%8, #2], [%18, #4]) [var = sum]
+  %31 = IR_PHI ([%8, #2], [%22, #4]) [var = i]
+  %14 = IR_E_LT (%31, %3) []
   %15 = IR_CBRANCH (%14) [taken = #4, non taken = #5]
 
 BB #4, '<while_body>', <- #3, -> #3, strict dom #3, domination frontier [#3]
 
-  %18 = IR_E_ADD (%31, %33) []
-  %22 = IR_E_ADD (%33, %21) []
+  %18 = IR_E_ADD (%33, %31) []
+  %22 = IR_E_ADD (%31, %21) []
   %24 = IR_BRANCH () [target = #3]
 
 BB #5, '<while_exit>', <- #3, -> #1, strict dom #3, dominatees [#1]

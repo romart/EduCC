@@ -3,13 +3,13 @@ Function 'scp_const_switch'
 Locals:
    p:0|a = %2
    p:1|b = %5
-   l:2|r = %12
-   l:3|sel = %9
+   l:2|r = %9
+   l:3|sel = %10
    r:-1|<ret_slot> = %8
 BB #0, '<entry>', -> #2, dominatees [#2]
 
   %13 = IR_DEF_CONST () [kind = integer, v = 0, id = 2]
-  %10 = IR_DEF_CONST () [kind = integer, v = 2, id = 1]
+  %11 = IR_DEF_CONST () [kind = integer, v = 2, id = 1]
   %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
   %3 = IR_P_REG () [preg = $rdi]
   %6 = IR_P_REG () [preg = $rsi]

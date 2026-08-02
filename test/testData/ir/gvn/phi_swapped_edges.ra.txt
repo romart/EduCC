@@ -2,15 +2,15 @@
 MachineFunction 'phi_swapped_edges' [target = x86_64]
 VRegs:
   %v0 : gp/4 ; %38
-  %v1 : gp/4 ; %6
+  %v1 : gp/4 ; %3
   %v2 : gp/4 ; %36
-  %v3 : gp/4 ; %3
+  %v3 : gp/4 ; %6
   %v4 : gp/4 ; %9
   %v5 : gp/4 ; %16
   %v6 : gp/4 ; %30
 Frame: 32 bytes
-  fi#0 : spill 4/4 @ -4 %v3 ; %3
-  fi#1 : spill 4/4 @ -8 %v1 ; %6
+  fi#0 : spill 4/4 @ -4 %v1 ; %3
+  fi#1 : spill 4/4 @ -8 %v3 ; %6
   fi#2 : spill 4/4 @ -12 %v4 ; %9
   fi#3 : spill 4/4 @ -16 %v5 ; %16
   fi#4 : spill 4/4 @ -20 %v0 ; %38
@@ -38,28 +38,28 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
   jne #4 ; %17
 
 MBB #5, '<if_else>', ir #5, <- #2, -> #3
-  $r11 = MOP_RELOAD.4 fi#0
+  $r11 = MOP_RELOAD.4 fi#1
   $r10 = MOP_COPY.4 $r11 ; %38
   MOP_SPILL.4 fi#4, $r10
-  $r11 = MOP_RELOAD.4 fi#1
+  $r11 = MOP_RELOAD.4 fi#0
   $r10 = MOP_COPY.4 $r11 ; %36
   MOP_SPILL.4 fi#5, $r10
   jmp #3 ; %27
 
 MBB #4, '<if_then>', ir #4, <- #2, -> #3
-  $r11 = MOP_RELOAD.4 fi#1
+  $r11 = MOP_RELOAD.4 fi#0
   $r10 = MOP_COPY.4 $r11 ; %38
   MOP_SPILL.4 fi#4, $r10
-  $r11 = MOP_RELOAD.4 fi#0
+  $r11 = MOP_RELOAD.4 fi#1
   $r10 = MOP_COPY.4 $r11 ; %36
   MOP_SPILL.4 fi#5, $r10
 
 MBB #3, '<if_exit>', ir #3, <- #4 #5, -> #1
-  $r11 = MOP_RELOAD.4 fi#5
+  $r11 = MOP_RELOAD.4 fi#4
   $r10 = MOP_COPY.4 $r11 ; %30
   MOP_SPILL.4 fi#6, $r10
   $r10 = MOP_RELOAD.4 fi#6
-  $r11 = MOP_RELOAD.4 fi#4
+  $r11 = MOP_RELOAD.4 fi#5
   $r10 = sub.4 $r10, $r11 ; %30
   MOP_SPILL.4 fi#6, $r10
 

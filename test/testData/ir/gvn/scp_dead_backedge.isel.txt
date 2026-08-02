@@ -2,16 +2,16 @@
 MachineFunction 'scp_dead_backedge' [target = x86_64]
 VRegs:
   %v0 : gp/4 ; %38
-  %v1 : gp/4 ; %10
+  %v1 : gp/4 ; %11
   %v2 : gp/4 ; %36
-  %v3 : gp/4 ; %21
-  %v4 : gp/4 ; %27
+  %v3 : gp/4 ; %27
+  %v4 : gp/4 ; %21
   %v5 : gp/4 ; %3
   %v6 : gp/4 ; %6
   %v7 : gp/4 ; %17
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
-  %v1 = mov.4 0 ; %10
+  %v1 = mov.4 0 ; %11
   %v5 = MOP_COPY.4 $rdi ; %3
   %v6 = MOP_COPY.4 $rsi ; %6
 
@@ -21,7 +21,7 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #3
 
 MBB #3, '<while_head>', ir #3, <- #2 #6, -> #4 #5
   %v7 = mov.4 0 ; %17
-  cmp.4 %v0, %v6 ; %17
+  cmp.4 %v2, %v6 ; %17
   %v7 = setl.1 %v7 ; %17
   test.4 %v7, %v7 ; %18
   jne #4 ; %18
@@ -29,16 +29,16 @@ MBB #3, '<while_head>', ir #3, <- #2 #6, -> #4 #5
 MBB #5, '<while_exit>', ir #5, <- #3, -> #1
 
 MBB #1, '<exit>', ir #1, <- #5
-  $rax = MOP_COPY.4 %v2 ; %33
+  $rax = MOP_COPY.4 %v0 ; %33
   ret ; %33
 
 MBB #4, '<while_body>', ir #4, <- #3, -> #6
-  %v3 = MOP_COPY.4 %v0 ; %21
-  %v3 = add.4 %v3, 1 ; %21
+  %v4 = MOP_COPY.4 %v2 ; %21
+  %v4 = add.4 %v4, 1 ; %21
 
 MBB #6, '<if_exit>', ir #6, <- #4, -> #3
-  %v4 = MOP_COPY.4 %v2 ; %27
-  %v4 = add.4 %v4, %v5 ; %27
+  %v3 = MOP_COPY.4 %v0 ; %27
+  %v3 = add.4 %v3, %v5 ; %27
   %v0 = MOP_COPY.4 %v3 ; %38
   %v2 = MOP_COPY.4 %v4 ; %36
   jmp #3 ; %29

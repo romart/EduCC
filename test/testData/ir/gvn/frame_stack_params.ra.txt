@@ -73,11 +73,11 @@ MBB #0, '<entry>', ir #0, -> #2
   $r10 = MOP_RELOAD.8 fi#10
   $r10 = add.8 $r10, 32 ; %25
   MOP_SPILL.8 fi#10, $r10
-
-MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   $r11 = MOP_RELOAD.8 fi#6
   $r10 = MOP_UNSELECTED(IR_ALLOCA) $r11 ; %27
   MOP_SPILL.8 fi#11, $r10
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   $r11 = MOP_RELOAD.8 fi#11
   $rbx = MOP_RELOAD.4 fi#5
   $r10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) $r11, $rbx ; %31

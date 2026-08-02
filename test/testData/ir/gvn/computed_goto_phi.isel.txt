@@ -9,11 +9,11 @@ VRegs:
   %v5 : gp/4 ; %36
   %v6 : gp/4 ; %60
   %v7 : gp/4 ; %12
-  %v8 : gp/8 ; %9
+  %v8 : gp/8 ; %10
   %v9 : gp/8 ; %1
   %v10 : gp/4 ; %3
   %v11 : gp/4 ; %6
-  %v12 : gp/8 ; %10
+  %v12 : gp/8 ; %11
   %v13 : gp/8 ; %16
   %v14 : gp/8 ; %17
   %v15 : gp/8 ; %21
@@ -26,16 +26,16 @@ VRegs:
   %v22 : gp/8 ; %32
   %v23 : gp/8 ; %33
 Frame: 16 bytes
-  fi#0 : local 16/8 @ -16 'tab' ; %10
+  fi#0 : local 16/8 @ -16 'tab' ; %11
 MBB #0, '<entry>', ir #0, -> #4
   %v7 = mov.4 0 ; %12
-  %v8 = mov.8 16 ; %9
+  %v8 = mov.8 16 ; %10
   %v9 = mov.8 8 ; %1
   %v10 = MOP_COPY.4 $rdi ; %3
   %v11 = MOP_COPY.4 $rsi ; %6
+  %v12 = MOP_UNSELECTED(IR_ALLOCA) %v8 ; %11
 
 MBB #4, '<FIRST>', ir #4, <- #0, -> #6 #5
-  %v12 = MOP_UNSELECTED(IR_ALLOCA) %v8 ; %10
   %v13 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v12, %v7 ; %16
   %v14 = MOP_UNSELECTED(IR_CFG_LABEL) ; %17
   MOP_UNSELECTED(IR_M_STORE) %v13, %v14 ; %18

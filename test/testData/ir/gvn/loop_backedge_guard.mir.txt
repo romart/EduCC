@@ -2,10 +2,10 @@
 MachineFunction 'loop_backedge_guard' [target = x86_64]
 VRegs:
   %v0 : gp/4 ; %45
-  %v1 : gp/4 ; %13
+  %v1 : gp/4 ; %14
   %v2 : gp/4 ; %43
-  %v3 : gp/4 ; %30
-  %v4 : gp/4 ; %26
+  %v3 : gp/4 ; %26
+  %v4 : gp/4 ; %30
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
 

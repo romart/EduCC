@@ -136,8 +136,8 @@ if(BUILD_TESTING)
   # instruction selection covers, so the new backend actually emits them rather
   # than handing them back to the legacy one, and running them is the only
   # check that the bytes are right. The rest of the codegen tree compiles and
-  # runs correctly under -experimental too (71 of 75 fixtures at the time of
-  # writing, the other four hitting bugs in ast2ir and stage 0 that have
+  # runs correctly under -experimental too (74 of 77 fixtures at the time of
+  # writing, the other three hitting bugs in ast2ir and stage 0 that have
   # nothing to do with emission - see docs/ir-codegen-design.md section 10);
   # turning the whole tree on is step 11 of that document's commit sequence,
   # once those are fixed.

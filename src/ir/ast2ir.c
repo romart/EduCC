@@ -1392,6 +1392,59 @@ static void translateGlobalVariable(AstValueDeclaration *v) {
   // TODO: generate initializer
 }
 
+// Emits the alloca backing a local into whatever block is current, and records
+// it in the local map. 'size' is the aligned slot size, or -1 for a VLA, whose
+// size is 'sizeInstr' rather than a constant.
+//
+// Callers decide the block, and for everything but a VLA that block is the
+// function's entry (see buildInitialIr). C99 6.2.4p6 puts an automatic
+// object's lifetime over the whole block it is declared in, not just the part
+// after the declaration, so the point where the declaration textually sits is
+// not where its storage begins - and a 'goto' into the middle of a block makes
+// the difference observable. Jumping past a declaration leaves the block
+// holding its alloca unreachable while the loads and stores after the label
+// stay live, so an alloca emitted in place ends up as a value defined in dead
+// code and used from live code. No later pass can repair that: SSA
+// construction needs the def to dominate its uses, and cleanupUnreachableBlock
+// (src/ir/dce.c) waits for such a block to go empty, which it never does.
+// The entry block dominates everything, so allocating there is both what the
+// standard describes and what keeps the IR well-formed.
+//
+// A VLA is the exception and stays where it is declared: its size is computed
+// at run time, and C99 6.8.6.1p1 forbids jumping into its scope anyway.
+static IrInstruction *createLocalSlot(AstValueDeclaration *v,
+                                      IrInstruction *sizeInstr, size_t size) {
+  assert(v->flags.bits.isLocal);
+  assert(v->index2 >= 0);
+
+  LocalValueInfo *lvi = &ctx->localOperandMap[v->index2];
+  assert(lvi->stackSlot == NULL && "double-allocated variable");
+
+  TypeRef *astType = v->type;
+  IrInstruction *stackSlot = createAllocaInstr(sizeInstr);
+
+  stackSlot->info.alloca.v = v;
+  stackSlot->info.alloca.valueType = typeRefToIrType(astType);
+  stackSlot->astType = makePointedType(ctx->pctx, 0, astType);
+
+  if (astType->kind == TR_VLA) {
+    stackSlot->info.alloca.sizeInstr = sizeInstr;
+  } else {
+    stackSlot->info.alloca.stackSize = size;
+  }
+
+  lvi->declaration = v;
+  lvi->stackSlot = stackSlot;
+
+  return stackSlot;
+}
+
+// The aligned size of a local's slot. Not meaningful for a VLA.
+static size_t localSlotSize(const AstValueDeclaration *v) {
+  assert(v->type->kind != TR_VLA);
+  return ALIGN_SIZE(computeTypeSize(v->type), sizeof(intptr_t));
+}
+
 static void translateLocalDeclaration(AstValueDeclaration *v) {
   assert(v->flags.bits.isLocal);
   assert(v->index2 >= 0);
@@ -1400,36 +1453,22 @@ static void translateLocalDeclaration(AstValueDeclaration *v) {
          v->name, v->next, v->initializer);
 
   LocalValueInfo *lvi = &ctx->localOperandMap[v->index2];
-  assert(lvi->stackSlot == NULL && "double-allocated variable");
-
   TypeRef *astType = v->type;
-  Boolean isAggregate = isCompositeType(astType);
-  enum IrTypeKind irType = typeRefToIrType(astType);
-  lvi->declaration = v;
-
-  IrInstruction *sizeInstr = NULL;
   AstInitializer *init = v->initializer;
+
+  IrInstruction *stackSlot = lvi->stackSlot;
   size_t size = -1;
-  if (astType->kind != TR_VLA) {
-    size = ALIGN_SIZE(computeTypeSize(astType), sizeof(intptr_t));
-    sizeInstr = createIntegerConstant(IR_U64, size);
-  } else {
+
+  if (stackSlot == NULL) {
+    // Only a VLA gets this far without a slot - everything else was allocated
+    // in the entry block before the body was translated.
+    assert(astType->kind == TR_VLA);
     assert(init != NULL);
     assert(init->kind == IK_EXPRESSION);
-    sizeInstr = translateExpression(init->expression);
+    stackSlot = createLocalSlot(v, translateExpression(init->expression), size);
     init = NULL;
-  }
-  IrInstruction *stackSlot = createAllocaInstr(sizeInstr);
-
-  stackSlot->info.alloca.v = v;
-  stackSlot->info.alloca.valueType = irType;
-  lvi->stackSlot = stackSlot;
-  stackSlot->astType = makePointedType(ctx->pctx, 0, astType);
-
-  if (astType->kind == TR_VLA) {
-    stackSlot->info.alloca.sizeInstr = sizeInstr;
   } else {
-    stackSlot->info.alloca.stackSize = size;
+    size = localSlotSize(v);
   }
 
   if (init) {
@@ -2363,6 +2402,24 @@ static uint32_t buildInitialIr(IrFunction *func,
     AstValueDeclaration *va_area = function->va_area;
     ctx->currentBB = func->entry;
     idx = generateVaArea(va_area, 0, localOperandsMap, idx);
+  }
+
+  // Every fixed-size local is allocated here, in the entry block, rather than
+  // where its declaration sits in the body - see createLocalSlot for why.
+  // Walking function->locals gives the frame a layout that depends only on
+  // what the function declares, not on how its blocks end up linked, which is
+  // what layoutFrame() already wants of it; it is the same order the slot
+  // indices above were assigned in (the parser prepends, so it runs backwards
+  // through the source).
+  //
+  // A VLA is left out: translateLocalDeclaration reaches it once its size
+  // expression has been translated, in the block the declaration sits in.
+  ctx->currentBB = func->entry;
+  for (AstValueDeclaration *l = function->locals; l != NULL; l = l->next) {
+    if (l->type->kind == TR_VLA)
+      continue;
+    size_t size = localSlotSize(l);
+    createLocalSlot(l, createIntegerConstant(IR_U64, size), size);
   }
 
   AstStatement *body = function->body;

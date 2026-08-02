@@ -4,8 +4,8 @@ Locals:
    p:0|a = %2
    p:1|b = %5
    p:2|flag = %8
-   l:3|y = %13
-   l:4|x = %12
+   l:3|y = %12
+   l:4|x = %13
    r:-1|<ret_slot> = %11
 BB #0, '<entry>', -> #2, dominatees [#2]
 
@@ -27,9 +27,9 @@ BB #2, '<FIRST>', <- #0, -> #4 #5, strict dom #0, dominatees [#3, #4, #5]
 
 BB #3, '<if_exit>', <- #4 #5, -> #1, strict dom #2, dominatees [#1]
 
-  %38 = IR_PHI ([%6, #4], [%3, #5]) [var = y]
-  %36 = IR_PHI ([%3, #4], [%6, #5]) [var = x]
-  %30 = IR_E_SUB (%36, %38) []
+  %38 = IR_PHI ([%3, #4], [%6, #5]) [var = x]
+  %36 = IR_PHI ([%6, #4], [%3, #5]) [var = y]
+  %30 = IR_E_SUB (%38, %36) []
   %32 = IR_BRANCH () [target = #1]
 
 BB #4, '<if_then>', <- #2, -> #3, strict dom #2, domination frontier [#3]

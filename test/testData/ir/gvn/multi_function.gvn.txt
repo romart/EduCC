@@ -3,8 +3,8 @@ Function 'first_fn'
 Locals:
    p:0|a = %2
    p:1|b = %5
-   l:2|y = %14
-   l:3|x = %9
+   l:2|y = %9
+   l:3|x = %10
    r:-1|<ret_slot> = %8
 BB #0, '<entry>', -> #2, dominatees [#2]
 
@@ -19,9 +19,9 @@ BB #1, '<exit>', <- #2, strict dom #2
 
 BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
-  %12 = IR_E_ADD (%3, %6) []
+  %13 = IR_E_ADD (%3, %6) []
   %17 = IR_E_ADD (%3, %6) []
-  %21 = IR_E_ADD (%12, %12) []
+  %21 = IR_E_ADD (%13, %13) []
   %23 = IR_BRANCH () [target = #1]
 
 
@@ -30,8 +30,8 @@ Function 'second_fn'
 Locals:
    p:0|a = %2
    p:1|b = %5
-   l:2|y = %14
-   l:3|x = %9
+   l:2|y = %9
+   l:3|x = %10
    r:-1|<ret_slot> = %8
 BB #0, '<entry>', -> #2, dominatees [#2]
 
@@ -46,9 +46,9 @@ BB #1, '<exit>', <- #2, strict dom #2
 
 BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
-  %12 = IR_E_ADD (%3, %6) []
+  %13 = IR_E_ADD (%3, %6) []
   %17 = IR_E_ADD (%3, %6) []
-  %21 = IR_E_ADD (%12, %12) []
+  %21 = IR_E_ADD (%13, %13) []
   %23 = IR_BRANCH () [target = #1]
 
 

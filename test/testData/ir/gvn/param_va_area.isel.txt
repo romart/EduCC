@@ -1,9 +1,9 @@
 --- Phase: isel ---
 MachineFunction 'param_va_area' [target = x86_64]
 VRegs:
-  %v0 : gp/4 ; %42
-  %v1 : gp/8 ; %33
-  %v2 : gp/8 ; %38
+  %v0 : gp/4 ; %43
+  %v1 : gp/8 ; %34
+  %v2 : gp/8 ; %39
   %v3 : fp/8 ; %63
   %v4 : gp/8 ; %54
   %v5 : gp/8 ; %59
@@ -18,17 +18,17 @@ VRegs:
   %v14 : gp/8 ; %12
   %v15 : gp/8 ; %16
   %v16 : gp/8 ; %17
-  %v17 : gp/8 ; %19
-  %v18 : gp/8 ; %21
-  %v19 : gp/8 ; %26
-  %v20 : gp/8 ; %27
-  %v21 : gp/1 ; %29
-  %v22 : gp/8 ; %31
-  %v23 : gp/8 ; %32
-  %v24 : gp/4 ; %34
-  %v25 : gp/8 ; %37
-  %v26 : gp/8 ; %39
-  %v27 : gp/4 ; %43
+  %v17 : gp/8 ; %21
+  %v18 : gp/8 ; %23
+  %v19 : gp/8 ; %27
+  %v20 : gp/8 ; %28
+  %v21 : gp/1 ; %30
+  %v22 : gp/8 ; %32
+  %v23 : gp/8 ; %33
+  %v24 : gp/4 ; %35
+  %v25 : gp/8 ; %38
+  %v26 : gp/8 ; %40
+  %v27 : gp/4 ; %44
   %v28 : gp/8 ; %47
   %v29 : gp/8 ; %48
   %v30 : gp/1 ; %50
@@ -42,7 +42,7 @@ VRegs:
   %v38 : fp/8 ; %69
 Frame: 176 bytes
   fi#0 : local 144/8 @ -144 '__va_area__' ; %7
-  fi#1 : local 24/8 @ -168 'ap' ; %19
+  fi#1 : local 24/8 @ -168 'ap' ; %21
 MBB #0, '<entry>', ir #0, -> #2
   %v6 = mov.8 4 ; %46
   %v7 = mov.8 16 ; %11
@@ -57,47 +57,47 @@ MBB #0, '<entry>', ir #0, -> #2
   %v15 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v12, %v9 ; %16
   %v16 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v12, %v11 ; %17
   MOP_UNSELECTED(IR_M_STORE) %v16, %v15 ; %18
+  %v17 = MOP_UNSELECTED(IR_ALLOCA) %v8 ; %21
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #3
-  %v17 = MOP_UNSELECTED(IR_ALLOCA) %v8 ; %19
 
 MBB #3, '<do_body>', ir #3, <- #2 #12, -> #4
-  %v18 = MOP_UNSELECTED(IR_E_BITCAST) %v12 ; %21
-  MOP_UNSELECTED(IR_M_COPY) %v17, %v18, %v8 ; %22
+  %v18 = MOP_UNSELECTED(IR_E_BITCAST) %v12 ; %23
+  MOP_UNSELECTED(IR_M_COPY) %v17, %v18, %v8 ; %24
 
 MBB #4, '<do_tail>', ir #4, <- #3, -> #12 #5
-  test.8 %v9, %v9 ; %24
-  jne #12 ; %24
+  test.8 %v9, %v9 ; %26
+  jne #12 ; %26
 
 MBB #5, '<do_exit>', ir #5, <- #4, -> #6 #7
-  %v19 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v17, %v9 ; %26
-  %v20 = MOP_UNSELECTED(IR_M_LOAD) %v19 ; %27
-  cmp.8 %v20, 48 ; %29
-  %v21 = setge.1 ; %29
-  test.1 %v21, %v21 ; %30
-  jne #6 ; %30
+  %v19 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v17, %v9 ; %27
+  %v20 = MOP_UNSELECTED(IR_M_LOAD) %v19 ; %28
+  cmp.8 %v20, 48 ; %30
+  %v21 = setge.1 ; %30
+  test.1 %v21, %v21 ; %31
+  jne #6 ; %31
 
 MBB #7, '<va_arg_update>', ir #7, <- #5, -> #8
-  %v22 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v17, %v7 ; %31
-  %v23 = MOP_UNSELECTED(IR_M_LOAD) %v22 ; %32
-  %v1 = MOP_COPY.8 %v23 ; %33
-  %v1 = add.8 %v1, %v20 ; %33
-  %v24 = MOP_COPY.8 %v20 ; %34
-  %v24 = add.4 %v24, %v11 ; %34
-  MOP_UNSELECTED(IR_M_STORE) %v19, %v24 ; %35
-  %v0 = MOP_COPY.4 %v1 ; %42
-  jmp #8 ; %36
+  %v22 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v17, %v7 ; %32
+  %v23 = MOP_UNSELECTED(IR_M_LOAD) %v22 ; %33
+  %v1 = MOP_COPY.8 %v23 ; %34
+  %v1 = add.8 %v1, %v20 ; %34
+  %v24 = MOP_COPY.8 %v20 ; %35
+  %v24 = add.4 %v24, %v11 ; %35
+  MOP_UNSELECTED(IR_M_STORE) %v19, %v24 ; %36
+  %v0 = MOP_COPY.4 %v1 ; %43
+  jmp #8 ; %37
 
 MBB #6, '<va_arg_mem>', ir #6, <- #5, -> #8
-  %v25 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v17, %v11 ; %37
-  %v2 = MOP_UNSELECTED(IR_M_LOAD) %v25 ; %38
-  %v26 = MOP_COPY.8 %v2 ; %39
-  %v26 = add.8 %v26, %v11 ; %39
-  MOP_UNSELECTED(IR_M_STORE) %v25, %v26 ; %40
-  %v0 = MOP_COPY.4 %v2 ; %42
+  %v25 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v17, %v11 ; %38
+  %v2 = MOP_UNSELECTED(IR_M_LOAD) %v25 ; %39
+  %v26 = MOP_COPY.8 %v2 ; %40
+  %v26 = add.8 %v26, %v11 ; %40
+  MOP_UNSELECTED(IR_M_STORE) %v25, %v26 ; %41
+  %v0 = MOP_COPY.4 %v2 ; %43
 
 MBB #8, '<va_arg_done>', ir #8, <- #7 #6, -> #9 #10
-  %v27 = MOP_UNSELECTED(IR_M_LOAD) %v0 ; %43
+  %v27 = MOP_UNSELECTED(IR_M_LOAD) %v0 ; %44
   %v28 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v17, %v6 ; %47
   %v29 = MOP_UNSELECTED(IR_M_LOAD) %v28 ; %48
   cmp.8 %v29, 112 ; %50

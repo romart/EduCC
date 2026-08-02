@@ -2,15 +2,16 @@
 Function 'local_addr_taken'
 Locals:
    p:0|a = %2
-   l:1|z = %15
-   l:2|y = %11
-   l:3|p = %9
-   l:4|x = %6
+   l:1|z = %6
+   l:2|y = %7
+   l:3|p = %8
+   l:4|x = %9
    r:-1|<ret_slot> = %5
 BB #0, '<entry>', -> #2, dominatees [#2]
 
   %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
   %3 = IR_P_REG () [preg = $rdi]
+  %9 = IR_ALLOCA (%1) [size = 8, declaration = 4 | 'x']
   %26 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #2, strict dom #2
@@ -19,11 +20,10 @@ BB #1, '<exit>', <- #2, strict dom #2
 
 BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
-  %6 = IR_ALLOCA (%1) [size = 8, declaration = 4 | 'x']
-  %8 = IR_M_STORE (%6, %3) [store type = I32]
-  %13 = IR_M_LOAD (%6) [load type = I32]
-  %17 = IR_M_LOAD (%6) [load type = I32]
-  %21 = IR_E_ADD (%13, %17) []
+  %11 = IR_M_STORE (%9, %3) [store type = I32]
+  %14 = IR_M_LOAD (%9) [load type = I32]
+  %17 = IR_M_LOAD (%9) [load type = I32]
+  %21 = IR_E_ADD (%14, %17) []
   %23 = IR_BRANCH () [target = #1]
 
 

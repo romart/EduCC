@@ -1,13 +1,13 @@
 --- Phase: isel ---
 MachineFunction 'phi_dedup' [target = x86_64]
 VRegs:
-  %v0 : gp/4 ; %55
+  %v0 : gp/4 ; %59
   %v1 : gp/4 ; %3
   %v2 : gp/4 ; %6
-  %v3 : gp/4 ; %59
+  %v3 : gp/4 ; %55
   %v4 : gp/4 ; %9
   %v5 : gp/4 ; %12
-  %v6 : gp/4 ; %19
+  %v6 : gp/4 ; %21
   %v7 : gp/4 ; %38
   %v8 : gp/4 ; %47
 Frame: <empty>
@@ -18,18 +18,18 @@ MBB #0, '<entry>', ir #0, -> #2
   %v5 = MOP_COPY.4 $rcx ; %12
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
-  %v6 = mov.4 0 ; %19
-  cmp.4 %v4, 0 ; %19
-  %v6 = setg.1 %v6 ; %19
-  test.4 %v6, %v6 ; %20
-  jne #4 ; %20
+  %v6 = mov.4 0 ; %21
+  cmp.4 %v4, 0 ; %21
+  %v6 = setg.1 %v6 ; %21
+  test.4 %v6, %v6 ; %22
+  jne #4 ; %22
 
 MBB #5, '<if_else>', ir #5, <- #2, -> #3
-  %v0 = MOP_COPY.4 %v2 ; %55
-  jmp #3 ; %30
+  %v0 = MOP_COPY.4 %v2 ; %59
+  jmp #3 ; %32
 
 MBB #4, '<if_then>', ir #4, <- #2, -> #3
-  %v0 = MOP_COPY.4 %v1 ; %55
+  %v0 = MOP_COPY.4 %v1 ; %59
 
 MBB #3, '<if_exit>', ir #3, <- #4 #5, -> #7 #8
   %v7 = mov.4 0 ; %38
@@ -39,11 +39,11 @@ MBB #3, '<if_exit>', ir #3, <- #4 #5, -> #7 #8
   jne #7 ; %39
 
 MBB #8, '<crit_splitter>', ir #8, <- #3, -> #6
-  %v3 = MOP_COPY.4 %v0 ; %59
+  %v3 = MOP_COPY.4 %v0 ; %55
   jmp #6 ; %70
 
 MBB #7, '<if_then>', ir #7, <- #3, -> #6
-  %v3 = MOP_COPY.4 %v1 ; %59
+  %v3 = MOP_COPY.4 %v1 ; %55
 
 MBB #6, '<if_exit>', ir #6, <- #8 #7, -> #1
   %v8 = MOP_COPY.4 %v3 ; %47

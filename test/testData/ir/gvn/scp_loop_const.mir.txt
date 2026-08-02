@@ -2,10 +2,10 @@
 MachineFunction 'scp_loop_const' [target = x86_64]
 VRegs:
   %v0 : gp/4 ; %35
-  %v1 : gp/4 ; %7
+  %v1 : gp/4 ; %8
   %v2 : gp/4 ; %33
-  %v3 : gp/4 ; %24
-  %v4 : gp/4 ; %20
+  %v3 : gp/4 ; %20
+  %v4 : gp/4 ; %24
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
 

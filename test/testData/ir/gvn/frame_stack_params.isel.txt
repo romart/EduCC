@@ -36,9 +36,9 @@ MBB #0, '<entry>', ir #0, -> #2
   %v5 = add.8 %v5, 24 ; %23
   %v6 = MOP_COPY.8 %v3 ; %25
   %v6 = add.8 %v6, 32 ; %25
+  %v7 = MOP_UNSELECTED(IR_ALLOCA) %v2 ; %27
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  %v7 = MOP_UNSELECTED(IR_ALLOCA) %v2 ; %27
   %v8 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v7, %v1 ; %31
   %v9 = MOP_UNSELECTED(IR_M_LOAD) %v4 ; %32
   MOP_UNSELECTED(IR_M_STORE) %v8, %v9 ; %33

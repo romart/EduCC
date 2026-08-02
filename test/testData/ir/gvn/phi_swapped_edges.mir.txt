@@ -2,9 +2,9 @@
 MachineFunction 'phi_swapped_edges' [target = x86_64]
 VRegs:
   %v0 : gp/4 ; %38
-  %v1 : gp/4 ; %6
+  %v1 : gp/4 ; %3
   %v2 : gp/4 ; %36
-  %v3 : gp/4 ; %3
+  %v3 : gp/4 ; %6
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
 

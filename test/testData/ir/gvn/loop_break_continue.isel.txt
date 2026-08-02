@@ -1,8 +1,8 @@
 --- Phase: isel ---
 MachineFunction 'loop_break_continue' [target = x86_64]
 VRegs:
-  %v0 : gp/4 ; %55
-  %v1 : gp/4 ; %13
+  %v0 : gp/4 ; %57
+  %v1 : gp/4 ; %14
   %v2 : gp/4 ; %53
   %v3 : gp/4 ; %24
   %v4 : gp/4 ; %40
@@ -17,18 +17,18 @@ VRegs:
   %v13 : gp/4 ; %47
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
-  %v1 = mov.4 0 ; %13
+  %v1 = mov.4 0 ; %14
   %v5 = MOP_COPY.4 $rdi ; %3
   %v6 = MOP_COPY.4 $rsi ; %6
   %v7 = MOP_COPY.4 $rdx ; %9
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #3
-  %v0 = MOP_COPY.4 %v1 ; %55
+  %v0 = MOP_COPY.4 %v1 ; %57
   %v2 = MOP_COPY.4 %v1 ; %53
 
 MBB #3, '<while_head>', ir #3, <- #2 #7 #8, -> #4 #10
   %v8 = mov.4 0 ; %20
-  cmp.4 %v0, %v7 ; %20
+  cmp.4 %v2, %v7 ; %20
   %v8 = setl.1 %v8 ; %20
   test.4 %v8, %v8 ; %21
   jne #4 ; %21
@@ -37,7 +37,7 @@ MBB #10, '<crit_splitter>', ir #10, <- #3, -> #5
   jmp #5 ; %65
 
 MBB #4, '<while_body>', ir #4, <- #3, -> #7 #6
-  %v3 = MOP_COPY.4 %v0 ; %24
+  %v3 = MOP_COPY.4 %v2 ; %24
   %v3 = add.4 %v3, 1 ; %24
   %v9 = mov.4 0 ; %28
   cmp.4 %v3, 3 ; %28
@@ -55,10 +55,10 @@ MBB #6, '<if_exit>', ir #6, <- #4, -> #9 #8
 MBB #8, '<if_exit>', ir #8, <- #6, -> #3
   %v11 = MOP_COPY.4 %v5 ; %39
   %v11 = add.4 %v11, %v6 ; %39
-  %v4 = MOP_COPY.4 %v2 ; %40
+  %v4 = MOP_COPY.4 %v0 ; %40
   %v4 = add.4 %v4, %v11 ; %40
-  %v0 = MOP_COPY.4 %v3 ; %55
-  %v2 = MOP_COPY.4 %v4 ; %53
+  %v0 = MOP_COPY.4 %v4 ; %57
+  %v2 = MOP_COPY.4 %v3 ; %53
   jmp #3 ; %42
 
 MBB #9, '<if_then>', ir #9, <- #6, -> #5
@@ -66,7 +66,7 @@ MBB #9, '<if_then>', ir #9, <- #6, -> #5
 MBB #5, '<while_exit>', ir #5, <- #10 #9, -> #1
   %v12 = MOP_COPY.4 %v5 ; %46
   %v12 = add.4 %v12, %v6 ; %46
-  %v13 = MOP_COPY.4 %v2 ; %47
+  %v13 = MOP_COPY.4 %v0 ; %47
   %v13 = add.4 %v13, %v12 ; %47
 
 MBB #1, '<exit>', ir #1, <- #5
@@ -74,7 +74,7 @@ MBB #1, '<exit>', ir #1, <- #5
   ret ; %50
 
 MBB #7, '<if_then>', ir #7, <- #4, -> #3
-  %v0 = MOP_COPY.4 %v3 ; %55
+  %v2 = MOP_COPY.4 %v3 ; %53
   jmp #3 ; %30
 
 

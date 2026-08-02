@@ -4,13 +4,13 @@ Locals:
    p:0|seed = %2
    p:1|n = %5
    p:2|step = %8
-   l:3|acc = %15
-   l:4|i = %12
+   l:3|acc = %12
+   l:4|i = %13
    r:-1|<ret_slot> = %11
 BB #0, '<entry>', -> #2, dominatees [#2]
 
   %16 = IR_DEF_CONST () [kind = integer, v = 1, id = 2]
-  %13 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %14 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
   %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
   %3 = IR_P_REG () [preg = $rdi]
   %6 = IR_P_REG () [preg = $rsi]
@@ -35,26 +35,26 @@ BB #4, '<if_then>', <- #2, -> #5, strict dom #2, domination frontier [#5]
 
 BB #5, 'again', <- #4 #7, -> #6, strict dom #2, domination frontier [#6]
 
-  %47 = IR_PHI ([%16, #4], [%28, #7]) [var = acc]
-  %45 = IR_PHI ([%13, #4], [%43, #7]) [var = i]
-  %32 = IR_E_ADD (%45, %16) []
+  %49 = IR_PHI ([%14, #4], [%47, #7]) [var = i]
+  %43 = IR_PHI ([%16, #4], [%28, #7]) [var = acc]
+  %32 = IR_E_ADD (%49, %16) []
   %34 = IR_BRANCH () [target = #6]
 
 BB #6, '<while_head>', <- #3 #5, -> #7 #8, strict dom #2, domination frontier [#5], dominatees [#7, #8]
 
-  %49 = IR_PHI ([%16, #3], [%47, #5]) [var = acc]
-  %43 = IR_PHI ([%13, #3], [%32, #5]) [var = i]
-  %24 = IR_E_LT (%43, %6) []
+  %47 = IR_PHI ([%14, #3], [%32, #5]) [var = i]
+  %45 = IR_PHI ([%16, #3], [%43, #5]) [var = acc]
+  %24 = IR_E_LT (%47, %6) []
   %25 = IR_CBRANCH (%24) [taken = #7, non taken = #8]
 
 BB #7, '<while_body>', <- #6, -> #5, strict dom #6, domination frontier [#5]
 
-  %28 = IR_E_MUL (%49, %9) []
+  %28 = IR_E_MUL (%45, %9) []
   %30 = IR_BRANCH () [target = #5]
 
 BB #8, '<while_exit>', <- #6, -> #1, strict dom #6, dominatees [#1]
 
-  %37 = IR_E_ADD (%49, %43) []
+  %37 = IR_E_ADD (%45, %47) []
   %39 = IR_BRANCH () [target = #1]
 
 

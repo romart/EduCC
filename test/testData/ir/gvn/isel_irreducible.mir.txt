@@ -1,13 +1,13 @@
 --- Phase: mir ---
 MachineFunction 'isel_irreducible' [target = x86_64]
 VRegs:
-  %v0 : gp/4 ; %47
-  %v1 : gp/4 ; %16
-  %v2 : gp/4 ; %45
-  %v3 : gp/4 ; %13
-  %v4 : gp/4 ; %28
-  %v5 : gp/4 ; %43
-  %v6 : gp/4 ; %49
+  %v0 : gp/4 ; %49
+  %v1 : gp/4 ; %14
+  %v2 : gp/4 ; %43
+  %v3 : gp/4 ; %16
+  %v4 : gp/4 ; %47
+  %v5 : gp/4 ; %28
+  %v6 : gp/4 ; %45
   %v7 : gp/4 ; %32
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
@@ -17,22 +17,22 @@ MBB #1, '<exit>', ir #1, <- #8
 MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
 
 MBB #3, '<if_exit>', ir #3, <- #2, -> #6
-  %v6 = MOP_COPY.4 %v1 ; %49
-  %v5 = MOP_COPY.4 %v3 ; %43
+  %v4 = MOP_COPY.4 %v1 ; %47
+  %v6 = MOP_COPY.4 %v3 ; %45
 
 MBB #4, '<if_then>', ir #4, <- #2, -> #5
-  %v0 = MOP_COPY.4 %v1 ; %47
-  %v2 = MOP_COPY.4 %v3 ; %45
+  %v0 = MOP_COPY.4 %v1 ; %49
+  %v2 = MOP_COPY.4 %v3 ; %43
 
 MBB #5, 'again', ir #5, <- #4 #7, -> #6
-  %v6 = MOP_COPY.4 %v0 ; %49
-  %v5 = MOP_COPY.4 %v7 ; %43
+  %v4 = MOP_COPY.4 %v7 ; %47
+  %v6 = MOP_COPY.4 %v2 ; %45
 
 MBB #6, '<while_head>', ir #6, <- #3 #5, -> #7 #8
 
 MBB #7, '<while_body>', ir #7, <- #6, -> #5
-  %v0 = MOP_COPY.4 %v4 ; %47
-  %v2 = MOP_COPY.4 %v5 ; %45
+  %v0 = MOP_COPY.4 %v4 ; %49
+  %v2 = MOP_COPY.4 %v5 ; %43
 
 MBB #8, '<while_exit>', ir #8, <- #6, -> #1
 
