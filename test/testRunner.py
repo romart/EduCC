@@ -23,6 +23,12 @@ failedTests = []
 updateBaselines = False
 irPhase = 'ssa'
 
+# Extra flags put in front of every compiler invocation ('--compiler-flag').
+# This is how one set of fixtures is run against a second configuration of the
+# compiler rather than being copied: today '-experimental', which routes
+# codegen through the IR pipeline instead of the legacy AST walker.
+compilerFlags = []
+
 # A test is muted by putting a '<name>.muted' file next to its '<name>.c'; the
 # file's contents are the reason, printed whenever the test runs. Muted tests
 # still run - they are known-broken fixtures kept in the repo so a bug stays
@@ -195,7 +201,7 @@ def runCodegenTest(compiler, workingDir, dirname, name):
         args.append("")
 
     err = open(errFilePath, 'w+')
-    compilationCommand = [compiler, "-oneline", "-o", binFileName, testFilePath, "-lm"]
+    compilationCommand = [compiler] + compilerFlags + ["-oneline", "-o", binFileName, testFilePath, "-lm"]
     compilation = Popen(compilationCommand, stdout=sys.stdout, stderr=err)
     exit_code = compilation.wait()
     err.close()
@@ -367,6 +373,10 @@ def parseArguments():
                               "and the <name>.<phase>.txt baseline suffix). 'mir' and 'isel' are the odd "
                               "ones out: they dump the MachineFunction rather than the IR - 'mir' as stage 0 "
                               "leaves it, 'isel' once instruction selection has filled the blocks in")
+    parser.add_argument('--compiler-flag', type=str, action='append', default=[],
+                         help='extra flag passed to the compiler on every invocation, repeatable '
+                              '(e.g. --compiler-flag -experimental to compile the fixtures through '
+                              'the IR pipeline)')
     parser.add_argument('--update-baselines', action='store_true',
                          help='write actual output as the new expected baseline for every test instead of comparing '
                               '(use after an intentional behavior change to regenerate golden files)')
@@ -377,8 +387,10 @@ def parseArguments():
 def main():
     global updateBaselines
     global irPhase
+    global compilerFlags
 
     args = parseArguments()
+    compilerFlags = args.compiler_flag
     testMode = args.mode
     testPaths = args.test_path
     workingDir = args.working_dir
