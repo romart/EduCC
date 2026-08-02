@@ -638,12 +638,19 @@ static IrInstruction *translateTernary(AstExpression *expr) {
   addSuccessor(ctx->currentBB, ifFalse);
   termintateBlock(cond);
 
+  // Each arm is entered at the block created for it but need not end there:
+  // an arm that splits the block itself leaves translation somewhere further
+  // down, and that is the block gotoToBlock() takes the edge to 'exit' from.
+  // See translateLogicalExpression for why the phi must name it rather than
+  // the block the arm started in.
   ctx->currentBB = ifTrue;
   IrInstruction *ifTrueOp = translateRValue(expr->ternaryExpr.ifTrue);
+  IrBasicBlock *ifTrueEnd = ctx->currentBB;
   gotoToBlock(exit);
 
   ctx->currentBB = ifFalse;
   IrInstruction *ifFalseOp = translateRValue(expr->ternaryExpr.ifFalse);
+  IrBasicBlock *ifFalseEnd = ctx->currentBB;
   gotoToBlock(exit);
 
   ctx->currentBB = exit;
@@ -651,8 +658,8 @@ static IrInstruction *translateTernary(AstExpression *expr) {
   // TODO: what if type is composite?
   IrInstruction *phi = newPhiInstruction(typeRefToIrType(expr->type));
 
-  addPhiInput(phi, ifTrueOp, ifTrue);
-  addPhiInput(phi, ifFalseOp, ifFalse);
+  addPhiInput(phi, ifTrueOp, ifTrueEnd);
+  addPhiInput(phi, ifFalseOp, ifFalseEnd);
   addInstruction(phi);
 
   return phi;
@@ -685,6 +692,41 @@ static IrInstruction *translateCast(AstExpression *expr) {
   return castInstr;
 }
 
+// Whether an instruction is already known to yield exactly 0 or 1, so that
+// comparing it against zero once more would only restate what it computed. The
+// relational and equality operators are defined to yield one or the other
+// (C99 6.5.8p6, 6.5.9p3) and so is logical negation (6.5.3.3p5); so is the phi
+// translateLogicalExpression builds, which is what keeps a chain like
+// 'a || (b && c)' down to one compare per operand that actually needs one
+// rather than one per nesting level. Nothing folds the redundant compare later
+// - neither scp nor gvn rewrites 'x != 0' to 'x' - so it has to not be emitted.
+static Boolean yieldsBoolean(const IrInstruction *instr) {
+  switch (instr->kind) {
+  case IR_E_EQ:
+  case IR_E_NE:
+  case IR_E_LT:
+  case IR_E_LE:
+  case IR_E_GT:
+  case IR_E_GE:
+  case IR_E_FEQ:
+  case IR_E_FNE:
+  case IR_E_FLT:
+  case IR_E_FLE:
+  case IR_E_FGT:
+  case IR_E_FGE:
+  case IR_U_NOT:
+    return TRUE;
+  case IR_PHI:
+    // The join of a nested '&&' / '||', tagged with the expression it came
+    // from below. Any other phi carries whatever its operands did.
+    return instr->meta.astExpr != NULL &&
+           (instr->meta.astExpr->op == EB_ANDAND ||
+            instr->meta.astExpr->op == EB_OROR);
+  default:
+    return FALSE;
+  }
+}
+
 static IrInstruction *translateLogicalExpression(AstExpression *expr) {
   assert(expr->op == EB_ANDAND || expr->op == EB_OROR);
 
@@ -703,12 +745,46 @@ static IrInstruction *translateLogicalExpression(AstExpression *expr) {
 
   ctx->currentBB = scnd;
   IrInstruction *rightOp = translateRValue(expr->binaryExpr.right);
+
+  // '&&' and '||' yield int 0 or 1, never the operand itself (C99 6.5.13p3,
+  // 6.5.14p3), so the surviving operand has to be compared against zero rather
+  // than carried into the phi as it stands. Feeding the raw value through was
+  // invisible for as long as the result was only ever branched on - anything
+  // non-zero is true - and wrong the moment it is used as a value: 'x || y'
+  // with x == 7 returned 7. It also left the phi typed IR_BOOL while every
+  // other expression of type int is IR_I32, which is what made a ternary with
+  // one logical arm ('c ? 0 : (a || b)') fail translateTernary's
+  // same-type assertion below.
+  enum IrTypeKind irType = typeRefToIrType(expr->type);
+  IrInstruction *rightBool = rightOp;
+
+  if (!yieldsBoolean(rightOp)) {
+    Boolean isFloatOperand = isRealType(expr->binaryExpr.right->type);
+    IrInstruction *zero = isFloatOperand
+                              ? createFloatConstant(rightOp->type, 0.0)
+                              : createIntegerConstant(rightOp->type, 0);
+    rightBool =
+        addBinaryOpeartion(isFloatOperand ? IR_E_FNE : IR_E_NE, rightOp, zero,
+                           irType, expr->type, expr);
+  }
+
+  // Where the right operand *ends*, which is not where it began if it split
+  // the block itself - a nested && / || or a ternary leaves translation in the
+  // exit block it created rather than in 'scnd'. gotoToBlock() takes the edge
+  // from ctx->currentBB, so that block, not 'scnd', is the predecessor of
+  // 'exit', and it is the one the phi has to name: stage 0 pairs a phi's
+  // incoming blocks against the block's predecessor list by position and
+  // asserts they agree (destroyPhisOfBlock, src/ir/codegen/prepare.c).
+  IrBasicBlock *scndEnd = ctx->currentBB;
   gotoToBlock(exit);
 
   ctx->currentBB = exit;
-  IrInstruction *phi = newPhiInstruction(IR_BOOL);
-  addPhiInput(phi, leftOp, fst);
-  addPhiInput(phi, rightOp, scnd);
+  IrInstruction *phi = newPhiInstruction(irType);
+  // Reaching the join without evaluating the right operand means the left one
+  // already decided the answer: false for '&&', true for '||'. The left
+  // operand's own value never reaches here.
+  addPhiInput(phi, createIntegerConstant(irType, isAndAnd ? 0 : 1), fst);
+  addPhiInput(phi, rightBool, scndEnd);
 
   addInstruction(phi);
 

@@ -45,7 +45,7 @@ BB #5, '< && >', <- #2, -> #6, strict dom #2, domination frontier [#6]
 
 BB #6, '< &&-exit>', <- #2 #5, -> #4 #3, strict dom #2, dominatees [#3, #4]
 
-  %24 = IR_PHI ([%16, #2], [%22, #5]) []
+  %24 = IR_PHI ([%13, #2], [%22, #5]) []
   %25 = IR_CBRANCH (%24) [taken = #4, non taken = #3]
 
 

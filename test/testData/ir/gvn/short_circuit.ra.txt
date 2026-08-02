@@ -6,23 +6,23 @@ VRegs:
   %v2 : gp/4 ; %41
   %v3 : gp/4 ; %13
   %v4 : gp/4 ; %28
-  %v5 : gp/1 ; %24
-  %v6 : gp/4 ; %16
-  %v7 : gp/4 ; %22
-  %v8 : gp/4 ; %3
-  %v9 : gp/4 ; %6
-  %v10 : gp/4 ; %9
+  %v5 : gp/4 ; %24
+  %v6 : gp/4 ; %22
+  %v7 : gp/4 ; %3
+  %v8 : gp/4 ; %6
+  %v9 : gp/4 ; %9
+  %v10 : gp/4 ; %16
   %v11 : gp/4 ; %20
   %v12 : gp/4 ; %35
 Frame: 64 bytes
   fi#0 : spill 4/4 @ -4 %v3 ; %13
-  fi#1 : spill 4/4 @ -8 %v8 ; %3
-  fi#2 : spill 4/4 @ -12 %v9 ; %6
-  fi#3 : spill 4/4 @ -16 %v10 ; %9
-  fi#4 : spill 4/4 @ -20 %v6 ; %16
-  fi#5 : spill 1/1 @ -21 %v5 ; %24
+  fi#1 : spill 4/4 @ -8 %v7 ; %3
+  fi#2 : spill 4/4 @ -12 %v8 ; %6
+  fi#3 : spill 4/4 @ -16 %v9 ; %9
+  fi#4 : spill 4/4 @ -20 %v10 ; %16
+  fi#5 : spill 4/4 @ -24 %v5 ; %24
   fi#6 : spill 4/4 @ -28 %v11 ; %20
-  fi#7 : spill 4/4 @ -32 %v7 ; %22
+  fi#7 : spill 4/4 @ -32 %v6 ; %22
   fi#8 : spill 4/4 @ -36 %v1 ; %51
   fi#9 : spill 4/4 @ -40 %v0 ; %50
   fi#10 : spill 4/4 @ -44 %v2 ; %41
@@ -53,9 +53,9 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #5 #7
   jne #5 ; %17
 
 MBB #7, '<crit_splitter>', ir #7, <- #2, -> #6
-  $r11 = MOP_RELOAD.4 fi#4
-  $r10 = MOP_COPY.1 $r11 ; %24
-  MOP_SPILL.1 fi#5, $r10
+  $r11 = MOP_RELOAD.4 fi#0
+  $r10 = MOP_COPY.4 $r11 ; %24
+  MOP_SPILL.4 fi#5, $r10
   jmp #6 ; %48
 
 MBB #5, '< && >', ir #5, <- #2, -> #6
@@ -74,12 +74,12 @@ MBB #5, '< && >', ir #5, <- #2, -> #6
   $r10 = setg.1 $r10 ; %22
   MOP_SPILL.4 fi#7, $r10
   $r11 = MOP_RELOAD.4 fi#7
-  $r10 = MOP_COPY.1 $r11 ; %24
-  MOP_SPILL.1 fi#5, $r10
+  $r10 = MOP_COPY.4 $r11 ; %24
+  MOP_SPILL.4 fi#5, $r10
 
 MBB #6, '< &&-exit>', ir #6, <- #7 #5, -> #4 #8
-  $r10 = MOP_RELOAD.1 fi#5
-  test.1 $r10, $r10 ; %25
+  $r10 = MOP_RELOAD.4 fi#5
+  test.4 $r10, $r10 ; %25
   jne #4 ; %25
 
 MBB #8, '<crit_splitter>', ir #8, <- #6, -> #3
