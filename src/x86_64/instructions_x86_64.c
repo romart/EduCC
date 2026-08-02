@@ -360,6 +360,10 @@ void emitCmovRR(GeneratedFunction *f, enum JumpCondition cc, enum Registers from
 }
 
 void emitSetccR(GeneratedFunction *f, enum JumpCondition cc, enum Registers reg) {
+  // The destination is the r/m field, so an r8..r15 byte register needs REX.B
+  // to be reachable at all - without it 'setcc r10b' encodes as 'setcc dl'.
+  emitRex(f, R_BAD, reg, R_BAD, FALSE);
+
   emitByte(f, 0x0F);
   emitByte(f, 0x90 + cc);
 
@@ -442,7 +446,10 @@ void emitSimpleArithA(GeneratedFunction *f, uint8_t code, uint8_t digit, Address
 void emitSMulR(GeneratedFunction *f, enum Registers l, enum Registers r, size_t size) {
   if (size == 2) emitByte(f, 0x66);
 
-  emitRex(f, R_BAD, r, R_BAD, size == 8);
+  // 'l' is the reg field below and 'r' the r/m field, so both halves of REX
+  // matter. Passing R_BAD for 'l' loses REX.R and silently retargets the
+  // multiply at whichever low register shares its three encoding bits.
+  emitRex(f, l, r, R_BAD, size == 8);
 
   emitByte(f, 0x0F);
   emitByte(f, 0xAF);
@@ -470,7 +477,10 @@ void emitSMulAR(GeneratedFunction *f, Address *addr, enum Registers r, size_t si
 void emitShiftRC(GeneratedFunction *f, uint8_t code, uint8_t digit, enum Registers r, int64_t c, size_t size) {
   if (size == 2) emitByte(f, 0x66);
 
-  emitRex(f, r, R_BAD, R_BAD, size == 8);
+  // The reg field holds the opcode extension 'digit', not a register, so the
+  // shifted register is the r/m field and wants REX.B. REX.R here would extend
+  // a field that has no register in it.
+  emitRex(f, R_BAD, r, R_BAD, size == 8);
 
   emitByte(f, size == 1 ? code - 1 : code);
 
