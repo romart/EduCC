@@ -1,0 +1,40 @@
+A floating-point operand of '&&', '||' or '!' is never compared against zero.
+The truth test is emitted as an integer 'test %rax,%rax' after the operand has
+been loaded into an SSE register, so the branch is decided by whatever was left
+in %rax and every such expression answers as though the operand were true -
+'and_dd(2.5, 0.0)' returns 1, and so does 'and_dd(0.0, 0.0)'. There is no
+comisd/ucomisd anywhere in the generated function.
+
+For '&&' and '||' the fix belongs in the legacy backend
+(src/x86_64/codegen_x86_64.c), where the truth test for a logical operand is
+generated. Those are not IR-pipeline bugs: instruction selection does not cover
+them, so canEmitMachineFunction() declines and they fall back - a file
+containing only 'int f(double a, double b) { return a && b; }' compiles to a
+byte-identical object with and without '-experimental'.
+
+'!' on a double is different: the new backend does emit it, and it fails there
+in two further places. Selection picks 'test' with an SSE operand
+('test.8 $xmm8, $xmm8' - not an instruction that exists), and emission then
+encodes the xmm operand as the same-numbered *general-purpose* register, so the
+bytes read 'test %r8,%r8' and the following 'sete' consumes unrelated flags.
+The second of those is the one with reach beyond floats: nothing validates an
+operand's register class on the way out of stage 3, so anything arriving in the
+wrong bank is silently encoded as a different real register instead of being
+refused. checkemit's differential against objdump is what surfaced it - the
+machine IR says xmm, the bytes say r8.
+
+Narrowing it: 'if (a)' on a double is correct today, and so is an explicit
+'a != 0.0'. Both are covered as controls in the fixture. So the float branch
+machinery exists and works; what is missing is its use when the float is an
+operand of a logical operator rather than the controlling expression of an
+'if'. The '&&'/'||' translation in the IR pipeline already does the right thing
+here (src/ir/ast2ir.c, translateLogicalExpression, which picks IR_E_FNE for a
+real-typed operand) - it just never gets the chance.
+
+Which check fails first depends on the stale register contents and therefore on
+the caller: the fixture returns 1 compiled normally and 6 under
+'-experimental'. Both are stable per build. If this ever reports as passing,
+confirm a comisd against zero in the disassembly before deleting this marker -
+favourable garbage would look identical from the exit code alone.
+
+See docs/ir-codegen-design.md section 10.
