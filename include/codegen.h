@@ -136,12 +136,31 @@ void releaseConstCache(GenerationContext *ctx);
 
 void buildElfFile(GenerationContext *ctx, AstFile *astFile, GeneratedFile *genFile, ElfFile *elfFile);
 
+struct _MachineFunction;
+struct _IrFunctionList;
+
 typedef struct _ArchCodegen {
   GeneratedFunction *(*generateFunction)(GenerationContext *, AstFunctionDefinition *);
   GeneratedVariable *(*generateVaribale)(GenerationContext *, AstValueDeclaration *);
+
+  // The -experimental pipeline's entry point: emit an already selected and
+  // allocated MachineFunction (stage 3, see ir/emit.h). NULL on a target whose
+  // IR backend does not exist yet, which is how riscv64 keeps working.
+  //
+  // It is a second entry point rather than a replacement because the new
+  // backend does not cover the language yet. Everything around a function -
+  // symbols, static data, sections, ELF layout - stays on one code path, and
+  // whether a given function came from here or from generateFunction is
+  // invisible by the time buildElfFile sees it.
+  GeneratedFunction *(*generateFunctionFromIr)(GenerationContext *, struct _MachineFunction *);
 } ArchCodegen;
 
-GeneratedFile *generateCodeForFile(struct _ParserContext *ctx, ArchCodegen *archCodegen, AstFile *astFile);
+// 'irFunctions' is the -experimental pipeline's output, or NULL for the legacy
+// one. When it is present, each function that the IR backend can actually emit
+// is emitted from it and the rest fall back to generateFunction - see
+// generateCodeForFile's comment for why the fallback is per function.
+GeneratedFile *generateCodeForFile(struct _ParserContext *ctx, ArchCodegen *archCodegen,
+                                   AstFile *astFile, struct _IrFunctionList *irFunctions);
 
 void initArchCodegen_x86_64(ArchCodegen *cg);
 void initArchCodegen_riscv64(ArchCodegen *cg);

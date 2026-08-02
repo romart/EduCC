@@ -9,8 +9,7 @@
 //           the assembler in instructions_x86_64.c wants.
 //   16..31  xmm0..xmm15. enum Registers spells these 0..15 as well, which is
 //           exactly the ambiguity this namespace exists to remove; subtract
-//           X86_FP_BASE to get back to the encoding.
-#define X86_FP_BASE 16
+//           X86_FP_BASE (machine_x86_64.h) to get back to the encoding.
 #define X86_PHYS_REG_COUNT 32
 
 #define FP(n) (X86_FP_BASE + (n))

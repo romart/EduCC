@@ -10,6 +10,7 @@
 #include "parser.h"
 #include "sema.h"
 #include "instructions_x86_64.h"
+#include "ir/emit.h"
 
 void disassemble(FILE *output, uint8_t *buffer, size_t size) {
   ud_t ud_obj;
@@ -3162,4 +3163,5 @@ static GeneratedFunction *generateFunction_x86_64(GenerationContext *ctx, AstFun
 void initArchCodegen_x86_64(ArchCodegen *cg) {
   cg->generateFunction = &generateFunction_x86_64;
   cg->generateVaribale = &generateVaribale_x86_64;
+  cg->generateFunctionFromIr = &emitMachineFunction_x86_64;
 }

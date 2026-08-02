@@ -19,6 +19,13 @@
 // target knowledge, and we have no per-instruction descriptor table for a
 // target-independent pass to learn it from.
 
+// Where the xmm half of the flat physical namespace starts. The GP half is
+// already the encoding enum Registers uses, so a GP id needs no translation
+// and an FP id needs exactly this subtracted. Defined here rather than in
+// target_x86_64.c because selection, allocation and emission all have to agree
+// on it, and the register tables are only one of the three.
+#define X86_FP_BASE 16
+
 #define X86_OPCODES                                                            \
   X86_OPCODE_DEF(MOV, "mov"),   /* dst <- immediate; reg-reg is MOP_COPY */    \
   X86_OPCODE_DEF(ADD, "add"),                                                  \

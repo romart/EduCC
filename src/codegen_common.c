@@ -1,5 +1,7 @@
 #include "_elf.h"
 #include "codegen.h"
+#include "ir/emit.h"
+#include "ir/ir.h"
 #include "mem.h"
 #include "parser.h"
 #include "sema.h"
@@ -187,7 +189,27 @@ void buildElfFile(GenerationContext *ctx, AstFile *astFile, GeneratedFile *genFi
   releaseHeap(elfFileBytes);
 }
 
-GeneratedFile *generateCodeForFile(ParserContext *pctx, ArchCodegen *archCodegen, AstFile *astFile) {
+// The MachineFunction the IR pipeline built for this definition, or NULL if
+// there is none. Linear in the number of functions in the file and called once
+// per function, which is quadratic and does not matter: the list is a handful
+// of entries and building a map would need somewhere to keep it.
+static MachineFunction *machineFunctionFor(struct _IrFunctionList *irFunctions,
+                                           AstFunctionDefinition *definition) {
+  if (irFunctions == NULL) {
+    return NULL;
+  }
+
+  for (IrFunctionListNode *node = irFunctions->head; node != NULL; node = node->next) {
+    if (node->function->ast == definition) {
+      return node->function->machine;
+    }
+  }
+
+  return NULL;
+}
+
+GeneratedFile *generateCodeForFile(ParserContext *pctx, ArchCodegen *archCodegen, AstFile *astFile,
+                                   struct _IrFunctionList *irFunctions) {
     Section nullSection = { "", SHT_NULL, 0x00, 0 };
     Section text = { ".text", SHT_PROGBITS, SHF_EXECINSTR | SHF_ALLOC, 1 }, reText = { ".rela.text", SHT_RELA, SHF_INFO_LINK, 8 };
     Section data = { ".data", SHT_PROGBITS, SHF_WRITE | SHF_ALLOC, 16 };
@@ -242,7 +264,22 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, ArchCodegen *archCodegen
 
     while (unit) {
       if (unit->kind == TU_FUNCTION_DEFINITION) {
-          GeneratedFunction *f = archCodegen->generateFunction(&ctx, unit->definition);
+          // The choice between the two backends is per function, not per file.
+          // The IR backend does not cover the language yet - a function
+          // containing anything selection has no rule for, or that register
+          // allocation declined, is left to the legacy one - and the
+          // alternative to falling back would be to refuse to compile it,
+          // which would mean the new pipeline could not be exercised on real
+          // programs until it was finished. This way every fixture in the
+          // suite runs under -experimental from the first day stage 3 exists,
+          // with the new backend taking whatever it can and the coverage
+          // growing as selection does.
+          MachineFunction *mf = machineFunctionFor(irFunctions, unit->definition);
+          Boolean fromIr = mf != NULL && archCodegen->generateFunctionFromIr != NULL
+                        && canEmitMachineFunction(mf);
+
+          GeneratedFunction *f = fromIr ? archCodegen->generateFunctionFromIr(&ctx, mf)
+                                        : archCodegen->generateFunction(&ctx, unit->definition);
           unit->definition->declaration->gen = f;
           unit->definition->declaration->symbol->function->gen = f;
 
