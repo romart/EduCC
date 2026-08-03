@@ -187,14 +187,23 @@ static int collectAssignments(const MachineFunction *mf, const MachineInstr *mi,
 // to put them all at once. Nothing stage 1 selects comes close - across the
 // whole test corpus the widest selected instruction names two - but
 // MOP_UNSELECTED does: it stands in for an IR instruction with as many inputs
-// as that instruction had, and a call to a function with twenty arguments
-// therefore reads twenty registers.
+// as that instruction had, and a call the selector turned away therefore reads
+// one register per argument.
 //
 // So the limit is only ever reached by a placeholder, which means only by a
 // function that already carries MachineFunction.hasUnselected and already
 // cannot be emitted. Declining the whole function rather than half-allocating
 // it keeps the postcondition worth having: a machine function either names no
 // virtual registers at all, or is exactly as selection left it.
+//
+// Step 7 took the common case away: an ordinary integer call used to be the
+// placeholder that got here, and is now a sequence of one-register moves that
+// does not come close. What is left is the calls selection still refuses -
+// aggregates, and long double most durably, its lowering being outside step 7
+// altogether. test/testData/ir/gvn/ra_limits.c pins one, and if a later step
+// leaves nothing at all able to reach this, say so here rather than deleting
+// the check: it is cheap, and it is what makes the postcondition above a
+// statement about every function rather than about the ones tried so far.
 static Boolean fitsScratchBudget(const MachineFunction *mf) {
   ScratchAssignment table[MAX_SCRATCH_REGS];
 

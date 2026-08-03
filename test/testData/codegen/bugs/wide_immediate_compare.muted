@@ -1,0 +1,6 @@
+The legacy backend compares a 64-bit value against the low 32 bits of any
+literal too wide for the sign-extended imm32 form, because it hands the
+constant to emitArithConst without checking the range and x86-64 has no
+'cmp r64, imm64'. Fix is to materialize such a constant into a register and
+compare register to register, which is what the new backend already does -
+see the header comment in the .c and docs/ir-codegen-design.md section 10.

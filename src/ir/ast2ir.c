@@ -577,6 +577,7 @@ static IrInstruction *translateCall(AstExpression *expr) {
 
   callInstr->astType = expr->type;
   callInstr->meta.astExpr = expr;
+  callInstr->info.call.isVariadic = calleeType->functionTypeDesc.isVariadic;
 
   IrInstruction *returnSlotOp = NULL;
 

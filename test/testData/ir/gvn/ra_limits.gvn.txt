@@ -108,25 +108,34 @@ BB #13, '<crit_splitter>', <- #4, -> #3, strict dom #4, domination frontier [#3]
 Function 'ra_scratch_budget'
 Locals:
    p:0|a = %2
-   p:1|b = %5
-   r:-1|<ret_slot> = %8
+   p:1|b = %4
+   r:-1|<ret_slot> = %6
 BB #0, '<entry>', -> #2, dominatees [#2]
 
-  %9 = IR_DEF_CONST () [kind = symbol, name = ra_limits_callee, id = 1]
-  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
-  %3 = IR_P_REG () [preg = $rdi]
-  %6 = IR_P_REG () [preg = $rsi]
-  %23 = IR_BRANCH () [target = #2]
+  %7 = IR_DEF_CONST () [kind = symbol, name = ra_limits_callee, id = 3]
+  %5 = IR_DEF_CONST () [kind = integer, v = 16, id = 2]
+  %3 = IR_DEF_CONST () [kind = integer, v = 32, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 16, id = 0]
+  %0 = IR_P_REG () [preg = $rsp]
+  %2 = IR_E_ADD (%0, %1) []
+  %4 = IR_E_ADD (%0, %3) []
+  %21 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #2, strict dom #2
 
-  %21 = IR_RET (%10) []
+  %19 = IR_RET (%8) []
 
 BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
-  %15 = IR_E_ADD (%3, %6) []
-  %18 = IR_E_SUB (%3, %6) []
-  %10 = IR_CALL (%9, %3, %6, %15, %18) [size = 0]
-  %20 = IR_BRANCH () [target = #1]
+  %9 = IR_M_LOAD (%2) [load type = F80]
+  %10 = IR_M_LOAD (%4) [load type = F80]
+  %11 = IR_M_LOAD (%2) [load type = F80]
+  %12 = IR_M_LOAD (%4) [load type = F80]
+  %13 = IR_E_FADD (%11, %12) []
+  %14 = IR_M_LOAD (%2) [load type = F80]
+  %15 = IR_M_LOAD (%4) [load type = F80]
+  %16 = IR_E_FSUB (%14, %15) []
+  %8 = IR_CALL (%7, %9, %10, %13, %16) [size = 0]
+  %18 = IR_BRANCH () [target = #1]
 
 

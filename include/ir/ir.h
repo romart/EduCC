@@ -187,6 +187,12 @@ struct _IrInstruction {
         struct {
           struct _IrInstruction *returnBuffer;
           struct _Symbol *symbol;
+          // Whether the callee's prototype ends in '...'. SysV makes that a
+          // property of the *call site* rather than of the callee - al has to
+          // hold the number of SSE registers used - so the backend needs it,
+          // and by then the function type it comes from is several
+          // translations away. Recorded here at the one point it is in hand.
+          Boolean isVariadic;
         } call;
         struct {
           uint32_t cacheIdx;
@@ -398,6 +404,18 @@ Boolean isFloatIrType(enum IrTypeKind k);
 Boolean isIntegerIrType(enum IrTypeKind k);
 Boolean isSignedIrType(enum IrTypeKind k);
 Boolean isUnsignedIrType(enum IrTypeKind k);
+
+// Whether an operand of this type divides, shifts right and compares as
+// unsigned. A wider question than isUnsignedIrType, which only answers to the
+// four U8..U64 names: an address is unsigned however it is spelled, and so is
+// a one-bit predicate.
+//
+// Deliberately one function and not one per caller. The constant evaluator and
+// the instruction selector both have to answer it, and they have to answer it
+// the same way - otherwise '-7 / 2' means one thing when the compiler can see
+// both operands and another when it cannot, which is a bug that only shows up
+// on the inputs nobody tries.
+Boolean isUnsignedIrOperand(enum IrTypeKind k);
 
 // ------------- Ir Evaluator ------------------------
 IrInstruction *evaluate(IrInstruction *i);

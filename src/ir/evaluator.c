@@ -148,9 +148,31 @@ static IrInstruction *evaluateBitCastInternal(IrInstruction *i) {
   return evaluateBitCast(i, arg);
 }
 
+// Constants are stored as int64_const_t, which is *unsigned*, so C's own
+// operators on them are the unsigned ones and the signed cases have to say so.
+// Which cases those are is exactly the set where the two differ: division,
+// remainder, the right shift, and the four ordered comparisons. Addition,
+// subtraction, multiplication, the left shift and equality are the same bits
+// either way in two's complement, and are left alone.
+//
+// Getting this wrong is invisible in the ordinary case and wrong in the
+// interesting one: '-7 / 2' folded to 9223372036854775804 rather than to -3,
+// and then narrowing it to int left -4 - the floor result, which is not what C
+// says - so a program computing it in a constant disagreed with the same
+// program computing it at run time. The same split is already made by the
+// AST-level evaluator in src/evaluate.c; this is the IR-level one catching up.
+#define SIGNED_OP(l, op, r) ((int64_const_t)((sint64_const_t)(l) op (sint64_const_t)(r)))
+
 IrInstruction *evaluateBinary(IrInstruction *i, IrInstruction *lhs, IrInstruction *rhs) {
   assert(isConstantInstr(lhs));
   assert(isConstantInstr(rhs));
+
+  // Division, remainder and the right shift take their signedness from the
+  // type of the value being operated on, which for all three is the
+  // instruction's own; a comparison produces an int whatever it compares, so
+  // its operands are what has to be asked.
+  Boolean isUnsigned = isUnsignedIrOperand(i->type);
+  Boolean isUnsignedCmp = isUnsignedIrOperand(lhs->type);
 
   switch (i->kind) {
   case IR_E_ADD: return createIntegerConstant(i->type, lhs->info.constant.data.i + rhs->info.constant.data.i);
@@ -161,7 +183,14 @@ IrInstruction *evaluateBinary(IrInstruction *i, IrInstruction *lhs, IrInstructio
    if (rhs->info.constant.data.i != 0) {
      int64_const_t l = lhs->info.constant.data.i;
      int64_const_t r = rhs->info.constant.data.i;
-     int64_const_t v = i->kind == IR_E_DIV ? l / r : l % r;
+     int64_const_t v;
+
+     if (i->kind == IR_E_DIV) {
+       v = isUnsigned ? l / r : SIGNED_OP(l, /, r);
+     } else {
+       v = isUnsigned ? l % r : SIGNED_OP(l, %, r);
+     }
+
      return createIntegerConstant(i->type, v);
    } else {
      return i;
@@ -170,13 +199,30 @@ IrInstruction *evaluateBinary(IrInstruction *i, IrInstruction *lhs, IrInstructio
   case IR_E_XOR: return createIntegerConstant(i->type, lhs->info.constant.data.i ^ rhs->info.constant.data.i);
   case IR_E_AND: return createIntegerConstant(i->type, lhs->info.constant.data.i & rhs->info.constant.data.i);
   case IR_E_SHL: return createIntegerConstant(i->type, lhs->info.constant.data.i << rhs->info.constant.data.i);
-  case IR_E_SHR: return createIntegerConstant(i->type, lhs->info.constant.data.i >> rhs->info.constant.data.i);
+  // An arithmetic shift for a signed value and a logical one otherwise, which
+  // is the same split IR_E_SHR gets at selection - sar against shr.
+  case IR_E_SHR:
+    return createIntegerConstant(i->type, isUnsigned
+        ? lhs->info.constant.data.i >> rhs->info.constant.data.i
+        : SIGNED_OP(lhs->info.constant.data.i, >>, rhs->info.constant.data.i));
   case IR_E_EQ: return createIntegerConstant(i->type, lhs->info.constant.data.i == rhs->info.constant.data.i);
   case IR_E_NE: return createIntegerConstant(i->type, lhs->info.constant.data.i != rhs->info.constant.data.i);
-  case IR_E_LT: return createIntegerConstant(i->type, lhs->info.constant.data.i < rhs->info.constant.data.i);
-  case IR_E_LE: return createIntegerConstant(i->type, lhs->info.constant.data.i <= rhs->info.constant.data.i);
-  case IR_E_GT: return createIntegerConstant(i->type, lhs->info.constant.data.i > rhs->info.constant.data.i);
-  case IR_E_GE: return createIntegerConstant(i->type, lhs->info.constant.data.i >= rhs->info.constant.data.i);
+  case IR_E_LT:
+    return createIntegerConstant(i->type, isUnsignedCmp
+        ? lhs->info.constant.data.i < rhs->info.constant.data.i
+        : SIGNED_OP(lhs->info.constant.data.i, <, rhs->info.constant.data.i));
+  case IR_E_LE:
+    return createIntegerConstant(i->type, isUnsignedCmp
+        ? lhs->info.constant.data.i <= rhs->info.constant.data.i
+        : SIGNED_OP(lhs->info.constant.data.i, <=, rhs->info.constant.data.i));
+  case IR_E_GT:
+    return createIntegerConstant(i->type, isUnsignedCmp
+        ? lhs->info.constant.data.i > rhs->info.constant.data.i
+        : SIGNED_OP(lhs->info.constant.data.i, >, rhs->info.constant.data.i));
+  case IR_E_GE:
+    return createIntegerConstant(i->type, isUnsignedCmp
+        ? lhs->info.constant.data.i >= rhs->info.constant.data.i
+        : SIGNED_OP(lhs->info.constant.data.i, >=, rhs->info.constant.data.i));
   case IR_E_FADD: return createFloatConstant(i->type, lhs->info.constant.data.f + rhs->info.constant.data.f);
   case IR_E_FSUB: return createFloatConstant(i->type, lhs->info.constant.data.f - rhs->info.constant.data.f);
   case IR_E_FMUL: return createFloatConstant(i->type, lhs->info.constant.data.f * rhs->info.constant.data.f);

@@ -52,10 +52,16 @@ typedef struct _ArchSelector {
   // dropping whatever falls through - see machineBuilderFallsThroughTo().
   void (*selectTerminator)(MachineBuilder *b, const struct _IrInstruction *term);
 
-  // Can 'cnst' be an immediate operand of 'use' at input position
-  // 'operandIdx'? Asked once per use before anything is selected, because a
-  // constant is materialized or not for the whole function: it is defined in
-  // the entry block and would otherwise occupy a register across all of it.
+  // Can 'cnst' be an operand of 'use' at input position 'operandIdx', rather
+  // than a value some instruction has to put in a register first? Asked once
+  // per use before anything is selected, because a constant is materialized or
+  // not for the whole function: it is defined in the entry block and would
+  // otherwise occupy a register across all of it.
+  //
+  // Named after the usual answer, an integer immediate. A symbol constant is
+  // asked the same question - the callee of a direct call is one, and the call
+  // encodes it in place - and setValueOperand then spells it as MO_SYMBOL
+  // rather than MO_IMM.
   Boolean (*isLegalImmediate)(const struct _IrInstruction *use, size_t operandIdx,
                               const struct _IrInstruction *cnst);
 } ArchSelector;

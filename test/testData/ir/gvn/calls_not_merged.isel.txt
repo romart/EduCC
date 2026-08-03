@@ -1,24 +1,26 @@
 --- Phase: isel ---
 MachineFunction 'calls_not_merged' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %6
-  %v1 : gp/4 ; %3
-  %v2 : gp/4 ; %7
-  %v3 : gp/4 ; %9
-  %v4 : gp/4 ; %11
+  %v0 : gp/4 ; %3
+  %v1 : gp/4 ; %7
+  %v2 : gp/4 ; %9
+  %v3 : gp/4 ; %11
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
-  %v0 = MOP_UNSELECTED(IR_DEF_CONST) ; %6
-  %v1 = MOP_COPY.4 $rdi ; %3
+  %v0 = MOP_COPY.4 $rdi ; %3
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  %v2 = MOP_UNSELECTED(IR_CALL) %v0, %v1 ; %7
-  %v3 = MOP_UNSELECTED(IR_CALL) %v0, %v1 ; %9
-  %v4 = MOP_COPY.4 %v2 ; %11
-  %v4 = add.4 %v4, %v3 ; %11
+  $rdi = MOP_COPY.4 %v0 ; %7
+  call opaque [implicit-def $rax, implicit $rdi] <clobbers caller-saved> ; %7
+  %v1 = MOP_COPY.4 $rax ; %7
+  $rdi = MOP_COPY.4 %v0 ; %9
+  call opaque [implicit-def $rax, implicit $rdi] <clobbers caller-saved> ; %9
+  %v2 = MOP_COPY.4 $rax ; %9
+  %v3 = MOP_COPY.4 %v1 ; %11
+  %v3 = add.4 %v3, %v2 ; %11
 
 MBB #1, '<exit>', ir #1, <- #2
-  $rax = MOP_COPY.4 %v4 ; %14
+  $rax = MOP_COPY.4 %v3 ; %14
   ret ; %14
 
 

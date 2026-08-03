@@ -36,7 +36,7 @@ struct _MachineFunction;
 // came from.
 //
 // MOP_UNSELECTED is the placeholder selection leaves behind for an IR
-// instruction it has no rule for yet - loads, calls, floats, everything
+// instruction it has no rule for yet - loads, floats, aggregates, everything
 // outside the integer subset stage 1 covers today. It is deliberately
 // well-formed rather than a hole: it defines the value's register and uses its
 // inputs, so the machine function stays a connected graph that liveness and
@@ -129,6 +129,21 @@ typedef struct _MachineInstr {
   uint16_t numDefs;
 
   uint8_t opSize; // operand width in bytes; 0 when the opcode has no width
+
+  struct {
+    // This instruction destroys every caller-saved register, whether or not it
+    // names one. A call is the only thing that does.
+    //
+    // A bit rather than an implicit-def operand per register, which is what
+    // the operand list would otherwise have to carry: SysV makes 9 GP and all
+    // 16 xmm registers caller-saved, and 25 extra operands on every call would
+    // bury the three or four that say something specific to it. The set itself
+    // is TargetDescriptor.callerSavedRegs, and this is the flag that says to
+    // go and read it. Nothing does yet - the trivial allocator keeps nothing
+    // in a register across an instruction boundary, so there is nothing for a
+    // call to destroy - and stage 2B is where that stops being true.
+    unsigned isCall : 1;
+  } flags;
 
   // Which IR instruction this was selected from, for dumps and -S comments.
   // NULL for anything the backend invents - frame setup, phi copies, spills.

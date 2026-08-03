@@ -194,6 +194,14 @@ static int32_t dumpMachineInstr(FILE *stream, const MachineFunction *mf,
     r += fputc(']', stream);
   }
 
+  // Printed rather than left implied by the opcode, because it is a claim
+  // about the machine function and not about x86: whoever adds an allocator
+  // that keeps values in registers has to see which instructions it applies to
+  // in the dump, the same way they see every other clobber.
+  if (mi->flags.isCall) {
+    r += fprintf(stream, " <clobbers caller-saved>");
+  }
+
   if (mi->origin != NULL) {
     r += fprintf(stream, " ; %c%u", '%', mi->origin->id);
   }

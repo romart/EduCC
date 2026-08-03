@@ -47,6 +47,11 @@
   X86_OPCODE_DEF(IDIV, "idiv"),                                                \
   X86_OPCODE_DEF(DIV, "div"),                                                  \
   X86_OPCODE_DEF(JMP, "jmp"),                                                  \
+  X86_OPCODE_DEF(PUSH, "push"), /* an outgoing stack argument, and nothing     \
+                                   else - see selectCall */                    \
+  X86_OPCODE_DEF(CALL, "call"), /* operand 0 is the callee: a symbol for a     \
+                                   direct call, a register for an indirect     \
+                                   one */                                      \
   X86_OPCODE_DEF(RET, "ret") /* the return itself; stage 3 puts the epilogue   \
                                 in front of it, once it knows the frame */
 

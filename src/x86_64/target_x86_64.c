@@ -64,6 +64,17 @@ static const uint32_t x86FpArgRegs[] = {
   FP(0), FP(1), FP(2), FP(3), FP(4), FP(5), FP(6), FP(7)
 };
 
+// SysV AMD64: everything except rbx, rbp, rsp and r12..r15, which is the
+// argument and return registers, the two temporaries, and the whole of the FP
+// file. rsp and rbp are left out because a call does not destroy them in any
+// sense an allocator cares about - the callee restores both.
+static const uint32_t x86CallerSavedRegs[] = {
+  R_EAX, R_ECX, R_EDX, R_ESI, R_EDI, R_R8, R_R9, R_R10, R_R11,
+
+  FP(0),  FP(1),  FP(2),  FP(3),  FP(4),  FP(5),  FP(6),  FP(7),
+  FP(8),  FP(9),  FP(10), FP(11), FP(12), FP(13), FP(14), FP(15)
+};
+
 // Scratch for the trivial allocator - see TargetDescriptor.scratchRegs for
 // what disqualifies a register. On x86-64 that rules out a lot: rdi/rsi/rdx/
 // rcx/r8/r9 carry arguments, rax the return value and the quotient, rdx the
@@ -109,6 +120,9 @@ const TargetDescriptor targetX86_64 = {
 
   .intRetReg = R_EAX,
   .fpRetReg = FP(0),
+
+  .callerSavedRegs = x86CallerSavedRegs,
+  .callerSavedRegCount = sizeof(x86CallerSavedRegs) / sizeof(x86CallerSavedRegs[0]),
 
   .scratchRegs = { [RC_GP] = x86GpScratchRegs, [RC_FP] = x86FpScratchRegs },
   .scratchRegCount = {

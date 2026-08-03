@@ -50,7 +50,9 @@ MBB #13, '<crit_splitter>', ir #13, <- #4, -> #3
 --- Phase: mir ---
 MachineFunction 'ra_scratch_budget' [target = x86_64]
 VRegs: <none>
-Frame: <empty>
+Frame: 0 bytes
+  fi#0 : param 16/16 @ 16 'a'
+  fi#1 : param 16/16 @ 32 'b'
 MBB #0, '<entry>', ir #0, -> #2
 
 MBB #1, '<exit>', ir #1, <- #2

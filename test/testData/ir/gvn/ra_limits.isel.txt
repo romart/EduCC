@@ -127,27 +127,40 @@ MBB #13, '<crit_splitter>', ir #13, <- #4, -> #3
 --- Phase: isel ---
 MachineFunction 'ra_scratch_budget' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %9
-  %v1 : gp/4 ; %3
-  %v2 : gp/4 ; %6
-  %v3 : gp/4 ; %15
-  %v4 : gp/4 ; %18
-  %v5 : gp/4 ; %10
-Frame: <empty>
+  %v0 : gp/8 ; %0
+  %v1 : gp/8 ; %2
+  %v2 : gp/8 ; %4
+  %v3 : fp/16 ; %9
+  %v4 : fp/16 ; %10
+  %v5 : fp/16 ; %11
+  %v6 : fp/16 ; %12
+  %v7 : fp/16 ; %13
+  %v8 : fp/16 ; %14
+  %v9 : fp/16 ; %15
+  %v10 : fp/16 ; %16
+  %v11 : fp/16 ; %8
+Frame: 0 bytes
+  fi#0 : param 16/16 @ 16 'a'
+  fi#1 : param 16/16 @ 32 'b'
 MBB #0, '<entry>', ir #0, -> #2
-  %v0 = MOP_UNSELECTED(IR_DEF_CONST) ; %9
-  %v1 = MOP_COPY.4 $rdi ; %3
-  %v2 = MOP_COPY.4 $rsi ; %6
+  %v0 = MOP_COPY.8 $rsp ; %0
+  %v1 = MOP_COPY.8 %v0 ; %2
+  %v1 = add.8 %v1, 16 ; %2
+  %v2 = MOP_COPY.8 %v0 ; %4
+  %v2 = add.8 %v2, 32 ; %4
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  %v3 = MOP_COPY.4 %v1 ; %15
-  %v3 = add.4 %v3, %v2 ; %15
-  %v4 = MOP_COPY.4 %v1 ; %18
-  %v4 = sub.4 %v4, %v2 ; %18
-  %v5 = MOP_UNSELECTED(IR_CALL) %v0, %v1, %v2, %v3, %v4 ; %10
+  %v3 = MOP_UNSELECTED(IR_M_LOAD) %v1 ; %9
+  %v4 = MOP_UNSELECTED(IR_M_LOAD) %v2 ; %10
+  %v5 = MOP_UNSELECTED(IR_M_LOAD) %v1 ; %11
+  %v6 = MOP_UNSELECTED(IR_M_LOAD) %v2 ; %12
+  %v7 = MOP_UNSELECTED(IR_E_FADD) %v5, %v6 ; %13
+  %v8 = MOP_UNSELECTED(IR_M_LOAD) %v1 ; %14
+  %v9 = MOP_UNSELECTED(IR_M_LOAD) %v2 ; %15
+  %v10 = MOP_UNSELECTED(IR_E_FSUB) %v8, %v9 ; %16
+  %v11 = MOP_UNSELECTED(IR_CALL) ra_limits_callee, %v3, %v4, %v7, %v10 ; %8
 
 MBB #1, '<exit>', ir #1, <- #2
-  $rax = MOP_COPY.4 %v5 ; %21
-  ret ; %21
+  MOP_UNSELECTED(IR_RET) %v11 ; %19
 
 

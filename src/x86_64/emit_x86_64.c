@@ -144,6 +144,12 @@ static int32_t frameIdxOperand(const MachineInstr *mi, uint16_t idx) {
   return op->info.frameIdx;
 }
 
+static struct _Symbol *symbolOperand(const MachineInstr *mi, uint16_t idx) {
+  const MachineOperand *op = machineOperandAt((MachineInstr *)mi, idx);
+  assert(op->kind == MO_SYMBOL);
+  return op->info.symbol;
+}
+
 static MachineBasicBlock *blockOperand(const MachineInstr *mi, uint16_t idx) {
   const MachineOperand *op = machineOperandAt((MachineInstr *)mi, idx);
   assert(op->kind == MO_MBB);
@@ -229,6 +235,37 @@ static void emitShift(EmitContext *e, const MachineInstr *mi, enum Opcodes op) {
     assert(regOperand(e, mi, 2) == R_ECX && "a variable shift count has to be in cl");
     emitArithRR(e->gen, op, dst, R_ECX, mi->opSize);
   }
+}
+
+// A direct call names its target by symbol, and the displacement is only known
+// once the linker has placed it - so the four bytes the instruction reserves
+// are filled in by a relocation rather than by the assembler. Identical to
+// what the legacy backend does in codegen_x86_64.c: the two produce the same
+// bytes and the same relocation, which is what lets a file hold functions from
+// both backends and link.
+static void emitCallInstr(EmitContext *e, const MachineInstr *mi) {
+  // Operand 0 is the callee for a call with no result, operand 1 for one with,
+  // whose only def is the implicit return register.
+  uint16_t idx = mi->numDefs;
+  const MachineOperand *callee = machineOperandAt((MachineInstr *)mi, idx);
+
+  if (callee->kind == MO_REG) {
+    emitCall(e->gen, regOperand(e, mi, idx));
+    return;
+  }
+
+  GeneratedFunction *f = e->gen;
+  Symbol *s = symbolOperand(mi, idx);
+  Relocation *reloc = allocateRelocation(f->context);
+
+  reloc->applySection = f->section;
+  reloc->symbolData.symbolName = s->name;
+  reloc->symbolData.symbol = s;
+  reloc->kind = RK_SYMBOL;
+  reloc->next = f->section->reloc;
+  f->section->reloc = reloc;
+
+  emitCallLiteral(f, reloc);
 }
 
 static enum JumpCondition conditionFor(uint32_t opcode) {
@@ -354,6 +391,17 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
     emitJumpTo(f, &e->labels[blockOperand(mi, 0)->id], JUMP_DISPLACEMENT_IS_SHORT);
     break;
 
+  case X86_PUSH:
+    // Always the full eight bytes, whatever the argument's own width: a stack
+    // argument occupies a whole eightbyte and the bytes above it are the
+    // callee's business to ignore.
+    emitPushReg(f, regOperand(e, mi, 0));
+    break;
+
+  case X86_CALL:
+    emitCallInstr(e, mi);
+    break;
+
   case X86_RET:
     emitEpilogue(e);
     break;
@@ -386,8 +434,10 @@ static int32_t layoutCalleeSaved(EmitContext *e) {
     e->calleeSavedOffset[idx] = -offset;
   }
 
-  // SysV wants rsp 16-aligned at a call boundary. Nothing emittable calls
-  // anything yet, but the frame is the wrong place to leave that to step 7.
+  // SysV wants rsp 16-aligned at a call boundary, and this is half of what
+  // keeps it so: rbp is 16-aligned after the prologue's push, so a frame size
+  // rounded to 16 leaves rsp aligned everywhere between calls. The other half
+  // is selectCall padding an odd number of stack arguments.
   return ALIGN_SIZE(offset, 2 * sizeof(intptr_t));
 }
 

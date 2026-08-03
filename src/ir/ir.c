@@ -47,6 +47,13 @@ Boolean isUnsignedIrType(enum IrTypeKind k) {
     return IR_U8 <= k && k <= IR_U64;
 }
 
+Boolean isUnsignedIrOperand(enum IrTypeKind k) {
+    // Pointers compare unsigned - an address above the middle of the space is
+    // not a negative address - and so does anything already narrowed to a
+    // predicate, whose only two values are 0 and 1.
+    return isUnsignedIrType(k) || k == IR_PTR || k == IR_REF || k == IR_LITERAL || k == IR_BOOL;
+}
+
 void cleanAndErase(IrInstruction *i) {
     assert(i->uses.size == 0);
     for (size_t ii = 0; ii < i->inputs.size; ++ii) {

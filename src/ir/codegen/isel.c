@@ -125,7 +125,20 @@ static void layoutBlocks(MachineFunction *mf) {
 // register, or an immediate?"). A constant is folded only when *every* use can
 // take it as an immediate; one use that cannot forces the register, and the
 // others then read it from there rather than the function carrying both forms.
+//
+// A symbol constant goes the same way for a different reason. The name of a
+// directly called function is one - 'f(x)' translates to a call whose first
+// input is the address of f - and the call encodes it as a relocated
+// displacement, so materializing the address into a register first would be a
+// register held across the whole function to hold something the instruction
+// spells out itself. It is only ever foldable *there*: taking a function's
+// address for any other purpose needs a real 'lea', which is a rule nothing
+// has yet, so such a constant keeps its register and comes out unselected.
 
+// Whether a constant can be an operand of every one of its users, rather than
+// a value some instruction has to materialize first. Called "immediate" after
+// the usual case; a folded symbol becomes an MO_SYMBOL operand rather than an
+// MO_IMM one, which is the same decision about a different operand kind.
 static Boolean allUsesTakeImmediate(const ArchSelector *sel, const IrInstruction *cnst) {
   for (size_t u = 0; u < cnst->uses.size; ++u) {
     const IrInstruction *use = getInstructionFromVector(&cnst->uses, u);
@@ -157,7 +170,14 @@ static Boolean allUsesTakeImmediate(const ArchSelector *sel, const IrInstruction
 static void decideConstants(MachineBuilder *b, const ArchSelector *sel) {
   for (const IrBasicBlock *block = b->mf->ir->blocks.head; block != NULL; block = block->next) {
     for (const IrInstruction *i = block->instrunctions.head; i != NULL; i = i->next) {
-      if (i->kind != IR_DEF_CONST || i->info.constant.kind != IR_CK_INTEGER) {
+      if (i->kind != IR_DEF_CONST) {
+        continue;
+      }
+
+      // A float or a string literal has no operand form on either target: both
+      // live in memory and are reached through an address, which is a rule
+      // nothing has yet.
+      if (i->info.constant.kind != IR_CK_INTEGER && i->info.constant.kind != IR_CK_SYMBOL) {
         continue;
       }
 
@@ -207,10 +227,15 @@ uint32_t machineBuilderVreg(MachineBuilder *b, const IrInstruction *value) {
 
 void setValueOperand(MachineBuilder *b, MachineInstr *mi, uint16_t idx,
                      const IrInstruction *value) {
-  if (machineBuilderIsFolded(b, value)) {
-    setImmediateOperand(mi, idx, value->info.constant.data.i);
-  } else {
+  if (!machineBuilderIsFolded(b, value)) {
     setRegisterOperand(mi, idx, machineVregForValue(b->mf, value));
+    return;
+  }
+
+  if (value->info.constant.kind == IR_CK_SYMBOL) {
+    setSymbolOperand(mi, idx, value->info.constant.data.s);
+  } else {
+    setImmediateOperand(mi, idx, value->info.constant.data.i);
   }
 }
 

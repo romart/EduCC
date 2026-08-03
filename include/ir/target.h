@@ -70,6 +70,13 @@ typedef struct _TargetDescriptor {
   uint32_t intRetReg;
   uint32_t fpRetReg;
 
+  // Every register a call destroys, of either class. Read together with
+  // MachineInstr.flags.isCall, which is what marks the instructions this
+  // applies to; see the comment there for why a call does not list them as
+  // operands instead.
+  const uint32_t *callerSavedRegs;
+  uint32_t callerSavedRegCount;
+
   // Registers the trivial "spill everything" allocator may use as scratch,
   // per register class (see docs/ir-codegen-design.md section 7 stage A). They
   // have to be registers *instruction selection never names itself*: the

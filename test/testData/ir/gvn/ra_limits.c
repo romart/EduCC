@@ -30,13 +30,24 @@
 //                     them). Only a placeholder can do this: nothing stage 1
 //                     genuinely selects names more than two, so the limit is
 //                     reached exclusively by MOP_UNSELECTED standing in for an
-//                     IR instruction with many inputs. A four-argument call is
-//                     the smallest one - the placeholder names the result, the
-//                     callee address and the four arguments, six against a
-//                     budget of three - and the function it is in already
-//                     carries hasUnselected, so nothing that could be emitted
-//                     is being turned away. Step 7 removes this case by
-//                     selecting calls properly.
+//                     IR instruction with many inputs, and the function it is
+//                     in already carries hasUnselected - so nothing that could
+//                     be emitted is being turned away.
+//
+//                     This was a four-argument call of ints until step 7 gave
+//                     calls a selection rule, at which point it stopped
+//                     reaching the limit: each argument became its own
+//                     one-register move and the widest instruction in the
+//                     function went back to naming two. 'long double' is what
+//                     reaches it now, and durably - the four arguments and the
+//                     result are five FP registers against a budget of three,
+//                     and lowering x87 arithmetic is soft-float work that
+//                     docs/ir-codegen-design.md section 11 puts outside step 7
+//                     altogether. Should that ever land, check whether any C
+//                     program can still reach this at all before rewriting the
+//                     fixture again: the honest answer may be that the refusal
+//                     has become defensive, and the place to say so is the
+//                     allocator rather than a test that no longer tests it.
 //
 // Values, checked against both the legacy pipeline and gcc, for whoever turns
 // these into executable fixtures at step 6: ra_byte_setcc(3, 10, 20, 30) == 60
@@ -58,8 +69,8 @@ int ra_byte_setcc(int n, ...) {
     return sum;
 }
 
-int ra_limits_callee(int a, int b, int c, int d);
+long double ra_limits_callee(long double a, long double b, long double c, long double d);
 
-int ra_scratch_budget(int a, int b) {
+long double ra_scratch_budget(long double a, long double b) {
     return ra_limits_callee(a, b, a + b, a - b);
 }
