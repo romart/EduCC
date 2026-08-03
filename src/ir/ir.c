@@ -741,15 +741,21 @@ void removeFromBlockList(IrBasicBlockList *list, IrBasicBlock *block) {
 }
 
 typedef struct _ConstantCacheData {
-    enum IrConstKind kind;
-    // Part of the key, not just a record of it: a constant instruction carries
-    // the width and signedness everything downstream reads off it, so 0 asked
-    // for as IR_I32 and 0 asked for as IR_U64 are two different instructions
-    // even though they hold the same bits. Keying on the value alone handed
-    // back whichever one happened to be built first, so a caller could ask for
-    // an I32 and be given a U64 - which is what made both arms of a ternary in
-    // tinyc/46_grep.c come out with different types and trip
+    // The whole key, together with the payload below. A constant instruction
+    // carries the width and signedness everything downstream reads off it, so 0
+    // asked for as IR_I32 and 0 asked for as IR_U64 are two different
+    // instructions even though they hold the same bits. Keying on the value
+    // alone handed back whichever one happened to be built first, so a caller
+    // could ask for an I32 and be given a U64 - which is what made both arms of
+    // a ternary in tinyc/46_grep.c come out with different types and trip
     // translateTernary's same-type assertion.
+    //
+    // The kind is deliberately *not* stored here: constKindOfType() derives it
+    // from the type, so keeping a copy would be a second field saying what the
+    // first already says, and comparing both would only ever confirm the
+    // derivation. The instruction still carries one, since its readers want a
+    // four-way discriminator on hand; the caller's is checked against the type
+    // in getOrAddConstant() and then dropped.
     enum IrTypeKind type;
     IrConstantData data;
     IrInstruction *value;
@@ -763,12 +769,36 @@ void addToCCDVector(Vector *v, ConstantCacheData *data) {
   addToVector(v, (intptr_t)data);
 }
 
+// Which union member of IrConstantData a constant of this type holds. The kind
+// is not independent information: a float type carries a float and nothing
+// else, and IR_LITERAL/IR_REF exist only to say "string" and "symbol" - they
+// are not machine types anything can compute with. Deriving it here is what
+// lets the cache key be the type alone; the instruction keeps a stored copy
+// because three of its four readers (isel, cp, irdump) want a four-way
+// discriminator on hand rather than a call at every use.
+static enum IrConstKind constKindOfType(enum IrTypeKind type) {
+    switch (type) {
+    case IR_F32:
+    case IR_F64:
+    case IR_F80:
+      return IR_CK_FLOAT;
+    case IR_LITERAL:
+      return IR_CK_LITERAL;
+    case IR_REF:
+      return IR_CK_SYMBOL;
+    default:
+      return IR_CK_INTEGER;
+    }
+}
+
 static IrInstruction *getFromCache(const ConstantCacheData *data) {
     const ConstantCacheData **cacheData = (const ConstantCacheData **)ctx->constantCache.storage;
     for (size_t i = 0; i < ctx->constantCache.size; ++i) {
         ConstantCacheData *cacheData = getCCDFromVector(&ctx->constantCache, i);
-        if (cacheData->kind == data->kind && cacheData->type == data->type) {
-            switch (data->kind) {
+        if (cacheData->type == data->type) {
+            // Same type means same union member on both sides, so one lookup
+            // covers the entry as well as the query.
+            switch (constKindOfType(data->type)) {
             case  IR_CK_INTEGER:
                 if (data->data.i == cacheData->data.i) {
                     assert(cacheData->value != NULL);
@@ -796,34 +826,15 @@ static IrInstruction *getFromCache(const ConstantCacheData *data) {
     return NULL;
 }
 
-// Which union member of IrConstantData a constant of this type holds. The kind
-// is not independent information: a float type carries a float and nothing
-// else, and IR_LITERAL/IR_REF exist only to say "string" and "symbol" - they
-// are not machine types anything can compute with. So the two are redundant,
-// and redundant-but-separately-stored is exactly the shape of the bug above.
-// The kind stays, because three of its four readers (isel, cp, irdump) want a
-// four-way discriminator and deriving it there would mean re-deriving it at
-// every use; but it is checked against the type here, at the one place both
-// are known, so the two can never drift apart the way the value and the type
-// did.
-static enum IrConstKind constKindOfType(enum IrTypeKind type) {
-    switch (type) {
-    case IR_F32:
-    case IR_F64:
-    case IR_F80:
-      return IR_CK_FLOAT;
-    case IR_LITERAL:
-      return IR_CK_LITERAL;
-    case IR_REF:
-      return IR_CK_SYMBOL;
-    default:
-      return IR_CK_INTEGER;
-    }
-}
+static IrInstruction *getOrAddConstant(ConstantCacheData *data, enum IrConstKind kind, enum IrTypeKind type) {
 
-static IrInstruction *getOrAddConstant(ConstantCacheData *data, enum IrTypeKind type) {
-
-    assert(data->kind == constKindOfType(type));
+    // The caller says which union member it filled in; the type says which one
+    // a constant of that type holds. They have to agree, and this is the one
+    // place both are in hand. Asking for an *integer* constant of type
+    // IR_LITERAL - which is what 'flag && "text"' used to do - fails here
+    // rather than building a constant whose payload and whose type disagree
+    // about which member is live. Past this point only the type is kept.
+    assert(kind == constKindOfType(type));
 
     data->type = type;
 
@@ -833,7 +844,7 @@ static IrInstruction *getOrAddConstant(ConstantCacheData *data, enum IrTypeKind 
       return cached;
 
     // not found
-    IrInstruction *instr = newConstantInstruction(type, data->kind);
+    IrInstruction *instr = newConstantInstruction(type, kind);
     instr->info.constant.data = data->data;
 
     ConstantCacheData *newValue = areanAllocate(ctx->irArena, sizeof(ConstantCacheData));
@@ -853,32 +864,28 @@ static const ConstantCacheData *getCachedConstant(uint32_t idx) {
 
 IrInstruction *createIntegerConstant(enum IrTypeKind type, int64_const_t v) {
     ConstantCacheData d;
-    d.kind = IR_CK_INTEGER;
     d.data.i = v;
-    return getOrAddConstant(&d, type);
+    return getOrAddConstant(&d, IR_CK_INTEGER, type);
 }
 
 IrInstruction *createFloatConstant(enum IrTypeKind type, float80_const_t v) {
     ConstantCacheData d;
     memset(&d, 0, sizeof d);
-    d.kind = IR_CK_FLOAT;
     d.data.f = v;
-    return getOrAddConstant(&d, type);
+    return getOrAddConstant(&d, IR_CK_FLOAT, type);
 }
 
 IrInstruction *createSymbolConstant(Symbol *s) {
     ConstantCacheData d;
-    d.kind = IR_CK_SYMBOL;
     d.data.s = s;
-    return getOrAddConstant(&d, IR_REF);
+    return getOrAddConstant(&d, IR_CK_SYMBOL, IR_REF);
 }
 
 IrInstruction *createLiteralConstant(const char *v, size_t l) {
     ConstantCacheData d;
-    d.kind = IR_CK_LITERAL;
     d.data.l.length = l;
     d.data.l.s = v;
-    return getOrAddConstant(&d, IR_LITERAL);
+    return getOrAddConstant(&d, IR_CK_LITERAL, IR_LITERAL);
 }
 
 IrInstruction *newGEPInstruction(IrInstruction *base, IrInstruction *offset, const TypeRef *underType) {
