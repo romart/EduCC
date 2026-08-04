@@ -1304,7 +1304,10 @@ static IrInstruction *translatePostOp(AstExpression *expr) {
 
   addStoreInstr(lvalue, newValue, expr);
 
-  return operation;
+  // The *old* value, which is the whole difference between 'i++' and '++i'.
+  // Returning the operation's result instead made 'if (i++ == 3)' compare
+  // i + 1, and the store above is what carries the increment.
+  return oldValue;
 }
 
 static IrInstruction *translateLabelRef(AstExpression *expr) {
