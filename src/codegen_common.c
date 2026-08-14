@@ -208,6 +208,31 @@ static MachineFunction *machineFunctionFor(struct _IrFunctionList *irFunctions,
   return NULL;
 }
 
+// Gives storage to the static variables declared inside a function the IR
+// backend emitted. See IrFunction.staticLocals for why the two backends need
+// different arrangements for the same thing.
+static void emitStaticLocals(GenerationContext *ctx, ArchCodegen *archCodegen,
+                             GeneratedFile *file, const IrFunction *irFunc) {
+  for (size_t idx = 0; idx < irFunc->staticLocals.size; ++idx) {
+    AstValueDeclaration *v = (AstValueDeclaration *)getFromVector(&irFunc->staticLocals, idx);
+
+    // A file-scope variable is emitted once, from the translation unit walk;
+    // only the ones declared inside a function reach here without storage.
+    if (v->gen != NULL) {
+      continue;
+    }
+
+    GeneratedVariable *gv = archCodegen->generateVaribale(ctx, v);
+    if (gv == NULL) {
+      continue;
+    }
+
+    v->gen = gv;
+    gv->next = file->staticVariables;
+    file->staticVariables = gv;
+  }
+}
+
 GeneratedFile *generateCodeForFile(ParserContext *pctx, ArchCodegen *archCodegen, AstFile *astFile,
                                    struct _IrFunctionList *irFunctions) {
     Section nullSection = { "", SHT_NULL, 0x00, 0 };
@@ -280,6 +305,18 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, ArchCodegen *archCodegen
 
           GeneratedFunction *f = fromIr ? archCodegen->generateFunctionFromIr(&ctx, mf)
                                         : archCodegen->generateFunction(&ctx, unit->definition);
+
+          if (fromIr) {
+            // A 'static' declared inside the function. The legacy backend
+            // emits one as it walks past the declaration statement; the IR
+            // backend never sees a declaration - by the time it runs the body
+            // is a CFG the declaration left no trace in - so the translator
+            // listed them and this is where they get their storage. Skipping
+            // it leaves the symbol referenced and undefined, which the ELF
+            // writer discovers as a null GeneratedVariable much later.
+            emitStaticLocals(&ctx, archCodegen, file, mf->ir);
+          }
+
           unit->definition->declaration->gen = f;
           unit->definition->declaration->symbol->function->gen = f;
 

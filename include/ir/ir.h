@@ -42,6 +42,20 @@ struct _IrFunction {
     size_t numOfBlocks;
     struct _LocalValueInfo *localOperandMap;
 
+    // Variables declared inside this function that live in static storage
+    // rather than on the stack, as AstValueDeclaration *. They have no alloca
+    // and nothing in the IR points at their storage - a reference to one is an
+    // ordinary symbol constant - so the only record that this function is what
+    // brought them into existence is this list.
+    //
+    // The legacy backend emits them on its way past the declaration statement
+    // while generating the body. The IR backend has no such moment: by the
+    // time it runs, the body is a CFG in which the declaration left no trace.
+    // So they are collected here as the translator goes past them, and
+    // generateCodeForFile() emits them for the functions it takes from the IR
+    // backend. Without that the symbol is referenced and never defined.
+    Vector staticLocals;
+
     uint32_t id;
 
     struct {

@@ -44,6 +44,7 @@ static IrFunction *newIrFunction(AstFunctionDefinition *function) {
   func->id = ctx->functionCnt++;
   func->entry = newBasicBlock("<entry>");
   func->exit = newBasicBlock("<exit>");
+  initVector(&func->staticLocals, INITIAL_VECTOR_CAPACITY);
   return func;
 }
 
@@ -1474,14 +1475,31 @@ static Boolean translateBlock(AstStatement *block) {
   return terminated;
 }
 
+// A variable declared inside a function but living in static storage: a local
+// 'static', or a local 'extern' declaration of something defined elsewhere.
+//
+// There is nothing to translate - a reference to one is a symbol constant like
+// any other global's, and its initializer is a compile-time constant the data
+// section carries rather than code. What there is to do is remember it, so
+// that whoever emits this function also emits its storage; see
+// IrFunction.staticLocals.
 static void translateGlobalVariable(AstValueDeclaration *v) {
   assert(!v->flags.bits.isLocal && "Should be non-local storaged variable");
 
-  // unimplemented("Global variable");
+  // An 'extern' declaration defines nothing; the definition is another
+  // translation unit's, and the linker is what connects them.
   if (v->flags.bits.isExternal)
     return;
 
-  // TODO: generate initializer
+  // A file-scope variable arrives here too, from the translation unit walk in
+  // translateAstToIr(), and that one is already emitted by
+  // generateCodeForFile(). Only a declaration inside a function - which is
+  // what having a current function means - needs listing.
+  if (ctx->currentFunc == NULL) {
+    return;
+  }
+
+  addToVector(&ctx->currentFunc->staticLocals, (intptr_t)v);
 }
 
 // Emits the alloca backing a local into whatever block is current, and records
