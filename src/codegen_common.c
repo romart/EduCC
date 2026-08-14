@@ -593,9 +593,17 @@ static size_t fillReference(GenerationContext *ctx, Section *section, AstExpress
 
   unsigned idx = 0;
 
-  int32_t typeSize = computeTypeSize(expr->type);
-
-  for (; idx < typeSize; ++idx) {
+  // A pointer-sized hole for the linker to write an address into, whatever the
+  // expression's own type says. It used to reserve computeTypeSize(expr->type)
+  // bytes instead, which is the same thing right up until the address taken is
+  // an array's: 'int arr[16]' names a 64-byte type, so a slot holding &arr
+  // reserved 64 bytes and shoved every later field of the initializer 56 bytes
+  // down, while the symbol's st_size went on describing the struct as it
+  // should have been laid out. The string-literal case below has always
+  // emitted sizeof(intptr_t) here, and serializeDataReloc() in src/elf.c only
+  // ever emits R_X86_64_64 - an eight-byte write - so this is the size both
+  // ends already agreed on.
+  for (; idx < sizeof(intptr_t); ++idx) {
       emitSectionByte(section, 0x00);
   }
 
