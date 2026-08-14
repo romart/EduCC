@@ -79,7 +79,7 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
   $r10 = not.4 $r10 ; %21
   MOP_SPILL.4 fi#5, $r10
   $r11 = MOP_RELOAD.4 fi#5
-  $r10 = MOP_UNSELECTED(IR_E_BITCAST) $r11 ; %22
+  $r10 = MOP_COPY.4 $r11 ; %22
   MOP_SPILL.4 fi#6, $r10
   $r11 = MOP_RELOAD.4 fi#0
   $r10 = MOP_COPY.4 $r11 ; %23
@@ -96,7 +96,7 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
   $r10 = sete.1 $r10 ; %27
   MOP_SPILL.4 fi#8, $r10
   $r11 = MOP_RELOAD.4 fi#8
-  $r10 = MOP_UNSELECTED(IR_E_BITCAST) $r11 ; %28
+  $r10 = MOP_COPY.4 $r11 ; %28
   MOP_SPILL.4 fi#9, $r10
   $r11 = MOP_RELOAD.4 fi#7
   $r10 = MOP_COPY.4 $r11 ; %29

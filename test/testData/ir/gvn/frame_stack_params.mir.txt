@@ -2,9 +2,9 @@
 MachineFunction 'frame_stack_params' [target = x86_64]
 VRegs: <none>
 Frame: 16 bytes
-  fi#0 : param 4/4 @ 16 'g'
-  fi#1 : param 4/4 @ 24 'h'
-  fi#2 : param 24/8 @ 32 's'
+  fi#0 : param 4/4 @ 16 'g' ; %21
+  fi#1 : param 4/4 @ 24 'h' ; %23
+  fi#2 : param 24/8 @ 32 's' ; %25
   fi#3 : local 16/4 @ -16 'arr' ; %28
 MBB #0, '<entry>', ir #0, -> #2
 

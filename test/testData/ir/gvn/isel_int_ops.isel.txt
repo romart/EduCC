@@ -40,13 +40,13 @@ MBB #0, '<entry>', ir #0, -> #2
 MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
   %v10 = MOP_COPY.4 %v8 ; %21
   %v10 = not.4 %v10 ; %21
-  %v11 = MOP_UNSELECTED(IR_E_BITCAST) %v10 ; %22
+  %v11 = MOP_COPY.4 %v10 ; %22
   %v12 = MOP_COPY.4 %v5 ; %23
   %v12 = add.4 %v12, %v11 ; %23
   %v13 = mov.4 0 ; %27
   test.4 %v9, %v9 ; %27
   %v13 = sete.1 %v13 ; %27
-  %v14 = MOP_UNSELECTED(IR_E_BITCAST) %v13 ; %28
+  %v14 = MOP_COPY.4 %v13 ; %28
   %v15 = MOP_COPY.4 %v12 ; %29
   %v15 = add.4 %v15, %v14 ; %29
   %v16 = MOP_COPY.4 %v6 ; %34

@@ -2,8 +2,8 @@
 MachineFunction 'param_ptr_vs_stack' [target = x86_64]
 VRegs: <none>
 Frame: 0 bytes
-  fi#0 : param 4/4 @ 16 'a6'
-  fi#1 : param 4/4 @ 24 'a7'
+  fi#0 : param 4/4 @ 16 'a6' ; %21
+  fi#1 : param 4/4 @ 24 'a7' ; %23
 MBB #0, '<entry>', ir #0, -> #2
 
 MBB #1, '<exit>', ir #1, <- #2

@@ -14,14 +14,21 @@
 //                     setcc claiming to read a register nothing has written
 //                     would be a use before def.
 //
-//                     Only va_arg produces one. Its lowering compares the
-//                     register-save-area offset against 48 and the result is
-//                     an IR_BOOL, one byte wide; a C comparison is an int
-//                     however it is written, including '_Bool b = a > b'. That
-//                     is also why this is a va_arg loop and not something
-//                     smaller. param_va_area covers the other half of varargs,
-//                     the register-save area va_start builds; this covers
-//                     reading it back out.
+//                     A C comparison is an int however it is written, so this
+//                     needs something whose *result* is a _Bool. A conversion
+//                     to _Bool is one: it is 'x != 0' rather than a narrowing
+//                     (see selectBooleanConversion), and the register it writes
+//                     is the one byte _Bool occupies.
+//
+//                     This was a va_arg loop until variadic functions were
+//                     refused wholesale - va_arg's lowering compares the
+//                     register-save-area offset against 48 and yields an
+//                     IR_BOOL, which was then the only source of one. That
+//                     refusal is a property of the IR rather than of this file
+//                     (see param_va_area, and section 6.11 of
+//                     docs/ir-codegen-design.md), and it took the case away
+//                     entirely: a function turned away before selection runs
+//                     has no setcc of any width in it.
 //
 //   ra_scratch_budget A single instruction naming more distinct registers than
 //                     the target reserves as scratch, which makes the whole
@@ -50,23 +57,12 @@
 //                     allocator rather than a test that no longer tests it.
 //
 // Values, checked against both the legacy pipeline and gcc, for whoever turns
-// these into executable fixtures at step 6: ra_byte_setcc(3, 10, 20, 30) == 60
-// and ra_byte_setcc(0) == 0. ra_scratch_budget has no definition for its
-// callee on purpose - it is never linked, only compiled.
+// these into executable fixtures at step 6: ra_byte_setcc(0, 0) == 0 and
+// ra_byte_setcc(4, 0) == 1. ra_scratch_budget has no definition for its callee
+// on purpose - it is never linked, only compiled.
 
-#include <stdarg.h>
-
-int ra_byte_setcc(int n, ...) {
-    va_list ap;
-    int sum = 0;
-
-    va_start(ap, n);
-    for (int i = 0; i < n; ++i) {
-        sum += va_arg(ap, int);
-    }
-    va_end(ap);
-
-    return sum;
+_Bool ra_byte_setcc(int a, int b) {
+    return (_Bool)(a | b);
 }
 
 long double ra_limits_callee(long double a, long double b, long double c, long double d);

@@ -12,7 +12,7 @@ MBB #0, '<entry>', ir #0, -> #2
   %v1 = MOP_COPY.4 $rsi ; %6
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  %v2 = MOP_UNSELECTED(IR_M_LOAD) %v0 ; %13
+  %v2 = mov.4 [%v0] ; %13
   %v3 = MOP_COPY.4 %v2 ; %17
   %v3 = add.4 %v3, %v1 ; %17
   %v4 = MOP_COPY.4 %v3 ; %25

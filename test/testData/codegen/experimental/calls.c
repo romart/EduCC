@@ -163,20 +163,18 @@ int main(void) {
     if (nine(9, 8, 7, 6, 5, 4, 3, 2, 1) != 9 + 16 + 28 + 48 + 80 + 128 + 192 + 256 + 256) failures += 32;
     if (constants_only() != 1 + 4 + 12 + 32 + 80 + 192) failures += 64;
 
-    // Both wide values are checked against a *variable* holding the same
-    // literal, not against the literal itself. Comparing against one directly
-    // is miscompiled - see test/testData/codegen/bugs/wide_immediate_compare.c,
-    // which is where that bug is pinned - and this fixture is about calls, so
-    // it has no business failing for a reason in the comparison. Passing the
-    // literal as the argument is the half that matters here: it is folded into
-    // the argument register as a movabs, which is the wide end of the
-    // fold-or-materialize decision.
-    long wideArg = 0x0123456789abcdefL;
-    long wideRet = 0x7ff0000000000001L;
-
-    if (wide_argument(0x0123456789abcdefL) != wideArg) failures += 128;
+    // A literal too wide for an imm32, at both ends: folded into the argument
+    // register as a movabs, and compared against directly on the way back.
+    //
+    // These used to be checked against a variable holding the same value,
+    // because comparing against the literal was miscompiled - the legacy
+    // backend handed a 64-bit constant to an instruction whose immediate is 32
+    // bits and never checked the range. That is fixed (see §10), and
+    // codegen/bugs/wide_immediate_compare.c is now an ordinary unmuted
+    // regression test, so the comparison can say what it means again.
+    if (wide_argument(0x0123456789abcdefL) != 0x0123456789abcdefL) failures += 128;
     if (answer() != 42) failures += 256;
-    if (wide_answer() != wideRet) failures += 512;
+    if (wide_answer() != 0x7ff0000000000001L) failures += 512;
     if (pick(1) != -1) failures += 1024;
     if (pick(0) != 1) failures += 2048;
 

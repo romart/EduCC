@@ -1,62 +1,55 @@
 --- Phase: isel ---
 MachineFunction 'frame_stack_params' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %64
-  %v1 : gp/8 ; %47
-  %v2 : gp/8 ; %27
-  %v3 : gp/8 ; %0
-  %v4 : gp/8 ; %21
-  %v5 : gp/8 ; %23
-  %v6 : gp/8 ; %25
-  %v7 : gp/8 ; %28
-  %v8 : gp/8 ; %32
-  %v9 : gp/4 ; %33
-  %v10 : gp/8 ; %37
-  %v11 : gp/4 ; %38
-  %v12 : gp/4 ; %42
-  %v13 : gp/4 ; %45
-  %v14 : gp/4 ; %46
-  %v15 : gp/8 ; %48
-  %v16 : gp/8 ; %49
-  %v17 : gp/4 ; %50
-  %v18 : gp/4 ; %51
+  %v0 : gp/8 ; %27
+  %v1 : gp/8 ; %0
+  %v2 : gp/8 ; %21
+  %v3 : gp/8 ; %23
+  %v4 : gp/8 ; %25
+  %v5 : gp/8 ; %28
+  %v6 : gp/8 ; %32
+  %v7 : gp/4 ; %33
+  %v8 : gp/8 ; %37
+  %v9 : gp/4 ; %38
+  %v10 : gp/4 ; %42
+  %v11 : gp/4 ; %45
+  %v12 : gp/4 ; %46
+  %v13 : gp/8 ; %48
+  %v14 : gp/8 ; %49
+  %v15 : gp/4 ; %50
+  %v16 : gp/4 ; %51
 Frame: 16 bytes
-  fi#0 : param 4/4 @ 16 'g'
-  fi#1 : param 4/4 @ 24 'h'
-  fi#2 : param 24/8 @ 32 's'
+  fi#0 : param 4/4 @ 16 'g' ; %21
+  fi#1 : param 4/4 @ 24 'h' ; %23
+  fi#2 : param 24/8 @ 32 's' ; %25
   fi#3 : local 16/4 @ -16 'arr' ; %28
 MBB #0, '<entry>', ir #0, -> #2
-  %v0 = mov.8 4 ; %64
-  %v1 = mov.8 0 ; %47
-  %v2 = mov.8 16 ; %27
-  %v3 = MOP_COPY.8 $rsp ; %0
-  %v4 = MOP_COPY.8 %v3 ; %21
-  %v4 = add.8 %v4, 16 ; %21
-  %v5 = MOP_COPY.8 %v3 ; %23
-  %v5 = add.8 %v5, 24 ; %23
-  %v6 = MOP_COPY.8 %v3 ; %25
-  %v6 = add.8 %v6, 32 ; %25
-  %v7 = MOP_UNSELECTED(IR_ALLOCA) %v2 ; %28
+  %v0 = mov.8 16 ; %27
+  %v1 = MOP_COPY.8 $rsp ; %0
+  %v2 = lea.8 fi#0 ; %21
+  %v3 = lea.8 fi#1 ; %23
+  %v4 = lea.8 fi#2 ; %25
+  %v5 = lea.8 fi#3 ; %28
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  %v8 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v7, %v1 ; %32
-  %v9 = MOP_UNSELECTED(IR_M_LOAD) %v4 ; %33
-  MOP_UNSELECTED(IR_M_STORE) %v8, %v9 ; %34
-  %v10 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v7, %v0 ; %37
-  %v11 = MOP_UNSELECTED(IR_M_LOAD) %v5 ; %38
-  MOP_UNSELECTED(IR_M_STORE) %v10, %v11 ; %39
-  %v12 = MOP_UNSELECTED(IR_M_LOAD) %v8 ; %42
-  %v13 = MOP_UNSELECTED(IR_M_LOAD) %v10 ; %45
-  %v14 = MOP_COPY.4 %v12 ; %46
-  %v14 = add.4 %v14, %v13 ; %46
-  %v15 = MOP_UNSELECTED(IR_GET_ELEMENT_PTR) %v6, %v1 ; %48
-  %v16 = MOP_UNSELECTED(IR_M_LOAD) %v15 ; %49
-  %v17 = MOP_UNSELECTED(IR_E_BITCAST) %v16 ; %50
-  %v18 = MOP_COPY.4 %v14 ; %51
-  %v18 = add.4 %v18, %v17 ; %51
+  %v6 = lea.8 [%v5] ; %32
+  %v7 = mov.4 [%v2] ; %33
+  mov.4 [%v6], %v7 ; %34
+  %v8 = lea.8 [%v5 + 4] ; %37
+  %v9 = mov.4 [%v3] ; %38
+  mov.4 [%v8], %v9 ; %39
+  %v10 = mov.4 [%v6] ; %42
+  %v11 = mov.4 [%v8] ; %45
+  %v12 = MOP_COPY.4 %v10 ; %46
+  %v12 = add.4 %v12, %v11 ; %46
+  %v13 = lea.8 [%v4] ; %48
+  %v14 = mov.8 [%v13] ; %49
+  %v15 = MOP_COPY.4 %v14 ; %50
+  %v16 = MOP_COPY.4 %v12 ; %51
+  %v16 = add.4 %v16, %v15 ; %51
 
 MBB #1, '<exit>', ir #1, <- #2
-  $rax = MOP_COPY.4 %v18 ; %54
+  $rax = MOP_COPY.4 %v16 ; %54
   ret ; %54
 
 

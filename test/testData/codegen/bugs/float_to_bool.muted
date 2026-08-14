@@ -1,0 +1,9 @@
+The legacy backend converts a float to _Bool by truncating it to an integer
+and testing that, so (_Bool)0.5 is 0 where C says 1, and (_Bool)NaN is 0 where
+C says 1.
+
+The -experimental backend compares against zero instead - see
+selectBooleanConversion in src/x86_64/isel_x86_64.c - and gets every case
+right, so this fixture already passes there and fails only under the default
+backend. Unmute once the legacy cast table grows a compare-against-zero for a
+_Bool destination.

@@ -19,7 +19,7 @@ MBB #0, '<entry>', ir #0, -> #2
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   $r11 = MOP_RELOAD.8 fi#0
-  $r10 = MOP_UNSELECTED(IR_M_LOAD) $r11 ; %9
+  $r10 = mov.4 [$r11] ; %9
   MOP_SPILL.4 fi#1, $r10
   $r11 = MOP_RELOAD.4 fi#1
   $r10 = MOP_COPY.4 $r11 ; %14
@@ -29,9 +29,9 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   MOP_SPILL.4 fi#2, $r10
   $r10 = MOP_RELOAD.8 fi#0
   $r11 = MOP_RELOAD.4 fi#2
-  MOP_UNSELECTED(IR_M_STORE) $r10, $r11 ; %15
+  mov.4 [$r10], $r11 ; %15
   $r11 = MOP_RELOAD.8 fi#0
-  $r10 = MOP_UNSELECTED(IR_M_LOAD) $r11 ; %17
+  $r10 = mov.4 [$r11] ; %17
   MOP_SPILL.4 fi#3, $r10
   $r11 = MOP_RELOAD.4 fi#1
   $r10 = MOP_COPY.4 $r11 ; %21

@@ -2,8 +2,8 @@
 MachineFunction 'param_abi_boundary' [target = x86_64]
 VRegs: <none>
 Frame: 0 bytes
-  fi#0 : param 4/4 @ 16 'i6'
-  fi#1 : param 8/8 @ 24 'f8'
+  fi#0 : param 4/4 @ 16 'i6' ; %21
+  fi#1 : param 8/8 @ 24 'f8' ; %47
 MBB #0, '<entry>', ir #0, -> #2
 
 MBB #1, '<exit>', ir #1, <- #2

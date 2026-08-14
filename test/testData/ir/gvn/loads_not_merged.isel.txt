@@ -11,11 +11,11 @@ MBB #0, '<entry>', ir #0, -> #2
   %v0 = MOP_COPY.8 $rdi ; %3
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  %v1 = MOP_UNSELECTED(IR_M_LOAD) %v0 ; %9
+  %v1 = mov.4 [%v0] ; %9
   %v2 = MOP_COPY.4 %v1 ; %14
   %v2 = add.4 %v2, 1 ; %14
-  MOP_UNSELECTED(IR_M_STORE) %v0, %v2 ; %15
-  %v3 = MOP_UNSELECTED(IR_M_LOAD) %v0 ; %17
+  mov.4 [%v0], %v2 ; %15
+  %v3 = mov.4 [%v0] ; %17
   %v4 = MOP_COPY.4 %v1 ; %21
   %v4 = add.4 %v4, %v3 ; %21
 
