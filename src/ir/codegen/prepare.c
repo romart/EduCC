@@ -267,6 +267,19 @@ static void layoutIncomingParameters(MachineFunction *mf) {
     MachineFrameObject *obj = machineFrameObjectAt(mf, frameIdx);
     obj->declaration = lvi->declaration;
     obj->offset = lvi->frameOffset;
+    obj->origin = lvi->stackSlot;
+
+    // The IR spells this address as '$rsp + <offset>', and the offset it uses
+    // is measured from the *frame* pointer - it is 16 for the first stack
+    // argument, which is where rbp+16 is and not where rsp+16 is. Nothing had
+    // noticed, because the legacy backend does not read the IR and the new one
+    // could not select anything that touched memory.
+    //
+    // Rather than correct the base and leave selection to add a constant to
+    // it, the value is pointed at the frame object just laid out for it, which
+    // is the same thing an alloca gets and reaches emission the same way: as
+    // one 'lea' off whatever register the frame is actually addressed by.
+    putAtVector(&mf->irToFrameIdx, lvi->stackSlot->id, (intptr_t)frameIdx + 1);
   }
 }
 

@@ -136,38 +136,46 @@ static int findAssignment(const ScratchAssignment *table, size_t count, uint32_t
 //
 // Returns the number of entries, or -1 when the instruction names more
 // distinct registers of some class than the target has scratch for.
-static int collectAssignments(const MachineFunction *mf, const MachineInstr *mi,
+static int collectAssignments(const MachineFunction *mf, MachineInstr *mi,
                               ScratchAssignment *table) {
   size_t count = 0;
   uint32_t needed[RC_CLASS_COUNT] = {0};
 
   for (uint16_t idx = 0; idx < mi->numOperands; ++idx) {
-    const MachineOperand *op = &mi->operands[idx];
+    MachineOperand *op = &mi->operands[idx];
+    uint32_t *regs[MAX_OPERAND_REGS];
+    uint16_t numRegs = machineOperandRegisters(op, regs);
 
-    if (op->kind != MO_REG || !isVirtualRegister(op->info.reg)) {
-      continue;
-    }
+    for (uint16_t r = 0; r < numRegs; ++r) {
+      uint32_t reg = *regs[r];
 
-    int found = findAssignment(table, count, op->info.reg);
-
-    if (found < 0) {
-      if (count == MAX_SCRATCH_REGS) {
-        return -1;
+      if (!isVirtualRegister(reg)) {
+        continue;
       }
 
-      found = (int)count++;
-      table[found].vreg = op->info.reg;
-      table[found].phys = NO_REG;
-      table[found].isRead = FALSE;
-      table[found].isWritten = FALSE;
+      int found = findAssignment(table, count, reg);
 
-      needed[machineRegisterClass(mf, op->info.reg)] += 1;
-    }
+      if (found < 0) {
+        if (count == MAX_SCRATCH_REGS) {
+          return -1;
+        }
 
-    if (op->flags.isDef) {
-      table[found].isWritten = TRUE;
-    } else {
-      table[found].isRead = TRUE;
+        found = (int)count++;
+        table[found].vreg = reg;
+        table[found].phys = NO_REG;
+        table[found].isRead = FALSE;
+        table[found].isWritten = FALSE;
+
+        needed[machineRegisterClass(mf, reg)] += 1;
+      }
+
+      // A register inside an addressing mode is read however the operand it
+      // sits in is flagged - see machineOperandRegisters.
+      if (op->flags.isDef && op->kind == MO_REG) {
+        table[found].isWritten = TRUE;
+      } else {
+        table[found].isRead = TRUE;
+      }
     }
   }
 
@@ -184,11 +192,12 @@ static int collectAssignments(const MachineFunction *mf, const MachineInstr *mi,
 //
 // It cannot when a single instruction names more distinct virtual registers of
 // one class than the target reserves as scratch, because there is then nowhere
-// to put them all at once. Nothing stage 1 selects comes close - across the
-// whole test corpus the widest selected instruction names two - but
-// MOP_UNSELECTED does: it stands in for an IR instruction with as many inputs
-// as that instruction had, and a call the selector turned away therefore reads
-// one register per argument.
+// to put them all at once. Across the whole test corpus the widest thing stage
+// 1 genuinely selects names three - a store through a base and an index, once
+// address operands existed - against a budget of three, so it fits, but only
+// just. MOP_UNSELECTED is what actually reaches the limit: it stands in for an
+// IR instruction with as many inputs as that instruction had, so a call the
+// selector turned away reads one register per argument.
 //
 // So the limit is only ever reached by a placeholder, which means only by a
 // function that already carries MachineFunction.hasUnselected and already
@@ -198,17 +207,25 @@ static int collectAssignments(const MachineFunction *mf, const MachineInstr *mi,
 //
 // Step 7 took the common case away: an ordinary integer call used to be the
 // placeholder that got here, and is now a sequence of one-register moves that
-// does not come close. What is left is the calls selection still refuses -
-// aggregates, and long double most durably, its lowering being outside step 7
-// altogether. test/testData/ir/gvn/ra_limits.c pins one, and if a later step
-// leaves nothing at all able to reach this, say so here rather than deleting
-// the check: it is cheap, and it is what makes the postcondition above a
-// statement about every function rather than about the ones tried so far.
-static Boolean fitsScratchBudget(const MachineFunction *mf) {
+// does not come close. What is left is the calls selection still refuses - a
+// large aggregate argument, and long double most durably, its lowering being
+// soft-float work outside step 7 altogether.
+// test/testData/ir/gvn/ra_limits.c pins one, and if a later step leaves
+// nothing at all able to reach this, say so here rather than deleting the
+// check: it is cheap, and it is what makes the postcondition above a statement
+// about every function rather than about the ones tried so far.
+//
+// Note that the margin is now one register, not several, and that a store
+// through base+index is what ate it. An addressing mode with a scaled index
+// *and* a displacement register, or any three-operand form, would need a
+// fourth scratch register rather than a fallback - so if this starts declining
+// functions that selection genuinely covered, the answer is to widen
+// TargetDescriptor.scratchRegs and not to relax the check.
+static Boolean fitsScratchBudget(MachineFunction *mf) {
   ScratchAssignment table[MAX_SCRATCH_REGS];
 
-  for (const MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
-    for (const MachineInstr *mi = mbb->instructions.head; mi != NULL; mi = mi->next) {
+  for (MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
+    for (MachineInstr *mi = mbb->instructions.head; mi != NULL; mi = mi->next) {
       if (collectAssignments(mf, mi, table) < 0) {
         return FALSE;
       }
@@ -253,15 +270,18 @@ static void allocateInstruction(RegAllocContext *ra, MachineInstr *mi) {
   }
 
   for (uint16_t idx = 0; idx < mi->numOperands; ++idx) {
-    MachineOperand *op = &mi->operands[idx];
+    uint32_t *regs[MAX_OPERAND_REGS];
+    uint16_t numRegs = machineOperandRegisters(&mi->operands[idx], regs);
 
-    if (op->kind != MO_REG || !isVirtualRegister(op->info.reg)) {
-      continue;
+    for (uint16_t r = 0; r < numRegs; ++r) {
+      if (!isVirtualRegister(*regs[r])) {
+        continue;
+      }
+
+      int found = findAssignment(table, (size_t)count, *regs[r]);
+      assert(found >= 0);
+      *regs[r] = table[found].phys;
     }
-
-    int found = findAssignment(table, (size_t)count, op->info.reg);
-    assert(found >= 0);
-    op->info.reg = table[found].phys;
   }
 
   // Spills after, walking a cursor along so that they too keep table order
@@ -287,18 +307,23 @@ static void allocateInstruction(RegAllocContext *ra, MachineInstr *mi) {
 // handed out: selection's own fixed registers count too, and reading them off
 // the result cannot get out of step with it.
 static void recordUsedPhysRegs(MachineFunction *mf) {
-  for (const MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
-    for (const MachineInstr *mi = mbb->instructions.head; mi != NULL; mi = mi->next) {
+  for (MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
+    for (MachineInstr *mi = mbb->instructions.head; mi != NULL; mi = mi->next) {
       for (uint16_t idx = 0; idx < mi->numOperands; ++idx) {
-        const MachineOperand *op = &mi->operands[idx];
+        uint32_t *regs[MAX_OPERAND_REGS];
+        uint16_t numRegs = machineOperandRegisters(&mi->operands[idx], regs);
 
-        if (op->kind != MO_REG || op->info.reg == NO_REG) {
-          continue;
+        for (uint16_t r = 0; r < numRegs; ++r) {
+          uint32_t reg = *regs[r];
+
+          if (reg == NO_REG) {
+            continue;
+          }
+
+          assert(isPhysicalRegister(reg) && "a virtual register survived allocation");
+          assert(reg < IR_PHYS_REG_MAX);
+          mf->usedPhysRegs |= (uint64_t)1 << reg;
         }
-
-        assert(isPhysicalRegister(op->info.reg) && "a virtual register survived allocation");
-        assert(op->info.reg < IR_PHYS_REG_MAX);
-        mf->usedPhysRegs |= (uint64_t)1 << op->info.reg;
       }
     }
   }

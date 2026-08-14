@@ -135,6 +135,11 @@ static int32_t dumpMachineOpcode(FILE *stream, const MachineFunction *mf, const 
 
   if (mi->opSize != 0) {
     r += fprintf(stream, ".%u", mi->opSize);
+    // 'movsx.8/1' - eight bytes out of one. Printed only for the instructions
+    // that name two widths, so every other line keeps the single suffix.
+    if (mi->srcSize != 0 && mi->srcSize != mi->opSize) {
+      r += fprintf(stream, "/%u", mi->srcSize);
+    }
   }
 
   return r;
@@ -242,6 +247,7 @@ static const char *frameObjectKindName(enum MachineFrameObjectKind kind) {
   case MFO_LOCAL: return "local";
   case MFO_INCOMING_PARAM: return "param";
   case MFO_DYNAMIC_ALLOCA_SAVE: return "sp-save";
+  case MFO_CALL_RESULT: return "call-result";
   case MFO_SPILL: return "spill";
   default: return "?";
   }

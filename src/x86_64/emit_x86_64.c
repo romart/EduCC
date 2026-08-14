@@ -150,6 +150,63 @@ static struct _Symbol *symbolOperand(const MachineInstr *mi, uint16_t idx) {
   return op->info.symbol;
 }
 
+// The address an operand denotes, in the form the assembler takes. Three
+// shapes, matching the three selection builds: a frame slot, a global's
+// rip-relative reference, and a plain base+index+displacement.
+static Address addressOperand(EmitContext *e, const MachineInstr *mi, uint16_t idx) {
+  const MachineOperand *op = machineOperandAt((MachineInstr *)mi, idx);
+
+  if (op->kind == MO_FRAME_IDX) {
+    return frameAddress(e, op->info.frameIdx);
+  }
+
+  assert(op->kind == MO_MEM);
+  const MachineAddress *m = &op->info.mem;
+  Address addr = { R_BAD, R_BAD, 0, m->disp, NULL, NULL };
+
+  if (m->symbol != NULL) {
+    // Addressed relative to the instruction pointer, with the linker filling
+    // the displacement in - byte for byte what the legacy backend's
+    // translateAddress() builds for a name that is not a local.
+    GeneratedFunction *f = e->gen;
+    Relocation *reloc = allocateRelocation(f->context);
+
+    reloc->applySection = f->section;
+    reloc->symbolData.symbol = m->symbol;
+    reloc->symbolData.symbolName = m->symbol->name;
+    reloc->kind = RK_SYMBOL;
+    reloc->next = f->section->reloc;
+    f->section->reloc = reloc;
+
+    // encodeAR reads no displacement in this form - the relocation is the
+    // whole of it - so a symbol reference carrying one would silently lose it.
+    assert(m->disp == 0 && "a displacement off a symbol has no encoding here");
+    assert(m->base == NO_REG && m->index == NO_REG);
+
+    addr.base = R_RIP;
+    addr.reloc = reloc;
+    return addr;
+  }
+
+  addr.base = m->base != NO_REG ? physReg(e, m->base) : R_BAD;
+
+  if (m->index != NO_REG) {
+    addr.index = physReg(e, m->index);
+    // SIB holds the scale as a shift amount, not as the multiplier, and
+    // MachineAddress carries the multiplier because that is what a target
+    // without a scaled-index mode would have to reject.
+    switch (m->scale) {
+    case 1: addr.scale = 0; break;
+    case 2: addr.scale = 1; break;
+    case 4: addr.scale = 2; break;
+    case 8: addr.scale = 3; break;
+    default: unreachable("x86 scales an index by 1, 2, 4 or 8");
+    }
+  }
+
+  return addr;
+}
+
 static MachineBasicBlock *blockOperand(const MachineInstr *mi, uint16_t idx) {
   const MachineOperand *op = machineOperandAt((MachineInstr *)mi, idx);
   assert(op->kind == MO_MBB);
@@ -268,6 +325,35 @@ static void emitCallInstr(EmitContext *e, const MachineInstr *mi) {
   emitCallLiteral(f, reloc);
 }
 
+// A widening move: opSize is the destination's width and srcSize the source's,
+// which together pick the opcode. x86 spells the 32-to-64 case with its own
+// instruction (movsxd) rather than with the 0F-prefixed family the narrower
+// sources use, and has no zero-extending form of it at all - selection knows
+// that and emits a plain 32-bit move instead, so it never arrives here.
+static void emitWiden(EmitContext *e, const MachineInstr *mi) {
+  enum Registers dst = regOperand(e, mi, 0);
+  enum Registers src = regOperand(e, mi, 1);
+  Boolean isSigned = mi->opcode == X86_MOVSX;
+  uint8_t srcSize = machineInstrSrcSize(mi);
+
+  assert(srcSize < mi->opSize && "a widening move that widens nothing");
+
+  if (srcSize == 4) {
+    assert(isSigned && "a 32-bit move already zero-extends; selection emits that instead");
+    emitMovsxdRR(e->gen, src, dst, mi->opSize);
+    return;
+  }
+
+  assert((srcSize == 1 || srcSize == 2) && "no widening move has this source width");
+  uint8_t opcode = srcSize == 1 ? (isSigned ? 0xBE : 0xB6) : (isSigned ? 0xBF : 0xB7);
+
+  if (mi->opSize == 8) {
+    emitMovxxRR64(e->gen, opcode, src, dst);
+  } else {
+    emitMovxxRR(e->gen, opcode, src, dst);
+  }
+}
+
 static enum JumpCondition conditionFor(uint32_t opcode) {
   switch (opcode) {
   case X86_SETE:  case X86_JE:  return JC_EQ;
@@ -280,16 +366,18 @@ static enum JumpCondition conditionFor(uint32_t opcode) {
   case X86_SETBE: case X86_JBE: return JC_B_E;
   case X86_SETA:  case X86_JA:  return JC_A;
   case X86_SETAE: case X86_JAE: return JC_A_E;
+  case X86_SETP:  case X86_JP:  return JC_PARITY;
+  case X86_SETNP: case X86_JNP: return JC_NOT_PARITY;
   default: unreachable("not a conditional opcode");
   }
 }
 
 static Boolean isSetcc(uint32_t opcode) {
-  return opcode >= X86_SETE && opcode <= X86_SETAE;
+  return opcode >= X86_SETE && opcode <= X86_SETNP;
 }
 
 static Boolean isJcc(uint32_t opcode) {
-  return opcode >= X86_JE && opcode <= X86_JAE;
+  return opcode >= X86_JE && opcode <= X86_JNP;
 }
 
 static void emitInstruction(EmitContext *e, const MachineInstr *mi);
@@ -337,6 +425,82 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
     // Register-to-register moves are MOP_COPY; this is only ever an immediate.
     emitMoveCR(f, immOperand(mi, 1), regOperand(e, mi, 0),
                typeIdForImmediate(mi->opSize, immOperand(mi, 1)));
+    break;
+
+  case X86_LEA: {
+    Address addr = addressOperand(e, mi, 1);
+    emitLea(f, &addr, regOperand(e, mi, 0));
+    break;
+  }
+
+  case X86_LOAD: {
+    Address addr = addressOperand(e, mi, 1);
+    uint32_t dstId = machineOperandAt((MachineInstr *)mi, 0)->info.reg;
+
+    if (isFpReg(e, dstId)) {
+      emitMovfpAR(f, &addr, physReg(e, dstId), mi->opSize);
+    } else {
+      emitMoveAR(f, &addr, physReg(e, dstId), mi->opSize);
+    }
+    break;
+  }
+
+  case X86_STORE: {
+    Address addr = addressOperand(e, mi, 0);
+    uint32_t srcId = machineOperandAt((MachineInstr *)mi, 1)->info.reg;
+
+    if (isFpReg(e, srcId)) {
+      emitMovfpRA(f, physReg(e, srcId), &addr, mi->opSize);
+    } else {
+      emitMoveRA(f, physReg(e, srcId), &addr, mi->opSize);
+    }
+    break;
+  }
+
+  case X86_MOVSX:
+  case X86_MOVZX:
+    emitWiden(e, mi);
+    break;
+
+  case X86_FADD: emitTwoAddress(e, mi, OP_FADD); break;
+  case X86_FSUB: emitTwoAddress(e, mi, OP_FSUB); break;
+  case X86_FMUL: emitTwoAddress(e, mi, OP_FMUL); break;
+  case X86_FDIV: emitTwoAddress(e, mi, OP_FDIV); break;
+
+  case X86_FCMP:
+  case X86_FUCMP:
+    // Like the integer compare, no destination: it writes only flags, so its
+    // operands start at index 0.
+    emitArithRR(f, mi->opcode == X86_FCMP ? OP_FOCMP : OP_FUCMP, regOperand(e, mi, 0),
+                regOperand(e, mi, 1), mi->opSize);
+    break;
+
+  case X86_MOVD:
+    // 66 0F 6E: 'movd xmm, r32' and, with REX.W, 'movq xmm, r64'. The bits go
+    // across unchanged - this is not a conversion.
+    emitMovdq(f, 0x66, 0x0F, 0x6E, regOperand(e, mi, 1), regOperand(e, mi, 0),
+              mi->opSize == 8);
+    break;
+
+  case X86_CVTF2F:
+    // cvtss2sd or cvtsd2ss, chosen by which way the widths go. The prefix
+    // names the *source* here, unlike the arithmetic above.
+    emitConvertFP(f, machineInstrSrcSize(mi) == 8 ? 0xF2 : 0xF3, 0x5A,
+                  regOperand(e, mi, 1), regOperand(e, mi, 0), FALSE);
+    break;
+
+  case X86_CVTSI2F:
+    // cvtsi2ss/cvtsi2sd: the prefix is the destination's float width, REX.W
+    // the source's integer width.
+    emitConvertFP(f, mi->opSize == 8 ? 0xF2 : 0xF3, 0x2A, regOperand(e, mi, 1),
+                  regOperand(e, mi, 0), machineInstrSrcSize(mi) == 8);
+    break;
+
+  case X86_CVTF2SI:
+    // cvttss2si/cvttsd2si - the truncating form, which is the one a C cast
+    // means; the rounding form would follow the current rounding mode.
+    emitConvertFP(f, machineInstrSrcSize(mi) == 8 ? 0xF2 : 0xF3, 0x2C,
+                  regOperand(e, mi, 1), regOperand(e, mi, 0), mi->opSize == 8);
     break;
 
   case X86_ADD:  emitTwoAddress(e, mi, OP_ADD); break;

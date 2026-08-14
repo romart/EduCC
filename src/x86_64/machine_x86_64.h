@@ -28,6 +28,18 @@
 
 #define X86_OPCODES                                                            \
   X86_OPCODE_DEF(MOV, "mov"),   /* dst <- immediate; reg-reg is MOP_COPY */    \
+  X86_OPCODE_DEF(LEA, "lea"),   /* dst <- an address, not what is at it: the   \
+                                   only way to get a frame slot's or a         \
+                                   global's address into a register */         \
+  X86_OPCODE_DEF(LOAD, "mov"),  /* dst <- [address] */                         \
+  X86_OPCODE_DEF(STORE, "mov"), /* [address] <- src. Spelled "mov" like the    \
+                                   load, because that is the mnemonic and the  \
+                                   operands say which way it goes - a dump     \
+                                   reads '%v2 = mov.4 [%v1]' one way and       \
+                                   'mov.4 [%v1], %v2' the other */             \
+  X86_OPCODE_DEF(MOVSX, "movsx"), /* widen, keeping the sign; opSize is the    \
+                                     destination and srcSize the source */     \
+  X86_OPCODE_DEF(MOVZX, "movzx"), /* widen, filling with zeroes */             \
   X86_OPCODE_DEF(ADD, "add"),                                                  \
   X86_OPCODE_DEF(SUB, "sub"),                                                  \
   X86_OPCODE_DEF(IMUL, "imul"), /* two-operand form: signed and unsigned       \
@@ -43,6 +55,28 @@
   X86_OPCODE_DEF(NOT, "not"),                                                  \
   X86_OPCODE_DEF(CMP, "cmp"),                                                  \
   X86_OPCODE_DEF(TEST, "test"),                                                \
+                                                                               \
+  /* SSE scalar arithmetic. One opcode per operation rather than one per       \
+     operation and width: opSize picks between the 'ss' and 'sd' encodings,    \
+     exactly as it picks between the integer widths above. */                  \
+  X86_OPCODE_DEF(FADD, "fadd"),                                                \
+  X86_OPCODE_DEF(FSUB, "fsub"),                                                \
+  X86_OPCODE_DEF(FMUL, "fmul"),                                                \
+  X86_OPCODE_DEF(FDIV, "fdiv"),                                                \
+  X86_OPCODE_DEF(FCMP, "comis"),   /* ordered: raises on a quiet NaN, which is \
+                                      what C's <, <=, > and >= are defined to  \
+                                      do */                                    \
+  X86_OPCODE_DEF(FUCMP, "ucomis"), /* unordered: quiet on a quiet NaN, for ==  \
+                                      and != */                                \
+  X86_OPCODE_DEF(MOVD, "movd"),    /* the bits of a GP register into an xmm    \
+                                      one unchanged, which is how a float      \
+                                      constant is materialized here without a  \
+                                      constant pool */                         \
+  X86_OPCODE_DEF(CVTF2F, "cvtf2f"),   /* float <-> double */                   \
+  X86_OPCODE_DEF(CVTSI2F, "cvtsi2f"), /* integer -> float; srcSize is the      \
+                                         integer's width */                    \
+  X86_OPCODE_DEF(CVTF2SI, "cvtf2si"), /* float -> integer, truncating, as a C  \
+                                         cast does; srcSize is the float's */  \
   X86_OPCODE_DEF(CDQ, "cdq"),   /* sign-extend the dividend into rdx:rax */    \
   X86_OPCODE_DEF(IDIV, "idiv"),                                                \
   X86_OPCODE_DEF(DIV, "div"),                                                  \
@@ -65,7 +99,11 @@
   X86_CC_DEF(L, "l"), X86_CC_DEF(LE, "le"), /* signed <, <= */                 \
   X86_CC_DEF(G, "g"), X86_CC_DEF(GE, "ge"), /* signed >, >= */                 \
   X86_CC_DEF(B, "b"), X86_CC_DEF(BE, "be"), /* unsigned <, <= */               \
-  X86_CC_DEF(A, "a"), X86_CC_DEF(AE, "ae")  /* unsigned >, >= */
+  X86_CC_DEF(A, "a"), X86_CC_DEF(AE, "ae"), /* unsigned >, >= */                \
+  /* Parity, which after a float compare means "unordered": one of the two     \
+     operands was a NaN. Only == and != need it - the ordered comparisons get  \
+     the answer they want out of the carry and zero flags alone. */            \
+  X86_CC_DEF(P, "p"), X86_CC_DEF(NP, "np")
 
 enum X86Opcode {
   // The list below has to start at MOP_TARGET_FIRST, and an enum continues

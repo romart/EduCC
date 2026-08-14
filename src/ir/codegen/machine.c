@@ -216,6 +216,35 @@ void setMemoryOperand(MachineInstr *mi, uint16_t idx, const MachineAddress *addr
   op->info.mem = *addr;
 }
 
+uint16_t machineOperandRegisters(MachineOperand *op, uint32_t **out) {
+  uint16_t count = 0;
+
+  switch (op->kind) {
+  case MO_REG:
+    out[count++] = &op->info.reg;
+    break;
+  case MO_MEM:
+    // NO_REG for either half is normal rather than exceptional - '[%v1]' has
+    // no index and '[rip + g]' has neither - so both are checked.
+    if (op->info.mem.base != NO_REG) {
+      out[count++] = &op->info.mem.base;
+    }
+    if (op->info.mem.index != NO_REG) {
+      out[count++] = &op->info.mem.index;
+    }
+    break;
+  default:
+    break;
+  }
+
+  assert(count <= MAX_OPERAND_REGS);
+  return count;
+}
+
+uint8_t machineInstrSrcSize(const MachineInstr *mi) {
+  return mi->srcSize != 0 ? mi->srcSize : mi->opSize;
+}
+
 void setFrameIndexOperand(MachineInstr *mi, uint16_t idx, int32_t frameIdx) {
   MachineOperand *op = machineOperandAt(mi, idx);
   op->kind = MO_FRAME_IDX;

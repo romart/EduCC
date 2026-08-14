@@ -130,6 +130,17 @@ typedef struct _MachineInstr {
 
   uint8_t opSize; // operand width in bytes; 0 when the opcode has no width
 
+  // The *source* width, for the handful of opcodes that name two: a sign- or
+  // zero-extending move, and every conversion between an integer and a float.
+  // 'movsx r64, r8' is one instruction with an eight-byte destination and a
+  // one-byte source, and opSize alone cannot say that.
+  //
+  // Zero for everything else, which is almost everything - an ALU instruction
+  // has one width and both of its operands have it. Read it through
+  // machineInstrSrcSize() rather than directly, so that "not set" reads as
+  // "the same as the destination" in the one place instead of at every use.
+  uint8_t srcSize;
+
   struct {
     // This instruction destroys every caller-saved register, whether or not it
     // names one. A call is the only thing that does.
@@ -192,10 +203,17 @@ enum MachineFrameObjectKind {
   // Where the stack pointer is parked before a dynamically sized allocation
   // moves it, so the frame can be restored.
   MFO_DYNAMIC_ALLOCA_SAVE,
-  // A virtual register's home, handed out by register allocation. Unlike the
-  // three above, these do not exist until stage 2 has run, which is why the
-  // frame is sized twice - once here for what the IR asked for, once by the
-  // allocator for what it had to spill.
+  // Where a call's returned struct is put when the ABI hands it back in a
+  // register rather than through a buffer the caller passed in. The IR has no
+  // allocation for it - it asked for none, because at IR level the call simply
+  // has a composite value - so selection is what discovers the need, and these
+  // appear during stage 1 rather than stage 0.
+  MFO_CALL_RESULT,
+  // A virtual register's home, handed out by register allocation - the last of
+  // the three sources the frame grows from, after what the IR asked for in
+  // stage 0 and what selection discovered in stage 1. Each of the three leaves
+  // MachineFrame.size correct for everything placed so far, so the prologue is
+  // emitted in stage 3 and not before.
   MFO_SPILL,
 };
 
@@ -326,6 +344,28 @@ void addMachineInstrAfter(MachineInstr *at, MachineInstr *mi);
 void eraseMachineInstr(MachineInstr *mi);
 
 MachineOperand *machineOperandAt(MachineInstr *mi, uint16_t idx);
+
+// Every register an operand names, as pointers into the operand so a caller
+// can rewrite them in place. One for MO_REG; up to two - base and index - for
+// MO_MEM; none for anything else. Writes at most MAX_OPERAND_REGS entries and
+// returns how many.
+//
+// This exists because a register hidden inside an addressing mode is still a
+// register: allocation has to reload it and rewrite it exactly like any other,
+// and reading 'op->kind == MO_REG' - which is what every pass did before
+// memory operands existed - silently walks past it and leaves a virtual
+// register in the finished code.
+//
+// A memory operand's registers are always *reads*, whichever half of the
+// operand list it sits in. Computing an address reads the registers it is
+// made of even when the instruction is a store, which writes what they point
+// at and not them; that is why a store's memory operand is built as a use.
+#define MAX_OPERAND_REGS 2
+uint16_t machineOperandRegisters(MachineOperand *op, uint32_t **out);
+
+// The source width of an instruction that names two, and the destination width
+// for the many that name one. See MachineInstr.srcSize.
+uint8_t machineInstrSrcSize(const MachineInstr *mi);
 void setRegisterOperand(MachineInstr *mi, uint16_t idx, uint32_t reg);
 void setImmediateOperand(MachineInstr *mi, uint16_t idx, int64_t imm);
 void setMemoryOperand(MachineInstr *mi, uint16_t idx, const MachineAddress *addr);
