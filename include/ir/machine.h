@@ -267,6 +267,17 @@ typedef struct _MachineFunction {
   // rather than emit nonsense for the opcode it does not recognise.
   Boolean hasUnselected;
 
+  // Why, when the whole function was turned away before selection rather than
+  // one instruction at a time. NULL otherwise, including when hasUnselected
+  // was set by an ordinary MOP_UNSELECTED placeholder - those say what they
+  // are in the dump themselves.
+  //
+  // It exists so that a dump of such a function is not just mysteriously
+  // empty: refusing before selection means the blocks hold nothing but stage
+  // 0's phi copies, and without this the baseline would show a function that
+  // looks finished and is not.
+  const char *refusalReason;
+
   // Set when register allocation declined this function - see
   // allocateRegisters(). Like hasUnselected it is a statement about
   // emittability and not about well-formedness: the machine function is

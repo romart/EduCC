@@ -96,7 +96,14 @@ MachineBasicBlock *machineBuilderBlock(MachineBuilder *b, const struct _IrBasicB
 // The placeholder for something with no selection rule yet, wired up to the IR
 // instruction's inputs and result so the machine function stays well formed.
 // Arch hooks call this from their default arm rather than asserting.
-void buildUnselected(MachineBuilder *b, const struct _IrInstruction *i);
+//
+// 'reason' is a short phrase saying what stopped this one, in the same voice
+// as the rest: "no rule yet", "aggregate argument", "dynamically sized". It is
+// logged, because a function silently falling back to the legacy backend is
+// the single hardest thing to notice about this pipeline - the program still
+// works, the tests still pass, and the only symptom is that the new backend
+// was not the one that built it. Say it out loud instead.
+void buildUnselected(MachineBuilder *b, const struct _IrInstruction *i, const char *reason);
 
 // ------------- entry point ------------------------
 

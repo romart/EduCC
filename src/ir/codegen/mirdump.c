@@ -291,6 +291,13 @@ int32_t dumpMachineFunction(FILE *stream, const MachineFunction *mf) {
   const char *name = mf->ast ? mf->ast->declaration->name : "<unnamed>";
   int32_t r = fprintf(stream, "MachineFunction '%s' [target = %s]\n", name, mf->target->name);
 
+  // Said here rather than left to be inferred from an empty body: a function
+  // refused before selection ran keeps nothing but stage 0's phi copies, and a
+  // baseline showing that without saying why looks like finished code.
+  if (mf->refusalReason != NULL) {
+    r += fprintf(stream, "Refused before selection: %s\n", mf->refusalReason);
+  }
+
   if (mf->vregs.size == 0) {
     r += fprintf(stream, "VRegs: <none>\n");
   } else {

@@ -5,6 +5,8 @@
 #include "machine_x86_64.h"
 #include "instructions_x86_64.h"
 
+static const char *callRefusalReason(const TargetDescriptor *target, const IrInstruction *call);
+
 // -============================ x86-64 instruction selection ==============-
 //
 // One IR instruction at a time, into the two-address form the ISA actually
@@ -56,7 +58,7 @@ static void selectConstant(MachineBuilder *b, const IrInstruction *i) {
   // Only the ones no use could take as an immediate reach here; the driver
   // dropped the rest (see decideConstants in src/ir/codegen/isel.c).
   if (i->info.constant.kind != IR_CK_INTEGER) {
-    buildUnselected(b, i);
+    buildUnselected(b, i, "string literal constant, which needs a constant pool");
     return;
   }
 
@@ -424,8 +426,10 @@ static void selectStackAdjust(MachineBuilder *b, uint32_t opcode, int64_t bytes)
 static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   const TargetDescriptor *target = b->mf->target;
 
-  if (!canSelectCall(target, i)) {
-    buildUnselected(b, i);
+  const char *refusal = callRefusalReason(target, i);
+
+  if (refusal != NULL) {
+    buildUnselected(b, i, refusal);
     return;
   }
 
@@ -598,11 +602,23 @@ static void selectReturn(MachineBuilder *b, const IrInstruction *i) {
   if (i->inputs.size != 0) {
     const IrInstruction *value = inputAt(i, 0);
 
-    // An aggregate return is either a hidden buffer the caller passed in rdi
-    // or a pair of registers, depending on its size, and long double comes
-    // back on the x87 stack - all three are the aggregate half of step 7.
-    if (value->type == IR_P_AGG || value->type == IR_F80) {
-      buildUnselected(b, i);
+    if (value->type == IR_F80) {
+      buildUnselected(b, i, "returns a long double, which lives on the x87 stack");
+      return;
+    }
+
+    // Returning a composite is the one half of step 7 the IR cannot express.
+    // SysV wants the bytes of a small one in rax:rdx and a large one copied
+    // into the buffer whose address the caller left in rdi - and the IR has
+    // neither: it hands back the address of a slot local to this function, and
+    // the incoming hidden pointer that a large return is supposed to be
+    // written through is not among the parameters at all. See section 5.3 of
+    // docs/ir-codegen-design.md, which records the same gap from stage 0's
+    // side. Calls *to* such a function are fine, and selected - it is only
+    // being one that cannot be.
+    if (value->type == IR_P_AGG || returnsCompositeByValue(b)) {
+      buildUnselected(b, i, "returns a composite by value, which the IR expresses"
+                            " as the address of a slot local to this function");
       return;
     }
 
@@ -666,7 +682,7 @@ static void selectInstruction_x86_64(MachineBuilder *b, const IrInstruction *i) 
   // useful than an abort: the rest of the function still selects, and the dump
   // names exactly what is missing.
   default:
-    buildUnselected(b, i);
+    buildUnselected(b, i, "no rule yet");
     break;
   }
 }
@@ -680,7 +696,7 @@ static void selectTerminator_x86_64(MachineBuilder *b, const IrInstruction *i) {
   // A switch table and a computed goto both need a jump through memory, which
   // needs an addressing mode, which is step 8.
   default:
-    buildUnselected(b, i);
+    buildUnselected(b, i, "a jump through memory, which needs an addressing mode");
     break;
   }
 }
@@ -760,6 +776,78 @@ static Boolean x86IsLegalImmediate(const IrInstruction *use, size_t operandIdx,
     return FALSE;
   }
 }
+
+
+// What this rule covers. Everything it turns away becomes a placeholder, which
+// is what it already was.
+// Returns NULL when this rule covers the call, and otherwise what stopped it,
+// for the log line the placeholder prints. Everything it turns away becomes a
+// placeholder, which is what it already was.
+// Whether any argument of this call is a composite too big to travel in one
+// register.
+//
+// Asked of the AST, because the IR no longer says: translateCall() copies such
+// an argument into a temporary and passes the temporary's *address*, which
+// reaches here as an ordinary IR_PTR and is indistinguishable from a genuine
+// pointer argument.
+//
+// It has to be refused, and not because of anything missing in this file. The
+// callee reads a large parameter as bytes on the stack - see the incoming
+// frame object layoutIncomingParameters() builds for one - while the caller,
+// as above, hands over a pointer. The two sides of the IR's own convention do
+// not meet, and the only reason no program has noticed is that every function
+// on either side of such a call has always fallen back to the legacy backend,
+// which has its own convention and is self-consistent. Selecting one of them
+// here would be the first time the mismatch mattered.
+static Boolean hasLargeAggregateArgument(const IrInstruction *call) {
+  const AstExpression *expr = call->meta.astExpr;
+
+  if (expr == NULL || expr->op != E_CALL) {
+    return FALSE;
+  }
+
+  for (AstExpressionList *args = expr->callExpr.arguments; args != NULL; args = args->next) {
+    TypeRef *type = args->expression->type;
+
+    if (isCompositeType(type) && computeTypeSize(type) > (int32_t)sizeof(intptr_t)) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+static const char *callRefusalReason(const TargetDescriptor *target, const IrInstruction *call) {
+  if (call->type == IR_F80) {
+    return "returns a long double, which lives on the x87 stack";
+  }
+
+  if (hasLargeAggregateArgument(call)) {
+    return "passes an aggregate argument larger than one register, which the IR"
+           " passes by address and the callee reads by value";
+  }
+
+  for (size_t idx = firstCallArgIndex(call); idx < call->inputs.size; ++idx) {
+    const IrInstruction *arg = inputAt(call, idx);
+
+    if (arg->type == IR_F80 || arg->type == IR_VOID) {
+      return "passes an argument of a type with no register class";
+    }
+
+    // A float argument past xmm7 would have to be pushed, and there is no
+    // 'push xmm'. It wants a store below the stack pointer instead, which is
+    // the same rewrite the whole outgoing-argument area wants and is not worth
+    // doing twice - so this refuses for now rather than growing a second way
+    // of placing an argument. Nothing reaches it: eight FP arguments is
+    // already more than any fixture has.
+    if (callArgClass(arg) == RC_FP && callArgLocation(target, call, idx) == NO_REG) {
+      return "passes a float argument on the stack, and there is no 'push xmm'";
+    }
+  }
+
+  return NULL;
+}
+
 
 const ArchSelector x86Selector = {
   .selectInstruction = &selectInstruction_x86_64,

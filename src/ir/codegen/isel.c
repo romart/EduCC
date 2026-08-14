@@ -249,7 +249,14 @@ MachineBasicBlock *machineBuilderBlock(MachineBuilder *b, const IrBasicBlock *ta
   return mbb;
 }
 
-void buildUnselected(MachineBuilder *b, const IrInstruction *i) {
+void buildUnselected(MachineBuilder *b, const IrInstruction *i, const char *reason) {
+  // The first refusal is the one that matters - it is what makes stage 3 hand
+  // the whole function back to the legacy backend - but the rest are printed
+  // too, because "what else would have to be selected for this function to
+  // make it through" is exactly the question the next step asks.
+  printf("ISEL: '%s' falls back at %c%u (%s): %s\n", b->mf->ir->ast->declaration->name, '%',
+         i->id, irInstructionMnemonic(i->kind), reason);
+
   // Inputs carrying no value of their own have no register to name and are
   // left out. What is kept is enough for the placeholder to look to liveness
   // like the thing it stands for: it reads these, and writes that.
@@ -323,6 +330,26 @@ void selectInstructions(MachineFunction *mf) {
   // honest outcome: an empty machine function is visibly unfinished, whereas
   // x86 instructions under a riscv64 header would not be.
   if (sel == NULL) {
+    return;
+  }
+
+  // A variadic *definition* cannot be built from this IR, whatever the target.
+  // va_start hands out arguments from a register save area that the six
+  // integer and eight SSE argument registers have to be spilled into on entry,
+  // and the translator allocates that area - '__va_area__' is right there in
+  // the locals - without ever emitting the stores that fill it. The legacy
+  // backend writes them in its own prologue, which is why variadic functions
+  // work at all; nothing here has an equivalent moment.
+  //
+  // Refused for the whole function rather than at some instruction, because
+  // there is no instruction to refuse: what is missing was never translated.
+  // Calling a variadic function is unaffected and is selected - only being one
+  // is the problem.
+  if (mf->ir->ast->declaration->isVariadic) {
+    mf->refusalReason = "variadic, and the IR has no stores filling the register"
+                        " save area va_start reads";
+    printf("ISEL: '%s' falls back: %s\n", mf->ir->ast->declaration->name, mf->refusalReason);
+    mf->hasUnselected = TRUE;
     return;
   }
 
