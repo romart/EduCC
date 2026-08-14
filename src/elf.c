@@ -109,6 +109,41 @@ static void serializeExternalSymbol(Section *symtab, Section *strtab, const char
   emitBuffer(symtab, (uint8_t*)(&extSym), sizeof(Elf64_Sym));
 }
 
+// Give every symbol this section's relocations name, but which is defined
+// somewhere else, an UND entry to point at. Every *defined* symbol already has
+// one by the time this runs, so whatever is left without an index is external.
+//
+// This has to see the relocations of the data sections too, not only .text's.
+// A cross-TU symbol whose address appears solely in a static initializer is
+// named by no instruction at all, and used to end up in no symbol table
+// either - serializeDataReloc then read back the zero symbolTableIndex was
+// born with and emitted the relocation against the null symbol, which ld
+// resolves to NULL rather than diagnosing.
+//
+// Index zero belongs to the null symbol and can never be a real one, so it
+// doubles as the "not yet emitted" mark: a symbol named by several
+// relocations gets one UND entry rather than one per reference.
+static unsigned serializeExternalSymbols(Section *symtab, Section *strtab, Relocation *reloc, unsigned idx) {
+
+  while (reloc) {
+      if (reloc->kind == RK_SYMBOL) {
+          Symbol *s = reloc->symbolData.symbol;
+          if (s->symbolTableIndex == 0) {
+              if (s->kind == ValueSymbol && s->variableDesc->gen == NULL) {
+                  serializeExternalSymbol(symtab, strtab, reloc->symbolData.symbolName);
+                  s->symbolTableIndex = idx++;
+              } else if (s->kind == FunctionSymbol && (s->function == NULL || s->function->gen == NULL)) {
+                  serializeExternalSymbol(symtab, strtab, reloc->symbolData.symbolName);
+                  s->symbolTableIndex = idx++;
+              }
+          }
+      }
+      reloc = reloc->next;
+  }
+
+  return idx;
+}
+
 static unsigned serializeSymbolTable(ElfFile *elfFile, GeneratedFile *file, unsigned *localsEnd) {
     Section *symTableSection = elfFile->sections.asStruct.symtab;
     Section *strSym = elfFile->sections.asStruct.strtab;
@@ -185,23 +220,9 @@ static unsigned serializeSymbolTable(ElfFile *elfFile, GeneratedFile *file, unsi
         f = f->next;
     }
 
-    Section *text = elfFile->sections.asStruct.text;
-
-    Relocation *reloc = text->reloc;
-
-    while (reloc) {
-        if (reloc->kind == RK_SYMBOL) {
-            Symbol *s = reloc->symbolData.symbol;
-            if (s->kind == ValueSymbol && s->variableDesc->gen == NULL) {
-                serializeExternalSymbol(symTableSection, strSym, reloc->symbolData.symbolName);
-                s->symbolTableIndex = idx++;
-            } else if (s->kind == FunctionSymbol && (s->function == NULL || s->function->gen == NULL)) {
-                serializeExternalSymbol(symTableSection, strSym, reloc->symbolData.symbolName);
-                s->symbolTableIndex = idx++;
-            }
-        }
-        reloc = reloc->next;
-    }
+    idx = serializeExternalSymbols(symTableSection, strSym, elfFile->sections.asStruct.text->reloc, idx);
+    idx = serializeExternalSymbols(symTableSection, strSym, elfFile->sections.asStruct.dataLocal->reloc, idx);
+    idx = serializeExternalSymbols(symTableSection, strSym, elfFile->sections.asStruct.rodataLocal->reloc, idx);
 
     return idx;
 }
