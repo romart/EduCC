@@ -956,8 +956,11 @@ static void generateCast(GeneratedFunction *f, AstCastExpression *cast) {
           case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break; // movzbx
           case T_U4: break;
           case T_U8: emitConvertWDQ(f, 0x98, 8); break; // cdqe
-          case T_F4: emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2ss eax, xmm0
-          case T_F8: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2sd eax, xmm0
+          // F3 selects the single-precision form and F2 the double-precision
+          // one, as everywhere else in this table; these two were the wrong
+          // way round, so '(double)someUnsignedChar' produced a float.
+          case T_F4: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2ss eax, xmm0
+          case T_F8: emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, FALSE); break; // cvtsi2sd eax, xmm0
           case T_F10:
             emitMovxxRR(f, 0xB7, R_ACC, R_ACC);
             emitPushReg(f, R_ACC);
@@ -999,13 +1002,18 @@ static void generateCast(GeneratedFunction *f, AstCastExpression *cast) {
           case T_BOOL: boolCastSize = 4;
           case T_U4: break;
           case T_U8: emitMoveRR(f, R_ACC, R_ACC, 4); break; // mov
+          // The move above zero-extends eax into rax, and the conversion then
+          // has to read all sixty-four bits of it: cvtsi2sd reads a *signed*
+          // integer, so the 32-bit form would take everything from 2^31 up as
+          // negative and undo the widening. That is the REX.W argument, and it
+          // was FALSE here - '(double)4000000000u' came out negative.
           case T_F4:
             emitMoveRR(f, R_ACC, R_ACC, sizeof(int32_t));
-            emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, FALSE); // cvtsi2ss eax, xmm0
+            emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, TRUE); // cvtsi2ss rax, xmm0
             break;
           case T_F8:
             emitMoveRR(f, R_ACC, R_ACC, sizeof(int32_t));
-            emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, FALSE); // cvtsi2ss eax, xmm0
+            emitConvertFP(f, 0xF2, 0x2A, R_ACC, R_FACC, TRUE); // cvtsi2sd rax, xmm0
             break;
           case T_F10:
             emitPushReg(f, R_ACC);
@@ -1053,7 +1061,11 @@ static void generateCast(GeneratedFunction *f, AstCastExpression *cast) {
             emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE); // cvttss2si eax, xmm0
             emitMovxxRR(f, 0xB7, R_ACC, R_ACC); // movzwx
             break;
-          case T_U4: emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, FALSE); break; // cvttss2si eax, xmm0
+          // The 64-bit form, not the 32-bit one: cvttss2si converts to a
+          // *signed* integer and answers 0x80000000 for anything above
+          // INT_MAX, which is half the unsigned range. Converting wide and
+          // keeping the low four bytes is exact for every result that fits.
+          case T_U4: emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, TRUE); break; // cvttss2si rax, xmm0
           case T_U8: emitConvertFP(f, 0xF3, 0x2C, R_FACC, R_ACC, TRUE); break; // cvttss2si eax, xmm0
           case T_F4: break;
           case T_F8: emitConvertFP(f, 0xF3, 0x5A, R_FACC, R_FACC, FALSE); // cvtss2sd xmm0, xmm0
@@ -1088,7 +1100,7 @@ static void generateCast(GeneratedFunction *f, AstCastExpression *cast) {
             emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE); // cvttsd2si eax,xmm0
             emitMovxxRR(f, 0xB7, R_ACC, R_ACC); // movzwx
             break;
-          case T_U4: emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, FALSE); break; // cvttsd2si eax,xmm0
+          case T_U4: emitConvertFP(f, 0xF2, 0x2C, R_FACC, R_ACC, TRUE); break; // cvttsd2si rax, xmm0
           case T_U8: generateF8toU8(f, R_FACC, R_ACC); break;
           case T_F4: emitConvertFP(f, 0xF2, 0x5A, R_FACC, R_FACC, FALSE); break; // cvtss2sd xmm0,xmm0
           case T_F8: break;
@@ -2854,8 +2866,20 @@ static Boolean generateStatement(GeneratedFunction *f, AstStatement *stmt) {
       if (retExpr) {
           if (isCompositeType(retExpr->type)) {
             Address src = { 0 };
-            assert(retExpr->op == EU_DEREF);
-            translateAddress(f, retExpr->unaryExpr.argument, &src);
+            if (retExpr->op == EU_DEREF) {
+              // An lvalue - the common 'return s;'. Its address is a frame
+              // slot or a global, so nothing has to be evaluated to name it.
+              translateAddress(f, retExpr->unaryExpr.argument, &src);
+            } else {
+              // Anything else composite-valued - a call, a ternary, a comma -
+              // leaves the *address* of its result in R_ACC, which is the same
+              // convention the composite cases of assignment and of initializer
+              // emission read it under (see emitInitializerImpl).
+              generateExpression(f, retExpr);
+              src.base = R_ACC;
+              src.index = R_BAD;
+              src.imm = 0;
+            }
 
             size_t retSize = computeTypeSize(retExpr->type);
             if (retSize > sizeof(intptr_t)) {
