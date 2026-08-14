@@ -136,11 +136,10 @@ if(BUILD_TESTING)
   # instruction selection covers, so the new backend actually emits them rather
   # than handing them back to the legacy one, and running them is the only
   # check that the bytes are right. The rest of the codegen tree compiles and
-  # runs correctly under -experimental too (78 of 79 fixtures at the time of
-  # writing, the one exception being the already-muted static_init_extern_symbol
-  # fixture, which hits a relocation bug in elf.c that has nothing to do with
-  # emission - see docs/ir-codegen-design.md section 10); turning the whole tree
-  # on is step 11 of that document's commit sequence.
+  # runs correctly under -experimental too - every fixture the legacy backend
+  # passes, at the time of writing, including through a bootstrapped compiler
+  # rather than only a gcc-built one; turning the whole tree on is step 11 of
+  # that document's commit sequence.
   #
   # The 'ssa' argument is there only because the pass-through slot comes after
   # the --ir-phase one; it is the runner's default and a codegen-mode run
