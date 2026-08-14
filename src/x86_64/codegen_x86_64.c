@@ -2544,20 +2544,31 @@ static enum JumpCondition generateFloatCondition(GeneratedFunction *f, AstExpres
 
       return invertion ? JC_ZERO : JC_NOT_ZERO;
   } else if (op == EB_LT || op == EB_LE) {
+      // 'a < b' is emitted as 'b > a', and has to be. A float comparison
+      // reports itself in the *unsigned* flags - carry for "below", zero for
+      // "equal" - and sets carry, zero and parity all at once when either
+      // operand is a NaN. Every relational operator is false on a NaN, so
+      // "above" is the usable half of that pair and "below" is not, and
+      // reaching it means swapping the operands.
+      //
+      // These returned the *signed* conditions until this was fixed, and
+      // comis leaves the sign and overflow flags clear: 'jl' was never taken
+      // and 'jge' always was, so '<' and '<=' were always false and '>' and
+      // '>=' always true.
+      generateExpression(f, right);
       if (rid == T_F10) {
-          generateExpression(f, right);
+          // st(0) is the right operand and st(1) the left, so fcomip already
+          // compares right against left - the swap, done by the stack.
           emitFPArith(f, OP_FOCMP, 1, TRUE);
           emitFPPop(f, 0);
-      } else if (right->op == EU_DEREF) {
-          translateAddress(f, right->unaryExpr.argument, &addr);
-          emitPopReg(f, R_ACC);
-          emitArithAR(f, OP_FOCMP, R_FACC, &addr, opSize);
       } else {
-          generateExpression(f, right);
-          emitPopReg(f, R_TMP);
-          emitArithRR(f, OP_FOCMP, R_FTMP, R_FACC, opSize);
+          // Into a float register: the left operand was spilled with a float
+          // push, and popping it into a general one - which is what this did -
+          // left the comparison reading a register nothing had written.
+          emitPopRegF(f, R_FTMP);
+          emitArithRR(f, OP_FOCMP, R_FACC, R_FTMP, opSize);
       }
-      return op == EB_LT ? invertion ? JC_NOT_L : JC_L : invertion ? JC_NOT_LE : JC_LE;
+      return op == EB_LT ? invertion ? JC_NOT_A : JC_A : invertion ? JC_NOT_A_E : JC_A_E;
   } else {
       generateExpression(f, right);
       if (rid == T_F10) {
@@ -2565,10 +2576,10 @@ static enum JumpCondition generateFloatCondition(GeneratedFunction *f, AstExpres
         emitFPArith(f, OP_FOCMP, 1, TRUE);
         emitFPPop(f, 0);
       } else {
-        emitPopReg(f, R_FTMP);
-        emitArithRR(f, OP_FOCMP, R_FACC, R_FTMP, opSize);
+        emitPopRegF(f, R_FTMP);
+        emitArithRR(f, OP_FOCMP, R_FTMP, R_FACC, opSize);
       }
-      return op == EB_GT ? invertion ? JC_NOT_G : JC_G : invertion ? JC_NOT_GE : JC_GE;
+      return op == EB_GT ? invertion ? JC_NOT_A : JC_A : invertion ? JC_NOT_A_E : JC_A_E;
   }
 
 }
