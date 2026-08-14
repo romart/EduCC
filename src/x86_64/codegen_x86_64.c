@@ -1245,35 +1245,42 @@ static void generateDiv(GeneratedFunction *f, AstExpression *binOp) {
   TypeId lid = typeToId(left->type);
   TypeId rid = typeToId(right->type);
 
-  enum Opcodes opcode;
+  // Get the divisor into R_TMP2 and divide by the register, whichever shape
+  // the right operand had. Dividing straight off an address is what this used
+  // to do when the divisor was an lvalue, and it cannot work here the way it
+  // does in generateBinary: a division pins *both* R_ACC (the dividend) and
+  // R_EDX (its high half, zeroed or sign-extended into just below), and
+  // translateAddress is free to have named either of them in the address it
+  // just built. The pop and the R_EDX setup then overwrote the address while
+  // the divide still needed it - 'hash % set->size' with the set in a local
+  // came out as 'pop %rax; idivq (%rax)', dividing by whatever the hash
+  // happened to point at.
+  //
+  // That branch also spelled the divide OP_SDIV outright instead of using the
+  // opcode chosen just above it, so an *unsigned* division by an lvalue got
+  // 'xor %rdx,%rdx' followed by a signed idiv. Sharing one tail is what stops
+  // the two from drifting apart again.
   if (right->op == EU_DEREF && lid == rid) {
       Address addr = { 0 };
       translateAddress(f, right->unaryExpr.argument, &addr);
-      emitPopReg(f, R_ACC);
-
-      if (isU) {
-        emitArithRR(f, OP_XOR, R_EDX, R_EDX, opSize);
-        opcode = OP_UDIV;
-      } else {
-        emitConvertWDQ(f, 0x99, opSize);
-        opcode = OP_SDIV;
-      }
-      emitArithAR(f, OP_SDIV, R_ACC, &addr, opSize);
+      emitMoveAR(f, &addr, R_TMP2, opSize);
   } else {
       generateExpression(f, right);
       emitMoveRR(f, R_ACC, R_TMP2, opSize);
-      emitPopReg(f, R_ACC);
-
-      if (isU) {
-        emitArithRR(f, OP_XOR, R_EDX, R_EDX, opSize);
-        opcode = OP_UDIV;
-      } else {
-        emitConvertWDQ(f, 0x99, opSize);
-        opcode = OP_SDIV;
-      }
-
-      emitArithRR(f, opcode, R_ACC, R_TMP2, opSize);
   }
+
+  emitPopReg(f, R_ACC);
+
+  enum Opcodes opcode;
+  if (isU) {
+    emitArithRR(f, OP_XOR, R_EDX, R_EDX, opSize);
+    opcode = OP_UDIV;
+  } else {
+    emitConvertWDQ(f, 0x99, opSize);
+    opcode = OP_SDIV;
+  }
+
+  emitArithRR(f, opcode, R_ACC, R_TMP2, opSize);
 
   if (isMod) {
       emitMoveRR(f, R_EDX, R_ACC, opSize);
