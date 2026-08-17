@@ -177,6 +177,7 @@ void emitQuad(GeneratedFunction *f, uint64_t w);
 void emitQuadOrDouble(GeneratedFunction *f, uint64_t w);
 
 ptrdiff_t emitStringWithEscaping(GenerationContext *ctx, Section *section, AstConst *_const);
+ptrdiff_t emitLiteralBytes(GenerationContext *ctx, Section *section, const char *bytes, size_t length);
 
 Boolean hasRelocationsInit(AstInitializer *init);
 size_t fillInitializer(GenerationContext *ctx, Section *section, AstInitializer *init, int32_t startOffset, size_t size);

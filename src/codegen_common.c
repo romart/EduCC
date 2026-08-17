@@ -580,6 +580,31 @@ ptrdiff_t emitStringWithEscaping(GenerationContext *ctx, Section *section, AstCo
   return sectionOffset;
 }
 
+// The same, for a caller holding the bytes rather than the AstConst they came
+// from - the IR backend, whose constant pool carries literals as bytes because
+// that is all its addresses ever needed to know about them.
+//
+// It goes through the same cache on purpose: the cache compares literals by
+// content and not by which AstConst they came from, so one copy in .rodata is
+// shared by every use in the file, whichever backend built the function. The
+// key has to outlive the map, which is why the hit is looked for with a
+// throwaway and only a miss allocates one that stays.
+ptrdiff_t emitLiteralBytes(GenerationContext *ctx, Section *section, const char *bytes, size_t length) {
+  AstConst probe = { 0 };
+
+  probe.op = CK_STRING_LITERAL;
+  probe.l.s = bytes;
+  probe.l.length = length;
+
+  ptrdiff_t cached = getFromHashMap(ctx->constCache.literalMap, (intptr_t)&probe);
+  if (cached) return cached - 1;
+
+  AstConst *key = areanAllocate(ctx->codegenArena, sizeof(AstConst));
+  *key = probe;
+
+  return emitStringWithEscaping(ctx, section, key);
+}
+
 static Boolean hasRelocationsExpr(AstExpression *expr) {
   switch (expr->op) {
   case E_CONST: return expr->constExpr.op == CK_STRING_LITERAL ? TRUE : FALSE;

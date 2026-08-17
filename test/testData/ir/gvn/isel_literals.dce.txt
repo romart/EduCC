@@ -1,0 +1,95 @@
+--- Phase: dce ---
+Function 'one'
+Locals:
+   r:-1|<ret_slot> = %2
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %3 = IR_DEF_CONST () [kind = literal, l = 6, s = "hello", id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %8 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %6 = IR_RET (%3) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %5 = IR_BRANCH () [target = #1]
+
+
+--- Phase: dce ---
+Function 'twice'
+Locals:
+   l:0|b = %3
+   l:1|a = %4
+   r:-1|<ret_slot> = %2
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %19 = IR_DEF_CONST () [kind = integer, v = 1, id = 2]
+  %5 = IR_DEF_CONST () [kind = literal, l = 5, s = "same", id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %15 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %13 = IR_RET (%19) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %12 = IR_BRANCH () [target = #1]
+
+
+--- Phase: dce ---
+Function 'distinct'
+Locals:
+   p:0|which = %2
+   r:-1|<ret_slot> = %5
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %10 = IR_DEF_CONST () [kind = literal, l = 7, s = "second", id = 2]
+  %8 = IR_DEF_CONST () [kind = literal, l = 6, s = "first", id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %17 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #5, strict dom #5
+
+  %15 = IR_RET (%12) []
+
+BB #2, '<FIRST>', <- #0, -> #3 #4, strict dom #0, dominatees [#3, #4, #5]
+
+  %7 = IR_CBRANCH (%3) [taken = #3, non taken = #4]
+
+BB #3, '<ifTrue>', <- #2, -> #5, strict dom #2, domination frontier [#5]
+
+  %9 = IR_BRANCH () [target = #5]
+
+BB #4, '<ifFalse>', <- #2, -> #5, strict dom #2, domination frontier [#5]
+
+  %11 = IR_BRANCH () [target = #5]
+
+BB #5, '<ternary_exit>', <- #3 #4, -> #1, strict dom #2, dominatees [#1]
+
+  %12 = IR_PHI ([%8, #3], [%10, #4]) []
+  %14 = IR_BRANCH () [target = #1]
+
+
+--- Phase: dce ---
+Function 'embedded'
+Locals:
+   r:-1|<ret_slot> = %2
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %3 = IR_DEF_CONST () [kind = literal, l = 10, s = "a\n\"b\\c\200\000d", id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %8 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %6 = IR_RET (%3) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %5 = IR_BRANCH () [target = #1]
+
+

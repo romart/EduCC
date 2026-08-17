@@ -73,10 +73,24 @@ enum MachineOperandKind {
   MO_NONE = 0,
   MO_REG,       // physical or virtual register, see FIRST_VREG
   MO_IMM,       // integer immediate
-  MO_MEM,       // base + index * scale + disp [+ symbol]
+  MO_MEM,       // an address, see MachineAddress
   MO_FRAME_IDX, // a frame slot; becomes frame-pointer-relative during emission
   MO_MBB,       // branch target
   MO_SYMBOL,    // call target or global; becomes a Relocation during emission
+};
+
+// What an address is measured from. The register terms of an address say how
+// far, this says from where, and the two are independent: keeping the second
+// as a tag rather than as "whichever pointer field is non-NULL" is what stops
+// the struct from growing one more mutually exclusive field per kind of thing
+// an address can name - a literal, a jump table, a float pool entry.
+enum MachineAddressKind {
+  // Zero on purpose: an address built by filling in registers and nothing else
+  // is anchored to those registers, which is the common case and the one a
+  // zeroed struct should mean.
+  MAK_REG = 0,  // base + index * scale + disp, and nothing else
+  MAK_SYMBOL,   // a named object, addressed relative to the instruction pointer
+  MAK_CONSTANT, // an entry of this function's constant pool, likewise
 };
 
 // Target-independent addressing mode. x86-64 lowers this to the Address struct
@@ -84,13 +98,41 @@ enum MachineOperandKind {
 // no scaled-index mode, so its selector only ever fills base and disp. Address
 // itself cannot be used here because it names x86 registers by their own enum
 // and lives in an arch-private header.
+//
+// A frame slot is an anchor too, in every way but this one: it is still a
+// separate operand kind (MO_FRAME_IDX), because folding it in here is what
+// makes '[rbp - 8 + rax*4]' expressible and that is address-mode folding's
+// business, not this struct's.
 typedef struct _MachineAddress {
+  enum MachineAddressKind kind;
+
   uint32_t base;  // register id, or NO_REG
   uint32_t index; // register id, or NO_REG
   uint32_t scale; // 1/2/4/8, 0 when there is no index
   int32_t disp;
-  struct _Symbol *symbol; // NULL unless this is a symbol-relative reference
+
+  union {
+    struct _Symbol *symbol; // MAK_SYMBOL
+    uint32_t constantIdx;   // MAK_CONSTANT, into MachineFunction.constants
+  } anchor;
 } MachineAddress;
+
+// A constant this function needs a copy of in memory, because there is no
+// instruction that materializes it and no name to reach it by. String literals
+// today; a jump table and a float too big for an immediate are the same thing
+// and land here when they arrive. The bytes are placed in a read-only section
+// by emission - selection has no section to put them in - so what an address
+// carries is an index into the pool, not a placed address.
+enum MachineConstantKind {
+  MCK_BYTES = 0, // literal bytes, copied out as they are
+};
+
+typedef struct _MachineConstant {
+  enum MachineConstantKind kind;
+  const char *bytes;
+  size_t size;
+  uint32_t alignment;
+} MachineConstant;
 
 typedef struct _MachineOperand {
   enum MachineOperandKind kind;
@@ -278,6 +320,12 @@ typedef struct _MachineFunction {
 
   MachineFrame frame;
 
+  // Of MachineConstant *, indexed by the constantIdx a MAK_CONSTANT address
+  // carries. Per function, like the frame and for the same reason - every
+  // machine structure here is; two functions naming the same bytes are made to
+  // share them by the section writer that places them, not by this vector.
+  Vector constants;
+
   // Set when selection left at least one MOP_UNSELECTED behind, i.e. this
   // function contains something stage 1 cannot express yet. Register
   // allocation is still meaningful on such a function - the placeholder has
@@ -406,6 +454,20 @@ int32_t machineFrameIndexForValue(const MachineFunction *mf, const struct _IrIns
 // had to spill - so that the second cannot round or sign things differently
 // from the first.
 int32_t placeMachineFrameObject(MachineFunction *mf, int32_t offset, int32_t frameIdx);
+
+// ------------- constant pool ------------------------
+
+// Deduplicating: the same bytes asked for twice give back the same index, so a
+// literal used twice in one function is one entry. Bytes are borrowed, not
+// copied - they outlive the pool, being the parser's or the IR's own storage.
+uint32_t addMachineConstant(MachineFunction *mf, enum MachineConstantKind kind, const char *bytes,
+                            size_t size, uint32_t alignment);
+const MachineConstant *machineConstantAt(const MachineFunction *mf, uint32_t constantIdx);
+
+// The rip-relative anchors carry the whole address in the relocation, so a
+// register term or a displacement beside one would be silently dropped by
+// every emitter. Stated once, rather than asserted at each of them.
+Boolean isMachineAddressWellFormed(const MachineAddress *addr);
 
 // ------------- build phase ------------------------
 MachineFunction *buildMachineFunction(struct _IrFunction *f);

@@ -453,6 +453,11 @@ void scp(IrFunction *func);
 void gvn(IrFunction *func);
 // ------------- dump utils ---------------------------------
 const char *irInstructionMnemonic(enum IrIntructionKind kind);
+// Bytes as a C string literal would have been written, with the trailing NUL
+// dropped. Shared with the machine dumper so that a literal reads the same in
+// both, and escaped rather than raw so that a dump stays comparable as text.
+int32_t dumpQuotedBytes(FILE *stream, const char *bytes, size_t size);
+
 int32_t dumpIrFunction(FILE *stream, const IrFunction *f);
 void dumpIrFunctionPhase(FILE *stream, const IrFunction *f, const char *phaseName);
 void dumpIrFunctionList(const char *fileName, const IrFunctionList *functions);

@@ -28,6 +28,7 @@ MachineFunction *createMachineFunction(IrFunction *f) {
   initVector(&mf->irToVreg, INITIAL_VECTOR_CAPACITY);
   initVector(&mf->irToFrameIdx, INITIAL_VECTOR_CAPACITY);
   initVector(&mf->frame.objects, INITIAL_VECTOR_CAPACITY);
+  initVector(&mf->constants, INITIAL_VECTOR_CAPACITY);
 
   return mf;
 }
@@ -414,6 +415,48 @@ int32_t placeMachineFrameObject(MachineFunction *mf, int32_t offset, int32_t fra
   obj->offset = -offset;
 
   return offset;
+}
+
+// ------------- constant pool ------------------------
+
+uint32_t addMachineConstant(MachineFunction *mf, enum MachineConstantKind kind, const char *bytes,
+                            size_t size, uint32_t alignment) {
+  // Linear, like the IR's own constant cache and for the same reason: a
+  // function has a handful of these, and a hash map keyed on bytes plus length
+  // would cost more to keep honest than the scan costs to run.
+  for (size_t idx = 0; idx < mf->constants.size; ++idx) {
+    const MachineConstant *c = machineConstantAt(mf, idx);
+    if (c->kind == kind && c->size == size && memcmp(c->bytes, bytes, size) == 0) {
+      return (uint32_t)idx;
+    }
+  }
+
+  MachineConstant *c = areanAllocate(mf->arena, sizeof(MachineConstant));
+
+  memset(c, 0, sizeof(MachineConstant));
+
+  c->kind = kind;
+  c->bytes = bytes;
+  c->size = size;
+  c->alignment = alignment;
+
+  uint32_t constantIdx = (uint32_t)mf->constants.size;
+  addToVector(&mf->constants, (intptr_t)c);
+
+  return constantIdx;
+}
+
+const MachineConstant *machineConstantAt(const MachineFunction *mf, uint32_t constantIdx) {
+  assert(constantIdx < mf->constants.size);
+  return (const MachineConstant *)getFromVector(&mf->constants, constantIdx);
+}
+
+Boolean isMachineAddressWellFormed(const MachineAddress *addr) {
+  if (addr->kind == MAK_REG) {
+    return TRUE;
+  }
+
+  return addr->base == NO_REG && addr->index == NO_REG && addr->disp == 0;
 }
 
 // The machine block mirroring a given IR block. A walk rather than a map: the

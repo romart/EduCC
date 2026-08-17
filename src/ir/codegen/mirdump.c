@@ -40,8 +40,19 @@ static int32_t dumpMachineAddress(FILE *stream, const MachineFunction *mf,
   int32_t r = fputc('[', stream);
   Boolean empty = TRUE;
 
-  if (addr->symbol != NULL) {
-    r += fprintf(stream, "%s", addr->symbol->name);
+  if (addr->kind == MAK_SYMBOL) {
+    r += fprintf(stream, "%s", addr->anchor.symbol->name);
+    empty = FALSE;
+  }
+
+  if (addr->kind == MAK_CONSTANT) {
+    // The bytes, not just the index: a pool entry read as 'cp#0' would send
+    // the reader to a table that is not in the dump, and the whole point of
+    // these baselines is that a wrong constant is visible in them.
+    const MachineConstant *c = machineConstantAt(mf, addr->anchor.constantIdx);
+
+    r += fprintf(stream, "cp#%u ", addr->anchor.constantIdx);
+    r += dumpQuotedBytes(stream, c->bytes, c->size);
     empty = FALSE;
   }
 

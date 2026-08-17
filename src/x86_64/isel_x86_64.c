@@ -125,7 +125,28 @@ static void selectConstant(MachineBuilder *b, const IrInstruction *i) {
     // finished by the linker. A directly called function's name never gets
     // here - that one folds into the call - so this is a variable, or a
     // function whose address is wanted as a value.
-    MachineAddress addr = { NO_REG, NO_REG, 0, 0, i->info.constant.data.s };
+    MachineAddress addr = { MAK_SYMBOL, NO_REG, NO_REG, 0, 0, { i->info.constant.data.s } };
+    MachineInstr *mi = buildMachineInstr(b, X86_LEA, 1, 1);
+
+    setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+    setMemoryOperand(mi, 1, &addr);
+    mi->opSize = sizeof(intptr_t);
+    return;
+  }
+
+  if (i->info.constant.kind == IR_CK_LITERAL) {
+    // A string literal's value *is* an address - of bytes that do not exist
+    // yet. They go in the pool; emission places the pool and turns the index
+    // below back into a section and an offset, which is the same rip-relative
+    // LEA the symbol case above builds, only resolved by us and not the
+    // linker. Alignment is 1: a char array has no other requirement, and
+    // asking for more would pad .rodata for nothing.
+    uint32_t constantIdx = addMachineConstant(b->mf, MCK_BYTES, i->info.constant.data.l.s,
+                                              i->info.constant.data.l.length, 1);
+
+    MachineAddress addr = { MAK_CONSTANT, NO_REG, NO_REG, 0, 0 };
+    addr.anchor.constantIdx = constantIdx;
+
     MachineInstr *mi = buildMachineInstr(b, X86_LEA, 1, 1);
 
     setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
@@ -139,10 +160,7 @@ static void selectConstant(MachineBuilder *b, const IrInstruction *i) {
     return;
   }
 
-  if (i->info.constant.kind != IR_CK_INTEGER) {
-    buildUnselected(b, i, "string literal constant, which needs a constant pool");
-    return;
-  }
+  assert(i->info.constant.kind == IR_CK_INTEGER);
 
   MachineInstr *mi = buildMachineInstr(b, X86_MOV, 1, 1);
   setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
@@ -156,7 +174,7 @@ static void selectConstant(MachineBuilder *b, const IrInstruction *i) {
 // holds it, plus a displacement when a GEP's offset folded to a constant.
 // Walking a GEP chain backwards into [base + index*scale + disp], which is
 // what turns 'a[i]' from three instructions into one, is address-mode folding
-// and belongs to step 8 - doing part of it here would mean doing it twice and
+// and belongs to step 10 - doing part of it here would mean doing it twice and
 // getting a different answer each time.
 
 // Whether a value of this type is something a single load or store can move.
@@ -177,7 +195,7 @@ static Boolean isAddressableIrType(enum IrTypeKind t) {
 // and a displacement - zero for everything except the chunks of a block copy.
 static void setAddressOperandAt(MachineBuilder *b, MachineInstr *mi, uint16_t idx,
                                 const IrInstruction *ptr, int32_t disp) {
-  MachineAddress addr = { machineBuilderVreg(b, ptr), NO_REG, 0, disp, NULL };
+  MachineAddress addr = { MAK_REG, machineBuilderVreg(b, ptr), NO_REG, 0, disp };
   setMemoryOperand(mi, idx, &addr);
 }
 
@@ -213,7 +231,7 @@ static void selectFrameAddress(MachineBuilder *b, const IrInstruction *i, int32_
 
 static void selectGep(MachineBuilder *b, const IrInstruction *i) {
   const IrInstruction *offset = inputAt(i, 1);
-  MachineAddress addr = { machineBuilderVreg(b, inputAt(i, 0)), NO_REG, 0, 0, NULL };
+  MachineAddress addr = { MAK_REG, machineBuilderVreg(b, inputAt(i, 0)), NO_REG, 0, 0 };
 
   if (machineBuilderIsFolded(b, offset)) {
     // Field access and constant subscripts, which is most of them.
@@ -221,7 +239,7 @@ static void selectGep(MachineBuilder *b, const IrInstruction *i) {
   } else {
     // Scale 1, because the IR hands over a byte offset that it has already
     // multiplied by the element size. Recovering the scale so the addressing
-    // mode can do that multiply is step 8's.
+    // mode can do that multiply is step 10's.
     addr.index = selectWidened(b, offset, sizeof(intptr_t));
     addr.scale = 1;
   }
@@ -545,7 +563,7 @@ static uint32_t setOpcodeFor(enum IrIntructionKind kind, Boolean isUnsigned) {
 // The compare materializes its boolean. When the only thing that boolean is
 // for is the branch right after it - much the commonest case - this is a cmp,
 // a setcc, and then a test of what the setcc just wrote. Collapsing that into
-// cmp + jcc is a folding, and foldings are step 8; correctness does not depend
+// cmp + jcc is a folding, and foldings are step 10; correctness does not depend
 // on it and the dumps say plainly what is being left on the table.
 static void selectCompare(MachineBuilder *b, const IrInstruction *i) {
   const IrInstruction *lhs = inputAt(i, 0);
@@ -575,10 +593,10 @@ static void selectCompare(MachineBuilder *b, const IrInstruction *i) {
 // across into an xmm one unchanged.
 //
 // The alternative is what the legacy backend does - park the value in .rodata
-// and load it rip-relative - which is one instruction instead of two and needs
-// a section, a dedup cache and a relocation. Worth having eventually, and
-// squarely address-mode work; until then this needs nothing that does not
-// already exist.
+// and load it rip-relative - which is one instruction instead of two. The
+// constant pool string literals brought in could hold these just as well; it
+// is a size question rather than a coverage one, since nothing refuses for
+// want of it.
 static int64_t floatConstantBits(const IrInstruction *i) {
   float80_const_t v = i->info.constant.data.f;
 
@@ -596,6 +614,14 @@ static int64_t floatConstantBits(const IrInstruction *i) {
 }
 
 static void selectFloatConstant(MachineBuilder *b, const IrInstruction *i) {
+  // Not through floatConstantBits: it would answer for a long double by
+  // rounding it to a double, and the bits of a value this does not represent
+  // are worse than no rule at all.
+  if (i->type == IR_F80) {
+    buildUnselected(b, i, "a long double constant, which has no SSE form");
+    return;
+  }
+
   uint8_t size = valueSize(i);
   uint32_t bits = createVirtualRegister(b->mf, RC_GP, size);
 
@@ -1336,7 +1362,7 @@ static void selectTerminator_x86_64(MachineBuilder *b, const IrInstruction *i) {
   case IR_RET: selectReturn(b, i); break;
 
   // A switch table and a computed goto both need a jump through memory, which
-  // needs an addressing mode, which is step 8.
+  // needs an addressing mode, which is step 10.
   default:
     buildUnselected(b, i, "a jump through memory, which needs an addressing mode");
     break;
@@ -1378,7 +1404,7 @@ static Boolean x86IsLegalImmediate(const IrInstruction *use, size_t operandIdx,
   // The right-hand operand only. x86 encodes an immediate as the source, so
   // 'c - x' has nowhere to put one; gvn already canonicalizes a commutative
   // operation's constant into this position, so the restriction costs almost
-  // nothing, and swapping the rest is a peephole for step 8.
+  // nothing, and swapping the rest is a peephole for step 10.
   if (operandIdx != 1) {
     return FALSE;
   }
@@ -1415,7 +1441,7 @@ static Boolean x86IsLegalImmediate(const IrInstruction *use, size_t operandIdx,
   // IR_E_MUL is deliberately absent. imul's immediate form is the
   // three-operand one, which is a different encoding from the two-address
   // shape everything above shares, so folding into it belongs with the rest of
-  // step 8 rather than as a special case here.
+  // step 10 rather than as a special case here.
   //
   // Divides are absent because x86 has no immediate divisor at all, and
   // everything else because it has no rule yet.

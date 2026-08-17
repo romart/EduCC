@@ -150,43 +150,55 @@ static struct _Symbol *symbolOperand(const MachineInstr *mi, uint16_t idx) {
   return op->info.symbol;
 }
 
-// The address an operand denotes, in the form the assembler takes. Three
-// shapes, matching the three selection builds: a frame slot, a global's
-// rip-relative reference, and a plain base+index+displacement.
-static Address addressOperand(EmitContext *e, const MachineInstr *mi, uint16_t idx) {
-  const MachineOperand *op = machineOperandAt((MachineInstr *)mi, idx);
+// A relocation against this function's own section, linked into the list the
+// object writer walks. What it resolves to is the caller's business.
+static Relocation *newSectionRelocation(GeneratedFunction *f) {
+  Relocation *reloc = allocateRelocation(f->context);
 
-  if (op->kind == MO_FRAME_IDX) {
-    return frameAddress(e, op->info.frameIdx);
-  }
+  reloc->applySection = f->section;
+  reloc->next = f->section->reloc;
+  f->section->reloc = reloc;
 
-  assert(op->kind == MO_MEM);
-  const MachineAddress *m = &op->info.mem;
+  return reloc;
+}
+
+// Addressed relative to the instruction pointer, with the linker filling the
+// displacement in - byte for byte what the legacy backend's translateAddress()
+// builds for a name that is not a local.
+static Address symbolAddress(EmitContext *e, const MachineAddress *m) {
+  Relocation *reloc = newSectionRelocation(e->gen);
+
+  reloc->kind = RK_SYMBOL;
+  reloc->symbolData.symbol = m->anchor.symbol;
+  reloc->symbolData.symbolName = m->anchor.symbol->name;
+
+  Address addr = { R_RIP, R_BAD, 0, 0, reloc, NULL };
+  return addr;
+}
+
+// The same rip-relative form, resolved here rather than by the linker: these
+// bytes are ours, so we place them and point at where they landed. RK_RIP
+// against a section and an offset is what the legacy backend builds for a
+// string literal, and going through emitLiteralBytes means a literal both
+// backends use is stored once.
+static Address constantAddress(EmitContext *e, const MachineAddress *m) {
+  GenerationContext *ctx = e->gen->context;
+  const MachineConstant *c = machineConstantAt(e->mf, m->anchor.constantIdx);
+
+  assert(c->kind == MCK_BYTES);
+
+  Relocation *reloc = newSectionRelocation(e->gen);
+
+  reloc->kind = RK_RIP;
+  reloc->sectionData.dataSection = ctx->rodata;
+  reloc->sectionData.dataSectionOffset = emitLiteralBytes(ctx, ctx->rodata, c->bytes, c->size);
+
+  Address addr = { R_RIP, R_BAD, 0, 0, reloc, NULL };
+  return addr;
+}
+
+static Address registerAddress(EmitContext *e, const MachineAddress *m) {
   Address addr = { R_BAD, R_BAD, 0, m->disp, NULL, NULL };
-
-  if (m->symbol != NULL) {
-    // Addressed relative to the instruction pointer, with the linker filling
-    // the displacement in - byte for byte what the legacy backend's
-    // translateAddress() builds for a name that is not a local.
-    GeneratedFunction *f = e->gen;
-    Relocation *reloc = allocateRelocation(f->context);
-
-    reloc->applySection = f->section;
-    reloc->symbolData.symbol = m->symbol;
-    reloc->symbolData.symbolName = m->symbol->name;
-    reloc->kind = RK_SYMBOL;
-    reloc->next = f->section->reloc;
-    f->section->reloc = reloc;
-
-    // encodeAR reads no displacement in this form - the relocation is the
-    // whole of it - so a symbol reference carrying one would silently lose it.
-    assert(m->disp == 0 && "a displacement off a symbol has no encoding here");
-    assert(m->base == NO_REG && m->index == NO_REG);
-
-    addr.base = R_RIP;
-    addr.reloc = reloc;
-    return addr;
-  }
 
   addr.base = m->base != NO_REG ? physReg(e, m->base) : R_BAD;
 
@@ -205,6 +217,31 @@ static Address addressOperand(EmitContext *e, const MachineInstr *mi, uint16_t i
   }
 
   return addr;
+}
+
+// The address an operand denotes, in the form the assembler takes: a frame
+// slot, or one of the anchors MachineAddress distinguishes.
+static Address addressOperand(EmitContext *e, const MachineInstr *mi, uint16_t idx) {
+  const MachineOperand *op = machineOperandAt((MachineInstr *)mi, idx);
+
+  if (op->kind == MO_FRAME_IDX) {
+    return frameAddress(e, op->info.frameIdx);
+  }
+
+  assert(op->kind == MO_MEM);
+  const MachineAddress *m = &op->info.mem;
+
+  // encodeAR reads no displacement or register in the rip-relative forms - the
+  // relocation is the whole address - so one carrying either would silently
+  // lose it.
+  assert(isMachineAddressWellFormed(m));
+
+  switch (m->kind) {
+  case MAK_SYMBOL:   return symbolAddress(e, m);
+  case MAK_CONSTANT: return constantAddress(e, m);
+  case MAK_REG:      return registerAddress(e, m);
+  default: unreachable("unknown address anchor");
+  }
 }
 
 static MachineBasicBlock *blockOperand(const MachineInstr *mi, uint16_t idx) {

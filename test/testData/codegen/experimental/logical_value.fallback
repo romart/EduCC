@@ -1,5 +1,0 @@
-# A string literal has nowhere to live until the backend has a constant pool,
-# so any function mentioning one falls back. Delete this file once the constant
-# pool lands (step 9 of docs/ir-codegen-design.md).
-lit_and
-lit_or

@@ -6,6 +6,35 @@
 
 extern IrContext *ctx;
 
+int32_t dumpQuotedBytes(FILE *stream, const char *bytes, size_t size) {
+  int32_t r = fputc('"', stream);
+
+  // Every literal ends in one and printing it would only add noise. Interior
+  // NULs stay, escaped: a literal is bytes and a length, so stopping at the
+  // first NUL - which is what printing it as a C string does - would hide the
+  // rest of a constant the compiler is perfectly happy to carry.
+  if (size > 0 && bytes[size - 1] == '\0') {
+    --size;
+  }
+
+  for (size_t i = 0; i < size; ++i) {
+    unsigned char c = (unsigned char)bytes[i];
+    switch (c) {
+    case '\n': r += fprintf(stream, "\\n"); break;
+    case '\t': r += fprintf(stream, "\\t"); break;
+    case '\r': r += fprintf(stream, "\\r"); break;
+    case '"':  r += fprintf(stream, "\\\""); break;
+    case '\\': r += fprintf(stream, "\\\\"); break;
+    default:
+      // Octal, not raw: a dump is compared as text by the test runner, and one
+      // byte that is not valid UTF-8 makes the whole file unreadable to it.
+      r += (c >= 0x20 && c < 0x7f) ? fputc(c, stream) : fprintf(stream, "\\%03o", c);
+    }
+  }
+
+  return r + fputc('"', stream);
+}
+
 struct _IrInstructionDumpInfo {
   const char *mnemonic;
   const char *comment;
@@ -173,7 +202,8 @@ static int32_t dumpIrInstructionExtra(FILE *stream, const IrInstruction *instr) 
             r += fprintf(stream, "kind = integer, v = %lld", instr->info.constant.data.i);
             break;
       case IR_CK_LITERAL:
-            r += fprintf(stream, "kind = literal, l = %lu, s = '%s'", instr->info.constant.data.l.length, instr->info.constant.data.l.s);
+            r += fprintf(stream, "kind = literal, l = %lu, s = ", instr->info.constant.data.l.length);
+            r += dumpQuotedBytes(stream, instr->info.constant.data.l.s, instr->info.constant.data.l.length);
             break;
       case IR_CK_SYMBOL:
             r += fprintf(stream, "kind = symbol, name = %s", instr->info.constant.data.s->name);
