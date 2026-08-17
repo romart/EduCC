@@ -336,6 +336,7 @@ int main(int argc, char** argv) {
   StringList mhead = { 0 }, *mcur = &mhead;
   StringList lhead = { 0 }, *lcur = &lhead;
   StringList lDirHead = { 0 }, *lDirCur = &lDirHead;
+  StringList afHead = { 0 }, *afCur = &afHead;
 
   unsigned inputCountC = 0;
   unsigned inputCountO = 0;
@@ -391,6 +392,15 @@ int main(int argc, char** argv) {
       config.asmDump = 1;
     } else if (strcmp("-experimental", arg) == 0) {
       config.experimental = 1;
+    } else if (strcmp("-noFallback", arg) == 0) {
+      config.noFallback = 1;
+    } else if (strcmp("-allowFallback", arg) == 0) {
+      const char *fn = i + 1 < argc ? argv[++i] : NULL;
+      if (fn == NULL) {
+        fprintf(stderr, "function name expected after '-allowFallback' option\n");
+        return 2;
+      }
+      afCur = afCur->next = newStringNode(fn);
     } else if (strcmp("-c", arg) == 0) {
         config.objOutput = 1;
         continue;
@@ -487,6 +497,11 @@ int main(int argc, char** argv) {
     }
   }
 
+  if ((config.noFallback || afHead.next != NULL) && !config.experimental) {
+      fprintf(stderr, "fatal error: '-noFallback'/'-allowFallback' are only meaningful with '-experimental'\n");
+      return 2;
+  }
+
   if (config.objOutput && inputCountO > 0) {
       StringList *n = ohead.next;
       for (;n; n = n->next) {
@@ -506,6 +521,7 @@ int main(int argc, char** argv) {
   }
 
   config.macroses = mhead.next;
+  config.allowedFallbacks = afHead.next;
 
   StringList *compiledObjFiles = compileFiles(chead.next, &config, tmpDir);
 

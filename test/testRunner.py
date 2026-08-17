@@ -29,6 +29,15 @@ irPhase = 'ssa'
 # codegen through the IR pipeline instead of the legacy AST walker.
 compilerFlags = []
 
+# '--no-fallback': compile codegen fixtures with '-noFallback', so that a
+# function the IR backend hands back to the legacy one fails the test instead
+# of passing on legacy output. A '<name>.fallback' sibling lists, one per line,
+# the functions still allowed to fall back; '#' starts a comment. No file means
+# no function may. The compiler also rejects a listed function it did emit, so
+# the list cannot outlive what it excuses.
+checkFallback = False
+FALLBACK_ALLOW_EXT = '.fallback'
+
 # A test is muted by putting a '<name>.muted' file next to its '<name>.c'; the
 # file's contents are the reason, printed whenever the test runs. Muted tests
 # still run - they are known-broken fixtures kept in the repo so a bug stays
@@ -43,6 +52,21 @@ currentMuteReason = None
 
 mutedFailures = set()   # muted tests that failed, i.e. the marker is doing its job
 mutedPasses = set()     # muted tests that passed - candidates for unmuting
+
+
+def fallbackCheckFlags(dirname, name):
+    if not checkFallback:
+        return []
+
+    flags = ['-noFallback']
+    allowPath = dirname + '/' + name + FALLBACK_ALLOW_EXT
+    if path.exists(allowPath):
+        with open(allowPath) as allowFile:
+            for line in allowFile:
+                fn = line.split('#', 1)[0].strip()
+                if fn:
+                    flags.extend(['-allowFallback', fn])
+    return flags
 
 
 def muteMarkerPath(dirname, name):
@@ -201,7 +225,8 @@ def runCodegenTest(compiler, workingDir, dirname, name):
         args.append("")
 
     err = open(errFilePath, 'w+')
-    compilationCommand = [compiler] + compilerFlags + ["-oneline", "-o", binFileName, testFilePath, "-lm"]
+    compilationCommand = [compiler] + compilerFlags + fallbackCheckFlags(dirname, name) \
+                       + ["-oneline", "-o", binFileName, testFilePath, "-lm"]
     compilation = Popen(compilationCommand, stdout=sys.stdout, stderr=err)
     exit_code = compilation.wait()
     err.close()
@@ -377,6 +402,11 @@ def parseArguments():
                          help='extra flag passed to the compiler on every invocation, repeatable '
                               '(e.g. --compiler-flag -experimental to compile the fixtures through '
                               'the IR pipeline)')
+    parser.add_argument('--no-fallback', action='store_true',
+                         help="codegen mode: pass '-noFallback' so that a function the IR backend hands "
+                              "back to the legacy one fails the test. Exemptions go in a '<name>.fallback' "
+                              "sibling, one function name per line; a name listed there that no longer "
+                              "falls back fails the test too")
     parser.add_argument('--update-baselines', action='store_true',
                          help='write actual output as the new expected baseline for every test instead of comparing '
                               '(use after an intentional behavior change to regenerate golden files)')
@@ -388,9 +418,11 @@ def main():
     global updateBaselines
     global irPhase
     global compilerFlags
+    global checkFallback
 
     args = parseArguments()
     compilerFlags = args.compiler_flag
+    checkFallback = args.no_fallback
     testMode = args.mode
     testPaths = args.test_path
     workingDir = args.working_dir

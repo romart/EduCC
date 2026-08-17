@@ -283,6 +283,9 @@ void buildUnselected(MachineBuilder *b, const IrInstruction *i, const char *reas
   }
 
   b->mf->hasUnselected = TRUE;
+  if (b->mf->firstUnselectedReason == NULL) {
+    b->mf->firstUnselectedReason = reason;
+  }
 }
 
 // -============================ The walk ============================-

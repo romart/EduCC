@@ -296,6 +296,11 @@ typedef struct _MachineFunction {
   // looks finished and is not.
   const char *refusalReason;
 
+  // The reason the first MOP_UNSELECTED placeholder was built with, so that a
+  // report of this function falling back can say why without the reader having
+  // to go find the matching 'ISEL:' line. NULL when nothing was refused.
+  const char *firstUnselectedReason;
+
   // Set when register allocation declined this function - see
   // allocateRegisters(). Like hasUnselected it is a statement about
   // emittability and not about well-formedness: the machine function is

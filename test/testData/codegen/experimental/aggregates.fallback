@@ -1,0 +1,9 @@
+# Functions this fixture still compiles with the legacy backend under
+# -experimental. Both return a struct by value, which the IR expresses as the
+# address of a slot local to the callee while the caller reads a value out of
+# it - the two sides of one ABI disagreeing, not a missing selection rule.
+# Delete this file once composite returns land (step 12 of
+# docs/ir-codegen-design.md); the compiler fails the test if a name here stops
+# falling back.
+mkBig
+mkPoint

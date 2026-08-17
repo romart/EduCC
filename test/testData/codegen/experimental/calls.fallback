@@ -1,0 +1,6 @@
+# A variadic definition: va_start reads a register save area the translator
+# allocates ('__va_area__' is in the locals) but never fills, so selection
+# refuses the whole function. Calling a variadic function is unaffected and is
+# selected - only being one is the problem. Delete this file once variadic
+# definitions land (step 14 of docs/ir-codegen-design.md).
+sum_varargs

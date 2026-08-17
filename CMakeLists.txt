@@ -145,7 +145,13 @@ if(BUILD_TESTING)
   # the --ir-phase one; it is the runner's default and a codegen-mode run
   # ignores it. --compiler-flag is spelled with '=' because argparse will not
   # take a value beginning with '-' as a separate word.
-  educc_add_test(codegen_experimental codegen/experimental codegen 120 ssa --compiler-flag=-experimental)
+  #
+  # --no-fallback makes that "actually emits them" a checked claim rather than
+  # a description: a function handed back to the legacy backend fails the test,
+  # unless it is named in a '<name>.fallback' sibling, and a name listed there
+  # that stops falling back fails it too. Without this the suite passes on
+  # legacy output and coverage can regress with nothing going red.
+  educc_add_test(codegen_experimental codegen/experimental codegen 120 ssa --compiler-flag=-experimental --no-fallback)
   # Compares '-irDump:ssa' output against golden dumps, isolating buildSSA
   # from scp/gvn/dce (see test/testRunner.py's runIrTest).
   educc_add_test(ir_ssa ir/ssa ir 60 ssa)

@@ -233,6 +233,61 @@ static void emitStaticLocals(GenerationContext *ctx, ArchCodegen *archCodegen,
   }
 }
 
+static const char *fallbackReason(const ArchCodegen *archCodegen, const MachineFunction *mf) {
+  if (archCodegen->generateFunctionFromIr == NULL)
+    return "this target has no IR emitter";
+  if (mf == NULL)
+    return "no machine function was built for it";
+  if (mf->refusalReason != NULL)
+    return mf->refusalReason;
+  if (mf->firstUnselectedReason != NULL)
+    return mf->firstUnselectedReason;
+  if (mf->hasUnallocated)
+    return "register allocation declined it";
+  return "reason unrecorded";
+}
+
+static Boolean isAllowedFallback(const Configuration *config, const char *name) {
+  for (const StringList *a = config->allowedFallbacks; a != NULL; a = a->next) {
+    if (strcmp(a->s, name) == 0)
+      return TRUE;
+  }
+  return FALSE;
+}
+
+// '-noFallback': falling back is the backend quietly doing less than it did
+// yesterday, and nothing else notices. Diagnostics are already printed by the
+// time codegen runs, so this reports directly and sets the same error flag.
+static void noteFallback(GenerationContext *ctx, const ArchCodegen *archCodegen, Vector *fellBack,
+                         const char *fileName, const char *name, const MachineFunction *mf) {
+  Configuration *config = ctx->parserContext->config;
+
+  addToVector(fellBack, (intptr_t)name);
+
+  if (!isAllowedFallback(config, name)) {
+    fprintf(stderr, "%s: error: '%s' fell back to the legacy backend: %s\n",
+            fileName, name, fallbackReason(archCodegen, mf));
+    config->hadError = 1;
+  }
+}
+
+// A stale exemption is how coverage rots unnoticed in the other direction.
+static void checkFallbackAllowances(GenerationContext *ctx, const Vector *fellBack, const char *fileName) {
+  Configuration *config = ctx->parserContext->config;
+
+  for (const StringList *a = config->allowedFallbacks; a != NULL; a = a->next) {
+    Boolean seen = FALSE;
+    for (size_t idx = 0; idx < fellBack->size && !seen; ++idx) {
+      seen = strcmp((const char *)getFromVector(fellBack, idx), a->s) == 0;
+    }
+    if (!seen) {
+      fprintf(stderr, "%s: error: '%s' is allowed to fall back but did not; drop it from -allowFallback\n",
+              fileName, a->s);
+      config->hadError = 1;
+    }
+  }
+}
+
 GeneratedFile *generateCodeForFile(ParserContext *pctx, ArchCodegen *archCodegen, AstFile *astFile,
                                    struct _IrFunctionList *irFunctions) {
     Section nullSection = { "", SHT_NULL, 0x00, 0 };
@@ -287,6 +342,12 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, ArchCodegen *archCodegen
     assert(archCodegen->generateFunction != NULL);
     assert(archCodegen->generateVaribale != NULL);
 
+    Boolean noFallback = pctx->config->noFallback;
+    Vector fellBack = { 0 };
+    if (noFallback) {
+      initVector(&fellBack, INITIAL_VECTOR_CAPACITY);
+    }
+
     while (unit) {
       if (unit->kind == TU_FUNCTION_DEFINITION) {
           // The choice between the two backends is per function, not per file.
@@ -302,6 +363,11 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, ArchCodegen *archCodegen
           MachineFunction *mf = machineFunctionFor(irFunctions, unit->definition);
           Boolean fromIr = mf != NULL && archCodegen->generateFunctionFromIr != NULL
                         && canEmitMachineFunction(mf);
+
+          if (noFallback && !fromIr) {
+            noteFallback(&ctx, archCodegen, &fellBack, astFile->fileName,
+                         unit->definition->declaration->name, mf);
+          }
 
           GeneratedFunction *f = fromIr ? archCodegen->generateFunctionFromIr(&ctx, mf)
                                         : archCodegen->generateFunction(&ctx, unit->definition);
@@ -346,6 +412,11 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, ArchCodegen *archCodegen
           }
       }
       unit = unit->next;
+    }
+
+    if (noFallback) {
+      checkFallbackAllowances(&ctx, &fellBack, astFile->fileName);
+      releaseVector(&fellBack);
     }
 
     buildElfFile(&ctx, astFile, file, &elfFile);
