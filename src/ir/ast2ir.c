@@ -129,9 +129,11 @@ static IrInstruction *encodeBitField(const TypeRef *type,
   addInstructionInput(storageMask, mask1Op);
   addInstruction(storageMask);
 
+  // The value being assigned is what moves into place, not the storage it is
+  // going into: this is '(old & ~mask) | ((value << offset) & mask)'.
   IrInstruction *shiftValueInstr = newInstruction(IR_E_SHL, irMemoryType);
   IrInstruction *shiftOp = createIntegerConstant(irMemoryType, s);
-  addInstructionInput(shiftValueInstr, storageMask);
+  addInstructionInput(shiftValueInstr, valueOp);
   addInstructionInput(shiftValueInstr, shiftOp);
   addInstruction(shiftValueInstr);
 
@@ -945,11 +947,14 @@ static IrInstruction *translateAssignment(AstExpression *expr) {
   if (isCompositeType(value->type)) {
     generateCompositeCopy(value->type, rvalue, lvalue, expr);
   } else {
-    if (value->type->kind == TR_BITFIELD) {
+    // The assignee's type, not the value's: what decides whether this is a
+    // read-modify-write of a storage unit is where the value is going, and the
+    // right hand side of 'p.field = 1' is an ordinary int.
+    if (assignee->type->kind == TR_BITFIELD) {
       enum IrTypeKind irMemType =
-          typeRefToIrType(value->type->bitFieldDesc.storageType);
+          typeRefToIrType(assignee->type->bitFieldDesc.storageType);
       IrInstruction *storageOp = addLoadInstr(irMemType, lvalue, expr);
-      rvalue = encodeBitField(value->type, storageOp, rvalue);
+      rvalue = encodeBitField(assignee->type, storageOp, rvalue);
     }
     addStoreInstr(lvalue, rvalue, expr);
   }
