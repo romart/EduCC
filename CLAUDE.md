@@ -100,3 +100,8 @@ Pipeline, driven from `src/main.c` → `compileFile()` in `src/parser.c`:
 - **Memory**: everything uses a custom arena/heap allocator (`src/memory.c`, `include/mem.h`) — `heapAllocate`/`releaseHeap` for general allocation, `createArena`/`areanAllocate`/`releaseArena` for phase-scoped bulk allocation (e.g. one arena per generated function/codegen context). Prefer arena allocation matching the existing context struct (`ParserContext`, `GenerationContext`, `IrContext`) over raw `malloc` when adding IR/codegen state.
 - **Constant evaluation**: `src/evaluate.c` (AST-level, e.g. for static initializers/`#if`) vs `src/ir/evaluator.c` (IR-level, used by the `cp`/`scp` pass) are separate.
 - Tree/IR dumping utilities (`src/treeDump.c`, `src/ir/irdump.c`) are the primary debugging tool for both pipelines — reach for `-astDump`/`-astCanonDump`/`-irDump` before adding printf debugging.
+
+## Code comments
+Keep comments brief — one short line max. Only comment on non-obvious logic;
+skip comments that just restate what the code does. Do not add docstrings/
+header comments unless asked.
