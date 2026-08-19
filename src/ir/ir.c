@@ -637,6 +637,30 @@ Boolean isCriticalEdge(const IrBasicBlock *src, const IrBasicBlock *dst) {
   return dst->preds.size != 1;
 }
 
+// Whether some edge into this block is one splitCriticalEdges() below leaves
+// alone, so that anything belonging on it has to be put in the predecessor
+// and will then run whichever successor control actually goes to.
+//
+// A phi is precisely such a thing - it becomes a copy on each incoming edge -
+// so a block this is true of is a block no phi may be placed in, and both
+// passes that place them have to ask. Being a *placement* rule rather than
+// something the backend copes with afterwards is what keeps it checkable: by
+// the time the copies exist there is no record left of which edge each was for.
+Boolean hasUnsplittablePredecessor(const IrBasicBlock *block) {
+  for (size_t idx = 0; idx < block->preds.size; ++idx) {
+    const IrBasicBlock *pred = getBlockFromVector(&block->preds, idx);
+
+    // A computed goto jumps through an address '&&label' produced somewhere
+    // else entirely, so unlike every other terminator it has no target
+    // operand to repoint at an interposed block.
+    if (pred->term != NULL && pred->term->kind == IR_IBRANCH && pred->succs.size > 1) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
 static void updateTerminatorTarget(IrInstruction *term, IrBasicBlock *oldTarget, IrBasicBlock *newTarget) {
   if (term->kind == IR_CBRANCH) {
     if (term->info.branch.notTaken == oldTarget) {

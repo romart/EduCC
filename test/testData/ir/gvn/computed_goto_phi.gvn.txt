@@ -8,8 +8,8 @@ Locals:
    r:-1|<ret_slot> = %8
 BB #0, '<entry>', -> #4, dominatees [#4]
 
-  %69 = IR_DEF_CONST () [kind = integer, v = 8, id = 8]
-  %68 = IR_DEF_CONST () [kind = integer, v = 0, id = 7]
+  %62 = IR_DEF_CONST () [kind = integer, v = 8, id = 8]
+  %61 = IR_DEF_CONST () [kind = integer, v = 0, id = 7]
   %49 = IR_DEF_CONST () [kind = integer, v = 20, id = 6]
   %44 = IR_DEF_CONST () [kind = integer, v = 10, id = 5]
   %19 = IR_DEF_CONST () [kind = integer, v = 1, id = 4]
@@ -19,6 +19,7 @@ BB #0, '<entry>', -> #4, dominatees [#4]
   %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
   %3 = IR_P_REG () [preg = $rdi]
   %6 = IR_P_REG () [preg = $rsi]
+  %9 = IR_ALLOCA (%1) [size = 8, declaration = 2 | 'acc']
   %11 = IR_ALLOCA (%10) [size = 16, declaration = 3 | 'tab']
   %55 = IR_BRANCH () [target = #4]
 
@@ -29,22 +30,23 @@ BB #1, '<exit>', <- #2 #3, strict dom #4
 
 BB #2, 'A', <- #6 #5, -> #1, strict dom #4, domination frontier [#1]
 
-  %58 = IR_PHI ([%28, #6], [%36, #5]) [var = acc]
-  %45 = IR_E_ADD (%58, %44) []
+  %43 = IR_M_LOAD (%9) [load type = I32]
+  %45 = IR_E_ADD (%43, %44) []
   %47 = IR_BRANCH () [target = #1]
 
 BB #3, 'B', <- #6 #5, -> #1, strict dom #4, domination frontier [#1]
 
-  %60 = IR_PHI ([%28, #6], [%36, #5]) [var = acc]
-  %50 = IR_E_ADD (%60, %49) []
+  %48 = IR_M_LOAD (%9) [load type = I32]
+  %50 = IR_E_ADD (%48, %49) []
   %52 = IR_BRANCH () [target = #1]
 
 BB #4, '<FIRST>', <- #0, -> #6 #5, strict dom #0, dominatees [#1, #2, #3, #5, #6]
 
-  %16 = IR_GET_ELEMENT_PTR (%11, %68) [underlying type = *void, index = %12]
+  %13 = IR_M_STORE (%9, %12) [store type = I32]
+  %16 = IR_GET_ELEMENT_PTR (%11, %61) [underlying type = *void, index = %12]
   %17 = IR_CFG_LABEL () [block = #2]
   %18 = IR_M_STORE (%16, %17) [store type = LABEL]
-  %21 = IR_GET_ELEMENT_PTR (%11, %69) [underlying type = *void, index = %19]
+  %21 = IR_GET_ELEMENT_PTR (%11, %62) [underlying type = *void, index = %19]
   %22 = IR_CFG_LABEL () [block = #3]
   %23 = IR_M_STORE (%21, %22) [store type = LABEL]
   %25 = IR_E_GT (%3, %12) []
@@ -53,6 +55,7 @@ BB #4, '<FIRST>', <- #0, -> #6 #5, strict dom #0, dominatees [#1, #2, #3, #5, #6
 BB #5, '<if_exit>', <- #4, -> #2 #3, strict dom #4, domination frontier [#2, #3]
 
   %36 = IR_E_SUB (%3, %19) []
+  %37 = IR_M_STORE (%9, %36) [store type = I32]
   %39 = IR_E_SHL (%6, %14) []
   %40 = IR_GET_ELEMENT_PTR (%11, %39) [underlying type = *void, index = %38]
   %41 = IR_M_LOAD (%40) [load type = PTR]
@@ -61,6 +64,7 @@ BB #5, '<if_exit>', <- #4, -> #2 #3, strict dom #4, domination frontier [#2, #3]
 BB #6, '<if_then>', <- #4, -> #2 #3, strict dom #4, domination frontier [#2, #3]
 
   %28 = IR_E_ADD (%3, %19) []
+  %29 = IR_M_STORE (%9, %28) [store type = I32]
   %31 = IR_E_SHL (%6, %14) []
   %32 = IR_GET_ELEMENT_PTR (%11, %31) [underlying type = *void, index = %30]
   %33 = IR_M_LOAD (%32) [load type = PTR]

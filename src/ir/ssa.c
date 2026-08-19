@@ -92,6 +92,57 @@ static Boolean analyzeAllocaInstruction(IrInstruction *allocaInstr, AllocaOptInf
   return TRUE;
 }
 
+// Whether promoting this alloca would put a phi in a block no phi may go in -
+// see hasUnsplittablePredecessor() in ir.c for why such blocks exist.
+//
+// The same iterated-dominance-frontier walk transformAllocasIntoPhis() does,
+// run ahead of it because the answer decides whether this alloca is a
+// candidate at all: a candidate's position in the vector is what renaming
+// addresses it by, so one cannot be dropped once the walk has started.
+//
+// Refusing to promote is a real answer and not a refusal to compile: the
+// variable keeps its loads and stores, which is a slower program rather than a
+// wrong one, and only that variable is affected.
+static Boolean phiWouldLandOnUnsplittableEdge(IrFunction *func, const AllocaOptInfo *info) {
+  BitSet visited = { 0 };
+  Vector stack = { 0 };
+  Boolean found = FALSE;
+
+  initBitSet(&visited, ctx->bbCnt);
+  initVector(&stack, INITIAL_VECTOR_CAPACITY);
+
+  for (IrBasicBlock *bb = func->blocks.head; bb != NULL; bb = bb->next) {
+    if (getBit(&info->defBlocks, bb->id)) {
+      pushToStack(&stack, (intptr_t)bb);
+    }
+  }
+
+  while (stack.size > 0 && !found) {
+    IrBasicBlock *defBlock = (IrBasicBlock *)popFromStack(&stack);
+    Vector *df = &defBlock->dominators.dominationFrontier;
+
+    for (size_t idx = 0; idx < df->size; ++idx) {
+      IrBasicBlock *bb = getBlockFromVector(df, idx);
+      if (getBit(&visited, bb->id)) {
+        continue;
+      }
+
+      if (hasUnsplittablePredecessor(bb)) {
+        found = TRUE;
+        break;
+      }
+
+      setBit(&visited, bb->id);
+      pushToStack(&stack, (intptr_t)bb);
+    }
+  }
+
+  releaseVector(&stack);
+  releaseBitSet(&visited);
+
+  return found;
+}
+
 static void collectAllocaCandidates(IrFunction *func, Vector *results) {
   Vector *allocas = &ctx->allocas;
   for (size_t i = 0; i < allocas->size; ++i) {
@@ -105,6 +156,11 @@ static void collectAllocaCandidates(IrFunction *func, Vector *results) {
     info->allocaInstr = allocaInstr;
 
     Boolean optimizable = analyzeAllocaInstruction(allocaInstr, info);
+    if (optimizable && phiWouldLandOnUnsplittableEdge(func, info)) {
+      printf("  alloca %c%u would need a phi on an unsplittable edge\n", '%', allocaInstr->id);
+      optimizable = FALSE;
+    }
+
     if (optimizable) {
       info->index = results->size;
       addToVector(results, (intptr_t)info);

@@ -374,6 +374,7 @@ IrBasicBlock *eraseBlock(IrBasicBlock *block);
 void removeFromBlockList(IrBasicBlockList *list, IrBasicBlock *block);
 
 Boolean isCriticalEdge(const IrBasicBlock *src, const IrBasicBlock *dst);
+Boolean hasUnsplittablePredecessor(const IrBasicBlock *block);
 void splitCriticalEdges(IrFunction *func);
 void cleanAndErase(IrInstruction *i);
 void removeSuccessor(IrBasicBlock *block, IrBasicBlock *succ);

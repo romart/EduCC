@@ -559,6 +559,13 @@ static Boolean canObtainFromPredecessors(const AvailabilityMap *am, const IrBasi
   size_t carried = 0;
   Boolean insertable = TRUE;
 
+  // The phi below is as unplaceable here as any other, and for a reason the
+  // per-predecessor test cannot see: it holds even when every predecessor
+  // already carries the value and nothing is cloned anywhere.
+  if (hasUnsplittablePredecessor(block)) {
+    return FALSE;
+  }
+
   for (size_t pi = 0; pi < preds->size; ++pi) {
     const IrBasicBlock *pred = getBlockFromVector(preds, pi);
     if (availableAtExit(am, pred, vn) != NULL) {
