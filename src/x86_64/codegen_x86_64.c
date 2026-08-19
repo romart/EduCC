@@ -1913,6 +1913,8 @@ static void generateCall(GeneratedFunction *f, AstExpression *expression) {
   unsigned stackDelta = (f->stackOffset / 8) % 2 * 8;
   unsigned stackArgSize = 0;
 
+  // The hidden buffer pointer takes an integer register before the first
+  // declared argument does, so one fewer is left for them.
   if (isCompositeType(returnType) && returnTypeSize > sizeof(intptr_t)) {
     firstIntRegArg = 1;
   }
@@ -1936,7 +1938,7 @@ static void generateCall(GeneratedFunction *f, AstExpression *expression) {
           continue;
         }
       } else if (!isCompositeType(t) || argSize <= sizeof(intptr_t)) {
-        if (intRegArgs < R_PARAM_COUNT) {
+        if (firstIntRegArg + intRegArgs < R_PARAM_COUNT) {
           ++intRegArgs;
           lastIntRegArg = count;
           continue;
@@ -2008,6 +2010,14 @@ static void generateCall(GeneratedFunction *f, AstExpression *expression) {
             }
             emitPushReg(f, R_ACC);
         } else {
+            // Same as the register case above: a composite leaves its
+            // *address* in R_ACC, so the bytes have to be loaded before they
+            // can be written to the outgoing stack slot. Storing R_ACC itself
+            // passed the address where the callee reads a value.
+            if (isCompositeType(argType)) {
+                Address addr = { R_ACC, R_BAD, 0, 0, NULL, NULL };
+                emitMoveAR(f, &addr, R_ACC, argSize);
+            }
             emitMoveRA(f, R_ACC, &dst, argSize);
         }
       }
@@ -2133,7 +2143,12 @@ static void generateVaArg(GeneratedFunction *f, AstExpression *expression) {
       valist_addr.imm = fp_offset_off;
       emitStore(f, R_TMP, &valist_addr, T_U4);
       emitJumpTo(f, &doneLabl, TRUE);
-  } else if (isScalarType(vatype)) {
+  } else if (isScalarType(vatype) ||
+             (isCompositeType(vatype) && computeTypeSize(vatype) <= dataSize)) {
+      // A struct small enough to travel in a register is passed in an integer
+      // one, so va_arg has to read it out of the same save area a scalar comes
+      // from. Being neither real nor scalar, it used to fall through to the
+      // overflow area and read whatever was on the stack instead.
       int32_t gp_offset_off = memberOffset(vastruct, "gp_offset");
       valist_addr.imm = gp_offset_off;
       // R_ACC = va_list->fp_offset
