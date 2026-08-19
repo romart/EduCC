@@ -34,12 +34,25 @@ const char *targetOpcodeName(const TargetDescriptor *target, uint32_t opcode) {
   return idx < target->numOpcodes ? target->opcodeName[idx] : NULL;
 }
 
+Boolean returnsThroughHiddenPointer(const TypeRef *returnType) {
+  return isCompositeType(returnType) &&
+         computeTypeSize(returnType) > sizeof(intptr_t);
+}
+
 void classifyParametersGeneric(const TargetDescriptor *target,
                                AstFunctionDeclaration *declaration,
                                ParamtersABIInfo *infos, size_t numberOfParams) {
 
   uint32_t intRegParams = 0;
   uint32_t fpRegParams = 0;
+
+  // The buffer a large composite return is written through arrives in the
+  // first integer argument register, ahead of every declared parameter - so
+  // the first of those starts one register along. It is not in the parameter
+  // list, which is why this is a counter rather than another iteration.
+  if (returnsThroughHiddenPointer(declaration->returnType)) {
+    intRegParams += 1;
+  }
 
   // The first stack parameter sits above the saved frame pointer and the
   // return address that the call itself pushed.

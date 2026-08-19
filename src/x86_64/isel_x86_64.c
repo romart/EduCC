@@ -1326,38 +1326,18 @@ static void selectCondBranch(MachineBuilder *b, const IrInstruction *i) {
 // allocator is left with nothing to decide. selectLoadInto is what both use,
 // which is what lets a constant return be an immediate - 'return 42' is a
 // 'mov eax, 42' and not a register, a spill slot and a reload of one.
-// Whether the function being selected hands back a composite by value.
 //
-// This cannot be read off the IR_RET's operand. Whatever the return type, the
-// translator gives the function a return slot and returns that slot's
-// *address*, which arrives here as an IR_PTR and looks like any other pointer
-// return - so the question has to go to the declaration.
-static Boolean returnsCompositeByValue(const MachineBuilder *b) {
-  const AstFunctionDeclaration *decl = b->mf->ir->ast->declaration;
-  return decl != NULL && decl->returnType != NULL && isCompositeType(decl->returnType);
-}
-
+// A composite needs no case here. The translator gives the function a return
+// slot whose contents are what the ABI hands back - the caller's buffer
+// pointer for a large one, the eightbyte the value travels in for a small one
+// - and the exit block reads it out, so what arrives here is already a value
+// bound for rax. See generateExitBlock in src/ir/ast2ir.c.
 static void selectReturn(MachineBuilder *b, const IrInstruction *i) {
   if (i->inputs.size != 0) {
     const IrInstruction *value = inputAt(i, 0);
 
     if (value->type == IR_F80) {
       buildUnselected(b, i, "returns a long double, which lives on the x87 stack");
-      return;
-    }
-
-    // Returning a composite is the one half of step 7 the IR cannot express.
-    // SysV wants the bytes of a small one in rax:rdx and a large one copied
-    // into the buffer whose address the caller left in rdi - and the IR has
-    // neither: it hands back the address of a slot local to this function, and
-    // the incoming hidden pointer that a large return is supposed to be
-    // written through is not among the parameters at all. See section 5.3 of
-    // docs/ir-codegen-design.md, which records the same gap from stage 0's
-    // side. Calls *to* such a function are fine, and selected - it is only
-    // being one that cannot be.
-    if (value->type == IR_P_AGG || returnsCompositeByValue(b)) {
-      buildUnselected(b, i, "returns a composite by value, which the IR expresses"
-                            " as the address of a slot local to this function");
       return;
     }
 

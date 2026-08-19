@@ -1,0 +1,65 @@
+--- Phase: mir ---
+MachineFunction 'large' [target = x86_64]
+VRegs: <none>
+Frame: 48 bytes
+  fi#0 : local 40/8 @ -40 'r' ; %9
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+
+--- Phase: mir ---
+MachineFunction 'small' [target = x86_64]
+VRegs: <none>
+Frame: 16 bytes
+  fi#0 : local 8/8 @ -8 ; %5
+  fi#1 : local 8/4 @ -16 'r' ; %6
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+
+--- Phase: mir ---
+MachineFunction 'shifted' [target = x86_64]
+VRegs: <none>
+Frame: 48 bytes
+  fi#0 : param 4/4 @ 16 'f' ; %18
+  fi#1 : local 40/8 @ -40 'r' ; %23
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+
+--- Phase: mir ---
+MachineFunction 'twice' [target = x86_64]
+VRegs: <none>
+Frame: 48 bytes
+  fi#0 : local 40/8 @ -40 'r' ; %9
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+
+
+--- Phase: mir ---
+MachineFunction 'plain' [target = x86_64]
+VRegs: <none>
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+

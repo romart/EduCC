@@ -114,6 +114,17 @@ void classifyParametersGeneric(const TargetDescriptor *target,
                                AstFunctionDeclaration *declaration,
                                ParamtersABIInfo *infos, size_t numberOfParams);
 
+// Whether a function with this return type is handed a buffer to write the
+// result into, rather than handing the result back in a register.
+//
+// The threshold is the same one classifyParametersGeneric uses for an
+// aggregate parameter and the same one the legacy backend uses, which is what
+// lets a function from either backend call one from the other. Real SysV
+// splits an aggregate of up to sixteen bytes into two eightbytes and returns
+// those in rax:rdx; that is the same approximation the parameter side makes,
+// and the two have to move together.
+Boolean returnsThroughHiddenPointer(const TypeRef *returnType);
+
 const char *physRegName(const TargetDescriptor *target, uint32_t reg);
 
 // The mnemonic for one of this target's machine opcodes, or NULL if the target

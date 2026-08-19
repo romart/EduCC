@@ -415,27 +415,35 @@ static IrInstruction *translateVaArg(AstExpression *expr) {
    * } __va_elem;
    */
 
-  IrBasicBlock *memoryBlock = newBasicBlock("<va_arg_mem>");
-  IrBasicBlock *updateBlock = newBasicBlock("<va_arg_update>");
-  IrBasicBlock *doneBlock = newBasicBlock("<va_arg_done>");
+  // Which save area the argument is in, by the same classification the call
+  // site used. A composite is not a scalar and used to abort the translator
+  // here; one small enough to travel in a register comes out of the integer
+  // area like any other, and one too large is only ever in the overflow area -
+  // so there is no register path to choose between, and no branch to build.
+  Boolean inRegister = isRealType(vatype) || isScalarType(vatype) ||
+                       computeTypeSize(vatype) <= dataSize;
 
+  IrBasicBlock *memoryBlock = NULL, *updateBlock = NULL, *doneBlock = NULL;
   IrInstruction *valuePtr = NULL;
 
-  if (isRealType(vatype)) {
-    valuePtr = computeVAListValuePtr(valistInstr, memoryBlock, updateBlock,
-                                     doneBlock, vastruct, "fp_offset",
-                                     R_PARAM_COUNT + R_FP_PARAM_COUNT);
-  } else if (isScalarType(vatype)) {
-    valuePtr =
-        computeVAListValuePtr(valistInstr, memoryBlock, updateBlock, doneBlock,
-                              vastruct, "gp_offset", R_PARAM_COUNT);
-  } else {
-    unreachable("WTF in va args??");
+  if (inRegister) {
+    memoryBlock = newBasicBlock("<va_arg_mem>");
+    updateBlock = newBasicBlock("<va_arg_update>");
+    doneBlock = newBasicBlock("<va_arg_done>");
+
+    if (isRealType(vatype)) {
+      valuePtr = computeVAListValuePtr(valistInstr, memoryBlock, updateBlock,
+                                       doneBlock, vastruct, "fp_offset",
+                                       R_PARAM_COUNT + R_FP_PARAM_COUNT);
+    } else {
+      valuePtr = computeVAListValuePtr(valistInstr, memoryBlock, updateBlock,
+                                       doneBlock, vastruct, "gp_offset",
+                                       R_PARAM_COUNT);
+    }
+
+    assert(valuePtr != NULL);
+    ctx->currentBB = memoryBlock;
   }
-
-  assert(valuePtr != NULL);
-
-  ctx->currentBB = memoryBlock;
 
   StructualMember *oaam = findStructualMember(vastruct, "overflow_arg_area");
   assert(oaam != NULL);
@@ -457,12 +465,11 @@ static IrInstruction *translateVaArg(AstExpression *expr) {
   if (align > 8) {
     int32_t mask = ~(align - 1);
     IrInstruction *alignC = createIntegerConstant(IR_I64, align - 1);
-    IrInstruction *addInstr =
-        addBinaryOpeartion(IR_E_ADD, overflowAreaValue, alignC, valuePtr->type,
-                           valuePtr->astType, NULL);
+    IrInstruction *addInstr = addBinaryOpeartion(
+        IR_E_ADD, overflowAreaValue, alignC, irOAType, oaam->type, NULL);
     IrInstruction *maskC = createIntegerConstant(IR_I64, mask);
-    overflowAreaValue = addBinaryOpeartion(
-        IR_E_AND, addInstr, maskC, valuePtr->type, valuePtr->astType, NULL);
+    overflowAreaValue = addBinaryOpeartion(IR_E_AND, addInstr, maskC, irOAType,
+                                           oaam->type, NULL);
   }
 
   int32_t argSize = max(8, computeTypeSize(vatype));
@@ -473,6 +480,11 @@ static IrInstruction *translateVaArg(AstExpression *expr) {
       IR_E_ADD, overflowAreaValue, alignesArgSize, irOAType, oaam->type, NULL);
 
   addStoreInstr(overflowAreaGep, newOverflowArea, NULL);
+
+  // Nothing to merge when the overflow area is the only place to look.
+  if (!inRegister) {
+    return overflowAreaValue;
+  }
 
   gotoToBlock(doneBlock);
 
@@ -1820,9 +1832,16 @@ static Boolean translateReturn(AstStatement *stmt) {
     IrInstruction *copyInstr = NULL;
     assert(returnSlot != NULL);
     if (isCompositeType(expr->type)) {
-      copyInstr = generateCompositeCopy(expr->type, returnValue,
-                                        ctx->currentFunc->retOperand, NULL);
+      IrInstruction *dst = returnSlot;
 
+      // The slot holds the caller's buffer pointer rather than the value, so
+      // the copy goes through it - which is also what leaves the result where
+      // the caller is looking for it, with no second copy at the exit.
+      if (returnsThroughHiddenPointer(expr->type)) {
+        dst = addLoadInstr(IR_PTR, returnSlot, NULL);
+      }
+
+      copyInstr = generateCompositeCopy(expr->type, returnValue, dst, NULL);
     } else {
       assert(ctx->currentFunc->retOperand != NULL);
       copyInstr = addStoreInstr(returnSlot, returnValue, NULL);
@@ -2266,14 +2285,25 @@ static void generateExitBlock(IrFunction *func, TypeRef *returnType) {
   IrInstruction *ret = newInstruction(IR_RET, IR_VOID);
   if (!isVoidType(returnType)) {
     assert(func->retOperand != NULL);
-    if (isCompositeType(returnType)) {
-      addInstructionInput(ret, func->retOperand);
-    } else {
-      IrInstruction *retValue =
-          addLoadInstr(typeRefToIrType(returnType), func->retOperand, NULL);
-      retValue->astType = returnType;
-      addInstructionInput(ret, retValue);
+
+    // Whatever the return type, the slot holds what the ABI hands back and the
+    // exit block reads it out. For a large composite that is the caller's
+    // buffer pointer, which is returned as well as written through; for a
+    // small one it is the eightbyte the value travels in, so it is read as
+    // IR_P_AGG rather than as the struct it spells.
+    TypeRef *slotType = returnType;
+    enum IrTypeKind valueType = IR_P_AGG;
+
+    if (returnsThroughHiddenPointer(returnType)) {
+      slotType = makePointedType(ctx->pctx, 0, returnType);
+      valueType = IR_PTR;
+    } else if (!isCompositeType(returnType)) {
+      valueType = typeRefToIrType(returnType);
     }
+
+    IrInstruction *retValue = addLoadInstr(valueType, func->retOperand, NULL);
+    retValue->astType = slotType;
+    addInstructionInput(ret, retValue);
   }
 
   termintateBlock(ret);
@@ -2502,15 +2532,34 @@ static uint32_t buildInitialIr(IrFunction *func,
   assert((idx - numOfParams) == numOfLocals);
 
   if (numOfReturnSlots) {
-    // TODO: if return type is not scalar type
+    TypeRef *returnType = declaration->returnType;
     ctx->currentBB = func->entry;
-    IrInstruction *returnStackSlot = func->retOperand =
-        createAllocaSlot(computeTypeSize(declaration->returnType));
-    returnStackSlot->astType =
-        makePointedType(ctx->pctx, 0, declaration->returnType);
-    returnStackSlot->info.alloca.valueType =
-        typeRefToIrType(declaration->returnType);
-    localOperandsMap[idx++].stackSlot = returnStackSlot;
+
+    if (returnsThroughHiddenPointer(returnType)) {
+      // Nothing local holds the value: the caller allocated the buffer and
+      // passed its address in the first integer argument register (see
+      // classifyParametersGeneric, which reserves that register), and each
+      // 'return' writes straight through it. So the slot is a pointer, filled
+      // on entry the same way a register parameter is.
+      IrInstruction *bufferSlot = func->retOperand =
+          createAllocaSlot(sizeof(intptr_t));
+      bufferSlot->astType = makePointedType(
+          ctx->pctx, 0, makePointedType(ctx->pctx, 0, returnType));
+      bufferSlot->info.alloca.valueType = IR_PTR;
+
+      IrInstruction *bufferReg =
+          newPhysRegister(IR_PTR, ctx->target->intArgRegs[0]);
+      addInstruction(bufferReg);
+      addStoreInstr(bufferSlot, bufferReg, NULL);
+
+      localOperandsMap[idx++].stackSlot = bufferSlot;
+    } else {
+      IrInstruction *returnStackSlot = func->retOperand =
+          createAllocaSlot(computeTypeSize(returnType));
+      returnStackSlot->astType = makePointedType(ctx->pctx, 0, returnType);
+      returnStackSlot->info.alloca.valueType = typeRefToIrType(returnType);
+      localOperandsMap[idx++].stackSlot = returnStackSlot;
+    }
   }
 
   if (numOfVariadicSlots) {

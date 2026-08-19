@@ -1,0 +1,25 @@
+# Every variadic definition in this fixture. va_start reads a register save
+# area the translator allocates ('__va_area__' is in the locals) and never
+# fills, so selection turns the whole function away before it starts - see
+# step 14 of docs/ir-codegen-design.md. Delete these lines once variadic
+# definitions land; a name here that stops falling back fails the test.
+vaInts
+vaDoubles
+vaFloats
+vaMixed
+vaManyBoth
+vaNamedFloats
+vaFiveNamed
+vaSixNamed
+vaNamedStruct
+vaSmallArgs
+vaBigArgs
+vaCopied
+vaNested
+# 'main' is not variadic. It falls back for two reasons of its own, both step
+# 13: it passes a struct larger than one register by value (to vaBigArgs and
+# vaNamedStruct), which the IR passes by address while the callee reads bytes,
+# and it passes a float argument on the stack, which needs a 'push xmm' that
+# does not exist. The struct-returning functions it calls are selected here -
+# only being variadic or passing an oversized aggregate is the problem.
+main
