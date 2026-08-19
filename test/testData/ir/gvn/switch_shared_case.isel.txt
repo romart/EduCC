@@ -20,7 +20,14 @@ MBB #0, '<entry>', ir #0, -> #2
   %v9 = MOP_COPY.4 $rdx ; %9
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #8 #6 #9 #10
-  MOP_UNSELECTED(IR_TBRANCH) %v9 ; %16
+  cmp.4 %v9, 0 ; %16
+  je #4 ; %16
+  cmp.4 %v9, 1 ; %16
+  je #8 ; %16
+  cmp.4 %v9, 2 ; %16
+  je #6 ; %16
+  cmp.4 %v9, 3 ; %16
+  je #9 ; %16
 
 MBB #10, '<crit_splitter>', ir #11, <- #2, -> #3
   %v1 = MOP_COPY.4 %v7 ; %51

@@ -41,7 +41,14 @@ MBB #0, '<entry>', ir #0, -> #2
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #5 #6 #7 #4
   $r10 = MOP_RELOAD.4 fi#3
-  MOP_UNSELECTED(IR_TBRANCH) $r10 ; %16
+  cmp.4 $r10, 0 ; %16
+  je #5 ; %16
+  $r10 = MOP_RELOAD.4 fi#3
+  cmp.4 $r10, 1 ; %16
+  je #6 ; %16
+  $r10 = MOP_RELOAD.4 fi#3
+  cmp.4 $r10, 2 ; %16
+  je #7 ; %16
 
 MBB #4, '<default_case>', ir #4, <- #2, -> #3
   $r11 = MOP_RELOAD.4 fi#1

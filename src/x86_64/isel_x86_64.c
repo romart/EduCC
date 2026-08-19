@@ -1237,9 +1237,7 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
 
 // -============================ Terminators ============================-
 
-static void selectBranch(MachineBuilder *b, const IrInstruction *i) {
-  const IrBasicBlock *target = i->info.branch.taken;
-
+static void selectJumpTo(MachineBuilder *b, const IrBasicBlock *target) {
   // A jump to the block that comes next is not a jump.
   if (machineBuilderFallsThroughTo(b, target)) {
     return;
@@ -1247,6 +1245,10 @@ static void selectBranch(MachineBuilder *b, const IrInstruction *i) {
 
   MachineInstr *mi = buildMachineInstr(b, X86_JMP, 0, 1);
   setBlockOperand(mi, 0, machineBuilderBlock(b, target));
+}
+
+static void selectBranch(MachineBuilder *b, const IrInstruction *i) {
+  selectJumpTo(b, i->info.branch.taken);
 }
 
 // The condition a branch reads, and the instructions that set it up.
@@ -1370,6 +1372,253 @@ static void selectReturn(MachineBuilder *b, const IrInstruction *i) {
   buildMachineInstr(b, X86_RET, 0, 0);
 }
 
+// -============================ Switches ============================-
+//
+// A switch is one IR instruction with n+1 successors, and x86 has no
+// instruction that branches n ways. It becomes either a chain of compares or a
+// jump through a table, and which one is a property of the case *values*
+// rather than of the target: a table indexed by the condition is only possible
+// when the values it has to cover form a range small enough to build one for.
+//
+// The IR calls this a table branch throughout, which it is not - the frontend
+// takes no view on how it is dispatched, and the legacy backend emits a chain
+// for every switch there is.
+
+// One case: compare, and jump if equal. The condition stays in its register
+// across the whole chain, so the only instruction per case is this pair.
+static void selectCaseTest(MachineBuilder *b, uint32_t condReg, uint8_t size, int64_t value,
+                           const IrBasicBlock *target) {
+  uint32_t valueReg = NO_REG;
+
+  // An ALU immediate is 32 bits sign-extended to the operand width, so a case
+  // value outside that range needs a register of its own. Only a switch on a
+  // 64-bit type can reach it.
+  if (value < INT32_MIN || value > INT32_MAX) {
+    valueReg = createVirtualRegister(b->mf, RC_GP, size);
+
+    MachineInstr *mov = buildMachineInstr(b, X86_MOV, 1, 1);
+    setRegisterOperand(mov, 0, valueReg);
+    setImmediateOperand(mov, 1, value);
+    mov->opSize = size;
+  }
+
+  MachineInstr *cmp = buildMachineInstr(b, X86_CMP, 0, 2);
+  setRegisterOperand(cmp, 0, condReg);
+  if (valueReg != NO_REG) {
+    setRegisterOperand(cmp, 1, valueReg);
+  } else {
+    setImmediateOperand(cmp, 1, value);
+  }
+  cmp->opSize = size;
+
+  MachineInstr *je = buildMachineInstr(b, X86_JE, 0, 1);
+  setBlockOperand(je, 0, machineBuilderBlock(b, target));
+}
+
+// The universal lowering: ask about every case in turn and fall out into the
+// default. Linear in the number of cases both to emit and to run, which is
+// what the table below is for - but it needs nothing of the values at all, so
+// it is what a switch too sparse to tabulate gets.
+static void selectSwitchChain(MachineBuilder *b, const IrInstruction *i, uint32_t condReg) {
+  const SwitchTable *table = i->info.switchTable;
+  uint8_t size = valueSize(inputAt(i, 0));
+
+  for (uint32_t c = 0; c < table->caseCount; ++c) {
+    selectCaseTest(b, condReg, size, table->caseBlocks[c].caseConst, table->caseBlocks[c].block);
+  }
+
+  selectJumpTo(b, table->defaultBB);
+}
+
+// When a table is worth building. Two independent questions:
+//
+// Size - the table costs eight bytes per value in the range whether a case
+// lands on it or not, so a switch on a handful of scattered constants would
+// spend kilobytes to save a few compares. The density floor is what stops
+// that, and the absolute cap is what stops a dense but enormous range
+// ('case 0' and 'case 100000') from doing the same.
+//
+// Speed - the dispatch below is seven instructions regardless of how many
+// cases there are, against two per case for the chain, so a table only starts
+// paying somewhere around four. Below that it is bigger *and* no faster.
+#define JUMP_TABLE_MIN_CASES 5
+#define JUMP_TABLE_MAX_ENTRIES 4096
+#define JUMP_TABLE_MIN_DENSITY 3 // at least one case per this many entries
+
+// The range a table would have to cover, or FALSE when there is no usable one.
+// Both ends are held as int64 and the span as int64 too, because 'case
+// INT64_MIN' and 'case INT64_MAX' in one switch overflow every narrower type
+// on the way to being rejected.
+static Boolean switchTableRange(const SwitchTable *table, int64_t *min, int64_t *span) {
+  if (table->caseCount < JUMP_TABLE_MIN_CASES) {
+    return FALSE;
+  }
+
+  int64_t lo = table->caseBlocks[0].caseConst;
+  int64_t hi = lo;
+
+  for (uint32_t c = 1; c < table->caseCount; ++c) {
+    int64_t value = table->caseBlocks[c].caseConst;
+    if (value < lo) lo = value;
+    if (value > hi) hi = value;
+  }
+
+  // As unsigned, so that a range spanning the whole signed axis does not wrap
+  // to something small and pass the tests below.
+  uint64_t entries = (uint64_t)hi - (uint64_t)lo + 1;
+
+  if (entries > JUMP_TABLE_MAX_ENTRIES ||
+      entries > (uint64_t)table->caseCount * JUMP_TABLE_MIN_DENSITY) {
+    return FALSE;
+  }
+
+  // 'cond - lo' is subtracted as an immediate and the span compared against
+  // one, and both encodings are 32 bits.
+  if (lo < INT32_MIN || lo > INT32_MAX || entries > INT32_MAX) {
+    return FALSE;
+  }
+
+  *min = lo;
+  *span = (int64_t)entries;
+  return TRUE;
+}
+
+// The condition normalized to an index into the table: widened to a full
+// register, then shifted down so that the lowest case is zero.
+//
+// Widening is what makes the range check below a single unsigned compare. Once
+// the value is 64 bits and biased by the lowest case, everything before the
+// first case has wrapped round to an enormous unsigned number and everything
+// after the last is simply too big, so one 'ja' turns both into the default.
+static uint32_t selectTableIndex(MachineBuilder *b, const IrInstruction *cond, int64_t min) {
+  uint32_t widened = selectWidened(b, cond, sizeof(intptr_t));
+
+  if (min == 0) {
+    return widened;
+  }
+
+  uint32_t index = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
+  MachineInstr *copy = buildMachineInstr(b, MOP_COPY, 1, 1);
+  setRegisterOperand(copy, 0, index);
+  setRegisterOperand(copy, 1, widened);
+  copy->opSize = sizeof(intptr_t);
+
+  MachineInstr *sub = buildMachineInstr(b, X86_SUB, 1, 2);
+  setRegisterOperand(sub, 0, index);
+  setRegisterOperand(sub, 1, index);
+  setImmediateOperand(sub, 2, min);
+  sub->opSize = sizeof(intptr_t);
+
+  return index;
+}
+
+// The table itself: one entry per value of the range, holding the block that
+// value dispatches to, with the default filling everything no case claims.
+static uint32_t buildJumpTable(MachineBuilder *b, const SwitchTable *table, int64_t min,
+                               int64_t span) {
+  MachineBasicBlock **entries = heapAllocate((size_t)span * sizeof(MachineBasicBlock *));
+  MachineBasicBlock *fallback = machineBuilderBlock(b, table->defaultBB);
+
+  for (int64_t idx = 0; idx < span; ++idx) {
+    entries[idx] = fallback;
+  }
+
+  for (uint32_t c = 0; c < table->caseCount; ++c) {
+    entries[table->caseBlocks[c].caseConst - min] = machineBuilderBlock(b, table->caseBlocks[c].block);
+  }
+
+  uint32_t jumpTableIdx = addMachineJumpTable(b->mf, entries, (uint32_t)span);
+  releaseHeap(entries);
+
+  return jumpTableIdx;
+}
+
+// The dispatch: bounds-check, then jump through the table.
+//
+// Entries are distances from the table to their block rather than addresses,
+// which is why the base register is both what the load is indexed off and what
+// the loaded value is added to. An address would have to be relocated - it is
+// only known once the program is loaded - whereas a distance between two
+// points of the same section is known as soon as both have been emitted, and
+// the table is emitted after everything it names.
+static void selectSwitchTable(MachineBuilder *b, const IrInstruction *i, int64_t min,
+                              int64_t span) {
+  const SwitchTable *table = i->info.switchTable;
+  uint32_t index = selectTableIndex(b, inputAt(i, 0), min);
+
+  MachineInstr *cmp = buildMachineInstr(b, X86_CMP, 0, 2);
+  setRegisterOperand(cmp, 0, index);
+  setImmediateOperand(cmp, 1, span - 1);
+  cmp->opSize = sizeof(intptr_t);
+
+  MachineInstr *ja = buildMachineInstr(b, X86_JA, 0, 1);
+  setBlockOperand(ja, 0, machineBuilderBlock(b, table->defaultBB));
+
+  MachineAddress tableAddr = { MAK_JUMPTABLE, NO_REG, NO_REG, 0, 0 };
+  tableAddr.anchor.jumpTableIdx = buildJumpTable(b, table, min, span);
+
+  uint32_t base = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+  MachineInstr *lea = buildMachineInstr(b, X86_LEA, 1, 1);
+  setRegisterOperand(lea, 0, base);
+  setMemoryOperand(lea, 1, &tableAddr);
+  lea->opSize = sizeof(intptr_t);
+
+  MachineAddress entryAddr = { MAK_REG, base, index, sizeof(intptr_t), 0 };
+  uint32_t target = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
+  MachineInstr *load = buildMachineInstr(b, X86_LOAD, 1, 1);
+  setRegisterOperand(load, 0, target);
+  setMemoryOperand(load, 1, &entryAddr);
+  load->opSize = sizeof(intptr_t);
+
+  MachineInstr *add = buildMachineInstr(b, X86_ADD, 1, 2);
+  setRegisterOperand(add, 0, target);
+  setRegisterOperand(add, 1, target);
+  setRegisterOperand(add, 2, base);
+  add->opSize = sizeof(intptr_t);
+
+  MachineInstr *jmp = buildMachineInstr(b, X86_IJMP, 0, 1);
+  setRegisterOperand(jmp, 0, target);
+  jmp->opSize = sizeof(intptr_t);
+}
+
+static void selectTableBranch(MachineBuilder *b, const IrInstruction *i) {
+  int64_t min = 0, span = 0;
+
+  if (switchTableRange(i->info.switchTable, &min, &span)) {
+    selectSwitchTable(b, i, min, span);
+    return;
+  }
+
+  selectSwitchChain(b, i, machineBuilderVreg(b, inputAt(i, 0)));
+}
+
+// -============================ Computed goto ============================-
+//
+// '&&label' is the address of a block of this same function, which is a thing
+// only the emitter can put a number on - so it is carried to stage 3 as the
+// block itself and resolved there, exactly as a branch target is. That it
+// arrives as an ordinary rip-relative lea is what makes the result a real
+// pointer: it survives being stored, passed and returned, which is the whole
+// point of taking it.
+
+static void selectBlockAddress(MachineBuilder *b, const IrInstruction *i) {
+  MachineAddress addr = { MAK_BLOCK, NO_REG, NO_REG, 0, 0 };
+  addr.anchor.block = machineBuilderBlock(b, i->info.block);
+
+  MachineInstr *mi = buildMachineInstr(b, X86_LEA, 1, 1);
+  setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+  setMemoryOperand(mi, 1, &addr);
+  mi->opSize = sizeof(intptr_t);
+}
+
+static void selectIndirectBranch(MachineBuilder *b, const IrInstruction *i) {
+  MachineInstr *mi = buildMachineInstr(b, X86_IJMP, 0, 1);
+  setRegisterOperand(mi, 0, machineBuilderVreg(b, inputAt(i, 0)));
+  mi->opSize = sizeof(intptr_t);
+}
+
 // -============================ Dispatch ============================-
 
 static void selectInstruction_x86_64(MachineBuilder *b, const IrInstruction *i) {
@@ -1443,6 +1692,7 @@ static void selectInstruction_x86_64(MachineBuilder *b, const IrInstruction *i) 
     break;
 
   case IR_E_BITCAST: selectConversion(b, i); break;
+  case IR_CFG_LABEL: selectBlockAddress(b, i); break;
 
   // The placeholder buildSSA leaves where a promoted local is read on a path
   // that never wrote it - see renameLocals in src/ir/ssa.c. Its value is
@@ -1473,13 +1723,11 @@ static void selectTerminator_x86_64(MachineBuilder *b, const IrInstruction *i) {
   case IR_BRANCH: selectBranch(b, i); break;
   case IR_CBRANCH: selectCondBranch(b, i); break;
   case IR_RET: selectReturn(b, i); break;
+  case IR_TBRANCH: selectTableBranch(b, i); break;
+  case IR_IBRANCH: selectIndirectBranch(b, i); break;
 
-  // A switch table and a computed goto both need a jump through memory. The
-  // addressing mode that takes is here now, and so is the constant pool the
-  // table itself would live in; what is missing is an indirect-jump opcode and
-  // the lowering that builds the table, which is step 11.
   default:
-    buildUnselected(b, i, "a jump through a table, which needs an indirect jump to build");
+    buildUnselected(b, i, "no rule yet");
     break;
   }
 }

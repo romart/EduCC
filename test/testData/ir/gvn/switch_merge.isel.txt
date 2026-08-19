@@ -22,7 +22,12 @@ MBB #0, '<entry>', ir #0, -> #2
   %v11 = MOP_COPY.4 $rdx ; %9
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #5 #6 #7 #4
-  MOP_UNSELECTED(IR_TBRANCH) %v11 ; %16
+  cmp.4 %v11, 0 ; %16
+  je #5 ; %16
+  cmp.4 %v11, 1 ; %16
+  je #6 ; %16
+  cmp.4 %v11, 2 ; %16
+  je #7 ; %16
 
 MBB #4, '<default_case>', ir #4, <- #2, -> #3
   %v7 = MOP_COPY.4 %v9 ; %56

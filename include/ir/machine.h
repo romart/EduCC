@@ -92,6 +92,8 @@ enum MachineAddressKind {
   MAK_FRAME,    // a slot of this frame; the frame pointer is the base
   MAK_SYMBOL,   // a named object, addressed relative to the instruction pointer
   MAK_CONSTANT, // an entry of this function's constant pool, likewise
+  MAK_BLOCK,    // a block of this function, for '&&label' and the tables below
+  MAK_JUMPTABLE, // a jump table of this function, likewise
 };
 
 // Target-independent addressing mode. x86-64 lowers this to the Address struct
@@ -117,15 +119,17 @@ typedef struct _MachineAddress {
     struct _Symbol *symbol; // MAK_SYMBOL
     uint32_t constantIdx;   // MAK_CONSTANT, into MachineFunction.constants
     int32_t frameIdx;       // MAK_FRAME, into MachineFunction.frame.objects
+    struct _MachineBasicBlock *block; // MAK_BLOCK
+    uint32_t jumpTableIdx;  // MAK_JUMPTABLE, into MachineFunction.jumpTables
   } anchor;
 } MachineAddress;
 
 // A constant this function needs a copy of in memory, because there is no
 // instruction that materializes it and no name to reach it by. String literals
-// today; a jump table and a float too big for an immediate are the same thing
-// and land here when they arrive. The bytes are placed in a read-only section
-// by emission - selection has no section to put them in - so what an address
-// carries is an index into the pool, not a placed address.
+// today; a float too big for an immediate is the same thing and lands here
+// when it arrives. The bytes are placed in a read-only section by emission -
+// selection has no section to put them in - so what an address carries is an
+// index into the pool, not a placed address.
 enum MachineConstantKind {
   MCK_BYTES = 0, // literal bytes, copied out as they are
 };
@@ -136,6 +140,19 @@ typedef struct _MachineConstant {
   size_t size;
   uint32_t alignment;
 } MachineConstant;
+
+// One switch's dispatch table: the block to enter for each value of a
+// contiguous range, with the switch's default filling whatever the cases skip.
+//
+// Deliberately not a MachineConstant, though both are memory this function
+// needs placed. A constant's bytes are known here and are the same wherever
+// they land; a table's are addresses of blocks of this very function, which
+// nothing knows until the blocks have been emitted. So the entries stay blocks
+// all the way to stage 3, exactly as a branch target does.
+typedef struct _MachineJumpTable {
+  struct _MachineBasicBlock **entries;
+  uint32_t count;
+} MachineJumpTable;
 
 typedef struct _MachineOperand {
   enum MachineOperandKind kind;
@@ -329,6 +346,11 @@ typedef struct _MachineFunction {
   // share them by the section writer that places them, not by this vector.
   Vector constants;
 
+  // Of MachineJumpTable *, indexed by the jumpTableIdx a MAK_JUMPTABLE address
+  // carries. Never shared between functions even in principle - the entries
+  // name blocks of one particular function.
+  Vector jumpTables;
+
   // Set when selection left at least one MOP_UNSELECTED behind, i.e. this
   // function contains something stage 1 cannot express yet. Register
   // allocation is still meaningful on such a function - the placeholder has
@@ -466,6 +488,14 @@ int32_t placeMachineFrameObject(MachineFunction *mf, int32_t offset, int32_t fra
 uint32_t addMachineConstant(MachineFunction *mf, enum MachineConstantKind kind, const char *bytes,
                             size_t size, uint32_t alignment);
 const MachineConstant *machineConstantAt(const MachineFunction *mf, uint32_t constantIdx);
+
+// ------------- jump tables ------------------------
+
+// Takes a copy of 'entries'. Not deduplicating, unlike the constant pool: two
+// switches with the same table would be the same switch.
+uint32_t addMachineJumpTable(MachineFunction *mf, struct _MachineBasicBlock **entries,
+                             uint32_t count);
+const MachineJumpTable *machineJumpTableAt(const MachineFunction *mf, uint32_t jumpTableIdx);
 
 // The rip-relative anchors carry the whole address in the relocation, so a
 // register term or a displacement beside one would be silently dropped by

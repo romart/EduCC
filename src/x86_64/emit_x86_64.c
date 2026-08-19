@@ -42,6 +42,11 @@ typedef struct _EmitContext {
   // and the reason blocks can be emitted in layout order without a pre-pass.
   struct Label *labels;
 
+  // One per jump table, bound when the table is placed after the body. The lea
+  // that reaches a table is emitted long before that, so this is a forward
+  // reference like any other and uses the same patching.
+  struct Label *jumpTableLabels;
+
   // Where in the frame each saved callee-saved register lives, indexed the
   // same way as x86CalleeSaved; 0 for the ones this function does not use.
   int32_t calleeSavedOffset[CALLEE_SAVED_COUNT];
@@ -197,6 +202,20 @@ static Address constantAddress(EmitContext *e, const MachineAddress *m) {
   return addr;
 }
 
+// A block of this same function, so nothing outside it has to be told: the
+// assembler measures the distance itself, or leaves a hole this block's label
+// patches when it is bound. Byte for byte what the legacy backend builds for
+// '&&label' in codegen_x86_64.c.
+static Address blockAddress(EmitContext *e, const MachineAddress *m) {
+  Address addr = { R_RIP, R_BAD, 0, 0, NULL, &e->labels[m->anchor.block->id] };
+  return addr;
+}
+
+static Address jumpTableAddress(EmitContext *e, const MachineAddress *m) {
+  Address addr = { R_RIP, R_BAD, 0, 0, NULL, &e->jumpTableLabels[m->anchor.jumpTableIdx] };
+  return addr;
+}
+
 static Address registerAddress(EmitContext *e, const MachineAddress *m) {
   Address addr = { R_BAD, R_BAD, 0, m->disp, NULL, NULL };
 
@@ -257,6 +276,8 @@ static Address addressOperand(EmitContext *e, const MachineInstr *mi, uint16_t i
   case MAK_SYMBOL:   return symbolAddress(e, m);
   case MAK_CONSTANT: return constantAddress(e, m);
   case MAK_FRAME:    return frameAnchorAddress(e, m);
+  case MAK_BLOCK:    return blockAddress(e, m);
+  case MAK_JUMPTABLE: return jumpTableAddress(e, m);
   case MAK_REG:      return registerAddress(e, m);
   default: unreachable("unknown address anchor");
   }
@@ -610,6 +631,10 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
     emitJumpTo(f, &e->labels[blockOperand(mi, 0)->id], JUMP_DISPLACEMENT_IS_SHORT);
     break;
 
+  case X86_IJMP:
+    emitJumpByReg(f, regOperand(e, mi, 0));
+    break;
+
   case X86_PUSH:
     // Always the full eight bytes, whatever the argument's own width: a stack
     // argument occupies a whole eightbyte and the bytes above it are the
@@ -680,6 +705,48 @@ static void emitPrologue(EmitContext *e) {
   }
 }
 
+// -============================ Jump tables ===============================-
+//
+// Placed after the body, in this function's own section, which is what makes
+// them cost nothing to resolve: every block they name has been emitted by
+// then, so an entry is the difference between two offsets this file already
+// knows and not a relocation for somebody else to fill in.
+//
+// That an entry is a *distance* rather than an address is the same decision
+// from the other side. An address is only known once the program is loaded, so
+// a table of addresses would need a relocation per entry and a writable-ish
+// section to hold them; a distance within one section is fixed at compile
+// time, and the dispatch pays one 'add' for it.
+//
+// Nothing falls in here - the last thing before a table is a return or an
+// unconditional jump - but the padding is 0xCC rather than zero so that a
+// mistake about that traps instead of executing whatever the low bytes of an
+// address happen to encode.
+static void emitJumpTables(EmitContext *e) {
+  GeneratedFunction *f = e->gen;
+
+  for (size_t idx = 0; idx < e->mf->jumpTables.size; ++idx) {
+    const MachineJumpTable *jt = machineJumpTableAt(e->mf, idx);
+
+    while ((f->section->pc - f->section->start) % sizeof(intptr_t) != 0) {
+      emitByte(f, 0xCC);
+    }
+
+    bindBlockLabel(f, &e->jumpTableLabels[idx]);
+    ptrdiff_t tableOffset = e->jumpTableLabels[idx].label_cp;
+
+    for (uint32_t entry = 0; entry < jt->count; ++entry) {
+      const struct Label *target = &e->labels[jt->entries[entry]->id];
+      assert(target->binded && "a jump table names a block that was never emitted");
+
+      int64_t delta = (int64_t)(target->label_cp - tableOffset);
+      for (size_t byte = 0; byte < sizeof(int64_t); ++byte) {
+        emitByte(f, (uint8_t)(delta >> (8 * byte)));
+      }
+    }
+  }
+}
+
 // -============================ Entry points ==============================-
 
 Boolean canEmitMachineFunction(const MachineFunction *mf) {
@@ -697,6 +764,9 @@ GeneratedFunction *emitMachineFunction_x86_64(GenerationContext *ctx, MachineFun
   e.gen = gen;
   e.mf = mf;
   e.labels = areanAllocate(ctx->codegenArena, mf->numBlocks * sizeof(struct Label));
+  if (mf->jumpTables.size != 0) {
+    e.jumpTableLabels = areanAllocate(ctx->codegenArena, mf->jumpTables.size * sizeof(struct Label));
+  }
   e.frameSize = layoutCalleeSaved(&e);
 
   gen->frameSize = e.frameSize;
@@ -723,13 +793,19 @@ GeneratedFunction *emitMachineFunction_x86_64(GenerationContext *ctx, MachineFun
     emitEpilogue(&e);
   }
 
+  // Where the instructions stop, which is not where the function's bytes do:
+  // the tables below belong to it and are counted in its size, but they are
+  // data and disassembling them would print nonsense.
+  address codeEnd = gen->section->pc;
+
+  emitJumpTables(&e);
+
   gen->bodySize = (gen->section->pc - gen->section->start) - gen->sectionOffset;
 
   if (ctx->parserContext->config->asmDump) {
     fprintf(stdout, "<<< %s >>>\n", gen->name);
     address b = gen->section->start + gen->sectionOffset;
-    address end = gen->section->pc;
-    disassemble(stdout, b, end - b);
+    disassemble(stdout, b, codeEnd - b);
     fprintf(stdout, "<<<>>>\n");
   }
 

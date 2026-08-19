@@ -29,6 +29,7 @@ MachineFunction *createMachineFunction(IrFunction *f) {
   initVector(&mf->irToFrameIdx, INITIAL_VECTOR_CAPACITY);
   initVector(&mf->frame.objects, INITIAL_VECTOR_CAPACITY);
   initVector(&mf->constants, INITIAL_VECTOR_CAPACITY);
+  initVector(&mf->jumpTables, INITIAL_VECTOR_CAPACITY);
 
   return mf;
 }
@@ -449,6 +450,24 @@ uint32_t addMachineConstant(MachineFunction *mf, enum MachineConstantKind kind, 
 const MachineConstant *machineConstantAt(const MachineFunction *mf, uint32_t constantIdx) {
   assert(constantIdx < mf->constants.size);
   return (const MachineConstant *)getFromVector(&mf->constants, constantIdx);
+}
+
+uint32_t addMachineJumpTable(MachineFunction *mf, MachineBasicBlock **entries, uint32_t count) {
+  MachineJumpTable *jt = areanAllocate(mf->arena, sizeof(MachineJumpTable));
+
+  jt->count = count;
+  jt->entries = areanAllocate(mf->arena, count * sizeof(MachineBasicBlock *));
+  memcpy(jt->entries, entries, count * sizeof(MachineBasicBlock *));
+
+  uint32_t jumpTableIdx = (uint32_t)mf->jumpTables.size;
+  addToVector(&mf->jumpTables, (intptr_t)jt);
+
+  return jumpTableIdx;
+}
+
+const MachineJumpTable *machineJumpTableAt(const MachineFunction *mf, uint32_t jumpTableIdx) {
+  assert(jumpTableIdx < mf->jumpTables.size);
+  return (const MachineJumpTable *)getFromVector(&mf->jumpTables, jumpTableIdx);
 }
 
 Boolean isMachineAddressWellFormed(const MachineAddress *addr) {

@@ -64,6 +64,18 @@ static int32_t dumpMachineAddress(FILE *stream, const MachineFunction *mf,
     empty = FALSE;
   }
 
+  // Both spelled the way a branch target is, since that is what they resolve
+  // to: a place in this function rather than a name the linker knows.
+  if (addr->kind == MAK_BLOCK) {
+    r += fprintf(stream, "#%u", addr->anchor.block->id);
+    empty = FALSE;
+  }
+
+  if (addr->kind == MAK_JUMPTABLE) {
+    r += fprintf(stream, "jt#%u", addr->anchor.jumpTableIdx);
+    empty = FALSE;
+  }
+
   if (addr->base != NO_REG) {
     if (!empty) {
       r += fprintf(stream, " + ");
@@ -312,6 +324,25 @@ static int32_t dumpMachineFrame(FILE *stream, const MachineFunction *mf) {
   return r;
 }
 
+// The entries, not just how many: a switch dispatched to the wrong block is
+// exactly what a table gets wrong, and it is invisible in the dispatch itself -
+// those seven instructions are the same whatever the table holds.
+static int32_t dumpMachineJumpTables(FILE *stream, const MachineFunction *mf) {
+  int32_t r = 0;
+
+  for (size_t idx = 0; idx < mf->jumpTables.size; ++idx) {
+    const MachineJumpTable *jt = machineJumpTableAt(mf, idx);
+
+    r += fprintf(stream, "  jt#%lu :", idx);
+    for (uint32_t entry = 0; entry < jt->count; ++entry) {
+      r += fprintf(stream, " #%u", jt->entries[entry]->id);
+    }
+    r += fputc('\n', stream);
+  }
+
+  return r;
+}
+
 int32_t dumpMachineFunction(FILE *stream, const MachineFunction *mf) {
   const char *name = mf->ast ? mf->ast->declaration->name : "<unnamed>";
   int32_t r = fprintf(stream, "MachineFunction '%s' [target = %s]\n", name, mf->target->name);
@@ -338,6 +369,13 @@ int32_t dumpMachineFunction(FILE *stream, const MachineFunction *mf) {
   }
 
   r += dumpMachineFrame(stream, mf);
+
+  // Only when there are any, so that every baseline taken before switches were
+  // selected reads exactly as it did.
+  if (mf->jumpTables.size != 0) {
+    r += fprintf(stream, "Jump tables:\n");
+    r += dumpMachineJumpTables(stream, mf);
+  }
 
   // Both of these are empty until register allocation has run, and are printed
   // only when they are not, so that a dump taken before it looks exactly as it

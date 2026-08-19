@@ -81,6 +81,8 @@
   X86_OPCODE_DEF(IDIV, "idiv"),                                                \
   X86_OPCODE_DEF(DIV, "div"),                                                  \
   X86_OPCODE_DEF(JMP, "jmp"),                                                  \
+  X86_OPCODE_DEF(IJMP, "jmp*"), /* through a register: a computed goto, and    \
+                                   the tail of a jump table */                 \
   X86_OPCODE_DEF(PUSH, "push"), /* an outgoing stack argument, and nothing     \
                                    else - see selectCall */                    \
   X86_OPCODE_DEF(CALL, "call"), /* operand 0 is the callee: a symbol for a     \

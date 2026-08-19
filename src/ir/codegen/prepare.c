@@ -21,8 +21,16 @@
 // one exception it can do nothing about: a computed goto (IR_IBRANCH) branches
 // through a block address taken somewhere else entirely, so its successors
 // cannot be redirected by rewriting the terminator the way a conditional or a
-// switch can. Phi destruction has to notice that case itself rather than
-// discover it as a miscompile - see test/testData/ir/gvn/computed_goto_phi.c.
+// switch can.
+//
+// Nothing here has to cope with that, because nothing places a phi behind such
+// an edge in the first place - buildSSA declines to promote an alloca that
+// would need one and gvn's pre() declines to insert one, both asking
+// hasUnsplittablePredecessor(). This is where that becomes load-bearing, so
+// this is where it is checked: below, phi destruction appends the copies for
+// every incoming edge to the predecessor they come from, and on a shared
+// unsplittable edge they would all run whichever way control then went.
+// test/testData/ir/gvn/computed_goto_phi.c is the shape it is checked against.
 static Boolean isUnsplittableEdge(const IrBasicBlock *block, const IrBasicBlock *succ) {
   return block->term != NULL && block->term->kind == IR_IBRANCH;
 }
@@ -33,6 +41,10 @@ static void assertCriticalEdgesSplit(const IrFunction *f) {
       const IrBasicBlock *succ = getBlockFromVector(&block->succs, idx);
       assert(!isCriticalEdge(block, succ) || isUnsplittableEdge(block, succ));
     }
+
+    assert((block->instrunctions.head == NULL || block->instrunctions.head->kind != IR_PHI ||
+            !hasUnsplittablePredecessor(block)) &&
+           "a phi behind an edge its copies cannot be put on");
   }
 }
 

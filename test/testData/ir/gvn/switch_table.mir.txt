@@ -1,0 +1,144 @@
+--- Phase: mir ---
+MachineFunction 'dense' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %36
+  %v1 : gp/4 ; %9
+  %v2 : gp/4 ; %12
+  %v3 : gp/4 ; %15
+  %v4 : gp/4 ; %18
+  %v5 : gp/4 ; %21
+  %v6 : gp/4 ; %24
+  %v7 : gp/4 ; %40
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #4 #5 #6 #7 #8 #9 #3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5 #6 #7 #8 #9 #3
+
+MBB #3, '<default_case>', ir #4, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v7 ; %36
+
+MBB #4, '<case_block>', ir #5, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %36
+
+MBB #5, '<case_block>', ir #6, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %36
+
+MBB #6, '<case_block>', ir #7, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v3 ; %36
+
+MBB #7, '<case_block>', ir #8, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v4 ; %36
+
+MBB #8, '<case_block>', ir #9, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v5 ; %36
+
+MBB #9, '<case_block>', ir #10, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v6 ; %36
+
+
+--- Phase: mir ---
+MachineFunction 'sparse' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %36
+  %v1 : gp/4 ; %9
+  %v2 : gp/4 ; %12
+  %v3 : gp/4 ; %15
+  %v4 : gp/4 ; %18
+  %v5 : gp/4 ; %21
+  %v6 : gp/4 ; %24
+  %v7 : gp/4 ; %40
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #4 #5 #6 #7 #8 #9 #3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5 #6 #7 #8 #9 #3
+
+MBB #3, '<default_case>', ir #4, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v7 ; %36
+
+MBB #4, '<case_block>', ir #5, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %36
+
+MBB #5, '<case_block>', ir #6, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %36
+
+MBB #6, '<case_block>', ir #7, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v3 ; %36
+
+MBB #7, '<case_block>', ir #8, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v4 ; %36
+
+MBB #8, '<case_block>', ir #9, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v5 ; %36
+
+MBB #9, '<case_block>', ir #10, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v6 ; %36
+
+
+--- Phase: mir ---
+MachineFunction 'few' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %27
+  %v1 : gp/4 ; %9
+  %v2 : gp/4 ; %12
+  %v3 : gp/4 ; %15
+  %v4 : gp/4 ; %31
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #4 #5 #6 #3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5 #6 #3
+
+MBB #3, '<default_case>', ir #4, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v4 ; %27
+
+MBB #4, '<case_block>', ir #5, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %27
+
+MBB #5, '<case_block>', ir #6, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %27
+
+MBB #6, '<case_block>', ir #7, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v3 ; %27
+
+
+--- Phase: mir ---
+MachineFunction 'negative' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %32
+  %v1 : gp/4 ; %9
+  %v2 : gp/4 ; %12
+  %v3 : gp/4 ; %15
+  %v4 : gp/4 ; %18
+  %v5 : gp/4 ; %21
+  %v6 : gp/4 ; %36
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #4 #5 #6 #7 #8 #3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5 #6 #7 #8 #3
+
+MBB #3, '<default_case>', ir #4, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v6 ; %32
+
+MBB #4, '<case_block>', ir #5, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %32
+
+MBB #5, '<case_block>', ir #6, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %32
+
+MBB #6, '<case_block>', ir #7, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v3 ; %32
+
+MBB #7, '<case_block>', ir #8, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v4 ; %32
+
+MBB #8, '<case_block>', ir #9, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v5 ; %32
+
+
