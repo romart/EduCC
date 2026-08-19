@@ -41,8 +41,8 @@ Frame: 0 bytes
   fi#1 : param 16/16 @ 32 'b' ; %4
 MBB #0, '<entry>', ir #0, -> #2
   %v0 = MOP_COPY.8 $rsp ; %0
-  %v1 = lea.8 fi#0 ; %2
-  %v2 = lea.8 fi#1 ; %4
+  %v1 = lea.8 [fi#0] ; %2
+  %v2 = lea.8 [fi#1] ; %4
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   %v3 = MOP_UNSELECTED(IR_M_LOAD) %v1 ; %9

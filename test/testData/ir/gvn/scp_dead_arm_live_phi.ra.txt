@@ -6,14 +6,12 @@ VRegs:
   %v2 : gp/4 ; %6
   %v3 : gp/4 ; %14
   %v4 : gp/4 ; %9
-  %v5 : gp/4 ; %15
 Frame: 32 bytes
   fi#0 : spill 4/4 @ -4 %v3 ; %14
   fi#1 : spill 4/4 @ -8 %v1 ; %3
   fi#2 : spill 4/4 @ -12 %v2 ; %6
   fi#3 : spill 4/4 @ -16 %v4 ; %9
-  fi#4 : spill 4/4 @ -20 %v5 ; %15
-  fi#5 : spill 4/4 @ -24 %v0 ; %37
+  fi#4 : spill 4/4 @ -20 %v0 ; %37
 Physical registers used: $rax $rdx $rsi $rdi $r10 $r11
 MBB #0, '<entry>', ir #0, -> #2
   $r10 = mov.4 0 ; %14
@@ -26,35 +24,28 @@ MBB #0, '<entry>', ir #0, -> #2
   MOP_SPILL.4 fi#3, $r10
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
-  $r10 = mov.4 0 ; %15
-  MOP_SPILL.4 fi#4, $r10
   $r10 = MOP_RELOAD.4 fi#3
   $r11 = MOP_RELOAD.4 fi#0
   cmp.4 $r10, $r11 ; %15
-  $r10 = MOP_RELOAD.4 fi#4
-  $r10 = setg.1 $r10 ; %15
-  MOP_SPILL.4 fi#4, $r10
-  $r10 = MOP_RELOAD.4 fi#4
-  test.4 $r10, $r10 ; %16
-  jne #4 ; %16
+  jg #4 ; %16
 
 MBB #5, '<if_else>', ir #5, <- #2, -> #3
   $r11 = MOP_RELOAD.4 fi#2
   $r10 = MOP_COPY.4 $r11 ; %37
-  MOP_SPILL.4 fi#5, $r10
+  MOP_SPILL.4 fi#4, $r10
   jmp #3 ; %22
 
 MBB #4, '<if_then>', ir #4, <- #2, -> #3
   $r11 = MOP_RELOAD.4 fi#1
   $r10 = MOP_COPY.4 $r11 ; %37
-  MOP_SPILL.4 fi#5, $r10
+  MOP_SPILL.4 fi#4, $r10
 
 MBB #3, '<if_exit>', ir #3, <- #4 #5, -> #6
 
 MBB #6, '<if_exit>', ir #6, <- #3, -> #1
 
 MBB #1, '<exit>', ir #1, <- #6
-  $r10 = MOP_RELOAD.4 fi#5
+  $r10 = MOP_RELOAD.4 fi#4
   $rax = MOP_COPY.4 $r10 ; %32
   ret ; %32
 

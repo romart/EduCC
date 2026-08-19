@@ -14,11 +14,8 @@ VRegs:
   %v10 : gp/4 ; %3
   %v11 : gp/4 ; %6
   %v12 : gp/4 ; %9
-  %v13 : gp/4 ; %17
-  %v14 : gp/4 ; %26
-  %v15 : gp/4 ; %36
-  %v16 : gp/4 ; %30
-  %v17 : gp/4 ; %49
+  %v13 : gp/4 ; %30
+  %v14 : gp/4 ; %49
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
   %v9 = mov.4 2 ; %25
@@ -28,25 +25,16 @@ MBB #0, '<entry>', ir #0, -> #2
   %v12 = MOP_COPY.4 $rdx ; %9
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
-  %v13 = mov.4 0 ; %17
   cmp.4 %v12, 1 ; %17
-  %v13 = sete.1 %v13 ; %17
-  test.4 %v13, %v13 ; %18
-  jne #4 ; %18
+  je #4 ; %18
 
 MBB #5, '<if_else>', ir #5, <- #2, -> #7 #8
-  %v14 = mov.4 0 ; %26
   cmp.4 %v12, %v9 ; %26
-  %v14 = sete.1 %v14 ; %26
-  test.4 %v14, %v14 ; %27
-  jne #7 ; %27
+  je #7 ; %27
 
 MBB #8, '<if_else>', ir #8, <- #5, -> #10 #11
-  %v15 = mov.4 0 ; %36
   cmp.4 %v12, 3 ; %36
-  %v15 = sete.1 %v15 ; %36
-  test.4 %v15, %v15 ; %37
-  jne #10 ; %37
+  je #10 ; %37
 
 MBB #11, '<crit_splitter>', ir #11, <- #8, -> #9
   %v6 = MOP_COPY.4 %v7 ; %55
@@ -62,9 +50,9 @@ MBB #9, '<if_exit>', ir #9, <- #11 #10, -> #6
   jmp #6 ; %43
 
 MBB #7, '<if_then>', ir #7, <- #5, -> #6
-  %v16 = MOP_COPY.4 %v10 ; %30
-  %v16 = add.4 %v16, %v11 ; %30
-  %v5 = MOP_COPY.4 %v16 ; %31
+  %v13 = MOP_COPY.4 %v10 ; %30
+  %v13 = add.4 %v13, %v11 ; %30
+  %v5 = MOP_COPY.4 %v13 ; %31
   %v5 = imul.4 %v5, %v9 ; %31
   %v4 = MOP_COPY.4 %v5 ; %57
 
@@ -82,11 +70,11 @@ MBB #4, '<if_then>', ir #4, <- #2, -> #3
   %v2 = MOP_COPY.4 %v1 ; %59
 
 MBB #3, '<if_exit>', ir #3, <- #4 #6, -> #1
-  %v17 = MOP_COPY.4 %v2 ; %49
-  %v17 = add.4 %v17, %v0 ; %49
+  %v14 = MOP_COPY.4 %v2 ; %49
+  %v14 = add.4 %v14, %v0 ; %49
 
 MBB #1, '<exit>', ir #1, <- #3
-  $rax = MOP_COPY.4 %v17 ; %52
+  $rax = MOP_COPY.4 %v14 ; %52
   ret ; %52
 
 

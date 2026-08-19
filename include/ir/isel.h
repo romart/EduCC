@@ -22,6 +22,28 @@
 // noticing.
 
 struct _IrInstruction;
+struct _IrBasicBlock;
+
+// The addressing mode a pointer value denotes, once the chain of GEPs
+// computing it has been walked back into one 'base + index * scale + disp'.
+// See decideAddressFolds().
+//
+// The trivial answer - the pointer's own register, nothing else - is what a
+// value that folds nothing gets, so every pointer in an address position has
+// one of these and no caller needs a second path for the unfolded case.
+typedef struct _AddressFold {
+  // The value supplying the base register, or NULL when the address is
+  // anchored to a frame slot instead.
+  const struct _IrInstruction *base;
+  int32_t frameIdx; // the slot it is anchored to, or -1
+
+  // The value to be scaled, before any widening the target has to do to make
+  // it a full-width index. NULL when there is no index term.
+  const struct _IrInstruction *index;
+  uint32_t scale; // 1/2/4/8, 0 when there is no index
+
+  int32_t disp;
+} AddressFold;
 
 typedef struct _MachineBuilder {
   MachineFunction *mf;
@@ -41,6 +63,20 @@ typedef struct _MachineBuilder {
   // register. Indexed by IrInstruction.id, biased by one exactly like the maps
   // on MachineFunction, so an unwritten entry reads as "not decided".
   Vector foldedConstants;
+
+  // Which values were absorbed into another instruction's operands - a GEP
+  // that became an addressing mode, a compare that became a branch condition -
+  // and so are never selected in their own right. Indexed the same way.
+  //
+  // Separate from foldedConstants because the two say different things: a
+  // folded constant is spelled out at each of its uses, whereas an absorbed
+  // value is one its uses no longer mention at all.
+  Vector absorbed;
+
+  // The AddressFold for each pointer value that reaches an address operand,
+  // indexed by the *pointer's* id rather than by its user's - the fold is a
+  // property of the value, so a pointer two loads share is walked once.
+  Vector addressFolds;
 } MachineBuilder;
 
 typedef struct _ArchSelector {
@@ -64,6 +100,30 @@ typedef struct _ArchSelector {
   // rather than MO_IMM.
   Boolean (*isLegalImmediate)(const struct _IrInstruction *use, size_t operandIdx,
                               const struct _IrInstruction *cnst);
+
+  // Whether one memory operand of this target can hold these terms at once.
+  // Asked while a GEP chain is being walked back, once per term accumulated,
+  // so a target whose addressing modes are narrower simply stops earlier -
+  // riscv64 has no scaled index at all and would refuse every non-zero scale.
+  //
+  // 'hasBase' rather than a register, because the walk asks before it has
+  // named any: what varies between targets is the shape, not which registers
+  // end up in it.
+  Boolean (*isLegalAddressMode)(uint32_t scale, int64_t disp);
+
+  // Which of this instruction's inputs the target is going to read through an
+  // addressing mode rather than out of a register, as a bit per input
+  // position. Zero for an instruction it is going to refuse: a placeholder
+  // names its inputs' registers, so a pointer folded away underneath one would
+  // leave it naming a register nothing defines.
+  uint32_t (*addressOperands)(const struct _IrInstruction *i);
+
+  // Whether this value is one the target can test and branch on in a single
+  // instruction pair, so that the boolean it would otherwise materialize need
+  // not exist. Asked only of a conditional branch's condition, and only about
+  // the shape of the value - whether it is *placed* to be folded is the
+  // driver's question, not the target's.
+  Boolean (*foldsIntoCondition)(const struct _IrInstruction *cond);
 } ArchSelector;
 
 // ------------- what an ArchSelector is given ------------------------
@@ -79,6 +139,16 @@ MachineInstr *buildMachineInstr(MachineBuilder *b, uint32_t opcode, uint16_t num
 uint32_t machineBuilderVreg(MachineBuilder *b, const struct _IrInstruction *value);
 
 Boolean machineBuilderIsFolded(const MachineBuilder *b, const struct _IrInstruction *value);
+
+// Whether this value was absorbed into another instruction's operands and so
+// computes nothing of its own. Arch hooks ask it of a branch condition; the
+// driver asks it of everything, to know what not to select.
+Boolean machineBuilderIsAbsorbed(const MachineBuilder *b, const struct _IrInstruction *value);
+
+// The addressing mode a pointer value denotes. Never NULL for a pointer the
+// driver walked, which is every one that reaches an address operand.
+const AddressFold *machineBuilderAddressFold(const MachineBuilder *b,
+                                             const struct _IrInstruction *ptr);
 
 // Fills operand 'idx' with an IR value: an immediate if it is a folded
 // constant, its register otherwise. Every use goes through here, so no arch

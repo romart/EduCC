@@ -7,7 +7,6 @@ VRegs:
   %v3 : gp/4 ; %20
   %v4 : gp/4 ; %24
   %v5 : gp/4 ; %3
-  %v6 : gp/4 ; %14
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
   %v1 = mov.4 0 ; %8
@@ -18,11 +17,8 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #3
   %v2 = MOP_COPY.4 %v1 ; %33
 
 MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
-  %v6 = mov.4 0 ; %14
   cmp.4 %v2, %v5 ; %14
-  %v6 = setl.1 %v6 ; %14
-  test.4 %v6, %v6 ; %15
-  jne #4 ; %15
+  jl #4 ; %15
 
 MBB #5, '<while_exit>', ir #5, <- #3, -> #1
 

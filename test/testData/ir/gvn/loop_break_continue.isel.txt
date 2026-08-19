@@ -9,12 +9,9 @@ VRegs:
   %v5 : gp/4 ; %3
   %v6 : gp/4 ; %6
   %v7 : gp/4 ; %9
-  %v8 : gp/4 ; %20
-  %v9 : gp/4 ; %28
-  %v10 : gp/4 ; %33
-  %v11 : gp/4 ; %39
-  %v12 : gp/4 ; %46
-  %v13 : gp/4 ; %47
+  %v8 : gp/4 ; %39
+  %v9 : gp/4 ; %46
+  %v10 : gp/4 ; %47
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
   %v1 = mov.4 0 ; %14
@@ -27,11 +24,8 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #3
   %v2 = MOP_COPY.4 %v1 ; %53
 
 MBB #3, '<while_head>', ir #3, <- #2 #7 #8, -> #4 #10
-  %v8 = mov.4 0 ; %20
   cmp.4 %v2, %v7 ; %20
-  %v8 = setl.1 %v8 ; %20
-  test.4 %v8, %v8 ; %21
-  jne #4 ; %21
+  jl #4 ; %21
 
 MBB #10, '<crit_splitter>', ir #10, <- #3, -> #5
   jmp #5 ; %65
@@ -39,24 +33,18 @@ MBB #10, '<crit_splitter>', ir #10, <- #3, -> #5
 MBB #4, '<while_body>', ir #4, <- #3, -> #7 #6
   %v3 = MOP_COPY.4 %v2 ; %24
   %v3 = add.4 %v3, 1 ; %24
-  %v9 = mov.4 0 ; %28
   cmp.4 %v3, 3 ; %28
-  %v9 = sete.1 %v9 ; %28
-  test.4 %v9, %v9 ; %29
-  jne #7 ; %29
+  je #7 ; %29
 
 MBB #6, '<if_exit>', ir #6, <- #4, -> #9 #8
-  %v10 = mov.4 0 ; %33
   cmp.4 %v3, 7 ; %33
-  %v10 = sete.1 %v10 ; %33
-  test.4 %v10, %v10 ; %34
-  jne #9 ; %34
+  je #9 ; %34
 
 MBB #8, '<if_exit>', ir #8, <- #6, -> #3
-  %v11 = MOP_COPY.4 %v5 ; %39
-  %v11 = add.4 %v11, %v6 ; %39
+  %v8 = MOP_COPY.4 %v5 ; %39
+  %v8 = add.4 %v8, %v6 ; %39
   %v4 = MOP_COPY.4 %v0 ; %40
-  %v4 = add.4 %v4, %v11 ; %40
+  %v4 = add.4 %v4, %v8 ; %40
   %v0 = MOP_COPY.4 %v4 ; %57
   %v2 = MOP_COPY.4 %v3 ; %53
   jmp #3 ; %42
@@ -64,13 +52,13 @@ MBB #8, '<if_exit>', ir #8, <- #6, -> #3
 MBB #9, '<if_then>', ir #9, <- #6, -> #5
 
 MBB #5, '<while_exit>', ir #5, <- #10 #9, -> #1
-  %v12 = MOP_COPY.4 %v5 ; %46
-  %v12 = add.4 %v12, %v6 ; %46
-  %v13 = MOP_COPY.4 %v0 ; %47
-  %v13 = add.4 %v13, %v12 ; %47
+  %v9 = MOP_COPY.4 %v5 ; %46
+  %v9 = add.4 %v9, %v6 ; %46
+  %v10 = MOP_COPY.4 %v0 ; %47
+  %v10 = add.4 %v10, %v9 ; %47
 
 MBB #1, '<exit>', ir #1, <- #5
-  $rax = MOP_COPY.4 %v13 ; %50
+  $rax = MOP_COPY.4 %v10 ; %50
   ret ; %50
 
 MBB #7, '<if_then>', ir #7, <- #4, -> #3

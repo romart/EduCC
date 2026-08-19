@@ -219,11 +219,28 @@ static Address registerAddress(EmitContext *e, const MachineAddress *m) {
   return addr;
 }
 
-// The address an operand denotes, in the form the assembler takes: a frame
-// slot, or one of the anchors MachineAddress distinguishes.
+// A slot, plus whatever the addressing mode adds to it. The slot's offset is
+// only a displacement, so it folds into the one the address already carries
+// and leaves the index free - which is the whole point of the anchor.
+static Address frameAnchorAddress(EmitContext *e, const MachineAddress *m) {
+  const MachineFrameObject *obj = machineFrameObjectAt(e->mf, m->anchor.frameIdx);
+  assert(obj != NULL);
+  assert(!obj->isDynamic && "a dynamically placed object has no fixed address");
+
+  Address addr = registerAddress(e, m);
+  addr.base = R_EBP;
+  addr.imm += obj->offset;
+
+  return addr;
+}
+
+// The address an operand denotes, in the form the assembler takes: a whole
+// frame slot, or one of the anchors MachineAddress distinguishes.
 static Address addressOperand(EmitContext *e, const MachineInstr *mi, uint16_t idx) {
   const MachineOperand *op = machineOperandAt((MachineInstr *)mi, idx);
 
+  // Only a spill and a reload still say it this way; everything selection
+  // builds carries the slot as an anchor, so that an index can sit beside it.
   if (op->kind == MO_FRAME_IDX) {
     return frameAddress(e, op->info.frameIdx);
   }
@@ -239,6 +256,7 @@ static Address addressOperand(EmitContext *e, const MachineInstr *mi, uint16_t i
   switch (m->kind) {
   case MAK_SYMBOL:   return symbolAddress(e, m);
   case MAK_CONSTANT: return constantAddress(e, m);
+  case MAK_FRAME:    return frameAnchorAddress(e, m);
   case MAK_REG:      return registerAddress(e, m);
   default: unreachable("unknown address anchor");
   }

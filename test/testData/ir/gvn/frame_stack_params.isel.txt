@@ -3,21 +3,14 @@ MachineFunction 'frame_stack_params' [target = x86_64]
 VRegs:
   %v0 : gp/8 ; %27
   %v1 : gp/8 ; %0
-  %v2 : gp/8 ; %21
-  %v3 : gp/8 ; %23
-  %v4 : gp/8 ; %25
-  %v5 : gp/8 ; %28
-  %v6 : gp/8 ; %32
-  %v7 : gp/4 ; %33
-  %v8 : gp/8 ; %37
-  %v9 : gp/4 ; %38
-  %v10 : gp/4 ; %42
-  %v11 : gp/4 ; %45
-  %v12 : gp/4 ; %46
-  %v13 : gp/8 ; %48
-  %v14 : gp/8 ; %49
-  %v15 : gp/4 ; %50
-  %v16 : gp/4 ; %51
+  %v2 : gp/4 ; %33
+  %v3 : gp/4 ; %38
+  %v4 : gp/4 ; %42
+  %v5 : gp/4 ; %45
+  %v6 : gp/4 ; %46
+  %v7 : gp/8 ; %49
+  %v8 : gp/4 ; %50
+  %v9 : gp/4 ; %51
 Frame: 16 bytes
   fi#0 : param 4/4 @ 16 'g' ; %21
   fi#1 : param 4/4 @ 24 'h' ; %23
@@ -26,30 +19,23 @@ Frame: 16 bytes
 MBB #0, '<entry>', ir #0, -> #2
   %v0 = mov.8 16 ; %27
   %v1 = MOP_COPY.8 $rsp ; %0
-  %v2 = lea.8 fi#0 ; %21
-  %v3 = lea.8 fi#1 ; %23
-  %v4 = lea.8 fi#2 ; %25
-  %v5 = lea.8 fi#3 ; %28
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  %v6 = lea.8 [%v5] ; %32
-  %v7 = mov.4 [%v2] ; %33
-  mov.4 [%v6], %v7 ; %34
-  %v8 = lea.8 [%v5 + 4] ; %37
-  %v9 = mov.4 [%v3] ; %38
-  mov.4 [%v8], %v9 ; %39
-  %v10 = mov.4 [%v6] ; %42
-  %v11 = mov.4 [%v8] ; %45
-  %v12 = MOP_COPY.4 %v10 ; %46
-  %v12 = add.4 %v12, %v11 ; %46
-  %v13 = lea.8 [%v4] ; %48
-  %v14 = mov.8 [%v13] ; %49
-  %v15 = MOP_COPY.4 %v14 ; %50
-  %v16 = MOP_COPY.4 %v12 ; %51
-  %v16 = add.4 %v16, %v15 ; %51
+  %v2 = mov.4 [fi#0] ; %33
+  mov.4 [fi#3], %v2 ; %34
+  %v3 = mov.4 [fi#1] ; %38
+  mov.4 [fi#3 + 4], %v3 ; %39
+  %v4 = mov.4 [fi#3] ; %42
+  %v5 = mov.4 [fi#3 + 4] ; %45
+  %v6 = MOP_COPY.4 %v4 ; %46
+  %v6 = add.4 %v6, %v5 ; %46
+  %v7 = mov.8 [fi#2] ; %49
+  %v8 = MOP_COPY.4 %v7 ; %50
+  %v9 = MOP_COPY.4 %v6 ; %51
+  %v9 = add.4 %v9, %v8 ; %51
 
 MBB #1, '<exit>', ir #1, <- #2
-  $rax = MOP_COPY.4 %v16 ; %54
+  $rax = MOP_COPY.4 %v9 ; %54
   ret ; %54
 
 

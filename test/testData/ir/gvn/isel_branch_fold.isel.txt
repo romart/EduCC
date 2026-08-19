@@ -1,0 +1,288 @@
+--- Phase: isel ---
+MachineFunction 'folded' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v2 = mov.4 2 ; %16
+  %v1 = mov.4 1 ; %13
+  %v3 = MOP_COPY.4 $rdi ; %3
+  %v4 = MOP_COPY.4 $rsi ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  cmp.4 %v3, %v4 ; %11
+  jl #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %22
+  jmp #1 ; %18
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %22
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $rax = MOP_COPY.4 %v0 ; %19
+  ret ; %19
+
+
+--- Phase: isel ---
+MachineFunction 'inverted' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %28
+  %v1 : gp/4 ; %18
+  %v2 : gp/4 ; %22
+  %v3 : gp/4 ; %17
+  %v4 : gp/4 ; %15
+  %v5 : gp/4 ; %3
+  %v6 : gp/4 ; %6
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v2 = mov.4 2 ; %22
+  %v1 = mov.4 1 ; %18
+  %v5 = MOP_COPY.4 $rdi ; %3
+  %v6 = MOP_COPY.4 $rsi ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #5 #7
+  cmp.4 %v5, %v6 ; %11
+  jle #5 ; %12
+
+MBB #7, '<crit_splitter>', ir #7, <- #2, -> #6
+  %v3 = MOP_COPY.4 %v1 ; %17
+  jmp #6 ; %33
+
+MBB #5, '< || >', ir #5, <- #2, -> #6
+  %v4 = mov.4 0 ; %15
+  cmp.4 %v5, 0 ; %15
+  %v4 = sete.1 %v4 ; %15
+  %v3 = MOP_COPY.4 %v4 ; %17
+
+MBB #6, '< ||-exit>', ir #6, <- #7 #5, -> #4 #3
+  test.4 %v3, %v3 ; %19
+  jne #4 ; %19
+
+MBB #3, '<if_exit>', ir #3, <- #6, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %28
+  jmp #1 ; %24
+
+MBB #4, '<if_then>', ir #4, <- #6, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %28
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $rax = MOP_COPY.4 %v0 ; %25
+  ret ; %25
+
+
+--- Phase: isel ---
+MachineFunction 'unsigned_' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v2 = mov.4 2 ; %16
+  %v1 = mov.4 1 ; %13
+  %v3 = MOP_COPY.4 $rdi ; %3
+  %v4 = MOP_COPY.4 $rsi ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  cmp.4 %v3, %v4 ; %11
+  jb #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %22
+  jmp #1 ; %18
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %22
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $rax = MOP_COPY.4 %v0 ; %19
+  ret ; %19
+
+
+--- Phase: isel ---
+MachineFunction 'kept' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %27
+  %v1 : gp/4 ; %18
+  %v2 : gp/4 ; %12
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v3 = MOP_COPY.4 $rdi ; %3
+  %v4 = MOP_COPY.4 $rsi ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  %v2 = mov.4 0 ; %12
+  cmp.4 %v3, %v4 ; %12
+  %v2 = sete.1 %v2 ; %12
+  test.4 %v2, %v2 ; %15
+  jne #4 ; %15
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %27
+  jmp #1 ; %23
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  %v1 = MOP_COPY.4 %v2 ; %18
+  %v1 = add.4 %v1, 10 ; %18
+  %v0 = MOP_COPY.4 %v1 ; %27
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $rax = MOP_COPY.4 %v0 ; %24
+  ret ; %24
+
+
+--- Phase: isel ---
+MachineFunction 'distant' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %35
+  %v1 : gp/4 ; %24
+  %v2 : gp/4 ; %27
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+  %v5 : gp/4 ; %9
+  %v6 : gp/4 ; %15
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v2 = mov.4 2 ; %27
+  %v1 = mov.4 1 ; %24
+  %v3 = MOP_COPY.4 $rdi ; %3
+  %v4 = MOP_COPY.4 $rsi ; %6
+  %v5 = MOP_COPY.4 $rdx ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
+  %v6 = mov.4 0 ; %15
+  cmp.4 %v3, %v4 ; %15
+  %v6 = setg.1 %v6 ; %15
+  test.4 %v5, %v5 ; %18
+  jne #4 ; %18
+
+MBB #7, '<crit_splitter>', ir #7, <- #2, -> #3
+  jmp #3 ; %42
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+
+MBB #3, '<if_exit>', ir #3, <- #7 #4, -> #6 #5
+  test.4 %v6, %v6 ; %23
+  jne #6 ; %23
+
+MBB #5, '<if_exit>', ir #5, <- #3, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %35
+  jmp #1 ; %29
+
+MBB #6, '<if_then>', ir #6, <- #3, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %35
+
+MBB #1, '<exit>', ir #1, <- #6 #5
+  $rax = MOP_COPY.4 %v0 ; %30
+  ret ; %30
+
+
+--- Phase: isel ---
+MachineFunction 'notCompare' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %17
+  %v1 : gp/4 ; %8
+  %v2 : gp/4 ; %11
+  %v3 : gp/4 ; %3
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v2 = mov.4 2 ; %11
+  %v1 = mov.4 1 ; %8
+  %v3 = MOP_COPY.4 $rdi ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  test.4 %v3, %v3 ; %7
+  jne #4 ; %7
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %17
+  jmp #1 ; %13
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %17
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $rax = MOP_COPY.4 %v0 ; %14
+  ret ; %14
+
+
+--- Phase: isel ---
+MachineFunction 'floatOrder' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+  %v3 : fp/8 ; %3
+  %v4 : fp/8 ; %6
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v2 = mov.4 2 ; %16
+  %v1 = mov.4 1 ; %13
+  %v3 = MOP_COPY.8 $xmm0 ; %3
+  %v4 = MOP_COPY.8 $xmm1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  comis.8 %v3, %v4 ; %11
+  jae #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %22
+  jmp #1 ; %18
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %22
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $rax = MOP_COPY.4 %v0 ; %19
+  ret ; %19
+
+
+--- Phase: isel ---
+MachineFunction 'floatEqual' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+  %v3 : fp/8 ; %3
+  %v4 : fp/8 ; %6
+  %v5 : gp/4 ; %11
+  %v6 : gp/4
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v2 = mov.4 2 ; %16
+  %v1 = mov.4 1 ; %13
+  %v3 = MOP_COPY.8 $xmm0 ; %3
+  %v4 = MOP_COPY.8 $xmm1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  %v5 = mov.4 0 ; %11
+  ucomis.8 %v3, %v4 ; %11
+  %v5 = sete.1 %v5 ; %11
+  %v6 = mov.4 0 ; %11
+  %v6 = setnp.1 %v6 ; %11
+  %v5 = and.4 %v5, %v6 ; %11
+  test.4 %v5, %v5 ; %12
+  jne #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %22
+  jmp #1 ; %18
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %22
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $rax = MOP_COPY.4 %v0 ; %19
+  ret ; %19
+
+

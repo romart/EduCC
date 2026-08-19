@@ -45,6 +45,14 @@ static int32_t dumpMachineAddress(FILE *stream, const MachineFunction *mf,
     empty = FALSE;
   }
 
+  if (addr->kind == MAK_FRAME) {
+    // Spelled exactly like the MO_FRAME_IDX operand a spill carries, because
+    // it names the same thing - the frame pointer it is measured from is
+    // implied there and here alike.
+    r += fprintf(stream, "fi#%d", addr->anchor.frameIdx);
+    empty = FALSE;
+  }
+
   if (addr->kind == MAK_CONSTANT) {
     // The bytes, not just the index: a pool entry read as 'cp#0' would send
     // the reader to a table that is not in the dump, and the whole point of

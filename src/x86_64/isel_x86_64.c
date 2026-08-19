@@ -170,12 +170,12 @@ static void selectConstant(MachineBuilder *b, const IrInstruction *i) {
 
 // -============================ Memory ============================-
 //
-// Addresses are deliberately shallow here: a pointer is whatever register
-// holds it, plus a displacement when a GEP's offset folded to a constant.
-// Walking a GEP chain backwards into [base + index*scale + disp], which is
-// what turns 'a[i]' from three instructions into one, is address-mode folding
-// and belongs to step 10 - doing part of it here would mean doing it twice and
-// getting a different answer each time.
+// Every address here comes from the AddressFold the driver worked out before
+// selection started (decideFoldings in src/ir/codegen/isel.c), which is what
+// turns 'a[i]' from a shift, a lea and a load into one 'mov eax, [rdi+rsi*4]'.
+// Building it there rather than here is what keeps one answer: the same fold
+// decides both what this instruction addresses and whether the GEP behind it
+// is emitted at all.
 
 // Whether a value of this type is something a single load or store can move.
 static Boolean isAddressableIrType(enum IrTypeKind t) {
@@ -191,17 +191,45 @@ static Boolean isAddressableIrType(enum IrTypeKind t) {
   return t != IR_F80 && t != IR_VOID;
 }
 
-// The address a load or a store works on, built from the IR's pointer operand
-// and a displacement - zero for everything except the chunks of a block copy.
-static void setAddressOperandAt(MachineBuilder *b, MachineInstr *mi, uint16_t idx,
-                                const IrInstruction *ptr, int32_t disp) {
-  MachineAddress addr = { MAK_REG, machineBuilderVreg(b, ptr), NO_REG, 0, disp };
-  setMemoryOperand(mi, idx, &addr);
+// The addressing mode a pointer denotes, in the form an operand takes.
+//
+// Call it *before* building the instruction that reads it: widening an index
+// to pointer width is a real instruction, and one built afterwards would sit
+// behind the instruction that reads what it produces.
+//
+// A pointer with no fold is one whose computation stayed where it was - a
+// loaded pointer, a parameter, a call's result - and it is simply the register
+// holding it.
+static MachineAddress addressFor(MachineBuilder *b, const IrInstruction *ptr, int32_t disp) {
+  const AddressFold *f = machineBuilderAddressFold(b, ptr);
+  MachineAddress addr = { MAK_REG, NO_REG, NO_REG, 0, disp };
+
+  if (f == NULL) {
+    addr.base = machineBuilderVreg(b, ptr);
+    return addr;
+  }
+
+  addr.disp = disp + f->disp;
+
+  if (f->index != NULL) {
+    addr.index = selectWidened(b, f->index, sizeof(intptr_t));
+    addr.scale = f->scale;
+  }
+
+  if (f->base != NULL) {
+    addr.base = machineBuilderVreg(b, f->base);
+  } else {
+    addr.kind = MAK_FRAME;
+    addr.anchor.frameIdx = f->frameIdx;
+  }
+
+  return addr;
 }
 
-static void setAddressOperand(MachineBuilder *b, MachineInstr *mi, uint16_t idx,
-                              const IrInstruction *ptr) {
-  setAddressOperandAt(b, mi, idx, ptr, 0);
+static void setFrameAddressOperand(MachineInstr *mi, uint16_t idx, int32_t frameIdx) {
+  MachineAddress addr = { MAK_FRAME, NO_REG, NO_REG, 0, 0 };
+  addr.anchor.frameIdx = frameIdx;
+  setMemoryOperand(mi, idx, &addr);
 }
 
 // A value stage 0 gave a frame slot to. Two kinds of IR value get one - an
@@ -225,24 +253,15 @@ static void selectFrameAddress(MachineBuilder *b, const IrInstruction *i, int32_
   // it.
   MachineInstr *mi = buildMachineInstr(b, X86_LEA, 1, 1);
   setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
-  setFrameIndexOperand(mi, 1, frameIdx);
+  setFrameAddressOperand(mi, 1, frameIdx);
   mi->opSize = sizeof(intptr_t);
 }
 
+// Only reached when something still needs the pointer as a value - a GEP every
+// one of whose uses is an address is never selected at all. What is left is
+// the address it stands for, computed rather than dereferenced.
 static void selectGep(MachineBuilder *b, const IrInstruction *i) {
-  const IrInstruction *offset = inputAt(i, 1);
-  MachineAddress addr = { MAK_REG, machineBuilderVreg(b, inputAt(i, 0)), NO_REG, 0, 0 };
-
-  if (machineBuilderIsFolded(b, offset)) {
-    // Field access and constant subscripts, which is most of them.
-    addr.disp = (int32_t)offset->info.constant.data.i;
-  } else {
-    // Scale 1, because the IR hands over a byte offset that it has already
-    // multiplied by the element size. Recovering the scale so the addressing
-    // mode can do that multiply is step 10's.
-    addr.index = selectWidened(b, offset, sizeof(intptr_t));
-    addr.scale = 1;
-  }
+  MachineAddress addr = addressFor(b, i, 0);
 
   MachineInstr *mi = buildMachineInstr(b, X86_LEA, 1, 1);
   setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
@@ -258,9 +277,11 @@ static void selectMemoryLoad(MachineBuilder *b, const IrInstruction *i) {
     return;
   }
 
+  MachineAddress addr = addressFor(b, inputAt(i, 0), 0);
+
   MachineInstr *mi = buildMachineInstr(b, X86_LOAD, 1, 1);
   setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
-  setAddressOperand(b, mi, 1, inputAt(i, 0));
+  setMemoryOperand(mi, 1, &addr);
   mi->opSize = irTypeMachineSize(t);
 }
 
@@ -268,6 +289,23 @@ static void selectMemoryLoad(MachineBuilder *b, const IrInstruction *i) {
 // Past this a loop - or a call to memcpy - is the right shape, and neither
 // exists here yet; the largest aggregate in the test corpus is well under it.
 #define MAX_UNROLLED_COPY 128
+
+// Whether the copy is one the rule below covers. Asked twice: once by that
+// rule, and once by the driver, which has to know whether this instruction's
+// pointers will reach an addressing mode before it decides to fold them away.
+//
+// The size is read from the IR rather than from the operand, because whether
+// it was folded into an immediate is a question about *uses* and this one is
+// not a use at all - the count is spent at selection time.
+static Boolean isUnrollableCopy(const IrInstruction *i) {
+  const IrInstruction *size = inputAt(i, 2);
+
+  if (size->kind != IR_DEF_CONST || size->info.constant.kind != IR_CK_INTEGER) {
+    return FALSE;
+  }
+
+  return size->info.constant.data.i > 0 && size->info.constant.data.i <= MAX_UNROLLED_COPY;
+}
 
 // 'copy n bytes from src to dst', as a run of load/store pairs at increasing
 // displacements, largest chunk first.
@@ -284,36 +322,42 @@ static void selectMemoryLoad(MachineBuilder *b, const IrInstruction *i) {
 static void selectMemoryCopy(MachineBuilder *b, const IrInstruction *i) {
   const IrInstruction *size = inputAt(i, 2);
 
-  // Read from the IR rather than from the operand, because whether the size
-  // was folded into an immediate is a question about *uses* and this one is
-  // not a use at all - the count is spent here, at selection time.
-  if (size->kind != IR_DEF_CONST || size->info.constant.kind != IR_CK_INTEGER) {
-    buildUnselected(b, i, "copies a number of bytes not known until run time");
+  // Two refusals rather than one, because they want different fixes: a size
+  // known only at run time needs a loop, and one merely too large needs a call
+  // to memcpy. See docs/ir-codegen-design.md section 10.
+  if (!isUnrollableCopy(i)) {
+    buildUnselected(b, i,
+                    size->kind == IR_DEF_CONST && size->info.constant.kind == IR_CK_INTEGER
+                        ? "copies more bytes than are worth spelling out one at a time"
+                        : "copies a number of bytes not known until run time");
     return;
   }
 
   int64_t bytes = size->info.constant.data.i;
 
-  if (bytes <= 0 || bytes > MAX_UNROLLED_COPY) {
-    buildUnselected(b, i, "copies more bytes than are worth spelling out one at a time");
-    return;
-  }
-
-  const IrInstruction *dst = inputAt(i, 0);
-  const IrInstruction *src = inputAt(i, 1);
+  // Both addresses once, outside the loop: the chunks differ only in their
+  // displacement, and an address that had to widen an index would otherwise
+  // widen it again for every eight bytes copied.
+  MachineAddress from = addressFor(b, inputAt(i, 1), 0);
+  MachineAddress to = addressFor(b, inputAt(i, 0), 0);
 
   for (int32_t done = 0; done < (int32_t)bytes;) {
     int32_t left = (int32_t)bytes - done;
     uint8_t chunk = left >= 8 ? 8 : left >= 4 ? 4 : left >= 2 ? 2 : 1;
     uint32_t tmp = createVirtualRegister(b->mf, RC_GP, chunk);
 
+    MachineAddress fromChunk = from;
+    MachineAddress toChunk = to;
+    fromChunk.disp += done;
+    toChunk.disp += done;
+
     MachineInstr *load = buildMachineInstr(b, X86_LOAD, 1, 1);
     setRegisterOperand(load, 0, tmp);
-    setAddressOperandAt(b, load, 1, src, done);
+    setMemoryOperand(load, 1, &fromChunk);
     load->opSize = chunk;
 
     MachineInstr *store = buildMachineInstr(b, X86_STORE, 0, 2);
-    setAddressOperandAt(b, store, 0, dst, done);
+    setMemoryOperand(store, 0, &toChunk);
     setRegisterOperand(store, 1, tmp);
     store->opSize = chunk;
 
@@ -333,11 +377,12 @@ static void selectMemoryStore(MachineBuilder *b, const IrInstruction *i) {
   // Widened first, because the store writes the slot's whole width and a
   // narrower value would otherwise leave the bytes above it as they were.
   uint32_t value = selectWidened(b, inputAt(i, 1), size);
+  MachineAddress addr = addressFor(b, inputAt(i, 0), 0);
 
   // No defs: a store writes memory, and the registers in its address operand
   // are reads like any other address's.
   MachineInstr *mi = buildMachineInstr(b, X86_STORE, 0, 2);
-  setAddressOperand(b, mi, 0, inputAt(i, 0));
+  setMemoryOperand(mi, 0, &addr);
   setRegisterOperand(mi, 1, value);
   mi->opSize = size;
 }
@@ -546,6 +591,35 @@ static void selectLogicalNot(MachineBuilder *b, const IrInstruction *i) {
 
 // -============================ Compares ============================-
 
+// The jcc that branches on the flags a setcc would have read. X86_CONDITIONS
+// generates both lists in the same order, so the two are a fixed distance
+// apart and a condition needs naming only once.
+static uint32_t jumpOpcodeFor(uint32_t setOpcode) {
+  assert(setOpcode >= X86_SETE && setOpcode <= X86_SETNP);
+  return X86_JE + (setOpcode - X86_SETE);
+}
+
+// The condition that is true exactly when this one is not, for a branch whose
+// taken arm is the block that comes next: inverting is free, and jumping over
+// a jump is not.
+static uint32_t invertedCondition(uint32_t setOpcode) {
+  switch (setOpcode) {
+  case X86_SETE:  return X86_SETNE;
+  case X86_SETNE: return X86_SETE;
+  case X86_SETL:  return X86_SETGE;
+  case X86_SETGE: return X86_SETL;
+  case X86_SETLE: return X86_SETG;
+  case X86_SETG:  return X86_SETLE;
+  case X86_SETB:  return X86_SETAE;
+  case X86_SETAE: return X86_SETB;
+  case X86_SETBE: return X86_SETA;
+  case X86_SETA:  return X86_SETBE;
+  case X86_SETP:  return X86_SETNP;
+  case X86_SETNP: return X86_SETP;
+  default: unreachable("not a condition");
+  }
+}
+
 static uint32_t setOpcodeFor(enum IrIntructionKind kind, Boolean isUnsigned) {
   switch (kind) {
   case IR_E_EQ: return X86_SETE;
@@ -560,17 +634,14 @@ static uint32_t setOpcodeFor(enum IrIntructionKind kind, Boolean isUnsigned) {
   return X86_SETE;
 }
 
-// The compare materializes its boolean. When the only thing that boolean is
-// for is the branch right after it - much the commonest case - this is a cmp,
-// a setcc, and then a test of what the setcc just wrote. Collapsing that into
-// cmp + jcc is a folding, and foldings are step 10; correctness does not depend
-// on it and the dumps say plainly what is being left on the table.
-static void selectCompare(MachineBuilder *b, const IrInstruction *i) {
+// The comparison itself, and the condition its flags are then read with -
+// by a setcc that materializes the boolean, or by the jcc of a branch that
+// absorbed the whole compare.
+//
+// Whatever zeroing a setcc needs has to be emitted before this and not after:
+// a move leaves the flags alone, an overwrite of them does not.
+static uint32_t emitIntegerCompare(MachineBuilder *b, const IrInstruction *i) {
   const IrInstruction *lhs = inputAt(i, 0);
-  Boolean isUnsigned = isUnsignedIrOperand(lhs->type);
-  uint32_t dst = machineBuilderVreg(b, i);
-
-  Boolean zeroed = selectZeroExtendedSetup(b, dst, valueSize(i));
 
   MachineInstr *cmp = buildMachineInstr(b, X86_CMP, 0, 2);
   // The left-hand side is never an immediate: x86 encodes the immediate as the
@@ -579,7 +650,15 @@ static void selectCompare(MachineBuilder *b, const IrInstruction *i) {
   setValueOperand(b, cmp, 1, inputAt(i, 1));
   cmp->opSize = valueSize(lhs);
 
-  selectSetcc(b, setOpcodeFor(i->kind, isUnsigned), dst, zeroed);
+  return setOpcodeFor(i->kind, isUnsignedIrOperand(lhs->type));
+}
+
+static void selectCompare(MachineBuilder *b, const IrInstruction *i) {
+  uint32_t dst = machineBuilderVreg(b, i);
+  Boolean zeroed = selectZeroExtendedSetup(b, dst, valueSize(i));
+  uint32_t cc = emitIntegerCompare(b, i);
+
+  selectSetcc(b, cc, dst, zeroed);
 }
 
 // -============================ Floats ============================-
@@ -680,23 +759,31 @@ static uint32_t floatSetOpcodeFor(enum IrIntructionKind kind) {
   return X86_SETE;
 }
 
-static void selectFloatCompare(MachineBuilder *b, const IrInstruction *i) {
+// As emitIntegerCompare, for the SSE comparisons.
+static uint32_t emitFloatCompare(MachineBuilder *b, const IrInstruction *i) {
   Boolean isEquality = i->kind == IR_E_FEQ || i->kind == IR_E_FNE;
   // '<' and '<=' are '>' and '>=' with the operands the other way round.
   Boolean swap = i->kind == IR_E_FLT || i->kind == IR_E_FLE;
   const IrInstruction *lhs = inputAt(i, swap ? 1 : 0);
   const IrInstruction *rhs = inputAt(i, swap ? 0 : 1);
 
-  uint8_t size = valueSize(i);
-  uint32_t dst = machineBuilderVreg(b, i);
-  Boolean zeroed = selectZeroExtendedSetup(b, dst, size);
-
   MachineInstr *cmp = buildMachineInstr(b, isEquality ? X86_FUCMP : X86_FCMP, 0, 2);
   setRegisterOperand(cmp, 0, machineBuilderVreg(b, lhs));
   setRegisterOperand(cmp, 1, machineBuilderVreg(b, rhs));
   cmp->opSize = valueSize(lhs);
 
-  selectSetcc(b, floatSetOpcodeFor(i->kind), dst, zeroed);
+  return floatSetOpcodeFor(i->kind);
+}
+
+static void selectFloatCompare(MachineBuilder *b, const IrInstruction *i) {
+  Boolean isEquality = i->kind == IR_E_FEQ || i->kind == IR_E_FNE;
+
+  uint8_t size = valueSize(i);
+  uint32_t dst = machineBuilderVreg(b, i);
+  Boolean zeroed = selectZeroExtendedSetup(b, dst, size);
+  uint32_t cc = emitFloatCompare(b, i);
+
+  selectSetcc(b, cc, dst, zeroed);
 
   if (!isEquality) {
     return;
@@ -1015,13 +1102,13 @@ static void selectRegisterReturnedStruct(MachineBuilder *b, const IrInstruction 
       placeMachineFrameObject(mf, (int32_t)mf->frame.size, frameIdx), 2 * sizeof(intptr_t));
 
   MachineInstr *store = buildMachineInstr(b, X86_STORE, 0, 2);
-  setFrameIndexOperand(store, 0, frameIdx);
+  setFrameAddressOperand(store, 0, frameIdx);
   setRegisterOperand(store, 1, mf->target->intRetReg);
   store->opSize = sizeof(intptr_t);
 
   MachineInstr *addr = buildMachineInstr(b, X86_LEA, 1, 1);
   setRegisterOperand(addr, 0, machineBuilderVreg(b, i));
-  setFrameIndexOperand(addr, 1, frameIdx);
+  setFrameAddressOperand(addr, 1, frameIdx);
   addr->opSize = sizeof(intptr_t);
 }
 
@@ -1162,10 +1249,27 @@ static void selectBranch(MachineBuilder *b, const IrInstruction *i) {
   setBlockOperand(mi, 0, machineBuilderBlock(b, target));
 }
 
-static void selectCondBranch(MachineBuilder *b, const IrInstruction *i) {
-  const IrInstruction *cond = inputAt(i, 0);
-  const IrBasicBlock *taken = i->info.branch.taken;
-  const IrBasicBlock *notTaken = i->info.branch.notTaken;
+// The condition a branch reads, and the instructions that set it up.
+//
+// When the compare feeding the branch was absorbed, this *is* the compare:
+// there is no boolean, and the flags it leaves are what the jcc reads. When
+// there is a boolean - because something else reads it too, or because the
+// value came from somewhere other than a comparison - the branch tests it
+// against itself, which is the same question asked of a register instead.
+static uint32_t selectBranchCondition(MachineBuilder *b, const IrInstruction *cond) {
+  if (machineBuilderIsAbsorbed(b, cond)) {
+    // Attributed to the compare rather than to the branch, since that is the
+    // instruction a reader of the dump is looking for.
+    const IrInstruction *branch = b->origin;
+    b->origin = cond;
+
+    uint32_t cc = isFloatIrType(inputAt(cond, 0)->type) ? emitFloatCompare(b, cond)
+                                                        : emitIntegerCompare(b, cond);
+
+    b->origin = branch;
+    return cc;
+  }
+
   uint32_t condReg = machineBuilderVreg(b, cond);
 
   MachineInstr *test = buildMachineInstr(b, X86_TEST, 0, 2);
@@ -1173,11 +1277,20 @@ static void selectCondBranch(MachineBuilder *b, const IrInstruction *i) {
   setRegisterOperand(test, 1, condReg);
   test->opSize = valueSize(cond);
 
+  return X86_SETNE;
+}
+
+static void selectCondBranch(MachineBuilder *b, const IrInstruction *i) {
+  const IrInstruction *cond = inputAt(i, 0);
+  const IrBasicBlock *taken = i->info.branch.taken;
+  const IrBasicBlock *notTaken = i->info.branch.notTaken;
+  uint32_t cc = selectBranchCondition(b, cond);
+
   // Whichever way the layout fell, one of the two successors is next and needs
   // no branch. Block layout arranges for that to be the not-taken one wherever
   // it can (see layoutBlocks), so the first arm is the usual one.
   if (machineBuilderFallsThroughTo(b, notTaken)) {
-    MachineInstr *jcc = buildMachineInstr(b, X86_JNE, 0, 1);
+    MachineInstr *jcc = buildMachineInstr(b, jumpOpcodeFor(cc), 0, 1);
     setBlockOperand(jcc, 0, machineBuilderBlock(b, taken));
     return;
   }
@@ -1185,7 +1298,7 @@ static void selectCondBranch(MachineBuilder *b, const IrInstruction *i) {
   if (machineBuilderFallsThroughTo(b, taken)) {
     // Branch on the condition being false instead, and fall into the taken
     // block. Inverting is free; jumping over a jump is not.
-    MachineInstr *jcc = buildMachineInstr(b, X86_JE, 0, 1);
+    MachineInstr *jcc = buildMachineInstr(b, jumpOpcodeFor(invertedCondition(cc)), 0, 1);
     setBlockOperand(jcc, 0, machineBuilderBlock(b, notTaken));
     return;
   }
@@ -1199,7 +1312,7 @@ static void selectCondBranch(MachineBuilder *b, const IrInstruction *i) {
   // property of the frontend rather than of this file - merging empty blocks,
   // or ordering by profitability instead of by reverse postorder, reaches it
   // immediately. See docs/ir-codegen-design.md section 10.
-  MachineInstr *jcc = buildMachineInstr(b, X86_JNE, 0, 1);
+  MachineInstr *jcc = buildMachineInstr(b, jumpOpcodeFor(cc), 0, 1);
   setBlockOperand(jcc, 0, machineBuilderBlock(b, taken));
 
   MachineInstr *jmp = buildMachineInstr(b, X86_JMP, 0, 1);
@@ -1361,10 +1474,12 @@ static void selectTerminator_x86_64(MachineBuilder *b, const IrInstruction *i) {
   case IR_CBRANCH: selectCondBranch(b, i); break;
   case IR_RET: selectReturn(b, i); break;
 
-  // A switch table and a computed goto both need a jump through memory, which
-  // needs an addressing mode, which is step 10.
+  // A switch table and a computed goto both need a jump through memory. The
+  // addressing mode that takes is here now, and so is the constant pool the
+  // table itself would live in; what is missing is an indirect-jump opcode and
+  // the lowering that builds the table, which is step 11.
   default:
-    buildUnselected(b, i, "a jump through memory, which needs an addressing mode");
+    buildUnselected(b, i, "a jump through a table, which needs an indirect jump to build");
     break;
   }
 }
@@ -1404,7 +1519,7 @@ static Boolean x86IsLegalImmediate(const IrInstruction *use, size_t operandIdx,
   // The right-hand operand only. x86 encodes an immediate as the source, so
   // 'c - x' has nowhere to put one; gvn already canonicalizes a commutative
   // operation's constant into this position, so the restriction costs almost
-  // nothing, and swapping the rest is a peephole for step 10.
+  // nothing, and swapping the rest is a peephole nothing does yet.
   if (operandIdx != 1) {
     return FALSE;
   }
@@ -1440,8 +1555,8 @@ static Boolean x86IsLegalImmediate(const IrInstruction *use, size_t operandIdx,
 
   // IR_E_MUL is deliberately absent. imul's immediate form is the
   // three-operand one, which is a different encoding from the two-address
-  // shape everything above shares, so folding into it belongs with the rest of
-  // step 10 rather than as a special case here.
+  // shape everything above shares, so folding into it wants a rule of its own
+  // rather than a special case here.
   //
   // Divides are absent because x86 has no immediate divisor at all, and
   // everything else because it has no rule yet.
@@ -1522,8 +1637,70 @@ static const char *callRefusalReason(const TargetDescriptor *target, const IrIns
 }
 
 
+// What one memory operand can hold. The scale lives in the SIB byte as a shift
+// amount, so it is 1, 2, 4 or 8 and nothing else, and the displacement is a
+// signed 32-bit field. Zero means "no index at all", which is legal alongside
+// anything.
+static Boolean x86IsLegalAddressMode(uint32_t scale, int64_t disp) {
+  if (scale != 0 && scale != 1 && scale != 2 && scale != 4 && scale != 8) {
+    return FALSE;
+  }
+
+  return disp >= INT32_MIN && disp <= INT32_MAX;
+}
+
+// Which inputs reach an addressing mode, as a bit per position. Zero for
+// anything the rules above are going to refuse: a placeholder names its
+// inputs' registers, so a pointer folded away underneath one would leave it
+// reading a register nothing ever wrote.
+static uint32_t x86AddressOperands(const IrInstruction *i) {
+  switch (i->kind) {
+  case IR_M_LOAD:
+  case IR_M_STORE:
+    return isAddressableIrType(i->info.memory.opType) ? 1u : 0;
+
+  // Both of them: a copy addresses its destination and its source alike.
+  case IR_M_COPY:
+    return isUnrollableCopy(i) ? 3u : 0;
+
+  default:
+    return 0;
+  }
+}
+
+static Boolean x86FoldsIntoCondition(const IrInstruction *cond) {
+  switch (cond->kind) {
+  case IR_E_EQ:
+  case IR_E_NE:
+  case IR_E_LT:
+  case IR_E_LE:
+  case IR_E_GT:
+  case IR_E_GE:
+    return TRUE;
+
+  // The ordered float comparisons are one setcc and fold like the integer
+  // ones - all four are false when either operand is a NaN, and so are their
+  // inversions' opposites, which is what lets a single jcc stand for them.
+  //
+  // Float equality is the one that cannot: it needs the ordered-ness folded in
+  // with a second setcc and an 'and', which is two flags to branch on rather
+  // than one.
+  case IR_E_FLT:
+  case IR_E_FLE:
+  case IR_E_FGT:
+  case IR_E_FGE:
+    return TRUE;
+
+  default:
+    return FALSE;
+  }
+}
+
 const ArchSelector x86Selector = {
   .selectInstruction = &selectInstruction_x86_64,
   .selectTerminator = &selectTerminator_x86_64,
-  .isLegalImmediate = &x86IsLegalImmediate
+  .isLegalImmediate = &x86IsLegalImmediate,
+  .isLegalAddressMode = &x86IsLegalAddressMode,
+  .addressOperands = &x86AddressOperands,
+  .foldsIntoCondition = &x86FoldsIntoCondition
 };

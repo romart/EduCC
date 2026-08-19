@@ -18,12 +18,10 @@ VRegs:
   %v14 : gp/4
   %v15 : gp/4 ; %53
   %v16 : gp/4 ; %50
-  %v17 : gp/4 ; %20
-  %v18 : gp/4 ; %35
-  %v19 : gp/4 ; %51
-  %v20 : gp/4 ; %54
-  %v21 : gp/4 ; %55
-  %v22 : gp/4 ; %57
+  %v17 : gp/4 ; %51
+  %v18 : gp/4 ; %54
+  %v19 : gp/4 ; %55
+  %v20 : gp/4 ; %57
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
   %v15 = mov.4 10 ; %53
@@ -39,11 +37,8 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #3
   %v4 = MOP_COPY.4 %v5 ; %65
 
 MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
-  %v17 = mov.4 0 ; %20
   cmp.4 %v0, 0 ; %20
-  %v17 = setg.1 %v17 ; %20
-  test.4 %v17, %v17 ; %21
-  jne #4 ; %21
+  jg #4 ; %21
 
 MBB #5, '<while_exit>', ir #5, <- #3, -> #6
   %v8 = MOP_COPY.4 %v0 ; %73
@@ -52,24 +47,21 @@ MBB #5, '<while_exit>', ir #5, <- #3, -> #6
   %v12 = MOP_COPY.4 %v4 ; %63
 
 MBB #6, '<while_head>', ir #6, <- #5 #7, -> #7 #8
-  %v18 = mov.4 0 ; %35
   cmp.4 %v8, 0 ; %35
-  %v18 = setl.1 %v18 ; %35
-  test.4 %v18, %v18 ; %36
-  jne #7 ; %36
+  jl #7 ; %36
 
 MBB #8, '<while_exit>', ir #8, <- #6, -> #1
-  %v19 = MOP_COPY.4 %v12 ; %51
-  %v19 = imul.4 %v19, %v16 ; %51
-  %v20 = MOP_COPY.4 %v11 ; %54
-  %v20 = imul.4 %v20, %v15 ; %54
-  %v21 = MOP_COPY.4 %v19 ; %55
-  %v21 = add.4 %v21, %v20 ; %55
-  %v22 = MOP_COPY.4 %v21 ; %57
-  %v22 = add.4 %v22, %v9 ; %57
+  %v17 = MOP_COPY.4 %v12 ; %51
+  %v17 = imul.4 %v17, %v16 ; %51
+  %v18 = MOP_COPY.4 %v11 ; %54
+  %v18 = imul.4 %v18, %v15 ; %54
+  %v19 = MOP_COPY.4 %v17 ; %55
+  %v19 = add.4 %v19, %v18 ; %55
+  %v20 = MOP_COPY.4 %v19 ; %57
+  %v20 = add.4 %v20, %v9 ; %57
 
 MBB #1, '<exit>', ir #1, <- #8
-  $rax = MOP_COPY.4 %v22 ; %60
+  $rax = MOP_COPY.4 %v20 ; %60
   ret ; %60
 
 MBB #7, '<while_body>', ir #7, <- #6, -> #6

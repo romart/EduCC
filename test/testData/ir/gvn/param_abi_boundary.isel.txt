@@ -3,38 +3,34 @@ MachineFunction 'param_abi_boundary' [target = x86_64]
 VRegs:
   %v0 : gp/8 ; %0
   %v1 : gp/4 ; %18
-  %v2 : gp/8 ; %21
-  %v3 : fp/8 ; %44
-  %v4 : gp/8 ; %47
-  %v5 : fp/8 ; %50
-  %v6 : fp/8 ; %51
-  %v7 : gp/4 ; %53
-  %v8 : gp/4 ; %54
-  %v9 : fp/8 ; %55
-  %v10 : fp/8 ; %56
+  %v2 : fp/8 ; %44
+  %v3 : fp/8 ; %50
+  %v4 : fp/8 ; %51
+  %v5 : gp/4 ; %53
+  %v6 : gp/4 ; %54
+  %v7 : fp/8 ; %55
+  %v8 : fp/8 ; %56
 Frame: 0 bytes
   fi#0 : param 4/4 @ 16 'i6' ; %21
   fi#1 : param 8/8 @ 24 'f8' ; %47
 MBB #0, '<entry>', ir #0, -> #2
   %v0 = MOP_COPY.8 $rsp ; %0
   %v1 = MOP_COPY.4 $r9 ; %18
-  %v2 = lea.8 fi#0 ; %21
-  %v3 = MOP_COPY.8 $xmm7 ; %44
-  %v4 = lea.8 fi#1 ; %47
+  %v2 = MOP_COPY.8 $xmm7 ; %44
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  %v5 = mov.8 [%v4] ; %50
-  %v6 = MOP_COPY.8 %v3 ; %51
-  %v6 = fadd.8 %v6, %v5 ; %51
-  %v7 = mov.4 [%v2] ; %53
-  %v8 = MOP_COPY.4 %v1 ; %54
-  %v8 = add.4 %v8, %v7 ; %54
-  %v9 = cvtsi2f.8/4 %v8 ; %55
-  %v10 = MOP_COPY.8 %v6 ; %56
-  %v10 = fadd.8 %v10, %v9 ; %56
+  %v3 = mov.8 [fi#1] ; %50
+  %v4 = MOP_COPY.8 %v2 ; %51
+  %v4 = fadd.8 %v4, %v3 ; %51
+  %v5 = mov.4 [fi#0] ; %53
+  %v6 = MOP_COPY.4 %v1 ; %54
+  %v6 = add.4 %v6, %v5 ; %54
+  %v7 = cvtsi2f.8/4 %v6 ; %55
+  %v8 = MOP_COPY.8 %v4 ; %56
+  %v8 = fadd.8 %v8, %v7 ; %56
 
 MBB #1, '<exit>', ir #1, <- #2
-  $xmm0 = MOP_COPY.8 %v10 ; %59
+  $xmm0 = MOP_COPY.8 %v8 ; %59
   ret ; %59
 
 

@@ -74,7 +74,7 @@ enum MachineOperandKind {
   MO_REG,       // physical or virtual register, see FIRST_VREG
   MO_IMM,       // integer immediate
   MO_MEM,       // an address, see MachineAddress
-  MO_FRAME_IDX, // a frame slot; becomes frame-pointer-relative during emission
+  MO_FRAME_IDX, // a whole frame slot, which is all a spill or a reload means
   MO_MBB,       // branch target
   MO_SYMBOL,    // call target or global; becomes a Relocation during emission
 };
@@ -89,6 +89,7 @@ enum MachineAddressKind {
   // is anchored to those registers, which is the common case and the one a
   // zeroed struct should mean.
   MAK_REG = 0,  // base + index * scale + disp, and nothing else
+  MAK_FRAME,    // a slot of this frame; the frame pointer is the base
   MAK_SYMBOL,   // a named object, addressed relative to the instruction pointer
   MAK_CONSTANT, // an entry of this function's constant pool, likewise
 };
@@ -99,10 +100,11 @@ enum MachineAddressKind {
 // itself cannot be used here because it names x86 registers by their own enum
 // and lives in an arch-private header.
 //
-// A frame slot is an anchor too, in every way but this one: it is still a
-// separate operand kind (MO_FRAME_IDX), because folding it in here is what
-// makes '[rbp - 8 + rax*4]' expressible and that is address-mode folding's
-// business, not this struct's.
+// MAK_FRAME is what makes '[rbp - 8 + rax*4]' expressible, so a local array's
+// subscript is one instruction. It spends the base on the frame pointer, which
+// is why an address anchored to a slot has none of its own; MO_FRAME_IDX
+// survives only as the operand of the allocator's own spill and reload, where
+// a whole slot and nothing else is what is meant.
 typedef struct _MachineAddress {
   enum MachineAddressKind kind;
 
@@ -114,6 +116,7 @@ typedef struct _MachineAddress {
   union {
     struct _Symbol *symbol; // MAK_SYMBOL
     uint32_t constantIdx;   // MAK_CONSTANT, into MachineFunction.constants
+    int32_t frameIdx;       // MAK_FRAME, into MachineFunction.frame.objects
   } anchor;
 } MachineAddress;
 

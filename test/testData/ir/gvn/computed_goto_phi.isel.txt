@@ -11,64 +11,44 @@ VRegs:
   %v7 : gp/8 ; %10
   %v8 : gp/4 ; %3
   %v9 : gp/4 ; %6
-  %v10 : gp/8 ; %11
-  %v11 : gp/8 ; %16
-  %v12 : gp/8 ; %17
-  %v13 : gp/8 ; %21
-  %v14 : gp/8 ; %22
-  %v15 : gp/4 ; %25
-  %v16 : gp/8 ; %39
-  %v17 : gp/8
-  %v18 : gp/8 ; %40
-  %v19 : gp/8 ; %41
-  %v20 : gp/8 ; %31
-  %v21 : gp/8
-  %v22 : gp/8 ; %32
-  %v23 : gp/8 ; %33
+  %v10 : gp/8 ; %17
+  %v11 : gp/8 ; %22
+  %v12 : gp/8
+  %v13 : gp/8 ; %41
+  %v14 : gp/8
+  %v15 : gp/8 ; %33
 Frame: 16 bytes
   fi#0 : local 16/8 @ -16 'tab' ; %11
 MBB #0, '<entry>', ir #0, -> #4
   %v7 = mov.8 16 ; %10
   %v8 = MOP_COPY.4 $rdi ; %3
   %v9 = MOP_COPY.4 $rsi ; %6
-  %v10 = lea.8 fi#0 ; %11
 
 MBB #4, '<FIRST>', ir #4, <- #0, -> #6 #5
-  %v11 = lea.8 [%v10] ; %16
-  %v12 = MOP_UNSELECTED(IR_CFG_LABEL) ; %17
-  mov.8 [%v11], %v12 ; %18
-  %v13 = lea.8 [%v10 + 8] ; %21
-  %v14 = MOP_UNSELECTED(IR_CFG_LABEL) ; %22
-  mov.8 [%v13], %v14 ; %23
-  %v15 = mov.4 0 ; %25
+  %v10 = MOP_UNSELECTED(IR_CFG_LABEL) ; %17
+  mov.8 [fi#0], %v10 ; %18
+  %v11 = MOP_UNSELECTED(IR_CFG_LABEL) ; %22
+  mov.8 [fi#0 + 8], %v11 ; %23
   cmp.4 %v8, 0 ; %25
-  %v15 = setg.1 %v15 ; %25
-  test.4 %v15, %v15 ; %26
-  jne #6 ; %26
+  jg #6 ; %26
 
 MBB #5, '<if_exit>', ir #5, <- #4, -> #2 #3
   %v5 = MOP_COPY.4 %v8 ; %36
   %v5 = sub.4 %v5, 1 ; %36
-  %v17 = movsx.8/4 %v9 ; %39
-  %v16 = MOP_COPY.8 %v17 ; %39
-  %v16 = shl.8 %v16, 3 ; %39
-  %v18 = lea.8 [%v10 + %v16*1] ; %40
-  %v19 = mov.8 [%v18] ; %41
+  %v12 = movsx.8/4 %v9 ; %41
+  %v13 = mov.8 [fi#0 + %v12*8] ; %41
   %v3 = MOP_COPY.4 %v5 ; %58
   %v6 = MOP_COPY.4 %v5 ; %60
-  MOP_UNSELECTED(IR_IBRANCH) %v19 ; %42
+  MOP_UNSELECTED(IR_IBRANCH) %v13 ; %42
 
 MBB #6, '<if_then>', ir #6, <- #4, -> #2 #3
   %v4 = MOP_COPY.4 %v8 ; %28
   %v4 = add.4 %v4, 1 ; %28
-  %v21 = movsx.8/4 %v9 ; %31
-  %v20 = MOP_COPY.8 %v21 ; %31
-  %v20 = shl.8 %v20, 3 ; %31
-  %v22 = lea.8 [%v10 + %v20*1] ; %32
-  %v23 = mov.8 [%v22] ; %33
+  %v14 = movsx.8/4 %v9 ; %33
+  %v15 = mov.8 [fi#0 + %v14*8] ; %33
   %v3 = MOP_COPY.4 %v4 ; %58
   %v6 = MOP_COPY.4 %v4 ; %60
-  MOP_UNSELECTED(IR_IBRANCH) %v23 ; %34
+  MOP_UNSELECTED(IR_IBRANCH) %v15 ; %34
 
 MBB #3, 'B', ir #3, <- #6 #5, -> #1
   %v2 = MOP_COPY.4 %v6 ; %50

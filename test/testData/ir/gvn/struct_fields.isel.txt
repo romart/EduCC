@@ -3,30 +3,28 @@ MachineFunction 'struct_fields' [target = x86_64]
 VRegs:
   %v0 : gp/8 ; %3
   %v1 : gp/4 ; %6
-  %v2 : gp/8 ; %13
-  %v3 : gp/4 ; %14
-  %v4 : gp/4 ; %16
-  %v5 : gp/4 ; %20
-  %v6 : gp/4 ; %22
-  %v7 : gp/4 ; %26
+  %v2 : gp/4 ; %14
+  %v3 : gp/4 ; %16
+  %v4 : gp/4 ; %20
+  %v5 : gp/4 ; %22
+  %v6 : gp/4 ; %26
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
   %v0 = MOP_COPY.8 $rdi ; %3
   %v1 = MOP_COPY.4 $rsi ; %6
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  %v2 = lea.8 [%v0] ; %13
-  %v3 = mov.4 [%v2] ; %14
-  %v4 = MOP_COPY.4 %v3 ; %16
-  %v4 = add.4 %v4, %v1 ; %16
-  %v5 = mov.4 [%v2] ; %20
-  %v6 = MOP_COPY.4 %v5 ; %22
-  %v6 = add.4 %v6, %v1 ; %22
-  %v7 = MOP_COPY.4 %v4 ; %26
-  %v7 = add.4 %v7, %v6 ; %26
+  %v2 = mov.4 [%v0] ; %14
+  %v3 = MOP_COPY.4 %v2 ; %16
+  %v3 = add.4 %v3, %v1 ; %16
+  %v4 = mov.4 [%v0] ; %20
+  %v5 = MOP_COPY.4 %v4 ; %22
+  %v5 = add.4 %v5, %v1 ; %22
+  %v6 = MOP_COPY.4 %v3 ; %26
+  %v6 = add.4 %v6, %v5 ; %26
 
 MBB #1, '<exit>', ir #1, <- #2
-  $rax = MOP_COPY.4 %v7 ; %29
+  $rax = MOP_COPY.4 %v6 ; %29
   ret ; %29
 
 

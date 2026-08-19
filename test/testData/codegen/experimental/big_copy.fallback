@@ -1,0 +1,9 @@
+# A 256-byte struct assignment, which selectMemoryCopy will not spell out one
+# chunk at a time - MAX_UNROLLED_COPY caps that at 128 bytes, past which the
+# right shape is a loop or a call to memcpy and neither exists here yet.
+# Delete this line once a large copy has a rule.
+copyBig
+# The same struct passed by value, which is a second refusal on top of the
+# copy: the IR hands the callee an address, the SysV ABI says the callee reads
+# bytes on its own stack, and the two halves of the convention do not meet.
+sumBigByValue

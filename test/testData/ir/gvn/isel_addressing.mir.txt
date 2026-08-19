@@ -1,0 +1,90 @@
+--- Phase: mir ---
+MachineFunction 'scaled' [target = x86_64]
+VRegs: <none>
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+
+--- Phase: mir ---
+MachineFunction 'field' [target = x86_64]
+VRegs: <none>
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+
+--- Phase: mir ---
+MachineFunction 'scaledField' [target = x86_64]
+VRegs: <none>
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+
+--- Phase: mir ---
+MachineFunction 'localSlot' [target = x86_64]
+VRegs: <none>
+Frame: 32 bytes
+  fi#0 : local 32/4 @ -32 'a' ; %7
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+
+--- Phase: mir ---
+MachineFunction 'shared' [target = x86_64]
+VRegs: <none>
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+
+--- Phase: mir ---
+MachineFunction 'escaped' [target = x86_64]
+VRegs: <none>
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+
+--- Phase: mir ---
+MachineFunction 'indirect' [target = x86_64]
+VRegs: <none>
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+
+--- Phase: mir ---
+MachineFunction 'twoIndexes' [target = x86_64]
+VRegs: <none>
+Frame: 64 bytes
+  fi#0 : local 64/4 @ -64 'm' ; %10
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+

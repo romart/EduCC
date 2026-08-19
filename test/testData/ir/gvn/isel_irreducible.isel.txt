@@ -12,8 +12,7 @@ VRegs:
   %v8 : gp/4 ; %3
   %v9 : gp/4 ; %6
   %v10 : gp/4 ; %9
-  %v11 : gp/4 ; %24
-  %v12 : gp/4 ; %37
+  %v11 : gp/4 ; %37
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
   %v3 = mov.4 1 ; %16
@@ -42,18 +41,15 @@ MBB #5, 'again', ir #5, <- #4 #7, -> #6
   %v6 = MOP_COPY.4 %v2 ; %45
 
 MBB #6, '<while_head>', ir #6, <- #3 #5, -> #7 #8
-  %v11 = mov.4 0 ; %24
   cmp.4 %v4, %v9 ; %24
-  %v11 = setl.1 %v11 ; %24
-  test.4 %v11, %v11 ; %25
-  jne #7 ; %25
+  jl #7 ; %25
 
 MBB #8, '<while_exit>', ir #8, <- #6, -> #1
-  %v12 = MOP_COPY.4 %v6 ; %37
-  %v12 = add.4 %v12, %v4 ; %37
+  %v11 = MOP_COPY.4 %v6 ; %37
+  %v11 = add.4 %v11, %v4 ; %37
 
 MBB #1, '<exit>', ir #1, <- #8
-  $rax = MOP_COPY.4 %v12 ; %40
+  $rax = MOP_COPY.4 %v11 ; %40
   ret ; %40
 
 MBB #7, '<while_body>', ir #7, <- #6, -> #5

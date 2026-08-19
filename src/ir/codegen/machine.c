@@ -456,6 +456,12 @@ Boolean isMachineAddressWellFormed(const MachineAddress *addr) {
     return TRUE;
   }
 
+  // A slot's address is the frame pointer plus its offset, so the base is
+  // spoken for and everything else is still free.
+  if (addr->kind == MAK_FRAME) {
+    return addr->base == NO_REG;
+  }
+
   return addr->base == NO_REG && addr->index == NO_REG && addr->disp == 0;
 }
 

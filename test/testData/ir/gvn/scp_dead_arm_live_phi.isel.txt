@@ -6,7 +6,6 @@ VRegs:
   %v2 : gp/4 ; %6
   %v3 : gp/4 ; %14
   %v4 : gp/4 ; %9
-  %v5 : gp/4 ; %15
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
   %v3 = mov.4 0 ; %14
@@ -15,11 +14,8 @@ MBB #0, '<entry>', ir #0, -> #2
   %v4 = MOP_COPY.4 $rdx ; %9
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
-  %v5 = mov.4 0 ; %15
   cmp.4 %v4, %v3 ; %15
-  %v5 = setg.1 %v5 ; %15
-  test.4 %v5, %v5 ; %16
-  jne #4 ; %16
+  jg #4 ; %16
 
 MBB #5, '<if_else>', ir #5, <- #2, -> #3
   %v0 = MOP_COPY.4 %v2 ; %37

@@ -1,0 +1,176 @@
+--- Phase: mir ---
+MachineFunction 'folded' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %22
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %22
+
+
+--- Phase: mir ---
+MachineFunction 'inverted' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %28
+  %v1 : gp/4 ; %18
+  %v2 : gp/4 ; %22
+  %v3 : gp/4 ; %17
+  %v4 : gp/4 ; %15
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #5 #7
+
+MBB #3, '<if_exit>', ir #3, <- #6, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %28
+
+MBB #4, '<if_then>', ir #4, <- #6, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %28
+
+MBB #5, '< || >', ir #5, <- #2, -> #6
+  %v3 = MOP_COPY.4 %v4 ; %17
+
+MBB #6, '< ||-exit>', ir #6, <- #7 #5, -> #4 #3
+
+MBB #7, '<crit_splitter>', ir #7, <- #2, -> #6
+  %v3 = MOP_COPY.4 %v1 ; %17
+
+
+--- Phase: mir ---
+MachineFunction 'unsigned_' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %22
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %22
+
+
+--- Phase: mir ---
+MachineFunction 'kept' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %27
+  %v1 : gp/4 ; %18
+  %v2 : gp/4 ; %12
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %27
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %27
+
+
+--- Phase: mir ---
+MachineFunction 'distant' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %35
+  %v1 : gp/4 ; %24
+  %v2 : gp/4 ; %27
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #6 #5
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
+
+MBB #3, '<if_exit>', ir #3, <- #7 #4, -> #6 #5
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+
+MBB #5, '<if_exit>', ir #5, <- #3, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %35
+
+MBB #6, '<if_then>', ir #6, <- #3, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %35
+
+MBB #7, '<crit_splitter>', ir #7, <- #2, -> #3
+
+
+--- Phase: mir ---
+MachineFunction 'notCompare' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %17
+  %v1 : gp/4 ; %8
+  %v2 : gp/4 ; %11
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %17
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %17
+
+
+--- Phase: mir ---
+MachineFunction 'floatOrder' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %22
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %22
+
+
+--- Phase: mir ---
+MachineFunction 'floatEqual' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v2 ; %22
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  %v0 = MOP_COPY.4 %v1 ; %22
+
+
