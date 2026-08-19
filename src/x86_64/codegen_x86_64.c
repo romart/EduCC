@@ -426,6 +426,25 @@ static void emitSymbolCall(GeneratedFunction *f, Symbol *s) {
   emitCallLiteral(f, newReloc);
 }
 
+// Move an address on by 'delta' bytes.
+//
+// A rip-relative address carries the relocation naming the site the linker
+// patches, and one relocation names exactly one site - so an address about to
+// be encoded a second time needs a second relocation, or every copy but the
+// last keeps the 0x7EADBEFF placeholder.
+static void advanceAddress(GeneratedFunction *f, Address *addr, int32_t delta) {
+  addr->imm += delta;
+
+  if (addr->base == R_RIP && addr->reloc != NULL) {
+    Relocation *next = allocateRelocation(f->context);
+
+    *next = *addr->reloc;
+    next->next = f->section->reloc;
+    f->section->reloc = next;
+    addr->reloc = next;
+  }
+}
+
 static void copyStructTo(GeneratedFunction *f, TypeRef *type, Address *src, Address *dst) {
 
   assert(isCompositeType(type));
@@ -448,8 +467,8 @@ static void copyStructTo(GeneratedFunction *f, TypeRef *type, Address *src, Addr
       emitMoveAR(f, src, R_TMP, chunkSize);
       emitMoveRA(f, R_TMP, dst, chunkSize);
 
-      src->imm += chunkSize;
-      dst->imm += chunkSize;
+      advanceAddress(f, src, chunkSize);
+      advanceAddress(f, dst, chunkSize);
       copied += chunkSize;
   }
 }

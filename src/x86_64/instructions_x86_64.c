@@ -178,7 +178,11 @@ static void encodeAR(GeneratedFunction *f, Address *from, uint8_t regOp) {
 
       Relocation *reloc = from->reloc;
 
-      reloc->addend = -sizeof(int32_t);
+      // The four bytes below are the placeholder the linker overwrites, so a
+      // displacement off the symbol has nowhere to be encoded except the
+      // addend - dropping it addressed the symbol itself however far into it
+      // the address pointed.
+      reloc->addend = from->imm - sizeof(int32_t);
       reloc->applySectionOffset = f->section->pc - f->section->start;
 
       // 0xDEADBEFF;
