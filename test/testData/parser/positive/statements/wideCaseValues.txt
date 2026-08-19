@@ -1,0 +1,24 @@
+FILE test/testData/parser/positive/statements/wideCaseValues.c
+  FUN signed int testWideCases 
+    #0: signed long v
+  BEGIN
+    SWITCH (*v)
+      CASE 4294967297: RETURN 1
+      CASE 8589934593: RETURN 2
+      CASE 1: RETURN 3
+      CASE -12884901893: RETURN 4
+      DEFAULT: RETURN 0      
+    END_SWITCH    
+  END
+----
+  FUN signed int testWideBoundaries 
+    #0: signed long v
+  BEGIN
+    SWITCH (*v)
+      CASE 2147483647: RETURN 1
+      CASE 2147483648: RETURN 2
+      CASE -2147483648: RETURN 3
+      CASE -2147483649: RETURN 4
+      DEFAULT: RETURN 0      
+    END_SWITCH    
+  END

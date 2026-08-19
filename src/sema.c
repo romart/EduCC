@@ -2490,7 +2490,7 @@ void verifyAndTransformCallAruments(ParserContext *ctx, Coordinates *coords, Typ
   }
 }
 
-static Boolean checkInSet(int v, unsigned caseLimit, int *caseSet) {
+static Boolean checkInSet(int64_t v, unsigned caseLimit, int64_t *caseSet) {
   unsigned i;
   for (i = 0; i < caseLimit; ++i) {
       if (caseSet[i] == v) return TRUE;
@@ -2499,7 +2499,7 @@ static Boolean checkInSet(int v, unsigned caseLimit, int *caseSet) {
   return FALSE;
 }
 
-static void verifySwtichCasesRec(ParserContext *ctx, AstStatement *stmt, unsigned caseCount, unsigned *caseIndex, int *caseSet, Boolean *hasDefault) {
+static void verifySwtichCasesRec(ParserContext *ctx, AstStatement *stmt, unsigned caseCount, unsigned *caseIndex, int64_t *caseSet, Boolean *hasDefault) {
   switch (stmt->statementKind) {
     case SK_BLOCK: {
         AstStatementList *node = stmt->block.stmts;
@@ -2580,7 +2580,7 @@ void verifyGotoExpression(ParserContext *ctx, AstExpression *expr) {
 }
 
 void verifySwitchCases(ParserContext *ctx, AstStatement *switchBody, unsigned caseCount) {
-  int *caseSet = heapAllocate(sizeof (int) * caseCount);
+  int64_t *caseSet = heapAllocate(sizeof (int64_t) * caseCount);
   unsigned caseIndex = 0;
   Boolean hasDefault = FALSE;
 

@@ -454,7 +454,7 @@ AstStatement *createExprStatement(ParserContext *ctx, AstExpression* expression)
     return result;
 }
 
-AstStatement *createLabelStatement(ParserContext *ctx, Coordinates *coords, LabelKind labelKind, AstStatement *body, const char *label, int c) {
+AstStatement *createLabelStatement(ParserContext *ctx, Coordinates *coords, LabelKind labelKind, AstStatement *body, const char *label, int64_t c) {
     AstStatement *result = allocAstStatement(ctx, coords);
 
     result->statementKind = SK_LABEL;

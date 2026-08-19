@@ -625,7 +625,7 @@ AstExpression *createErrorExpression(struct _ParserContext *ctx, Coordinates *co
 
 AstStatement *createBlockStatement(struct _ParserContext *ctx, Coordinates *coords, struct _Scope *scope, AstStatementList *stmts, TypeRef *type);
 AstStatement *createExprStatement(struct _ParserContext *ctx, AstExpression* expression);
-AstStatement *createLabelStatement(struct _ParserContext *ctx, Coordinates *coords, LabelKind labelKind, AstStatement *body, const char *label, int c);
+AstStatement *createLabelStatement(struct _ParserContext *ctx, Coordinates *coords, LabelKind labelKind, AstStatement *body, const char *label, int64_t c);
 AstStatement *createDeclStatement(struct _ParserContext *ctx, Coordinates *coords, AstDeclaration *decl);
 AstStatement *createIfStatement(struct _ParserContext *ctx, Coordinates *coords, AstExpression *cond, AstStatement *thenB, AstStatement *elseB);
 AstStatement *createSwitchStatement(struct _ParserContext *ctx, Coordinates *coords, AstExpression *cond, AstStatement *body, unsigned caseCount, unsigned hasDefault);

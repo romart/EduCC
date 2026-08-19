@@ -266,7 +266,10 @@ static Boolean parseAsIntConst(ParserContext *ctx, int64_t *result) {
         return FALSE;
     }
 
-    *result = (int)constExpr->i;
+    // Not through 'int': every caller passes an int64_t and means it. A case
+    // label wider than 32 bits used to arrive truncated, which turned
+    // 'case 0x100000001LL' into 'case 1' - and into a duplicate of it.
+    *result = constExpr->i;
     return TRUE;
 }
 
