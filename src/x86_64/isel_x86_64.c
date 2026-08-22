@@ -285,11 +285,6 @@ static void selectMemoryLoad(MachineBuilder *b, const IrInstruction *i) {
   mi->opSize = irTypeMachineSize(t);
 }
 
-// How many bytes of block copy are worth spelling out one chunk at a time.
-// Past this a loop - or a call to memcpy - is the right shape, and neither
-// exists here yet; the largest aggregate in the test corpus is well under it.
-#define MAX_UNROLLED_COPY 128
-
 // Whether the copy is one the rule below covers. Asked twice: once by that
 // rule, and once by the driver, which has to know whether this instruction's
 // pointers will reach an addressing mode before it decides to fold them away.
@@ -304,7 +299,7 @@ static Boolean isUnrollableCopy(const IrInstruction *i) {
     return FALSE;
   }
 
-  return size->info.constant.data.i > 0 && size->info.constant.data.i <= MAX_UNROLLED_COPY;
+  return size->info.constant.data.i > 0;
 }
 
 // 'copy n bytes from src to dst', as a run of load/store pairs at increasing
@@ -315,21 +310,20 @@ static Boolean isUnrollableCopy(const IrInstruction *i) {
 // legacy backend's copyStructTo caps each chunk at the type's alignment, which
 // costs instructions and buys nothing on this target.
 //
-// A separate destination register per chunk rather than one reused: the
-// trivial allocator gives every virtual register its own frame slot and
-// reloads it per instruction, so reuse would save nothing and would make the
-// chunks look dependent on each other when they are not.
+// One register reused for every chunk, not one apiece. The trivial allocator
+// gives each virtual register a frame slot of its own and never reuses it, so
+// a register per chunk would grow the frame by as many bytes as the copy moves
+// - on top of the source and the destination themselves. Reuse costs a future
+// scheduler the freedom to see the chunks as independent, which they are; a
+// frame that scales with the copy is the worse of the two.
 static void selectMemoryCopy(MachineBuilder *b, const IrInstruction *i) {
   const IrInstruction *size = inputAt(i, 2);
 
-  // Two refusals rather than one, because they want different fixes: a size
-  // known only at run time needs a loop, and one merely too large needs a call
-  // to memcpy. See docs/ir-codegen-design.md section 10.
+  // A size known only at run time is the one shape left: it needs a loop, and
+  // nothing here builds one. Size alone is no longer a reason to refuse - see
+  // docs/ir-codegen-design.md section 10.
   if (!isUnrollableCopy(i)) {
-    buildUnselected(b, i,
-                    size->kind == IR_DEF_CONST && size->info.constant.kind == IR_CK_INTEGER
-                        ? "copies more bytes than are worth spelling out one at a time"
-                        : "copies a number of bytes not known until run time");
+    buildUnselected(b, i, "copies a number of bytes not known until run time");
     return;
   }
 
@@ -341,10 +335,13 @@ static void selectMemoryCopy(MachineBuilder *b, const IrInstruction *i) {
   MachineAddress from = addressFor(b, inputAt(i, 1), 0);
   MachineAddress to = addressFor(b, inputAt(i, 0), 0);
 
+  // Widest the chunks get, so the narrow tail borrows the same slot; the
+  // instructions carry their own width and only ever read back what they wrote.
+  uint32_t tmp = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
   for (int32_t done = 0; done < (int32_t)bytes;) {
     int32_t left = (int32_t)bytes - done;
     uint8_t chunk = left >= 8 ? 8 : left >= 4 ? 4 : left >= 2 ? 2 : 1;
-    uint32_t tmp = createVirtualRegister(b->mf, RC_GP, chunk);
 
     MachineAddress fromChunk = from;
     MachineAddress toChunk = to;
@@ -1185,11 +1182,13 @@ static void selectMemoryArgument(MachineBuilder *b, const IrInstruction *arg) {
   // widen it again per eightbyte.
   MachineAddress from = addressFor(b, arg, 0);
 
+  // Reused across eightbytes for selectMemoryCopy's reason: a register apiece
+  // would put as many frame slots under the call as the argument is wide.
+  uint32_t tmp = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
   for (uint32_t slot = slots; slot > 0; --slot) {
     MachineAddress chunk = from;
     chunk.disp += (int32_t)((slot - 1) * sizeof(intptr_t));
-
-    uint32_t tmp = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
 
     MachineInstr *load = buildMachineInstr(b, X86_LOAD, 1, 1);
     setRegisterOperand(load, 0, tmp);

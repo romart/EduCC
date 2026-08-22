@@ -33,10 +33,10 @@
 // through a function pointer, where the callee is a register rather than a
 // relocation.
 //
-// Deliberately absent: a struct over 128 bytes, which the block copy into the
-// temporary still refuses (see big_copy.c), and a float argument that lands on
-// the stack, which has no 'push xmm'. Both are their own rows in section 6.7
-// and neither is about aggregates.
+// Deliberately absent: a float argument that lands on the stack, which has no
+// 'push xmm'. It is its own row in section 6.7 and is not about aggregates. A
+// struct over 128 bytes was absent for the same reason until the block copy
+// stopped capping its size; big_copy.c covers that and is the better place.
 
 struct S9  { char a[9]; };
 struct S12 { int a, b, c; };

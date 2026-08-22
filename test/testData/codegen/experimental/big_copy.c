@@ -1,34 +1,32 @@
-// A struct assignment larger than the IR backend will spell out one chunk at
-// a time, which is the one thing about aggregate copying it still refuses.
+// Struct assignments big enough that the unrolled copy is a long run of
+// load/store pairs rather than a couple of them.
 //
-// selectMemoryCopy unrolls a copy into load/store pairs, and caps that at
-// MAX_UNROLLED_COPY bytes - past which the right shape is a loop, or a call to
-// memcpy, and neither exists in this backend yet. So a 256-byte struct
-// assignment hands the whole function back to the legacy one, which is why
-// 'big' is listed in big_copy.fallback while everything else here is not.
+// This fixture used to pin down a cap: selectMemoryCopy refused any copy over
+// MAX_UNROLLED_COPY bytes, so 'copyBig' and 'sumBigByValue' were handed to the
+// legacy backend and named in a big_copy.fallback beside this file. The cap was
+// never a correctness boundary - only a guess at where unrolling stops paying -
+// and it is gone. Both functions are built here now, and the .fallback with
+// them; a copy of any constant size is spelled out.
 //
-// The fixture exists to pin that boundary down from both sides. 'copySmall'
-// copies 32 bytes and must stay on the IR backend; 'copyBig' copies 256 and
-// must not. If the cap is ever raised, or a loop is emitted instead, the
-// .fallback file stops being needed and the runner says so rather than letting
-// the exemption outlive what it excused.
+// What is left of the boundary is the reason the cap looked reasonable: under
+// the spill-everything allocator each chunk costs six instructions and, until
+// the chunks shared one register, eight bytes of frame apiece. That is the
+// allocator's price and not the copy's, so it is fixed where the allocator is.
 //
-// 'sumBigByValue' is the second gap the same struct runs into and the second
-// name in that file: an aggregate too large for one register is passed by
-// address by the IR and read as stack bytes by the callee, which is a
-// disagreement between the two halves of one convention rather than anything
-// missing from selection. See docs/ir-codegen-design.md section 10 for both.
+// The one shape still refused is a copy whose *size* is not known until run
+// time, which needs a loop. It has no repro here on purpose: generateComposite-
+// Copy (src/ir/ast2ir.c) always builds the count from computeTypeSize(), so no
+// C program reaches it today. It is guarded because the instruction allows it,
+// not because anything produces it.
 //
-// The other half of that refusal - a copy whose *size* is not known until run
-// time - has no repro here on purpose: generateCompositeCopy (src/ir/ast2ir.c)
-// always builds the count from computeTypeSize(), so no C program reaches it
-// today. It is guarded because the instruction allows it, not because anything
-// produces it.
+// Sizes are chosen to cover the chunking: 256 bytes is whole eightbytes, 259
+// forces the 2- and 1-byte tail, and 32 is the short case that always worked.
+// The tail matters more than it looks - every chunk now borrows one 8-byte
+// register, so a narrow load has to read back only the bytes it wrote.
 //
-// Correctness is what is checked, not which backend built it: both have to
-// copy every byte, and the two functions meet across an ordinary call, so a
-// copy that stopped early would show up as a wrong element rather than as a
-// crash.
+// Correctness is what is checked, not which backend built it: both have to copy
+// every byte, and the functions meet across ordinary calls, so a copy that
+// stopped early shows up as a wrong element rather than as a crash.
 
 struct Big {
   int a[64];
@@ -36,6 +34,12 @@ struct Big {
 
 struct Small {
   int a[8];
+};
+
+// Chars, so that the size is 259 rather than rounded up to an alignment: the
+// copy is thirty-two eightbytes, then a 2-byte chunk and a 1-byte one.
+struct Odd {
+  char b[259];
 };
 
 static void fillBig(struct Big *b, int seed) {
@@ -50,6 +54,10 @@ static void copyBig(struct Big *dst, struct Big *src) {
 }
 
 static void copySmall(struct Small *dst, struct Small *src) {
+  *dst = *src;
+}
+
+static void copyOdd(struct Odd *dst, struct Odd *src) {
   *dst = *src;
 }
 
@@ -110,6 +118,28 @@ int main(void) {
   // Self-assignment, where the source and the destination are the same bytes.
   copyBig(&dst, &dst);
   if (dst.a[7] != 107) return 6;
+
+  {
+    struct Odd os;
+    struct Odd od;
+
+    for (i = 0; i < 259; ++i) {
+      os.b[i] = (char)(i + 1);
+      od.b[i] = -1;
+    }
+
+    copyOdd(&od, &os);
+
+    for (i = 0; i < 259; ++i) {
+      if (od.b[i] != (char)(i + 1)) return 7;
+    }
+
+    // The last three bytes on their own: they are the 2- and 1-byte chunks, the
+    // ones the shared register has to read back narrower than it is.
+    if (od.b[256] != (char)257) return 8;
+    if (od.b[257] != (char)258) return 9;
+    if (od.b[258] != (char)259) return 10;
+  }
 
   return 0;
 }

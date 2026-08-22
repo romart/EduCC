@@ -6,11 +6,7 @@ VRegs:
   %v2 : gp/8 ; %8
   %v3 : gp/8
   %v4 : gp/8
-  %v5 : gp/8
-  %v6 : gp/8
-  %v7 : gp/8
-  %v8 : gp/8
-  %v9 : gp/4 ; %6
+  %v5 : gp/4 ; %6
 Frame: 32 bytes
   fi#0 : param 24/8 @ 16 's' ; %2
   fi#1 : local 24/8 @ -24 ; %8
@@ -22,23 +18,23 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   %v2 = lea.8 [fi#1] ; %8
   %v3 = mov.8 [fi#0] ; %9
   mov.8 [fi#1], %v3 ; %9
-  %v4 = mov.8 [fi#0 + 8] ; %9
-  mov.8 [fi#1 + 8], %v4 ; %9
-  %v5 = mov.8 [fi#0 + 16] ; %9
-  mov.8 [fi#1 + 16], %v5 ; %9
+  %v3 = mov.8 [fi#0 + 8] ; %9
+  mov.8 [fi#1 + 8], %v3 ; %9
+  %v3 = mov.8 [fi#0 + 16] ; %9
+  mov.8 [fi#1 + 16], %v3 ; %9
   $rsp = sub.8 $rsp, 8 ; %6
-  %v6 = mov.8 [fi#1 + 16] ; %6
-  push.8 %v6 ; %6
-  %v7 = mov.8 [fi#1 + 8] ; %6
-  push.8 %v7 ; %6
-  %v8 = mov.8 [fi#1] ; %6
-  push.8 %v8 ; %6
+  %v4 = mov.8 [fi#1 + 16] ; %6
+  push.8 %v4 ; %6
+  %v4 = mov.8 [fi#1 + 8] ; %6
+  push.8 %v4 ; %6
+  %v4 = mov.8 [fi#1] ; %6
+  push.8 %v4 ; %6
   call takeBig [implicit-def $rax] <clobbers caller-saved> ; %6
   $rsp = add.8 $rsp, 32 ; %6
-  %v9 = MOP_COPY.4 $rax ; %6
+  %v5 = MOP_COPY.4 $rax ; %6
 
 MBB #1, '<exit>', ir #1, <- #2
-  $rax = MOP_COPY.4 %v9 ; %12
+  $rax = MOP_COPY.4 %v5 ; %12
   ret ; %12
 
 
@@ -52,11 +48,7 @@ VRegs:
   %v4 : gp/8 ; %15
   %v5 : gp/8
   %v6 : gp/8
-  %v7 : gp/8
-  %v8 : gp/8
-  %v9 : gp/8
-  %v10 : gp/8
-  %v11 : gp/4 ; %12
+  %v7 : gp/4 ; %12
 Frame: 32 bytes
   fi#0 : param 24/8 @ 16 's' ; %6
   fi#1 : local 24/8 @ -24 ; %15
@@ -70,25 +62,25 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   %v4 = lea.8 [fi#1] ; %15
   %v5 = mov.8 [fi#0] ; %16
   mov.8 [fi#1], %v5 ; %16
-  %v6 = mov.8 [fi#0 + 8] ; %16
-  mov.8 [fi#1 + 8], %v6 ; %16
-  %v7 = mov.8 [fi#0 + 16] ; %16
-  mov.8 [fi#1 + 16], %v7 ; %16
+  %v5 = mov.8 [fi#0 + 8] ; %16
+  mov.8 [fi#1 + 8], %v5 ; %16
+  %v5 = mov.8 [fi#0 + 16] ; %16
+  mov.8 [fi#1 + 16], %v5 ; %16
   $rsp = sub.8 $rsp, 8 ; %12
-  %v8 = mov.8 [fi#1 + 16] ; %12
-  push.8 %v8 ; %12
-  %v9 = mov.8 [fi#1 + 8] ; %12
-  push.8 %v9 ; %12
-  %v10 = mov.8 [fi#1] ; %12
-  push.8 %v10 ; %12
+  %v6 = mov.8 [fi#1 + 16] ; %12
+  push.8 %v6 ; %12
+  %v6 = mov.8 [fi#1 + 8] ; %12
+  push.8 %v6 ; %12
+  %v6 = mov.8 [fi#1] ; %12
+  push.8 %v6 ; %12
   $rdi = MOP_COPY.4 %v2 ; %12
   $rsi = MOP_COPY.4 %v3 ; %12
   call mixed [implicit-def $rax, implicit $rdi, implicit $rsi] <clobbers caller-saved> ; %12
   $rsp = add.8 $rsp, 32 ; %12
-  %v11 = MOP_COPY.4 $rax ; %12
+  %v7 = MOP_COPY.4 $rax ; %12
 
 MBB #1, '<exit>', ir #1, <- #2
-  $rax = MOP_COPY.4 %v11 ; %20
+  $rax = MOP_COPY.4 %v7 ; %20
   ret ; %20
 
 
