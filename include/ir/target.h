@@ -44,6 +44,16 @@ typedef struct {
   Boolean isRegister;
 } ParamtersABIInfo;
 
+// What a variadic definition needs and no per-parameter answer can give: how
+// many argument registers of each class the *named* parameters used up, and
+// where the unnamed ones start on the stack. va_start writes exactly these
+// three numbers into the va_list.
+typedef struct {
+  uint32_t intRegParams;
+  uint32_t fpRegParams;
+  int32_t stackParamOffset;
+} ParametersABISummary;
+
 typedef struct _TargetDescriptor {
   const char *name;
 
@@ -98,7 +108,8 @@ typedef struct _TargetDescriptor {
   // they will stop sharing an implementation.
   void (*classifyParameters)(const struct _TargetDescriptor *target,
                              AstFunctionDeclaration *declaration,
-                             ParamtersABIInfo *infos, size_t numberOfParams);
+                             ParamtersABIInfo *infos, size_t numberOfParams,
+                             ParametersABISummary *summary);
 } TargetDescriptor;
 
 extern const TargetDescriptor targetX86_64;
@@ -112,7 +123,8 @@ const TargetDescriptor *getTargetDescriptor(enum Arch arch);
 // comment above for what this does not yet do.
 void classifyParametersGeneric(const TargetDescriptor *target,
                                AstFunctionDeclaration *declaration,
-                               ParamtersABIInfo *infos, size_t numberOfParams);
+                               ParamtersABIInfo *infos, size_t numberOfParams,
+                               ParametersABISummary *summary);
 
 // Whether a function with this return type is handed a buffer to write the
 // result into, rather than handing the result back in a register.

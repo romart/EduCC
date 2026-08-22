@@ -273,9 +273,14 @@ static void layoutIncomingParameters(MachineFunction *mf) {
       continue;
     }
 
-    TypeRef *type = lvi->declaration->type;
-    int32_t frameIdx = addMachineFrameObject(mf, MFO_INCOMING_PARAM, computeTypeSize(type),
-                                             typeAlignment(type));
+    // No declaration is the variadic overflow area: it starts where the named
+    // parameters stopped and runs as far as the caller pushed, which is not
+    // something this side can know - hence size 0, the same "only known at run
+    // time" that MachineFrameObject.size already means.
+    TypeRef *type = lvi->declaration != NULL ? lvi->declaration->type : NULL;
+    int32_t frameIdx = addMachineFrameObject(
+        mf, MFO_INCOMING_PARAM, type != NULL ? computeTypeSize(type) : 0,
+        type != NULL ? typeAlignment(type) : sizeof(intptr_t));
     MachineFrameObject *obj = machineFrameObjectAt(mf, frameIdx);
     obj->declaration = lvi->declaration;
     obj->offset = lvi->frameOffset;

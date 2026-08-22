@@ -1,0 +1,5 @@
+# 'floatChecks' passes a double to a variadic function after the eight SSE
+# argument registers are gone, which needs a 'push xmm' the selector does not
+# have. Nothing to do with variadic definitions - every callee in this file is
+# built by the IR backend. Delete this line once that row of section 6.7 lands.
+floatChecks

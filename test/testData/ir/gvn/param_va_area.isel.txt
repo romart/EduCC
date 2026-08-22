@@ -1,44 +1,175 @@
 --- Phase: isel ---
 MachineFunction 'param_va_area' [target = x86_64]
-Refused before selection: variadic, and the IR has no stores filling the register save area va_start reads
 VRegs:
-  %v0 : gp/4 ; %46
-  %v1 : gp/8 ; %37
-  %v2 : gp/8 ; %42
-  %v3 : fp/8 ; %66
-  %v4 : gp/8 ; %57
-  %v5 : gp/8 ; %62
+  %v0 : gp/8 ; %106
+  %v1 : gp/8 ; %97
+  %v2 : gp/8 ; %102
+  %v3 : gp/8 ; %126
+  %v4 : gp/8 ; %117
+  %v5 : gp/8 ; %122
+  %v6 : gp/4 ; %88
+  %v7 : gp/8 ; %82
+  %v8 : gp/4 ; %19
+  %v9 : gp/4 ; %15
+  %v10 : gp/8 ; %6
+  %v11 : gp/8 ; %0
+  %v12 : gp/8 ; %7
+  %v13 : gp/8 ; %10
+  %v14 : gp/8 ; %21
+  %v15 : gp/8 ; %26
+  %v16 : gp/8 ; %30
+  %v17 : gp/8 ; %34
+  %v18 : gp/8 ; %38
+  %v19 : gp/8 ; %42
+  %v20 : gp/8 ; %46
+  %v21 : fp/8 ; %50
+  %v22 : fp/8 ; %54
+  %v23 : fp/8 ; %58
+  %v24 : fp/8 ; %62
+  %v25 : fp/8 ; %66
+  %v26 : fp/8 ; %70
+  %v27 : fp/8 ; %74
+  %v28 : fp/8 ; %78
+  %v29 : gp/8 ; %85
+  %v30 : gp/8
+  %v31 : gp/4 ; %91
+  %v32 : gp/8 ; %95
+  %v33 : gp/8 ; %96
+  %v34 : gp/8
+  %v35 : gp/4 ; %98
+  %v36 : gp/8 ; %103
+  %v37 : gp/4 ; %107
+  %v38 : gp/4 ; %110
+  %v39 : gp/8 ; %115
+  %v40 : gp/8 ; %116
+  %v41 : gp/8
+  %v42 : gp/4 ; %118
+  %v43 : gp/8 ; %123
+  %v44 : fp/8 ; %127
+  %v45 : fp/8 ; %131
+  %v46 : fp/8 ; %132
 Frame: 176 bytes
-  fi#0 : local 144/8 @ -144 '__va_area__' ; %7
-  fi#1 : local 24/8 @ -168 'ap' ; %23
+  fi#0 : param 0/8 @ 16 ; %21
+  fi#1 : local 144/8 @ -144 '__va_area__' ; %7
+  fi#2 : local 24/8 @ -168 'ap' ; %83
 MBB #0, '<entry>', ir #0, -> #2
-
-MBB #1, '<exit>', ir #1, <- #11
+  %v6 = mov.4 0 ; %88
+  %v7 = mov.8 24 ; %82
+  %v8 = mov.4 48 ; %19
+  %v9 = mov.4 8 ; %15
+  %v10 = mov.8 144 ; %6
+  %v11 = MOP_COPY.8 $rsp ; %0
+  %v12 = lea.8 [fi#1] ; %7
+  %v13 = lea.8 [fi#1 + 24] ; %10
+  mov.8 [fi#1 + 16], %v13 ; %13
+  mov.4 [fi#1], %v9 ; %16
+  mov.4 [fi#1 + 4], %v8 ; %20
+  %v14 = lea.8 [fi#0] ; %21
+  mov.8 [fi#1 + 8], %v14 ; %24
+  %v15 = MOP_COPY.8 $rdi ; %26
+  mov.8 [fi#1 + 24], %v15 ; %27
+  %v16 = MOP_COPY.8 $rsi ; %30
+  mov.8 [fi#1 + 32], %v16 ; %31
+  %v17 = MOP_COPY.8 $rdx ; %34
+  mov.8 [fi#1 + 40], %v17 ; %35
+  %v18 = MOP_COPY.8 $rcx ; %38
+  mov.8 [fi#1 + 48], %v18 ; %39
+  %v19 = MOP_COPY.8 $r8 ; %42
+  mov.8 [fi#1 + 56], %v19 ; %43
+  %v20 = MOP_COPY.8 $r9 ; %46
+  mov.8 [fi#1 + 64], %v20 ; %47
+  %v21 = MOP_COPY.8 $xmm0 ; %50
+  mov.8 [fi#1 + 72], %v21 ; %51
+  %v22 = MOP_COPY.8 $xmm1 ; %54
+  mov.8 [fi#1 + 80], %v22 ; %55
+  %v23 = MOP_COPY.8 $xmm2 ; %58
+  mov.8 [fi#1 + 88], %v23 ; %59
+  %v24 = MOP_COPY.8 $xmm3 ; %62
+  mov.8 [fi#1 + 96], %v24 ; %63
+  %v25 = MOP_COPY.8 $xmm4 ; %66
+  mov.8 [fi#1 + 104], %v25 ; %67
+  %v26 = MOP_COPY.8 $xmm5 ; %70
+  mov.8 [fi#1 + 112], %v26 ; %71
+  %v27 = MOP_COPY.8 $xmm6 ; %74
+  mov.8 [fi#1 + 120], %v27 ; %75
+  %v28 = MOP_COPY.8 $xmm7 ; %78
+  mov.8 [fi#1 + 128], %v28 ; %79
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #3
 
 MBB #3, '<do_body>', ir #3, <- #2 #12, -> #4
+  %v29 = MOP_COPY.8 %v12 ; %85
+  %v30 = mov.8 [%v29] ; %86
+  mov.8 [fi#2], %v30 ; %86
+  %v30 = mov.8 [%v29 + 8] ; %86
+  mov.8 [fi#2 + 8], %v30 ; %86
+  %v30 = mov.8 [%v29 + 16] ; %86
+  mov.8 [fi#2 + 16], %v30 ; %86
 
 MBB #4, '<do_tail>', ir #4, <- #3, -> #12 #5
+  test.4 %v6, %v6 ; %89
+  jne #12 ; %89
 
 MBB #5, '<do_exit>', ir #5, <- #4, -> #6 #7
-
-MBB #6, '<va_arg_mem>', ir #6, <- #5, -> #8
-  %v0 = MOP_COPY.4 %v2 ; %46
+  %v31 = mov.4 [fi#2] ; %91
+  cmp.4 %v31, %v8 ; %92
+  jae #6 ; %93
 
 MBB #7, '<va_arg_update>', ir #7, <- #5, -> #8
-  %v0 = MOP_COPY.4 %v1 ; %46
+  %v32 = mov.8 [fi#2 + 16] ; %95
+  %v34 = MOP_COPY.4 %v31 ; %96
+  %v33 = MOP_COPY.8 %v34 ; %96
+  %v1 = MOP_COPY.8 %v32 ; %97
+  %v1 = add.8 %v1, %v33 ; %97
+  %v35 = MOP_COPY.4 %v31 ; %98
+  %v35 = add.4 %v35, %v9 ; %98
+  mov.4 [fi#2], %v35 ; %99
+  %v0 = MOP_COPY.8 %v1 ; %106
+  jmp #8 ; %100
+
+MBB #6, '<va_arg_mem>', ir #6, <- #5, -> #8
+  %v2 = mov.8 [fi#2 + 8] ; %102
+  %v36 = MOP_COPY.8 %v2 ; %103
+  %v36 = add.8 %v36, 8 ; %103
+  mov.8 [fi#2 + 8], %v36 ; %104
+  %v0 = MOP_COPY.8 %v2 ; %106
 
 MBB #8, '<va_arg_done>', ir #8, <- #7 #6, -> #9 #10
-
-MBB #9, '<va_arg_mem>', ir #9, <- #8, -> #11
-  %v3 = MOP_COPY.8 %v5 ; %66
+  %v37 = mov.4 [%v0] ; %107
+  %v38 = mov.4 [fi#2 + 4] ; %110
+  cmp.4 %v38, 112 ; %112
+  jae #9 ; %113
 
 MBB #10, '<va_arg_update>', ir #10, <- #8, -> #11
-  %v3 = MOP_COPY.8 %v4 ; %66
+  %v39 = mov.8 [fi#2 + 16] ; %115
+  %v41 = MOP_COPY.4 %v38 ; %116
+  %v40 = MOP_COPY.8 %v41 ; %116
+  %v4 = MOP_COPY.8 %v39 ; %117
+  %v4 = add.8 %v4, %v40 ; %117
+  %v42 = MOP_COPY.4 %v38 ; %118
+  %v42 = add.4 %v42, %v9 ; %118
+  mov.4 [fi#2 + 4], %v42 ; %119
+  %v3 = MOP_COPY.8 %v4 ; %126
+  jmp #11 ; %120
+
+MBB #9, '<va_arg_mem>', ir #9, <- #8, -> #11
+  %v5 = mov.8 [fi#2 + 8] ; %122
+  %v43 = MOP_COPY.8 %v5 ; %123
+  %v43 = add.8 %v43, 8 ; %123
+  mov.8 [fi#2 + 8], %v43 ; %124
+  %v3 = MOP_COPY.8 %v5 ; %126
 
 MBB #11, '<va_arg_done>', ir #11, <- #10 #9, -> #1
+  %v44 = mov.8 [%v3] ; %127
+  %v45 = cvtsi2f.8/4 %v37 ; %131
+  %v46 = MOP_COPY.8 %v44 ; %132
+  %v46 = fadd.8 %v46, %v45 ; %132
+
+MBB #1, '<exit>', ir #1, <- #11
+  $xmm0 = MOP_COPY.8 %v46 ; %135
+  ret ; %135
 
 MBB #12, '<crit_splitter>', ir #12, <- #4, -> #3
+  jmp #3 ; %142
 
 

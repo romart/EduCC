@@ -193,10 +193,12 @@ int main(void) {
     return failures;
 }
 
-// Defined after main on purpose: a variadic callee reads its arguments through
-// the register save area va_start builds, which is a whole sequence of stores,
-// so this function always falls back to the legacy backend. That is the point -
-// the caller is the new backend's and the callee is not.
+// Defined after main on purpose, from when a variadic callee always fell back:
+// the register save area va_start reads was allocated and never written, so the
+// caller here was the new backend's and the callee was not. Step 14 filled the
+// area in the IR and both ends are built here now; the split definition is kept
+// because a callee declared before it is defined is worth covering on its own.
+// variadic_definition.c is where being one is tested.
 #include <stdarg.h>
 
 int sum_varargs(int n, ...) {

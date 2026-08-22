@@ -9,13 +9,13 @@
 // as the buffer pointer, which is a plausible-looking number rather than a
 // crash.
 //
-// Only the legacy backend builds a variadic definition today: the IR
-// translator allocates '__va_area__' and never emits the stores that fill it,
-// so selection turns the whole function away (step 14 of
-// docs/ir-codegen-design.md, and the .fallback sibling of this file).
-// Calling one is selected, so under -experimental this fixture is the two
-// backends meeting across the ABI rather than one of them on its own - which
-// is the reason to keep it here rather than with the legacy-only fixtures.
+// This fixture was written one step before the backend could build any of it.
+// The IR translator allocated '__va_area__' and never emitted the stores that
+// fill it, so selection turned every function here away and the fixture was the
+// two backends meeting across the ABI. Step 14 put those stores in the IR, and
+// all thirteen are built here now - which makes the interaction above a claim
+// about one backend rather than about the seam between two. 'main' still falls
+// back, for a reason of its own that the .fallback sibling names.
 //
 // The mixes are what matter, so each one is a separate function: varargs in
 // registers and past them into the overflow area, integer and SSE classes on

@@ -1,21 +1,3 @@
-# Every variadic definition in this fixture. va_start reads a register save
-# area the translator allocates ('__va_area__' is in the locals) and never
-# fills, so selection turns the whole function away before it starts - see
-# step 14 of docs/ir-codegen-design.md. Delete these lines once variadic
-# definitions land; a name here that stops falling back fails the test.
-vaInts
-vaDoubles
-vaFloats
-vaMixed
-vaManyBoth
-vaNamedFloats
-vaFiveNamed
-vaSixNamed
-vaNamedStruct
-vaSmallArgs
-vaBigArgs
-vaCopied
-vaNested
 # 'main' is not variadic. It used to fall back for two reasons of its own; step
 # 13 took the first away - the struct it passes by value to vaBigArgs and
 # vaNamedStruct is now pushed as bytes - and what is left is a float argument

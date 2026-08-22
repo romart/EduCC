@@ -352,7 +352,7 @@ int32_t dumpIrFunction(FILE *stream, const IrFunction *f) {
 	  AstValueDeclaration *d = lvi->declaration;
       char mark = d != NULL ? (d->kind == VD_PARAMETER ? 'p' : 'l') : 'r';
       int32_t idx = d ? d->index2 : -1;
-      const char *name = d ? d->name : "<ret_slot>";
+      const char *name = d ? d->name : lvi->name ? lvi->name : "<ret_slot>";
 
 
 	  r += fprintf(stream, "  %c%c:%d|%s = %c%u", lvi->flags.referenced ? '&' : ' ', mark, idx, name, '%', lvi->stackSlot->id);

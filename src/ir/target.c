@@ -41,7 +41,8 @@ Boolean returnsThroughHiddenPointer(const TypeRef *returnType) {
 
 void classifyParametersGeneric(const TargetDescriptor *target,
                                AstFunctionDeclaration *declaration,
-                               ParamtersABIInfo *infos, size_t numberOfParams) {
+                               ParamtersABIInfo *infos, size_t numberOfParams,
+                               ParametersABISummary *summary) {
 
   uint32_t intRegParams = 0;
   uint32_t fpRegParams = 0;
@@ -104,4 +105,10 @@ void classifyParametersGeneric(const TargetDescriptor *target,
   }
 
   assert(idx == numberOfParams);
+
+  if (summary != NULL) {
+    summary->intRegParams = intRegParams;
+    summary->fpRegParams = fpRegParams;
+    summary->stackParamOffset = ALIGN_SIZE(stackParamOffset, sizeof(intptr_t));
+  }
 }

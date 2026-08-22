@@ -348,7 +348,6 @@ computeVAListValuePtr(IrInstruction *valistInstr, IrBasicBlock *memoryBlock,
                       TypeDefiniton *vastruct, const char *offsetMemberName,
                       size_t areaBound) {
   const static int32_t dataSize = sizeof(intptr_t);
-  IrInstruction *dataSizeInstr = createIntegerConstant(IR_I64, dataSize);
   StructualMember *rsam = findStructualMember(vastruct, "reg_save_area");
   enum IrTypeKind irRSAType = typeRefToIrType(rsam->type);
 
@@ -358,7 +357,11 @@ computeVAListValuePtr(IrInstruction *valistInstr, IrBasicBlock *memoryBlock,
   IrInstruction *offsetOff = createIntegerConstant(IR_I64, m->offset);
   IrInstruction *offsetGep = newGEPInstruction(valistInstr, offsetOff, m->type);
   addInstruction(offsetGep);
-  IrInstruction *offValue = addLoadInstr(IR_I64, offsetGep, NULL);
+  // Four bytes, which is what gp_offset and fp_offset are. Reading eight took
+  // the field next door with it and made the comparison below always choose the
+  // overflow area; nothing noticed while variadic definitions fell back, since
+  // the legacy backend does not read this IR.
+  IrInstruction *offValue = addLoadInstr(irOffsetType, offsetGep, NULL);
   offValue->astType = m->type;
   IrInstruction *areaSize =
       createIntegerConstant(irOffsetType, areaBound * dataSize);
@@ -382,11 +385,19 @@ computeVAListValuePtr(IrInstruction *valistInstr, IrBasicBlock *memoryBlock,
   IrInstruction *regSaveAreaValue = addLoadInstr(irRSAType, regSaveGEP, NULL);
   regSaveAreaValue->astType = rsam->type;
 
-  IrInstruction *areaPtr = addBinaryOpeartion(
-      IR_E_ADD, regSaveAreaValue, offValue, irRSAType, rsam->type, NULL);
+  // Widened before it meets an address: the offset is 32 bits, the pointer is
+  // 64, and the bytes above the offset are not this value's to supply.
+  IrInstruction *wideOffset = newInstruction(IR_E_BITCAST, IR_I64);
+  addInstructionInput(wideOffset, offValue);
+  wideOffset->info.fromCastType = irOffsetType;
+  addInstruction(wideOffset);
 
+  IrInstruction *areaPtr = addBinaryOpeartion(
+      IR_E_ADD, regSaveAreaValue, wideOffset, irRSAType, rsam->type, NULL);
+
+  IrInstruction *stepInstr = createIntegerConstant(irOffsetType, dataSize);
   IrInstruction *newAreaOffset = addBinaryOpeartion(
-      IR_E_ADD, offValue, dataSizeInstr, irOffsetType, m->type, NULL);
+      IR_E_ADD, offValue, stepInstr, irOffsetType, m->type, NULL);
   addStoreInstr(offsetGep, newAreaOffset, NULL);
   gotoToBlock(doneBlock);
 
@@ -488,13 +499,17 @@ static IrInstruction *translateVaArg(AstExpression *expr) {
 
   gotoToBlock(doneBlock);
 
+  // Both arms are *addresses* of the argument, and so is what this returns -
+  // the load is the caller's. Typing the phi by the argument instead truncated
+  // the pointer for anything narrower than a word, which is every 'va_arg(ap,
+  // int)' there is; it went unseen because the overflow-only path returns its
+  // pointer directly and never reaches this phi.
   ctx->currentBB = doneBlock;
-  enum IrTypeKind irVaType = typeRefToIrType(vatype);
-  IrInstruction *phiInstr = newPhiInstruction(irVaType);
+  IrInstruction *phiInstr = newPhiInstruction(IR_PTR);
 
   addPhiInput(phiInstr, valuePtr, updateBlock);
   addPhiInput(phiInstr, overflowAreaValue, memoryBlock);
-  phiInstr->astType = vatype;
+  phiInstr->astType = makePointedType(ctx->pctx, 0, vatype);
   addInstructionHead(doneBlock, phiInstr);
 
   return phiInstr;
@@ -2373,10 +2388,11 @@ static void initializeParamterLocal(IrBasicBlock *entryBB,
 static uint32_t computeParametersABIInfo(AstFunctionDeclaration *declaration,
                                          ParamtersABIInfo *infos,
                                          size_t numberOfParams,
-                                         LocalValueInfo *lvis) {
+                                         LocalValueInfo *lvis,
+                                         ParametersABISummary *summary) {
 
   ctx->target->classifyParameters(ctx->target, declaration, infos,
-                                  numberOfParams);
+                                  numberOfParams, summary);
 
   for (uint32_t idx = 0; idx < numberOfParams; ++idx) {
     infos[idx].lvi = &lvis[idx];
@@ -2386,7 +2402,8 @@ static uint32_t computeParametersABIInfo(AstFunctionDeclaration *declaration,
 }
 
 static size_t generateVaArea(AstValueDeclaration *va_area,
-                             int32_t stackParamOffset, LocalValueInfo *infos,
+                             const ParametersABISummary *summary,
+                             IrInstruction *stackPtrOp, LocalValueInfo *infos,
                              size_t idx) {
   va_area->index2 = idx;
   enum IrTypeKind irType = typeRefToIrType(va_area->type);
@@ -2431,13 +2448,17 @@ static size_t generateVaArea(AstValueDeclaration *va_area,
   int32_t reg_save_area_offset = gp_va_area;
 
   IrInstruction *gp_offset_off_i = createIntegerConstant(IR_I64, gp_offset_off);
-  IrInstruction *gp_va_area_off = createIntegerConstant(IR_I64, gp_va_area);
 
-  TypeRef *u32Type = makePrimitiveType(ctx->pctx, 0, T_U4);
-  TypeRef *voidType = makePrimitiveType(ctx->pctx, 0, T_VOID);
+  // makePrimitiveType takes (id, flags); these five passed them the other way
+  // round, so every type here was 'void' carrying a type id as its flags. It
+  // showed up only as nonsense in the IR dump - a GEP's underlying type is not
+  // what decides the width of the access - but the dump is how this area gets
+  // checked.
+  TypeRef *u32Type = makePrimitiveType(ctx->pctx, T_U4, 0);
+  TypeRef *voidType = makePrimitiveType(ctx->pctx, T_VOID, 0);
   TypeRef *voidPtrType = makePointedType(ctx->pctx, 0, voidType);
-  TypeRef *uintptrType = makePrimitiveType(ctx->pctx, 0, T_U8);
-  TypeRef *floatType = makePrimitiveType(ctx->pctx, 0, T_F8);
+  TypeRef *uintptrType = makePrimitiveType(ctx->pctx, T_U8, 0);
+  TypeRef *floatType = makePrimitiveType(ctx->pctx, T_F8, 0);
   enum IrTypeKind iru32Type = IR_U32;
 
   // va_elem->reg_save_area = reg_save_area_begin
@@ -2454,19 +2475,42 @@ static size_t generateVaArea(AstValueDeclaration *va_area,
   addInstruction(reg_save_area_slot_ptr);
   addStoreInstr(reg_save_area_slot_ptr, reg_save_area_begin_ptr, NULL);
 
-  IrInstruction *gp_area_ptr =
-      newGEPInstruction(vaAreaSlot, gp_va_area_off, voidPtrType);
-  addInstruction(gp_area_ptr);
+  // va_elem->gp_offset / fp_offset - where va_arg starts reading, which is past
+  // whatever the named parameters already took. Both count from reg_save_area,
+  // so the floating-point one starts beyond the whole integer half;
+  // translateVaArg's bounds (R_PARAM_COUNT and R_PARAM_COUNT +
+  // R_FP_PARAM_COUNT) are the far end of that same measurement.
   IrInstruction *gp_offset_ptr =
       newGEPInstruction(vaAreaSlot, gp_offset_off_i, u32Type);
   addInstruction(gp_offset_ptr);
+  addStoreInstr(
+      gp_offset_ptr,
+      createIntegerConstant(iru32Type, summary->intRegParams * dataSize), NULL);
 
-  // va_elem->overflow_arg_area = stack_param_begin
-  IrInstruction *stack_param_begin_off =
-      createIntegerConstant(IR_I64, stackParamOffset);
-  IrInstruction *stack_param_begin_ptr =
-      newGEPInstruction(vaAreaSlot, stack_param_begin_off, uintptrType);
+  IrInstruction *fp_offset_ptr = newGEPInstruction(
+      vaAreaSlot, createIntegerConstant(IR_I64, fp_offset_off), u32Type);
+  addInstruction(fp_offset_ptr);
+  addStoreInstr(fp_offset_ptr,
+                createIntegerConstant(iru32Type,
+                                      (fp_va_area - gp_va_area) +
+                                          summary->fpRegParams * dataSize),
+                NULL);
+
+  // va_elem->overflow_arg_area = the first unnamed argument the caller left on
+  // the stack. That is above the frame pointer, so it is spelled the way an
+  // incoming stack parameter is - an offset off the stack operand, which
+  // layoutIncomingParameters turns into a frame object - and takes a local slot
+  // of its own to be found through. It used to be an offset into this frame's
+  // own va area, which is a different piece of memory entirely.
+  IrInstruction *stack_param_begin_ptr = newInstruction(IR_E_ADD, IR_P_AGG);
+  addInstructionInput(stack_param_begin_ptr, stackPtrOp);
+  addInstructionInput(stack_param_begin_ptr,
+                      createIntegerConstant(IR_I64, summary->stackParamOffset));
   addInstruction(stack_param_begin_ptr);
+
+  infos[idx + 1].stackSlot = stack_param_begin_ptr;
+  infos[idx + 1].frameOffset = summary->stackParamOffset;
+  infos[idx + 1].name = "<va_overflow_area>";
 
   IrInstruction *overflow_arg_area_slot_off =
       createIntegerConstant(IR_I64, overflow_arg_area_ptr_off);
@@ -2476,10 +2520,38 @@ static size_t generateVaArea(AstValueDeclaration *va_area,
 
   addStoreInstr(overflow_arg_area_slot_ptr, stack_param_begin_ptr, NULL);
 
-  // save gp registers;
-  // save fp registers;
+  // The stores this whole area existed without. Every argument register is
+  // written, including the ones a named parameter already used: the two offsets
+  // above are what stop va_arg from reading those, so leaving holes would save
+  // nothing and make the area's contents depend on the signature.
+  //
+  // The layout is x86's - so are the sizes above, and so is the 4+6+8 the
+  // parser gives __va_area__ - which is why the target's own register counts
+  // are asserted to cover it rather than driving it.
+  assert(ctx->target->intArgRegCount >= R_PARAM_COUNT &&
+         ctx->target->fpArgRegCount >= R_FP_PARAM_COUNT);
 
-  return idx + 1;
+  for (uint32_t k = 0; k < R_PARAM_COUNT; ++k) {
+    IrInstruction *slot = newGEPInstruction(
+        vaAreaSlot, createIntegerConstant(IR_I64, gp_va_area + k * dataSize),
+        uintptrType);
+    addInstruction(slot);
+    IrInstruction *reg = newPhysRegister(IR_I64, ctx->target->intArgRegs[k]);
+    addInstruction(reg);
+    addStoreInstr(slot, reg, NULL);
+  }
+
+  for (uint32_t k = 0; k < R_FP_PARAM_COUNT; ++k) {
+    IrInstruction *slot = newGEPInstruction(
+        vaAreaSlot, createIntegerConstant(IR_I64, fp_va_area + k * dataSize),
+        floatType);
+    addInstruction(slot);
+    IrInstruction *reg = newPhysRegister(IR_F64, ctx->target->fpArgRegs[k]);
+    addInstruction(reg);
+    addStoreInstr(slot, reg, NULL);
+  }
+
+  return idx + 2;
 }
 
 static uint32_t buildInitialIr(IrFunction *func,
@@ -2503,9 +2575,12 @@ static uint32_t buildInitialIr(IrFunction *func,
     numOfReturnSlots = 1;
   }
 
+  // Two: the register save area itself, and an anchor for the overflow area,
+  // which is above the frame pointer and so is a slot of its own the way an
+  // incoming stack parameter is. See generateVaArea.
   size_t numOfVariadicSlots = 0;
   if (declaration->isVariadic) {
-    numOfVariadicSlots = 1;
+    numOfVariadicSlots = 2;
   }
 
   const size_t numOfLocalSlots =
@@ -2526,8 +2601,9 @@ static uint32_t buildInitialIr(IrFunction *func,
       newPhysRegister(IR_PTR, ctx->target->sp);
   addInstructionHead(func->entry, stackPtrOp);
 
+  ParametersABISummary abiSummary = {0};
   computeParametersABIInfo(declaration, paramABIInfo, numOfParams,
-                           localOperandsMap);
+                           localOperandsMap, &abiSummary);
   size_t idx = 0;
   for (AstValueDeclaration *param = declaration->parameters; param != NULL;
        param = param->next, ++idx) {
@@ -2581,7 +2657,8 @@ static uint32_t buildInitialIr(IrFunction *func,
   if (numOfVariadicSlots) {
     AstValueDeclaration *va_area = function->va_area;
     ctx->currentBB = func->entry;
-    idx = generateVaArea(va_area, 0, localOperandsMap, idx);
+    idx = generateVaArea(va_area, &abiSummary, stackPtrOp, localOperandsMap,
+                         idx);
   }
 
   // Every fixed-size local is allocated here, in the entry block, rather than

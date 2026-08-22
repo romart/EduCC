@@ -1,15 +1,16 @@
 --- Phase: mir ---
 MachineFunction 'param_va_area' [target = x86_64]
 VRegs:
-  %v0 : gp/4 ; %46
-  %v1 : gp/8 ; %37
-  %v2 : gp/8 ; %42
-  %v3 : fp/8 ; %66
-  %v4 : gp/8 ; %57
-  %v5 : gp/8 ; %62
+  %v0 : gp/8 ; %106
+  %v1 : gp/8 ; %97
+  %v2 : gp/8 ; %102
+  %v3 : gp/8 ; %126
+  %v4 : gp/8 ; %117
+  %v5 : gp/8 ; %122
 Frame: 176 bytes
-  fi#0 : local 144/8 @ -144 '__va_area__' ; %7
-  fi#1 : local 24/8 @ -168 'ap' ; %23
+  fi#0 : param 0/8 @ 16 ; %21
+  fi#1 : local 144/8 @ -144 '__va_area__' ; %7
+  fi#2 : local 24/8 @ -168 'ap' ; %83
 MBB #0, '<entry>', ir #0, -> #2
 
 MBB #1, '<exit>', ir #1, <- #11
@@ -23,18 +24,18 @@ MBB #4, '<do_tail>', ir #4, <- #3, -> #12 #5
 MBB #5, '<do_exit>', ir #5, <- #4, -> #6 #7
 
 MBB #6, '<va_arg_mem>', ir #6, <- #5, -> #8
-  %v0 = MOP_COPY.4 %v2 ; %46
+  %v0 = MOP_COPY.8 %v2 ; %106
 
 MBB #7, '<va_arg_update>', ir #7, <- #5, -> #8
-  %v0 = MOP_COPY.4 %v1 ; %46
+  %v0 = MOP_COPY.8 %v1 ; %106
 
 MBB #8, '<va_arg_done>', ir #8, <- #7 #6, -> #9 #10
 
 MBB #9, '<va_arg_mem>', ir #9, <- #8, -> #11
-  %v3 = MOP_COPY.8 %v5 ; %66
+  %v3 = MOP_COPY.8 %v5 ; %126
 
 MBB #10, '<va_arg_update>', ir #10, <- #8, -> #11
-  %v3 = MOP_COPY.8 %v4 ; %66
+  %v3 = MOP_COPY.8 %v4 ; %126
 
 MBB #11, '<va_arg_done>', ir #11, <- #10 #9, -> #1
 

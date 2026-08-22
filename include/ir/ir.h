@@ -268,6 +268,10 @@ typedef struct _LocalValueInfo {
     AstValueDeclaration *declaration;
     struct _IrInstruction *stackSlot;
 
+    // What to call a slot no C declaration names, for dumps only. NULL means
+    // the return slot, which is what every declaration-less slot used to be.
+    const char *name;
+
     int32_t frameOffset; // using for both memory and spill
 
     struct {

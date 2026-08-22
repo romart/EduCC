@@ -10,17 +10,21 @@
 // actually started arriving on the stack.
 //
 // Both cursors have to appear for this to cover both banks, hence one integer
-// and one floating va_arg. There is no IR-level coverage of varargs otherwise,
-// which is why this exists at all - the codegen suite's varargs tests run the
-// legacy pipeline and never reach this code.
+// and one floating va_arg. This was the only coverage of any kind when it was
+// written, since the codegen suite's varargs tests all ran the legacy pipeline;
+// step 14 changed that, and codegen/experimental/variadic_definition.c now runs
+// the same machinery. What is still only here is the *shape* - the baselines
+// are where the save-area stores and the two cursors are legible instruction by
+// instruction rather than as an exit code.
 //
-// This fixture is also the only thing standing between the __va_elem member
-// offsets and a silent disagreement. generateVaArea() writes the area using
-// hardcoded offsets while translateVaArg() reads it back through
-// findStructualMember() on the real struct from sdk/include/stdarg.h, so if
-// the two drift apart va_arg quietly returns the wrong field rather than
-// failing. The baseline pins the written offsets to 0/4/16 and the save area
-// to 24.
+// This fixture is also what stands between the __va_elem member offsets and a
+// silent disagreement. generateVaArea() writes the area using hardcoded offsets
+// while translateVaArg() reads it back through findStructualMember() on the
+// real struct from sdk/include/stdarg.h, so if the two drift apart va_arg
+// quietly returns the wrong field rather than failing. The baseline pins the
+// written offsets to 0/4/8/16, the save area to 24, and the fourteen argument
+// registers spilled into it - six integer at 24 and eight SSE at 72, which is
+// the layout the two cursors' bounds (48 and 112) are measured against.
 #include <stdarg.h>
 
 double param_va_area(int n, ...) {
