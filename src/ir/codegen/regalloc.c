@@ -207,9 +207,10 @@ static int collectAssignments(const MachineFunction *mf, MachineInstr *mi,
 //
 // Step 7 took the common case away: an ordinary integer call used to be the
 // placeholder that got here, and is now a sequence of one-register moves that
-// does not come close. What is left is the calls selection still refuses - a
-// large aggregate argument, and long double most durably, its lowering being
-// soft-float work outside step 7 altogether.
+// does not come close. What is left is the calls selection still refuses -
+// long double most durably, its lowering being soft-float work outside step 7
+// altogether. A large aggregate argument was on that list until step 13, which
+// turned it into loads and pushes naming one register at a time.
 // test/testData/ir/gvn/ra_limits.c pins one, and if a later step leaves
 // nothing at all able to reach this, say so here rather than deleting the
 // check: it is cheap, and it is what makes the postcondition above a statement

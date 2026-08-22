@@ -1,0 +1,85 @@
+--- Phase: dce ---
+Function 'pass'
+Locals:
+   p:0|s = %2
+   r:-1|<ret_slot> = %4
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %7 = IR_DEF_CONST () [kind = integer, v = 24, id = 3]
+  %5 = IR_DEF_CONST () [kind = symbol, name = takeBig, id = 2]
+  %3 = IR_DEF_CONST () [kind = integer, v = 8, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 16, id = 0]
+  %0 = IR_P_REG () [preg = $rsp]
+  %2 = IR_E_ADD (%0, %1) []
+  %14 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %12 = IR_RET (%6) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %8 = IR_ALLOCA (%7) [size = 24]
+  %9 = IR_M_COPY (%8, %2, %7) [elementType = STRUCT Big]
+  %6 = IR_CALL (%5, %8) [size = 0]
+  %11 = IR_BRANCH () [target = #1]
+
+
+--- Phase: dce ---
+Function 'scalars'
+Locals:
+   p:0|a = %2
+   p:1|s = %6
+   p:2|b = %7
+   r:-1|<ret_slot> = %10
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %14 = IR_DEF_CONST () [kind = integer, v = 24, id = 3]
+  %11 = IR_DEF_CONST () [kind = symbol, name = mixed, id = 2]
+  %5 = IR_DEF_CONST () [kind = integer, v = 16, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %0 = IR_P_REG () [preg = $rsp]
+  %3 = IR_P_REG () [preg = $rdi]
+  %6 = IR_E_ADD (%0, %5) []
+  %8 = IR_P_REG () [preg = $rsi]
+  %22 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %20 = IR_RET (%12) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %15 = IR_ALLOCA (%14) [size = 24]
+  %16 = IR_M_COPY (%15, %6, %14) [elementType = STRUCT Big]
+  %12 = IR_CALL (%11, %3, %15, %8) [size = 0]
+  %19 = IR_BRANCH () [target = #1]
+
+
+--- Phase: dce ---
+Function 'small'
+Locals:
+   p:0|s = %2
+   r:-1|<ret_slot> = %5
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %8 = IR_DEF_CONST () [kind = integer, v = 0, id = 2]
+  %6 = IR_DEF_CONST () [kind = symbol, name = takeSmall, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %2 = IR_ALLOCA (%1) [size = 8, declaration = 0 | 's']
+  %3 = IR_P_REG () [preg = $rdi]
+  %4 = IR_M_STORE (%2, %3) [store type = AGG]
+  %15 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %13 = IR_RET (%7) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %9 = IR_GET_ELEMENT_PTR (%2, %8) [underlying type = STRUCT Small]
+  %10 = IR_M_LOAD (%9) [load type = AGG]
+  %7 = IR_CALL (%6, %10) [size = 0]
+  %12 = IR_BRANCH () [target = #1]
+
+

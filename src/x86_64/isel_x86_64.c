@@ -994,6 +994,34 @@ static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
 // either. Calls have a handful of arguments, so walking the list again is
 // cheaper than the array would be.
 
+// Whether input 'idx' is an aggregate the ABI passes as bytes on the stack.
+//
+// Read from the mask translateCall filled in, because nothing about the
+// instruction says it: such an argument and a genuine pointer argument are the
+// same IR_PTR here, the temporary the bytes were copied into being the only
+// difference and not one this file can see. See IrInstruction.info.call.
+static Boolean callArgInMemory(const IrInstruction *call, size_t idx) {
+  return idx < 8 * sizeof(call->info.call.memArgs) &&
+         (call->info.call.memArgs & ((uint64_t)1 << idx)) != 0;
+}
+
+// The eightbytes a memory argument occupies, which is its size rounded up.
+//
+// The same count the callee advances its incoming cursor by: every parameter
+// is aligned to at least eight bytes there, so the bytes above an aggregate
+// that does not fill its last eightbyte are padding on both sides. See
+// classifyParametersGeneric.
+static uint32_t memArgStackSlots(const IrInstruction *arg) {
+  // The mask is the authority on which inputs get here; astType only supplies
+  // the size, and translateCall sets the two together.
+  assert(arg->astType != NULL && isPointerLikeType(arg->astType));
+
+  const TypeRef *type = arg->astType->pointed;
+  int32_t size = computeTypeSize(type);
+
+  return (uint32_t)((size + sizeof(intptr_t) - 1) / sizeof(intptr_t));
+}
+
 static size_t firstCallArgIndex(const IrInstruction *call) {
   // Input 0 is the callee; everything after it is an argument. When the call
   // returns a large struct, input 1 is the hidden buffer pointer - and it is
@@ -1026,8 +1054,15 @@ static uint32_t callArgLocation(const TargetDescriptor *target, const IrInstruct
   uint32_t used[RC_CLASS_COUNT] = {0};
 
   for (size_t idx = firstCallArgIndex(call);; ++idx) {
-    enum RegClass rc = callArgClass(inputAt(call, idx));
-    uint32_t reg = used[rc] < argRegCountOf(target, rc) ? argRegOf(target, rc, used[rc]++) : NO_REG;
+    uint32_t reg = NO_REG;
+
+    // A memory argument consumes no register of either class - it is on the
+    // stack because of what it is and not because a class ran out, so the
+    // arguments after it are unaffected.
+    if (!callArgInMemory(call, idx)) {
+      enum RegClass rc = callArgClass(inputAt(call, idx));
+      reg = used[rc] < argRegCountOf(target, rc) ? argRegOf(target, rc, used[rc]++) : NO_REG;
+    }
 
     if (idx == inputIdx) {
       return reg;
@@ -1036,24 +1071,36 @@ static uint32_t callArgLocation(const TargetDescriptor *target, const IrInstruct
 }
 
 // How many SSE registers the call passes arguments in - which is what all has
-// to hold for a variadic callee - and how many arguments end up on the stack.
+// to hold for a variadic callee - how many arguments go in registers, and how
+// many eightbytes of stack the rest need.
+//
+// Eightbytes rather than arguments: an aggregate passed in memory takes as
+// many as it has, and the padding above it is part of what the callee expects.
 static void callArgCounts(const TargetDescriptor *target, const IrInstruction *call,
-                          uint32_t *numFpRegs, uint32_t *numStackArgs) {
+                          uint32_t *numFpRegs, uint32_t *numRegArgs, uint32_t *numStackSlots) {
   uint32_t used[RC_CLASS_COUNT] = {0};
+  uint32_t inRegs = 0;
   uint32_t onStack = 0;
 
   for (size_t idx = firstCallArgIndex(call); idx < call->inputs.size; ++idx) {
+    if (callArgInMemory(call, idx)) {
+      onStack += memArgStackSlots(inputAt(call, idx));
+      continue;
+    }
+
     enum RegClass rc = callArgClass(inputAt(call, idx));
 
     if (used[rc] < argRegCountOf(target, rc)) {
       used[rc] += 1;
+      inRegs += 1;
     } else {
       onStack += 1;
     }
   }
 
   *numFpRegs = used[RC_FP];
-  *numStackArgs = onStack;
+  *numRegArgs = inRegs;
+  *numStackSlots = onStack;
 }
 
 // The stack pointer moves twice around a call with stack arguments: down to
@@ -1112,6 +1159,49 @@ static void selectRegisterReturnedStruct(MachineBuilder *b, const IrInstruction 
   addr->opSize = sizeof(intptr_t);
 }
 
+// Put an aggregate argument on the stack, one eightbyte at a time.
+//
+// The push *is* the copy the ABI asks for - there is no outgoing area to store
+// into, and none is wanted here: the callee reads the bytes where the call
+// left them, so a struct that spans three eightbytes is three pushes and the
+// stack pointer does the arithmetic. Highest eightbyte first, because the rest
+// of the argument list is pushed backwards too and the struct has to come out
+// the right way up.
+//
+// Reading up to seven bytes past the end of the struct is deliberate and safe:
+// the source is the temporary translateCall copied into, and createAllocaSlot
+// rounds a slot to a whole eightbyte. The bytes above the struct are padding
+// the callee's own classification skips.
+//
+// Through a register rather than 'push [mem]', which exists: the trivial
+// allocator gives the load's result a frame slot and reloads it for the push,
+// and a frame slot is addressed off rbp - so it survives the stack pointer
+// moving underneath it, which is the only thing that could go wrong here.
+static void selectMemoryArgument(MachineBuilder *b, const IrInstruction *arg) {
+  uint32_t slots = memArgStackSlots(arg);
+
+  // Once, outside the loop, for the reason selectMemoryCopy takes both of its
+  // addresses once: an address that had to widen an index would otherwise
+  // widen it again per eightbyte.
+  MachineAddress from = addressFor(b, arg, 0);
+
+  for (uint32_t slot = slots; slot > 0; --slot) {
+    MachineAddress chunk = from;
+    chunk.disp += (int32_t)((slot - 1) * sizeof(intptr_t));
+
+    uint32_t tmp = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
+    MachineInstr *load = buildMachineInstr(b, X86_LOAD, 1, 1);
+    setRegisterOperand(load, 0, tmp);
+    setMemoryOperand(load, 1, &chunk);
+    load->opSize = sizeof(intptr_t);
+
+    MachineInstr *push = buildMachineInstr(b, X86_PUSH, 0, 1);
+    setRegisterOperand(push, 0, tmp);
+    push->opSize = sizeof(intptr_t);
+  }
+}
+
 static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   const TargetDescriptor *target = b->mf->target;
 
@@ -1122,16 +1212,16 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
     return;
   }
 
-  uint32_t numFpRegs = 0, numStackArgs = 0;
-  callArgCounts(target, i, &numFpRegs, &numStackArgs);
+  uint32_t numFpRegs = 0, numRegArgs = 0, numStackSlots = 0;
+  callArgCounts(target, i, &numFpRegs, &numRegArgs, &numStackSlots);
 
   // SysV wants rsp 16-byte aligned when the call executes. It already is
   // everywhere else in the function - the entry misalignment is undone by
   // pushing rbp, and every frame size stage 3 subtracts is rounded to 16 - so
   // the only thing that can break it is an odd number of eight-byte arguments,
   // and eight bytes of padding above them puts it back.
-  uint32_t padding = (numStackArgs & 1) != 0 ? sizeof(intptr_t) : 0;
-  uint32_t stackBytes = numStackArgs * sizeof(intptr_t) + padding;
+  uint32_t padding = (numStackSlots & 1) != 0 ? sizeof(intptr_t) : 0;
+  uint32_t stackBytes = numStackSlots * sizeof(intptr_t) + padding;
 
   if (padding != 0) {
     selectStackAdjust(b, X86_SUB, padding);
@@ -1143,6 +1233,11 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
     const IrInstruction *arg = inputAt(i, idx - 1);
 
     if (callArgLocation(target, i, idx - 1) != NO_REG) {
+      continue;
+    }
+
+    if (callArgInMemory(i, idx - 1)) {
+      selectMemoryArgument(b, arg);
       continue;
     }
 
@@ -1184,7 +1279,7 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   // the operand list all the same, or nothing connects the copies to the call
   // and liveness is free to conclude they are dead.
   Boolean hasResult = i->type != IR_VOID;
-  uint16_t numArgRegs = (uint16_t)(i->inputs.size - firstCallArgIndex(i) - numStackArgs);
+  uint16_t numArgRegs = (uint16_t)numRegArgs;
 
   MachineInstr *call = buildMachineInstr(b, X86_CALL, hasResult ? 1 : 0, 1 + numArgRegs);
   uint16_t op = 0;
@@ -1799,63 +1894,49 @@ static Boolean x86IsLegalImmediate(const IrInstruction *use, size_t operandIdx,
 // Returns NULL when this rule covers the call, and otherwise what stopped it,
 // for the log line the placeholder prints. Everything it turns away becomes a
 // placeholder, which is what it already was.
-// Whether any argument of this call is a composite too big to travel in one
-// register.
-//
-// Asked of the AST, because the IR no longer says: translateCall() copies such
-// an argument into a temporary and passes the temporary's *address*, which
-// reaches here as an ordinary IR_PTR and is indistinguishable from a genuine
-// pointer argument.
-//
-// It has to be refused, and not because of anything missing in this file. The
-// callee reads a large parameter as bytes on the stack - see the incoming
-// frame object layoutIncomingParameters() builds for one - while the caller,
-// as above, hands over a pointer. The two sides of the IR's own convention do
-// not meet, and the only reason no program has noticed is that every function
-// on either side of such a call has always fallen back to the legacy backend,
-// which has its own convention and is self-consistent. Selecting one of them
-// here would be the first time the mismatch mattered.
-static Boolean hasLargeAggregateArgument(const IrInstruction *call) {
-  const AstExpression *expr = call->meta.astExpr;
-
-  if (expr == NULL || expr->op != E_CALL) {
-    return FALSE;
-  }
-
-  for (AstExpressionList *args = expr->callExpr.arguments; args != NULL; args = args->next) {
-    TypeRef *type = args->expression->type;
-
-    if (isCompositeType(type) && computeTypeSize(type) > (int32_t)sizeof(intptr_t)) {
-      return TRUE;
-    }
-  }
-
-  return FALSE;
-}
-
 static const char *callRefusalReason(const TargetDescriptor *target, const IrInstruction *call) {
   if (call->type == IR_F80) {
     return "returns a long double, which lives on the x87 stack";
   }
 
-  if (hasLargeAggregateArgument(call)) {
-    return "passes an aggregate argument larger than one register, which the IR"
-           " passes by address and the callee reads by value";
+  // Bit 0 is the callee's, so it cannot mean an argument; translateCall sets it
+  // to say there was a memory argument too far along the list for the mask to
+  // name. Refusing is the whole of the handling - the alternative is passing
+  // its address where the callee reads bytes.
+  if (callArgInMemory(call, 0)) {
+    return "passes an aggregate argument past the sixty-fourth, which the call's"
+           " memory-argument mask cannot name";
   }
 
   for (size_t idx = firstCallArgIndex(call); idx < call->inputs.size; ++idx) {
     const IrInstruction *arg = inputAt(call, idx);
+
+    if (callArgInMemory(call, idx)) {
+      // Pushed eightbyte by eightbyte, which lands the struct at whatever
+      // alignment the eightbyte before it left the stack pointer at. SysV
+      // gives an over-aligned aggregate its own alignment in the argument
+      // area, and getting there means laying the area out rather than pushing
+      // into it - so this refuses instead of misplacing the bytes. Nothing in
+      // the corpus reaches it: a struct is eight-aligned unless it contains a
+      // long double, and that is refused a line below anyway.
+      if (typeAlignment(arg->astType->pointed) > (int32_t)sizeof(intptr_t)) {
+        return "passes an aggregate argument aligned wider than an eightbyte,"
+               " which pushing cannot place";
+      }
+      continue;
+    }
 
     if (arg->type == IR_F80 || arg->type == IR_VOID) {
       return "passes an argument of a type with no register class";
     }
 
     // A float argument past xmm7 would have to be pushed, and there is no
-    // 'push xmm'. It wants a store below the stack pointer instead, which is
-    // the same rewrite the whole outgoing-argument area wants and is not worth
-    // doing twice - so this refuses for now rather than growing a second way
-    // of placing an argument. Nothing reaches it: eight FP arguments is
-    // already more than any fixture has.
+    // 'push xmm'. What it wants now that aggregates are pushed too is the same
+    // shape selectMemoryArgument uses - get the value into a general register
+    // and push that - which needs a 'movq r64, xmm' this backend does not have
+    // an opcode for yet (X86_MOVD is 66 0F 6E and only goes the other way).
+    // That is a small, self-contained addition rather than the frame-layout
+    // change this refusal used to be waiting on.
     if (callArgClass(arg) == RC_FP && callArgLocation(target, call, idx) == NO_REG) {
       return "passes a float argument on the stack, and there is no 'push xmm'";
     }

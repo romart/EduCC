@@ -207,6 +207,16 @@ struct _IrInstruction {
           // and by then the function type it comes from is several
           // translations away. Recorded here at the one point it is in hand.
           Boolean isVariadic;
+          // Bit i is set when input i is an aggregate the ABI passes as bytes
+          // on the stack, rather than the pointer this IR names it by.
+          //
+          // It has to be said rather than deduced: an aggregate argument and a
+          // pointer argument are the same IR_PTR by the time the backend sees
+          // them, and no type distinguishes them - which is the whole of why
+          // such a call used to be refused. Set in translateCall, where the
+          // argument's own type is still in hand. Bit 0 is the callee and is
+          // never set, so a zero mask means "nothing unusual here".
+          uint64_t memArgs;
         } call;
         struct {
           uint32_t cacheIdx;

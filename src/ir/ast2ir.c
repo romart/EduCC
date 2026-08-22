@@ -617,10 +617,23 @@ static IrInstruction *translateCall(AstExpression *expr) {
 
     if (isCompositeType(argType)) {
       if (argSize > sizeof(intptr_t)) {
-        // TODO: make sure this should be in argument list
+        // The temporary is the copy C says a by-value argument is, and the
+        // backend passes its *bytes* rather than its address - so the slot is
+        // where the argument is built, not where it is passed from. Its index
+        // goes in the mask because nothing about the instruction says which of
+        // the two an IR_PTR input is.
         realArgOp = createAllocaSlot(argSize);
         realArgOp->info.alloca.valueType = typeRefToIrType(argType);
+        realArgOp->astType = makePointedType(ctx->pctx, 0, argType);
         generateCompositeCopy(argType, argOp, realArgOp, expr);
+
+        // Bit 0 names the callee, which is never one of these, so it is free
+        // to mean "there is one the mask could not hold" - and selection
+        // refuses the call rather than passing an address by mistake.
+        size_t inputIdx = callInstr->inputs.size;
+        size_t maskBits = 8 * sizeof(callInstr->info.call.memArgs);
+        callInstr->info.call.memArgs |= (uint64_t)1
+                                        << (inputIdx < maskBits ? inputIdx : 0);
       } else {
         IrInstruction *offset = createIntegerConstant(IR_I64, 0);
         IrInstruction *gep = newGEPInstruction(argOp, offset, argType);
@@ -670,8 +683,11 @@ static IrInstruction *translateTernary(AstExpression *expr) {
   gotoToBlock(exit);
 
   ctx->currentBB = exit;
-  assert(ifTrueOp->type == ifFalseOp->type);
-  // TODO: what if type is composite?
+  // Both arms of a composite ternary hand back an *address* - that is what a
+  // composite value is here - but not the same kind of one: a call's result is
+  // IR_P_AGG and a local's is IR_PTR. The phi is over addresses either way, so
+  // the two arms agreeing on an IR type is a scalar's question.
+  assert(ifTrueOp->type == ifFalseOp->type || isCompositeType(expr->type));
   IrInstruction *phi = newPhiInstruction(typeRefToIrType(expr->type));
 
   addPhiInput(phi, ifTrueOp, ifTrueEnd);

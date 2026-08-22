@@ -16,10 +16,9 @@ vaSmallArgs
 vaBigArgs
 vaCopied
 vaNested
-# 'main' is not variadic. It falls back for two reasons of its own, both step
-# 13: it passes a struct larger than one register by value (to vaBigArgs and
-# vaNamedStruct), which the IR passes by address while the callee reads bytes,
-# and it passes a float argument on the stack, which needs a 'push xmm' that
-# does not exist. The struct-returning functions it calls are selected here -
-# only being variadic or passing an oversized aggregate is the problem.
+# 'main' is not variadic. It used to fall back for two reasons of its own; step
+# 13 took the first away - the struct it passes by value to vaBigArgs and
+# vaNamedStruct is now pushed as bytes - and what is left is a float argument
+# on the stack, which needs a 'push xmm' that does not exist. Delete this line
+# once that lands too.
 main
