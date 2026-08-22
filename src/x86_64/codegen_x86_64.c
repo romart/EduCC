@@ -1977,9 +1977,22 @@ static void generateCall(GeneratedFunction *f, AstExpression *expression) {
 
     if (isCompositeType(argType) && argSize > sizeof(intptr_t)) {
       Address addr = { 0 };
-      assert(arg->op == EU_DEREF);
-      translateAddress(f, arg->unaryExpr.argument, &addr);
-      leaRelocatable(f, &addr, R_ACC);
+
+      if (arg->op == EU_DEREF) {
+        translateAddress(f, arg->unaryExpr.argument, &addr);
+        leaRelocatable(f, &addr, R_ACC);
+      } else {
+        // An lvalue is the common case and the only one the assertion here
+        // allowed, but a composite argument need not be one: 'f(g())' with g
+        // returning a struct is a call, and asking for the address of a call
+        // crashed the compiler. Any other composite rvalue leaves its address
+        // in R_ACC, which is a base register like any other - copyStructTo
+        // works through R_TMP and leaves it alone.
+        generateExpression(f, arg);
+        addr.base = R_ACC;
+        addr.index = R_BAD;
+      }
+
       dst.imm = rspOffset + (f->stackOffset - stackBase);
       copyStructTo(f, argType, &addr, &dst);
     } else {
