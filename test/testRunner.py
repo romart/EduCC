@@ -43,6 +43,12 @@ FALLBACK_ALLOW_EXT = '.fallback'
 # still run - they are known-broken fixtures kept in the repo so a bug stays
 # reproducible, and skipping them outright would mean nobody ever notices when
 # one starts passing again.
+#
+# '<name>.muted.legacy' and '<name>.muted.experimental' mute in one
+# configuration only, for a bug that is one backend's and not the other's: the
+# fixture is then an ordinary passing test in the configuration that gets it
+# right, and would otherwise be reported as a muted test that now passes there
+# every single run.
 MUTE_MARKER_EXT = '.muted'
 
 # Reason for the test currently running, or None. Module-global for the same
@@ -53,13 +59,15 @@ currentMuteReason = None
 mutedFailures = set()   # muted tests that failed, i.e. the marker is doing its job
 mutedPasses = set()     # muted tests that passed - candidates for unmuting
 
-# A '<name>.experimental' sibling means the fixture is a valid C program that
-# only the '-experimental' backend compiles correctly, and the legacy one is
-# not going to be taught to. Such a test is *skipped* in a run that is not
-# experimental rather than muted: muting is for a bug someone means to fix, so
-# a muted test still runs and is flagged the day it starts passing, and neither
-# of those is true here. The file's contents are the reason.
-EXPERIMENTAL_ONLY_EXT = '.experimental'
+# A '<name>.experimental' or '<name>.legacy' sibling means the fixture only
+# makes sense under that one backend, and the other is not going to be taught to
+# agree: a VLA in a loop, which the legacy backend's design does not really let
+# it reclaim, or a fixture reading one local through a pointer to the next,
+# which the IR backend is right to disagree with. Such a test is *skipped* in
+# the other configuration rather than muted - muting is for a bug someone means
+# to fix, so a muted test still runs and is flagged the day it starts passing,
+# and neither of those is true here. The file's contents are the reason.
+ONLY_MARKER_EXTS = {'experimental': '.experimental', 'legacy': '.legacy'}
 
 skippedTests = set()
 
@@ -79,26 +87,47 @@ def fallbackCheckFlags(dirname, name):
     return flags
 
 
+def currentConfiguration():
+    """'experimental' or 'legacy', which is what the per-configuration markers
+    name. Read off the compiler flags rather than passed around, because a
+    marker is consulted from four different runXTest() paths."""
+    return 'experimental' if '-experimental' in compilerFlags else 'legacy'
+
+
+def readMarker(markerPath):
+    if not path.exists(markerPath):
+        return None
+    with open(markerPath) as marker:
+        reason = marker.read().strip()
+    return reason if reason else '(no reason recorded in the marker file)'
+
+
 def muteMarkerPath(dirname, name):
-    return dirname + '/' + name + MUTE_MARKER_EXT
+    """The marker that mutes this test in this configuration, whether or not it
+    exists: the unqualified one when it is there, otherwise the qualified one.
+    Reported to the user as the file to delete, so it has to name the one that
+    is actually doing the muting."""
+    unqualified = dirname + '/' + name + MUTE_MARKER_EXT
+    if path.exists(unqualified):
+        return unqualified
+    return unqualified + '.' + currentConfiguration()
 
 
 def readMuteReason(dirname, name):
-    markerPath = muteMarkerPath(dirname, name)
-    if not path.exists(markerPath):
-        return None
-    with open(markerPath) as marker:
-        reason = marker.read().strip()
-    return reason if reason else '(no reason recorded in the marker file)'
+    return readMarker(muteMarkerPath(dirname, name))
 
 
-def readExperimentalOnlyReason(dirname, name):
-    markerPath = dirname + '/' + name + EXPERIMENTAL_ONLY_EXT
-    if not path.exists(markerPath):
-        return None
-    with open(markerPath) as marker:
-        reason = marker.read().strip()
-    return reason if reason else '(no reason recorded in the marker file)'
+def readOtherConfigurationReason(dirname, name):
+    """The reason this fixture is skipped here, or None to run it. A
+    '<name>.experimental' or '<name>.legacy' marker names the one configuration
+    the fixture belongs to; every other configuration skips it."""
+    for configuration, ext in ONLY_MARKER_EXTS.items():
+        if configuration == currentConfiguration():
+            continue
+        reason = readMarker(dirname + '/' + name + ext)
+        if reason is not None:
+            return configuration, reason
+    return None
 
 
 def failTest(testFilePath, headline):
@@ -369,10 +398,11 @@ def runTestForData(filePath, compiler, workingDir, testMode):
     if (ext != ".c"):
         return
 
-    experimentalOnly = readExperimentalOnlyReason(dirname, name)
-    if experimentalOnly is not None and '-experimental' not in compilerFlags:
+    belongsTo = readOtherConfigurationReason(dirname, name)
+    if belongsTo is not None:
+        configuration, reason = belongsTo
         print(CBOLD + CYELLOW +
-              f"Test {dirname}/{name}.c -- SKIP (needs -experimental): {experimentalOnly.splitlines()[0]}" +
+              f"Test {dirname}/{name}.c -- SKIP (needs {configuration}): {reason.splitlines()[0]}" +
               RESET)
         skippedTests.add(filePath)
         return
@@ -415,9 +445,11 @@ def parseArguments():
         description="Runs all or a subset of the ART test suite. A test is muted by placing a "
                     "'<name>.muted' file next to its '<name>.c', with the reason as its contents; "
                     "a muted test still runs and reports, but its failures do not count towards "
-                    "the exit code, and it is called out in the summary if it starts passing. A "
-                    "'<name>.experimental' sibling means the fixture only compiles correctly under "
-                    "'-experimental', and skips it in a run without that flag.")
+                    "the exit code, and it is called out in the summary if it starts passing. "
+                    "'<name>.muted.experimental' and '<name>.muted.legacy' mute in one "
+                    "configuration only, for a bug that belongs to one backend. A "
+                    "'<name>.experimental' or '<name>.legacy' sibling means the fixture belongs to "
+                    "that backend alone, and skips it in every other configuration.")
     parser.add_argument('-c', '--compiler', type=str, required=True, help="specify path to compiler")
     parser.add_argument('-wd', '--working-dir', type=str, required=True, help="specify working dir for tests")
     parser.add_argument('-p', '--test-path', type=str, required=True, action='append', help='path to test')
@@ -473,7 +505,8 @@ def main():
         print(CBOLD + CGREEN + f"All tests passed" + RESET)
 
     if skippedTests:
-        print(CBOLD + CYELLOW + f"Skipped (need -experimental): {len(skippedTests)}" + RESET)
+        print(CBOLD + CYELLOW +
+              f"Skipped (belong to the other backend): {len(skippedTests)}" + RESET)
         for t in sorted(skippedTests):
             print(f"  {t}")
 
@@ -495,7 +528,9 @@ def main():
     if stalelyMuted:
         print(CBOLD + CYELLOW + f"MUTED TESTS THAT NOW PASS: {len(stalelyMuted)}" + RESET)
         for t in sorted(stalelyMuted):
-            print(f"  {t} -- delete {os.path.splitext(t)[0] + MUTE_MARKER_EXT} to unmute it")
+            stale = muteMarkerPath(os.path.dirname(t),
+                                   os.path.splitext(os.path.basename(t))[0])
+            print(f"  {t} -- delete {stale} to unmute it")
 
     exit(numOfFailedTests)
 

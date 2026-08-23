@@ -131,27 +131,25 @@ if(BUILD_TESTING)
   educc_add_test(preprocessor pp preprocessor 60)
   # Compiles, links, and runs every fixture, so it gets more headroom.
   educc_add_test(codegen codegen codegen 300)
-  # The same fixtures compiled a second time through the IR pipeline. Only the
-  # 'experimental' subdirectory for now: those are written to stay inside what
-  # instruction selection covers, so the new backend actually emits them rather
-  # than handing them back to the legacy one, and running them is the only
-  # check that the bytes are right. The rest of the codegen tree compiles and
-  # runs correctly under -experimental too - every fixture the legacy backend
-  # passes, at the time of writing, including through a bootstrapped compiler
-  # rather than only a gcc-built one; turning the whole tree on is step 11 of
-  # that document's commit sequence.
+  # Every one of those fixtures a second time, through the IR pipeline. It used
+  # to be the 'experimental' subdirectory alone - the fixtures written to stay
+  # inside what instruction selection covers - and is the whole tree since step
+  # 16 of docs/ir-codegen-design.md, which is the point at which "the
+  # experimental backend works" stopped being a number measured by hand and
+  # written down in that document and became something every run asserts.
   #
   # The 'ssa' argument is there only because the pass-through slot comes after
   # the --ir-phase one; it is the runner's default and a codegen-mode run
   # ignores it. --compiler-flag is spelled with '=' because argparse will not
   # take a value beginning with '-' as a separate word.
   #
-  # --no-fallback makes that "actually emits them" a checked claim rather than
-  # a description: a function handed back to the legacy backend fails the test,
-  # unless it is named in a '<name>.fallback' sibling, and a name listed there
-  # that stops falling back fails it too. Without this the suite passes on
-  # legacy output and coverage can regress with nothing going red.
-  educc_add_test(codegen_experimental codegen/experimental codegen 120 ssa --compiler-flag=-experimental --no-fallback)
+  # --no-fallback is what makes it an assertion rather than a description: a
+  # function handed back to the legacy backend fails the test, unless it is
+  # named in a '<name>.fallback' sibling, and a name listed there that stops
+  # falling back fails it too. Without it the suite passes on legacy output and
+  # coverage can regress with nothing going red. The only exemptions left are
+  # four files' worth of 'long double', which roadmap step 18 removes.
+  educc_add_test(codegen_experimental codegen codegen 300 ssa --compiler-flag=-experimental --no-fallback)
   # Compares '-irDump:ssa' output against golden dumps, isolating buildSSA
   # from scp/gvn/dce (see test/testRunner.py's runIrTest).
   educc_add_test(ir_ssa ir/ssa ir 60 ssa)
