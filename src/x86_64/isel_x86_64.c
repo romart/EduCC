@@ -7,7 +7,7 @@
 #include "machine_x86_64.h"
 #include "instructions_x86_64.h"
 
-static const char *callRefusalReason(const TargetDescriptor *target, const IrInstruction *call);
+static const char *callRefusalReason(const IrInstruction *call);
 
 // -============================ x86-64 instruction selection ==============-
 //
@@ -1268,7 +1268,7 @@ static void selectMemoryArgument(MachineBuilder *b, const IrInstruction *arg) {
 static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   const TargetDescriptor *target = b->mf->target;
 
-  const char *refusal = callRefusalReason(target, i);
+  const char *refusal = callRefusalReason(i);
 
   if (refusal != NULL) {
     buildUnselected(b, i, refusal);
@@ -1973,12 +1973,10 @@ static Boolean x86IsLegalImmediate(const IrInstruction *use, size_t operandIdx,
 }
 
 
-// What this rule covers. Everything it turns away becomes a placeholder, which
-// is what it already was.
-// Returns NULL when this rule covers the call, and otherwise what stopped it,
-// for the log line the placeholder prints. Everything it turns away becomes a
-// placeholder, which is what it already was.
-static const char *callRefusalReason(const TargetDescriptor *target, const IrInstruction *call) {
+// What this rule covers. Returns NULL when it covers the call, and otherwise
+// what stopped it, for the log line the placeholder prints. Everything it
+// turns away becomes a placeholder, which is what it already was.
+static const char *callRefusalReason(const IrInstruction *call) {
   if (call->type == IR_F80) {
     return "returns a long double, which lives on the x87 stack";
   }
