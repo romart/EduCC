@@ -53,6 +53,16 @@ currentMuteReason = None
 mutedFailures = set()   # muted tests that failed, i.e. the marker is doing its job
 mutedPasses = set()     # muted tests that passed - candidates for unmuting
 
+# A '<name>.experimental' sibling means the fixture is a valid C program that
+# only the '-experimental' backend compiles correctly, and the legacy one is
+# not going to be taught to. Such a test is *skipped* in a run that is not
+# experimental rather than muted: muting is for a bug someone means to fix, so
+# a muted test still runs and is flagged the day it starts passing, and neither
+# of those is true here. The file's contents are the reason.
+EXPERIMENTAL_ONLY_EXT = '.experimental'
+
+skippedTests = set()
+
 
 def fallbackCheckFlags(dirname, name):
     if not checkFallback:
@@ -75,6 +85,15 @@ def muteMarkerPath(dirname, name):
 
 def readMuteReason(dirname, name):
     markerPath = muteMarkerPath(dirname, name)
+    if not path.exists(markerPath):
+        return None
+    with open(markerPath) as marker:
+        reason = marker.read().strip()
+    return reason if reason else '(no reason recorded in the marker file)'
+
+
+def readExperimentalOnlyReason(dirname, name):
+    markerPath = dirname + '/' + name + EXPERIMENTAL_ONLY_EXT
     if not path.exists(markerPath):
         return None
     with open(markerPath) as marker:
@@ -350,6 +369,14 @@ def runTestForData(filePath, compiler, workingDir, testMode):
     if (ext != ".c"):
         return
 
+    experimentalOnly = readExperimentalOnlyReason(dirname, name)
+    if experimentalOnly is not None and '-experimental' not in compilerFlags:
+        print(CBOLD + CYELLOW +
+              f"Test {dirname}/{name}.c -- SKIP (needs -experimental): {experimentalOnly.splitlines()[0]}" +
+              RESET)
+        skippedTests.add(filePath)
+        return
+
     currentMuteReason = readMuteReason(dirname, name)
     if currentMuteReason is not None:
         reasonLines = currentMuteReason.splitlines()
@@ -388,7 +415,9 @@ def parseArguments():
         description="Runs all or a subset of the ART test suite. A test is muted by placing a "
                     "'<name>.muted' file next to its '<name>.c', with the reason as its contents; "
                     "a muted test still runs and reports, but its failures do not count towards "
-                    "the exit code, and it is called out in the summary if it starts passing.")
+                    "the exit code, and it is called out in the summary if it starts passing. A "
+                    "'<name>.experimental' sibling means the fixture only compiles correctly under "
+                    "'-experimental', and skips it in a run without that flag.")
     parser.add_argument('-c', '--compiler', type=str, required=True, help="specify path to compiler")
     parser.add_argument('-wd', '--working-dir', type=str, required=True, help="specify working dir for tests")
     parser.add_argument('-p', '--test-path', type=str, required=True, action='append', help='path to test')
@@ -442,6 +471,11 @@ def main():
             print(f"  {t}")
     else:
         print(CBOLD + CGREEN + f"All tests passed" + RESET)
+
+    if skippedTests:
+        print(CBOLD + CYELLOW + f"Skipped (need -experimental): {len(skippedTests)}" + RESET)
+        for t in sorted(skippedTests):
+            print(f"  {t}")
 
     if mutedFailures:
         print(CBOLD + CYELLOW + f"Muted tests still failing (not counted): {len(mutedFailures)}" + RESET)
