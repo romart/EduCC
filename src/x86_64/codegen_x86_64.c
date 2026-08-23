@@ -648,7 +648,16 @@ static void generateBitExtend(GeneratedFunction *f, AstExpression *extend) {
   }
 }
 
-static void generateU8toF8(GeneratedFunction *f, enum Registers from, enum Registers to) {
+// An unsigned 64-bit integer to a float or a double. There is no unsigned form
+// of cvtsi2s*, so the half of the range at or above 2^63 - which is negative as
+// a signed 64-bit value - is halved, converted, and doubled back.
+//
+// 'floatSize' picks ss from sd, and is the whole of the difference between the
+// two widths. It used to be an sd-only routine with the T_U8 -> T_F4 case of
+// the cast table reaching for a bare 'cvtsi2ss rax' instead, which converted
+// the top half of the range as signed: (float)18446744073709551615UL was -1.
+static void generateU8toFloat(GeneratedFunction *f, enum Registers from, enum Registers to,
+                              uint8_t floatSize) {
   /**
    *        test    rax, rax
    *        js      .L133
@@ -668,12 +677,13 @@ static void generateU8toF8(GeneratedFunction *f, enum Registers from, enum Regis
    **/
 
   struct Label l1 = { 0 }, l2 = { 0 };
+  uint8_t prefix = floatSize == 8 ? 0xF2 : 0xF3;
 
   emitTestRR(f, from, from, 8);
   emitCondJump(f, &l1, JC_SIGN, TRUE);
 
   emitArithRR(f, OP_PXOR, to, to, 8);
-  emitConvertFP(f, 0xF2, 0x2A, from, to, TRUE);
+  emitConvertFP(f, prefix, 0x2A, from, to, TRUE);
   emitJumpTo(f, &l2, TRUE);
 
   bindLabel(f, &l1);
@@ -682,8 +692,8 @@ static void generateU8toF8(GeneratedFunction *f, enum Registers from, enum Regis
   emitArithConst(f, OP_AND, from, 1, T_U4);
   emitArithRR(f, OP_OR, R_TMP, from, 8);
   emitArithRR(f, OP_PXOR, to, to, 8);
-  emitConvertFP(f, 0xF2, 0x2A, R_TMP, to, TRUE);
-  emitArithRR(f, OP_FADD, to, to, 8);
+  emitConvertFP(f, prefix, 0x2A, R_TMP, to, TRUE);
+  emitArithRR(f, OP_FADD, to, to, floatSize);
 
   bindLabel(f, &l2);
 }
@@ -1053,8 +1063,8 @@ static void generateCast(GeneratedFunction *f, AstCastExpression *cast) {
           case T_U4: break;
           case T_BOOL: boolCastSize = 8;
           case T_U8: break;
-          case T_F4: emitConvertFP(f, 0xF3, 0x2A, R_ACC, R_FACC, TRUE); break; // cvtsi2ss rax, xmm0
-          case T_F8: generateU8toF8(f, R_ACC, R_FACC); break;
+          case T_F4: generateU8toFloat(f, R_ACC, R_FACC, 4); break;
+          case T_F8: generateU8toFloat(f, R_ACC, R_FACC, 8); break;
           case T_F10: generateU8toF10(f, R_ACC); break;
           default: unreachable("unexpected type");
         }

@@ -1,0 +1,6 @@
+# 'long double' in all three: 'to_ldouble' returns one, 'to_double' converts
+# from one, and 'main' does both and passes them as arguments. See
+# bugs/ld_to_ul.fallback; roadmap step 18 removes them.
+main
+to_double
+to_ldouble

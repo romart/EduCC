@@ -113,11 +113,25 @@ IrInstruction *evaluateBitCast(IrInstruction *i, IrInstruction *arg) {
     if (fromC == IR_TC_FLOAT) {
       return fromT == toT ? arg : createFloatConstant(toT, arg->info.constant.data.f);
     }
-    return createFloatConstant(toT, (float80_const_t)arg->info.constant.data.i);
+    // Signedness comes from the *source*, as it does for the divides and the
+    // right shift below: a constant is held in an int64_const_t, which is
+    // unsigned, so converting one without asking makes every negative value a
+    // number just under 2^64. (double)(-1) folded to 18446744073709551616.
+    // Selection has always asked - selectConversion widens by
+    // isUnsignedIrOperand and then converts signed - so this was the two of
+    // them disagreeing about a value only one of them could see.
+    int64_const_t iv = arg->info.constant.data.i;
+    float80_const_t fv = isUnsignedIrOperand(fromT) ? (float80_const_t)iv
+                                                    : (float80_const_t)(sint64_const_t)iv;
+    return createFloatConstant(toT, fv);
   }
 
   if (fromC == IR_TC_FLOAT) {
-    int64_const_t ic = (int64_const_t)arg->info.constant.data.f;
+    // The same asymmetry the other way up. The cast has to land on a signed
+    // integer first: C leaves a negative float converted to an unsigned type
+    // undefined, and selection reaches the unsigned destinations it does cover
+    // through a signed conversion of its own.
+    int64_const_t ic = (int64_const_t)(sint64_const_t)arg->info.constant.data.f;
     return createIntegerConstant(toT, convertIntegerConstant(ic, toT));
   }
 

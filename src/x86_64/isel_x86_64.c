@@ -993,6 +993,13 @@ static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
   }
 
   if (toFloat) {
+    // A backstop since ast2ir grew the lowering, not a gap. Both directions of
+    // a 64-bit unsigned conversion are expanded into a branch and a phi during
+    // translation (translateWideUnsignedToFloat and its twin), because the half
+    // of the range at or above 2^63 needs control flow and selection is not
+    // allowed to invent a block. Nothing that goes through translateCast
+    // reaches here any more; anything that finds another way to build one
+    // should refuse rather than convert it as signed.
     if (!isConvertibleIntType(fromType)) {
       buildUnselected(b, i, "converts an unsigned 64-bit integer to a float");
       return;
@@ -1016,6 +1023,7 @@ static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
     return;
   }
 
+  // The same backstop the other way up; see above.
   if (!isConvertibleIntType(toType)) {
     buildUnselected(b, i, "converts a float to an unsigned 64-bit integer");
     return;

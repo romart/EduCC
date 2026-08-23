@@ -1,0 +1,13 @@
+# Every function here is about 'long double', which this backend has no
+# register class for: it lives on the x87 stack, and section 10 of
+# docs/ir-codegen-design.md has already decided to lower it to soft float
+# rather than model x87 behind a register allocator built for a flat namespace.
+#
+# 'ldf' returns one and loads one; 'main' materializes long double constants
+# and passes them; 't' converts to and from one as well.
+#
+# Delete this file when roadmap step 18 lands. -noFallback rejects a name
+# listed here that stopped falling back, so it cannot outlive what it excuses.
+ldf
+main
+t

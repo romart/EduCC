@@ -718,6 +718,139 @@ static IrInstruction *translateBitExtend(AstExpression *expr) {
   return NULL;
 }
 
+static IrInstruction *addCastInstr(IrInstruction *src, enum IrTypeKind irFromType,
+                                   enum IrTypeKind irToType, TypeRef *astType,
+                                   AstExpression *expr) {
+  IrInstruction *castInstr = newInstruction(IR_E_BITCAST, irToType);
+
+  addInstructionInput(castInstr, src);
+  addInstruction(castInstr);
+
+  castInstr->info.fromCastType = irFromType;
+  castInstr->astType = astType;
+  castInstr->meta.astExpr = expr;
+
+  return castInstr;
+}
+
+// The two conversions x86-64 has no instruction for. SSE converts between a
+// float and a *signed* 64-bit integer and nothing else, so a 64-bit unsigned
+// one at either end needs the half of its range above 2^63 handled separately -
+// which needs a branch, and a branch is something only this side of the
+// pipeline can build. Selection fills blocks that already exist and asserts
+// that nothing invents one (selectInstructions, src/ir/codegen/isel.c), so a
+// selection rule could not have expressed either of these; both used to be a
+// refusal, and the function went to the legacy backend whole.
+//
+// Nothing narrower needs this. A 32-bit unsigned value is not negative as a
+// signed 64-bit one, so selectConversion already reaches those by widening.
+static Boolean isWideUnsigned(enum IrTypeKind t) {
+  return isUnsignedIrOperand(t) && irTypeMachineSize(t) == sizeof(intptr_t);
+}
+
+// (double)someUnsignedLong.
+//
+//   x < 2^63 ? (double)(int64_t)x
+//            : (double)(int64_t)((x >> 1) | (x & 1)) * 2
+//
+// The odd bit is put back after the shift rather than dropped: halving loses
+// the low bit, and a value that was exactly halfway between two representable
+// doubles would then round to even in the wrong direction. Or-ing it back -
+// round to odd - leaves the halved value on the correct side of the midpoint,
+// so doubling afterwards gives the correctly rounded answer.
+static IrInstruction *translateWideUnsignedToFloat(IrInstruction *src, enum IrTypeKind irFromType,
+                                                   enum IrTypeKind irToType, TypeRef *toType,
+                                                   AstExpression *expr) {
+  IrInstruction *signBit = createIntegerConstant(irFromType, (int64_const_t)1 << 63);
+  IrInstruction *fits = addBinaryOpeartion(IR_E_LT, src, signBit, IR_BOOL, NULL, NULL);
+
+  IrBasicBlock *small = newBasicBlock("<u2f_signed>");
+  IrBasicBlock *large = newBasicBlock("<u2f_halved>");
+  IrBasicBlock *exit = newBasicBlock("<u2f_exit>");
+
+  IrInstruction *branch = newCondBranch(fits, small, large);
+  addSuccessor(ctx->currentBB, small);
+  addSuccessor(ctx->currentBB, large);
+  termintateBlock(branch);
+
+  ctx->currentBB = small;
+  IrInstruction *asSigned = addCastInstr(src, irFromType, IR_I64, NULL, expr);
+  IrInstruction *direct = addCastInstr(asSigned, IR_I64, irToType, toType, expr);
+  IrBasicBlock *smallEnd = ctx->currentBB;
+  gotoToBlock(exit);
+
+  ctx->currentBB = large;
+  IrInstruction *one = createIntegerConstant(irFromType, 1);
+  IrInstruction *shifted = addBinaryOpeartion(IR_E_SHR, src, one, irFromType, NULL, NULL);
+  IrInstruction *odd = addBinaryOpeartion(IR_E_AND, src, one, irFromType, NULL, NULL);
+  IrInstruction *rounded = addBinaryOpeartion(IR_E_OR, shifted, odd, irFromType, NULL, NULL);
+  IrInstruction *halfSigned = addCastInstr(rounded, irFromType, IR_I64, NULL, expr);
+  IrInstruction *half = addCastInstr(halfSigned, IR_I64, irToType, toType, expr);
+  // Doubled by adding it to itself rather than by multiplying by two: both are
+  // exact, and this needs no float constant to materialize.
+  IrInstruction *doubled = addBinaryOpeartion(IR_E_FADD, half, half, irToType, toType, NULL);
+  IrBasicBlock *largeEnd = ctx->currentBB;
+  gotoToBlock(exit);
+
+  ctx->currentBB = exit;
+  IrInstruction *phi = newPhiInstruction(irToType);
+  addPhiInput(phi, direct, smallEnd);
+  addPhiInput(phi, doubled, largeEnd);
+  addInstruction(phi);
+  phi->astType = toType;
+
+  return phi;
+}
+
+// (unsigned long)someDouble.
+//
+//   x < 2^63 ? (uint64_t)(int64_t)x
+//            : (uint64_t)(int64_t)(x - 2^63) + 2^63
+//
+// 2^63 is exactly representable in both float and double, so the subtraction is
+// exact and the bit put back afterwards is the one it took away. Anything at or
+// above 2^64 is undefined in C either way, and this leaves it that way rather
+// than choosing an answer for it.
+static IrInstruction *translateFloatToWideUnsigned(IrInstruction *src, enum IrTypeKind irFromType,
+                                                   enum IrTypeKind irToType, TypeRef *toType,
+                                                   AstExpression *expr) {
+  IrInstruction *bound = createFloatConstant(irFromType, 9223372036854775808.0L);
+  IrInstruction *fits = addBinaryOpeartion(IR_E_FLT, src, bound, IR_BOOL, NULL, NULL);
+
+  IrBasicBlock *small = newBasicBlock("<f2u_signed>");
+  IrBasicBlock *large = newBasicBlock("<f2u_biased>");
+  IrBasicBlock *exit = newBasicBlock("<f2u_exit>");
+
+  IrInstruction *branch = newCondBranch(fits, small, large);
+  addSuccessor(ctx->currentBB, small);
+  addSuccessor(ctx->currentBB, large);
+  termintateBlock(branch);
+
+  ctx->currentBB = small;
+  IrInstruction *signed1 = addCastInstr(src, irFromType, IR_I64, NULL, expr);
+  IrInstruction *direct = addCastInstr(signed1, IR_I64, irToType, toType, expr);
+  IrBasicBlock *smallEnd = ctx->currentBB;
+  gotoToBlock(exit);
+
+  ctx->currentBB = large;
+  IrInstruction *lowered = addBinaryOpeartion(IR_E_FSUB, src, bound, irFromType, NULL, NULL);
+  IrInstruction *signed2 = addCastInstr(lowered, irFromType, IR_I64, NULL, expr);
+  IrInstruction *unbiased = addCastInstr(signed2, IR_I64, irToType, toType, expr);
+  IrInstruction *signBit = createIntegerConstant(irToType, (int64_const_t)1 << 63);
+  IrInstruction *biased = addBinaryOpeartion(IR_E_ADD, unbiased, signBit, irToType, toType, NULL);
+  IrBasicBlock *largeEnd = ctx->currentBB;
+  gotoToBlock(exit);
+
+  ctx->currentBB = exit;
+  IrInstruction *phi = newPhiInstruction(irToType);
+  addPhiInput(phi, direct, smallEnd);
+  addPhiInput(phi, biased, largeEnd);
+  addInstruction(phi);
+  phi->astType = toType;
+
+  return phi;
+}
+
 static IrInstruction *translateCast(AstExpression *expr) {
   assert(expr->op == E_CAST);
   TypeRef *fromType = expr->castExpr.argument->type;
@@ -727,16 +860,22 @@ static IrInstruction *translateCast(AstExpression *expr) {
   enum IrTypeKind irToType = typeRefToIrType(toType);
 
   IrInstruction *src = translateRValue(expr->castExpr.argument);
-  IrInstruction *castInstr = newInstruction(IR_E_BITCAST, irToType);
 
-  addInstructionInput(castInstr, src);
-  addInstruction(castInstr);
+  // F32 and F64 by name rather than isFloatIrType: F80 has no register class at
+  // all, and expanding it here would replace a refusal that says so with three
+  // blocks of arithmetic that get refused anyway.
+  Boolean toSse = irToType == IR_F32 || irToType == IR_F64;
+  Boolean fromSse = irFromType == IR_F32 || irFromType == IR_F64;
 
-  castInstr->info.fromCastType = irFromType;
-  castInstr->astType = toType;
-  castInstr->meta.astExpr = expr;
+  if (toSse && isWideUnsigned(irFromType)) {
+    return translateWideUnsignedToFloat(src, irFromType, irToType, toType, expr);
+  }
 
-  return castInstr;
+  if (fromSse && isWideUnsigned(irToType)) {
+    return translateFloatToWideUnsigned(src, irFromType, irToType, toType, expr);
+  }
+
+  return addCastInstr(src, irFromType, irToType, toType, expr);
 }
 
 // Whether an instruction is already known to yield exactly 0 or 1, so that

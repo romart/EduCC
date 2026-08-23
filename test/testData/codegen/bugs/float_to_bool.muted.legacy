@@ -5,5 +5,9 @@ C says 1.
 The -experimental backend compares against zero instead - see
 selectBooleanConversion in src/x86_64/isel_x86_64.c - and gets every case
 right, so this fixture already passes there and fails only under the default
-backend. Unmute once the legacy cast table grows a compare-against-zero for a
-_Bool destination.
+backend. Hence '.muted.legacy' rather than '.muted': under -experimental it is
+an ordinary passing test, and an unqualified mute would report it as a muted
+test that now passes on every single run there.
+
+Unmute - by deleting this file - once the legacy cast table grows a
+compare-against-zero for a _Bool destination.
