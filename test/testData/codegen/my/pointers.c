@@ -1,3 +1,9 @@
+// Checks 3, 4, 5, 7 and 8 used to be here and now live in my/adjacent_locals.c,
+// which is a legacy-only fixture: they read one local through a pointer to the
+// one declared next to it, which is undefined behaviour that gcc does not
+// honour either. Everything left is ordinary C and runs under both backends.
+// The numbering is unchanged so a failure still means what it used to.
+
 #include <stdio.h>
 
 int main() {
@@ -5,18 +11,8 @@ int main() {
   if (3 != *&x1) return 1;
   int x2=3; int *y2=&x2; int **z2=&y2;
   if (3 != **z2) return 2;
-  int x3=3; int y3=5;
-  if (5 != *(&x3+1)) return 3;
-  int x4=3; int y4=5;
-  if (3 != *(&y4-1)) return 4;
-  int x5=3; int y5=5;
-  if (5 != *(&x5-(-1))) return 5;
   int x6=3; int *y6=&x6; *y6=5;
   if (5 != x6) return 6;
-  int x7=3; int y7=5; *(&x7+1)=7;
-  if (7 != y7) return 7;
-  int x8=3; int y8=5; *(&y8-2+1)=7;
-  if (7 != x8) return 8;
   int x9=3;
   if (5 != (&x9+2)-&x9+3) return 9;
   int x10, y10; x10=3; y10=5;

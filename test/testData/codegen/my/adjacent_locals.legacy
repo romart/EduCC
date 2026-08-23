@@ -1,0 +1,14 @@
+Reads one local through a pointer to the one declared next to it, which is
+undefined behaviour rather than a property of C.
+
+gcc fails this file exactly where the IR backend does - both return 3 - so the
+legacy backend is the outlier, not the one that is right. It passes there
+because it emits every declared local and lays them out in declaration order;
+the IR backend agrees about the order and removes the local, since a variable
+whose address is never taken and whose value is never read is a dead store to a
+dead alloca.
+
+Skipped rather than muted: keeping a provably dead local alive so that an
+out-of-bounds read finds it would be a deoptimization in the service of
+undefined behaviour, so there is no bug here for anyone to fix and nothing to
+flag the day it starts passing. See section 10 of docs/ir-codegen-design.md.
