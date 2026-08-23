@@ -1307,8 +1307,26 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
     // Always a register: x86IsLegalImmediate folds a constant only into an
     // argument that is passed in one, exactly so that this cannot be an
     // immediate - the assembler has no push of one.
+    uint32_t src = machineBuilderVreg(b, arg);
+
+    if (callArgClass(arg) == RC_FP) {
+      // There is no 'push xmm', so the bits come out into a general register
+      // first. At a whole word whatever the float's own width is: what gets
+      // pushed is an eightbyte either way, and 'movd' into a 64-bit register
+      // clears the half above a 'float' rather than leaving it as whatever the
+      // register held.
+      uint32_t bits = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
+      MachineInstr *out = buildMachineInstr(b, X86_MOVDR, 1, 1);
+      setRegisterOperand(out, 0, bits);
+      setRegisterOperand(out, 1, src);
+      out->opSize = valueSize(arg);
+
+      src = bits;
+    }
+
     MachineInstr *push = buildMachineInstr(b, X86_PUSH, 0, 1);
-    setRegisterOperand(push, 0, machineBuilderVreg(b, arg));
+    setRegisterOperand(push, 0, src);
     // A stack argument occupies a whole eightbyte however narrow it is, and
     // push is the instruction that says so.
     push->opSize = sizeof(intptr_t);
@@ -1994,17 +2012,6 @@ static const char *callRefusalReason(const TargetDescriptor *target, const IrIns
 
     if (arg->type == IR_F80 || arg->type == IR_VOID) {
       return "passes an argument of a type with no register class";
-    }
-
-    // A float argument past xmm7 would have to be pushed, and there is no
-    // 'push xmm'. What it wants now that aggregates are pushed too is the same
-    // shape selectMemoryArgument uses - get the value into a general register
-    // and push that - which needs a 'movq r64, xmm' this backend does not have
-    // an opcode for yet (X86_MOVD is 66 0F 6E and only goes the other way).
-    // That is a small, self-contained addition rather than the frame-layout
-    // change this refusal used to be waiting on.
-    if (callArgClass(arg) == RC_FP && callArgLocation(target, call, idx) == NO_REG) {
-      return "passes a float argument on the stack, and there is no 'push xmm'";
     }
   }
 

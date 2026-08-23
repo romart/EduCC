@@ -72,6 +72,13 @@
                                       one unchanged, which is how a float      \
                                       constant is materialized here without a  \
                                       constant pool */                         \
+  X86_OPCODE_DEF(MOVDR, "movd"),   /* and back out again, for the one place    \
+                                      that needs a float in a GP register:     \
+                                      pushing it, since there is no 'push      \
+                                      xmm'. Spelled "movd" like the opcode     \
+                                      above for the reason LOAD and STORE are  \
+                                      both "mov" - it is the mnemonic, and the \
+                                      operands say which way it goes */        \
   X86_OPCODE_DEF(CVTF2F, "cvtf2f"),   /* float <-> double */                   \
   X86_OPCODE_DEF(CVTSI2F, "cvtsi2f"), /* integer -> float; srcSize is the      \
                                          integer's width */                    \

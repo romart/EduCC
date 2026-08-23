@@ -558,6 +558,14 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
               mi->opSize == 8);
     break;
 
+  case X86_MOVDR:
+    // 66 0F 7E, the other direction. The operands go to emitMovdq the other way
+    // round too: it takes the r/m register first, and here that is the general
+    // one being written rather than the xmm one being read.
+    emitMovdq(f, 0x66, 0x0F, 0x7E, regOperand(e, mi, 0), regOperand(e, mi, 1),
+              mi->opSize == 8);
+    break;
+
   case X86_CVTF2F:
     // cvtss2sd or cvtsd2ss, chosen by which way the widths go. The prefix
     // names the *source* here, unlike the arithmetic above.

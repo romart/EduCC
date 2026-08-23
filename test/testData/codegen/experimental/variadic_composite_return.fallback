@@ -1,6 +1,0 @@
-# 'main' is not variadic. It used to fall back for two reasons of its own; step
-# 13 took the first away - the struct it passes by value to vaBigArgs and
-# vaNamedStruct is now pushed as bytes - and what is left is a float argument
-# on the stack, which needs a 'push xmm' that does not exist. Delete this line
-# once that lands too.
-main
