@@ -136,6 +136,9 @@ static Boolean hasSideEffects(enum IrIntructionKind k) {
   case IR_DEF_CONST:
   case IR_M_STORE:
   case IR_M_COPY:
+  // Nothing reads what it produces - it produces nothing - and everything it
+  // matters to is addressed through a register it moves.
+  case IR_STACK_RESTORE:
   case IR_CALL:
   case IR_IBRANCH:
   case IR_TBRANCH:

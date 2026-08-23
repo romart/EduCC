@@ -262,9 +262,6 @@ enum MachineFrameObjectKind {
   // and was laid out by the ABI, not by us; it is listed so that everything
   // reachable through a frame index is reachable the same way.
   MFO_INCOMING_PARAM,
-  // Where the stack pointer is parked before a dynamically sized allocation
-  // moves it, so the frame can be restored.
-  MFO_DYNAMIC_ALLOCA_SAVE,
   // Where a call's returned struct is put when the ABI hands it back in a
   // register rather than through a buffer the caller passed in. The IR has no
   // allocation for it - it asked for none, because at IR level the call simply

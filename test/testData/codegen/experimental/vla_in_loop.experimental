@@ -1,0 +1,8 @@
+A VLA in a loop body has to give its storage back on the way round, and only
+the IR backend does. The legacy backend allocates by moving the stack pointer
+and never moves it back before the function returns, so every iteration takes
+another slice and this fixture runs it off the end of the stack - exit 139, not
+a wrong answer. Its design does not really allow the fix (the allocation is
+interleaved with an rsp-based expression stack), and it is not going to get
+one, so the fixture is skipped there rather than muted: there is no bug here
+waiting to be fixed and flagged.

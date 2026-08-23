@@ -1256,6 +1256,16 @@ static IrInstruction *translateArrayAccess(AstExpression *expr) {
   gepInstr->info.gep.indexInstr = indexInstr;
   addInstruction(gepInstr);
 
+  // A row of a multidimensional VLA is an address and nothing else - there is
+  // no pointer stored anywhere to load, unlike the VLA variable itself, whose
+  // slot does hold one. isFlatType() cannot say so: it answers about the type
+  // alone, and a VLA is a flat object here and a pointer variable there. The
+  // legacy pipeline draws the same line in the same place, by not wrapping the
+  // sum in a dereference (cannonizeArrayAccess, src/cannonization.c).
+  if (elementType->kind == TR_VLA) {
+    return gepInstr;
+  }
+
   return handleMemoryMode(gepInstr, elementType, expr);
 }
 
@@ -1579,17 +1589,40 @@ static IrInstruction *createLocalSlot(AstValueDeclaration *v,
   assert(lvi->stackSlot == NULL && "double-allocated variable");
 
   TypeRef *astType = v->type;
-  IrInstruction *stackSlot = createAllocaInstr(sizeInstr);
+  IrInstruction *stackSlot = NULL;
+
+  if (astType->kind == TR_VLA) {
+    // A VLA is a pointer variable. Its object is carved out of the stack where
+    // the declaration sits, and what the variable itself holds is the address
+    // of that object - which is what every read of the name loads, here and in
+    // the legacy backend both. So it takes two allocations rather than one: a
+    // dynamically sized block for the object, and a fixed word pointing at it.
+    //
+    // Nothing wrote that word before. The read side has always loaded it, so a
+    // VLA read back whatever its own first eight bytes happened to hold; it
+    // went unnoticed because a dynamically sized allocation was refused by
+    // selection and the function fell back before any of this ran.
+    IrInstruction *memory = createAllocaInstr(sizeInstr);
+
+    memory->info.alloca.sizeInstr = sizeInstr;
+    memory->info.alloca.valueType = typeRefToIrType(astType);
+    memory->astType = makePointedType(ctx->pctx, 0, astType);
+    // Both carry the declaration, because both are part of what 'v' is: the
+    // frame object naming the storage, and the word naming the variable. Only
+    // one of them usually survives - mem2reg has no trouble with a pointer
+    // that is only ever stored once and loaded.
+    memory->info.alloca.v = v;
+
+    stackSlot = createAllocaSlot(sizeof(intptr_t));
+    addStoreInstr(stackSlot, memory, NULL);
+  } else {
+    stackSlot = createAllocaInstr(sizeInstr);
+    stackSlot->info.alloca.stackSize = size;
+  }
 
   stackSlot->info.alloca.v = v;
   stackSlot->info.alloca.valueType = typeRefToIrType(astType);
   stackSlot->astType = makePointedType(ctx->pctx, 0, astType);
-
-  if (astType->kind == TR_VLA) {
-    stackSlot->info.alloca.sizeInstr = sizeInstr;
-  } else {
-    stackSlot->info.alloca.stackSize = size;
-  }
 
   lvi->declaration = v;
   lvi->stackSlot = stackSlot;
@@ -1699,6 +1732,94 @@ static Boolean translateIf(AstStatement *ifStmt) {
   return FALSE;
 }
 
+// Whether running this statement carves storage out of the stack that the
+// iteration it ran in is supposed to give back. A variable-length array is
+// allocated where its declaration runs and, by C99 6.2.4p6, is dead at the end
+// of the block that declared it.
+//
+// A call to alloca() deliberately does not count. Its storage lives until the
+// function returns, not until the end of the block, so freeing it per
+// iteration would take memory the program is still entitled to - and gcc
+// agrees: an alloca() in a loop grows the frame every time round and the first
+// block is still readable at the end.
+static Boolean allocatesOnStack(const AstStatement *stmt) {
+  if (stmt == NULL) {
+    return FALSE;
+  }
+
+  switch (stmt->statementKind) {
+  case SK_DECLARATION: {
+    const AstDeclaration *d = stmt->declStmt.declaration;
+    return d->kind == DK_VAR && d->variableDeclaration->flags.bits.isLocal &&
+           d->variableDeclaration->type->kind == TR_VLA;
+  }
+  case SK_BLOCK:
+    for (const AstStatementList *s = stmt->block.stmts; s != NULL; s = s->next) {
+      if (allocatesOnStack(s->stmt)) {
+        return TRUE;
+      }
+    }
+    return FALSE;
+  case SK_LABEL:
+    return allocatesOnStack(stmt->labelStmt.body);
+  case SK_IF:
+    return allocatesOnStack(stmt->ifStmt.thenBranch) ||
+           allocatesOnStack(stmt->ifStmt.elseBranch);
+  case SK_SWITCH:
+    return allocatesOnStack(stmt->switchStmt.body);
+  case SK_WHILE:
+  case SK_DO_WHILE:
+    return allocatesOnStack(stmt->loopStmt.body);
+  // Only the body. A VLA in the initializer clause is scoped to the whole
+  // statement and is allocated once, so it is not this loop's to reclaim -
+  // and the save below is taken after the initializer has run.
+  case SK_FOR:
+    return allocatesOnStack(stmt->forStmt.body);
+  default:
+    return FALSE;
+  }
+}
+
+// The stack pointer as the loop found it, or NULL when the body allocates
+// nothing that has to be given back.
+//
+// Emitted into whatever block precedes the loop, which dominates every block
+// in it, so the restores below can all read it.
+static IrInstruction *saveLoopStack(const AstStatement *body) {
+  if (!allocatesOnStack(body)) {
+    return NULL;
+  }
+
+  IrInstruction *save = newInstruction(IR_STACK_SAVE, IR_PTR);
+  addInstruction(save);
+  return save;
+}
+
+// Puts it back at the head of the two blocks every path out of the body runs
+// into: the continue target, where the next iteration begins, and the exit.
+//
+// There rather than at the end of the body because the paths out do not share
+// an instruction - falling out of the bottom, a 'continue' and a 'break' each
+// jump from somewhere else - but they do all land in one of these two blocks.
+// A 'goto' out of the loop is the one that escapes both, and leaves the
+// allocation standing until the function returns; that costs stack rather than
+// correctness, and it is where this stops being a scope rule and stays a loop
+// rule.
+static void restoreLoopStack(IrInstruction *save, IrBasicBlock *continueBB,
+                             IrBasicBlock *exitBB) {
+  if (save == NULL) {
+    return;
+  }
+
+  IrBasicBlock *blocks[] = { continueBB, exitBB };
+
+  for (size_t idx = 0; idx < sizeof(blocks) / sizeof(blocks[0]); ++idx) {
+    IrInstruction *restore = newInstruction(IR_STACK_RESTORE, IR_VOID);
+    addInstructionInput(restore, save);
+    addInstructionHead(blocks[idx], restore);
+  }
+}
+
 static Boolean translateWhile(AstStatement *stmt) {
   assert(stmt->statementKind == SK_WHILE);
 
@@ -1707,6 +1828,8 @@ static Boolean translateWhile(AstStatement *stmt) {
 
   AstExpression *condition = stmt->loopStmt.condition;
   AstStatement *body = stmt->loopStmt.body;
+
+  IrInstruction *stackSave = saveLoopStack(body);
 
   IrBasicBlock *loopHead = ctx->continueBB = newBasicBlock("<while_head>");
   IrBasicBlock *loopBody = newBasicBlock("<while_body>");
@@ -1735,6 +1858,8 @@ static Boolean translateWhile(AstStatement *stmt) {
     termintateBlock(gotoLoop);
   }
 
+  restoreLoopStack(stackSave, loopHead, loopExit);
+
   ctx->currentBB = loopExit;
   ctx->continueBB = oldContinueBB;
   ctx->breakBB = oldBreakBB;
@@ -1749,6 +1874,8 @@ static Boolean translateDoWhile(AstStatement *stmt) {
 
   AstStatement *body = stmt->loopStmt.body;
   AstExpression *condition = stmt->loopStmt.condition;
+
+  IrInstruction *stackSave = saveLoopStack(body);
 
   IrBasicBlock *loopBody = newBasicBlock("<do_body>");
   IrBasicBlock *loopTail = ctx->continueBB = newBasicBlock("<do_tail>");
@@ -1777,6 +1904,8 @@ static Boolean translateDoWhile(AstStatement *stmt) {
   addSuccessor(ctx->currentBB, loopExit);
   termintateBlock(irCondBranch);
 
+  restoreLoopStack(stackSave, loopTail, loopExit);
+
   ctx->currentBB = loopExit;
   ctx->continueBB = oldContinueBB;
   ctx->breakBB = oldBreakBB;
@@ -1798,6 +1927,10 @@ static Boolean translateFor(AstStatement *stmt) {
 
   IrBasicBlock *oldBreakBB = ctx->breakBB;
   IrBasicBlock *oldContinueBB = ctx->continueBB;
+
+  // After the initializer clause, so that a VLA declared there - which is
+  // scoped to the whole statement and allocated once - stays above the mark.
+  IrInstruction *stackSave = saveLoopStack(body);
 
   IrBasicBlock *loopHead = newBasicBlock("<for_head>");
   IrBasicBlock *loopBody = newBasicBlock("<for_body>");
@@ -1836,6 +1969,9 @@ static Boolean translateFor(AstStatement *stmt) {
     translateRValue(modifier);
     gotoToBlock(loopHead);
   }
+
+  restoreLoopStack(stackSave, modifierBB != NULL ? modifierBB : loopHead,
+                   loopExit);
 
   ctx->currentBB = loopExit;
   ctx->continueBB = oldContinueBB;

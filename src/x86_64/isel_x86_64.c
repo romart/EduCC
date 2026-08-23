@@ -232,6 +232,74 @@ static void setFrameAddressOperand(MachineInstr *mi, uint16_t idx, int32_t frame
   setMemoryOperand(mi, idx, &addr);
 }
 
+// A VLA or a call to alloca(): the block is carved out of the stack where the
+// allocation stands, so its address is the stack pointer afterwards rather
+// than a displacement from the frame pointer.
+//
+// Nothing puts rsp back. Every local, spill and callee-saved slot is addressed
+// from rbp, and the epilogue's 'leave' restores rsp from rbp on every return
+// path, so the allocation lasts exactly as long as C says it does - to the end
+// of the function - and costs nothing to end. That is also why the frame needs
+// no slot to park the old stack pointer in, which is what stage 0 used to lay
+// one out for.
+static void selectDynamicAlloca(MachineBuilder *b, const IrInstruction *i) {
+  const int64_t alignment = 2 * sizeof(intptr_t);
+  uint32_t sp = b->mf->target->sp;
+  uint32_t bytes = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
+  // At a word, whatever width the size was computed at: this is about to be
+  // subtracted from a pointer, and the bytes above a narrow count are not the
+  // count's to supply.
+  selectLoadInto(b, bytes, inputAt(i, 0), sizeof(intptr_t));
+
+  // Rounded up to 16 rather than to the requested object's alignment, which is
+  // not known here - and which 16 covers, being the strictest an x86-64 scalar
+  // asks for. It is also what keeps rsp where SysV wants it at the next call:
+  // the prologue left it 16-aligned and only a multiple of 16 leaves it so.
+  MachineInstr *round = buildMachineInstr(b, X86_ADD, 1, 2);
+  setRegisterOperand(round, 0, bytes);
+  setRegisterOperand(round, 1, bytes);
+  setImmediateOperand(round, 2, alignment - 1);
+  round->opSize = sizeof(intptr_t);
+
+  MachineInstr *mask = buildMachineInstr(b, X86_AND, 1, 2);
+  setRegisterOperand(mask, 0, bytes);
+  setRegisterOperand(mask, 1, bytes);
+  setImmediateOperand(mask, 2, -alignment);
+  mask->opSize = sizeof(intptr_t);
+
+  MachineInstr *carve = buildMachineInstr(b, X86_SUB, 1, 2);
+  setRegisterOperand(carve, 0, sp);
+  setRegisterOperand(carve, 1, sp);
+  setRegisterOperand(carve, 2, bytes);
+  carve->opSize = sizeof(intptr_t);
+
+  // The result is the new top of the stack. Copied out into a register of its
+  // own rather than left as rsp, which the next call is about to move.
+  MachineInstr *result = buildMachineInstr(b, MOP_COPY, 1, 1);
+  setRegisterOperand(result, 0, machineBuilderVreg(b, i));
+  setRegisterOperand(result, 1, sp);
+  result->opSize = sizeof(intptr_t);
+}
+
+// Reading and writing the stack pointer, which is all a loop needs to give
+// back what its body carved out of the stack. Both are plain moves; what makes
+// them worth two opcodes rather than an IR_P_REG read is that the stack
+// pointer is not a value GVN may assume two reads of agree about.
+static void selectStackSave(MachineBuilder *b, const IrInstruction *i) {
+  MachineInstr *mi = buildMachineInstr(b, MOP_COPY, 1, 1);
+  setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+  setRegisterOperand(mi, 1, b->mf->target->sp);
+  mi->opSize = sizeof(intptr_t);
+}
+
+static void selectStackRestore(MachineBuilder *b, const IrInstruction *i) {
+  MachineInstr *mi = buildMachineInstr(b, MOP_COPY, 1, 1);
+  setRegisterOperand(mi, 0, b->mf->target->sp);
+  setRegisterOperand(mi, 1, machineBuilderVreg(b, inputAt(i, 0)));
+  mi->opSize = sizeof(intptr_t);
+}
+
 // A value stage 0 gave a frame slot to. Two kinds of IR value get one - an
 // alloca, and the address the ABI left an incoming stack argument at - and
 // both are an address and nothing else, so both are one 'lea'. Asking the
@@ -240,12 +308,8 @@ static void setFrameAddressOperand(MachineInstr *mi, uint16_t idx, int32_t frame
 static void selectFrameAddress(MachineBuilder *b, const IrInstruction *i, int32_t frameIdx) {
   const MachineFrameObject *obj = machineFrameObjectAt(b->mf, frameIdx);
 
-  // A VLA or a call to alloca() has no fixed displacement - its address is
-  // wherever the stack pointer has been moved to by then - so it needs the
-  // stack pointer manipulation stage 0 laid a save slot out for and nothing
-  // has written yet.
   if (obj->isDynamic) {
-    buildUnselected(b, i, "dynamically sized, so its address is not a fixed displacement");
+    selectDynamicAlloca(b, i);
     return;
   }
 
@@ -1728,7 +1792,10 @@ static void selectInstruction_x86_64(MachineBuilder *b, const IrInstruction *i) 
   case IR_U_NOT: selectLogicalNot(b, i); break;
 
   // IR_ALLOCA is not here: every one of them has a frame slot and was taken
-  // by selectFrameAddress above, including the dynamic ones it turns away.
+  // by selectFrameAddress above, dynamic ones included.
+  case IR_STACK_SAVE: selectStackSave(b, i); break;
+  case IR_STACK_RESTORE: selectStackRestore(b, i); break;
+
   case IR_GET_ELEMENT_PTR: selectGep(b, i); break;
   case IR_M_LOAD: selectMemoryLoad(b, i); break;
   case IR_M_STORE: selectMemoryStore(b, i); break;

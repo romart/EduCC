@@ -7,17 +7,15 @@ VRegs:
   %v3 : gp/8 ; %9
   %v4 : gp/8
   %v5 : gp/8 ; %13
-  %v6 : gp/8 ; %14
-  %v7 : gp/8 ; %15
-  %v8 : gp/8 ; %24
-  %v9 : gp/4 ; %27
-  %v10 : gp/4 ; %36
-  %v11 : gp/4 ; %39
-  %v12 : gp/4 ; %40
+  %v6 : gp/8
+  %v7 : gp/8 ; %14
+  %v8 : gp/4 ; %29
+  %v9 : gp/4 ; %38
+  %v10 : gp/4 ; %41
+  %v11 : gp/4 ; %42
 Frame: 16 bytes, dynamic
-  fi#0 : sp-save 8/8 @ -8
-  fi#1 : local 8/4 @ -16 'fixed' ; %7
-  fi#2 : local dynamic 'v' ; %14
+  fi#0 : local 8/4 @ -8 'fixed' ; %7
+  fi#1 : local dynamic 'v' ; %14
 MBB #0, '<entry>', ir #0, -> #2
   %v0 = mov.8 4 ; %12
   %v1 = mov.8 8 ; %1
@@ -28,20 +26,22 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   %v3 = MOP_COPY.8 %v4 ; %9
   %v5 = MOP_COPY.8 %v3 ; %13
   %v5 = imul.8 %v5, %v0 ; %13
-  %v6 = MOP_UNSELECTED(IR_ALLOCA) %v5 ; %14
-  %v7 = mov.8 [%v6] ; %15
-  mov.4 [%v7], %v2 ; %21
-  %v8 = mov.8 [%v6] ; %24
-  %v9 = mov.4 [%v8] ; %27
-  mov.4 [fi#1], %v9 ; %28
-  mov.4 [fi#1 + 4], %v2 ; %33
-  %v10 = mov.4 [fi#1] ; %36
-  %v11 = mov.4 [fi#1 + 4] ; %39
-  %v12 = MOP_COPY.4 %v10 ; %40
-  %v12 = add.4 %v12, %v11 ; %40
+  %v6 = MOP_COPY.8 %v5 ; %14
+  %v6 = add.8 %v6, 15 ; %14
+  %v6 = and.8 %v6, -16 ; %14
+  $rsp = sub.8 $rsp, %v6 ; %14
+  %v7 = MOP_COPY.8 $rsp ; %14
+  mov.4 [%v7], %v2 ; %23
+  %v8 = mov.4 [%v7] ; %29
+  mov.4 [fi#0], %v8 ; %30
+  mov.4 [fi#0 + 4], %v2 ; %35
+  %v9 = mov.4 [fi#0] ; %38
+  %v10 = mov.4 [fi#0 + 4] ; %41
+  %v11 = MOP_COPY.4 %v9 ; %42
+  %v11 = add.4 %v11, %v10 ; %42
 
 MBB #1, '<exit>', ir #1, <- #2
-  $rax = MOP_COPY.4 %v12 ; %43
-  ret ; %43
+  $rax = MOP_COPY.4 %v11 ; %45
+  ret ; %45
 
 

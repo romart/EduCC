@@ -45,6 +45,8 @@
     IR_INSTRUCTION_DEF(CALL, ""), \
     IR_INSTRUCTION_DEF(ICALL, ""), \
 	IR_INSTRUCTION_DEF(ALLOCA, "allocate stack slots"), \
+	IR_INSTRUCTION_DEF(STACK_SAVE, "the stack pointer, for a later IR_STACK_RESTORE"), \
+	IR_INSTRUCTION_DEF(STACK_RESTORE, "put the stack pointer back where IR_STACK_SAVE found it"), \
 	IR_INSTRUCTION_DEF(CFG_LABEL, "create a label to basic block"), \
 	IR_INSTRUCTION_DEF(DEF_CONST, "define const"), \
 	IR_INSTRUCTION_DEF(GET_ELEMENT_PTR, "get element pointer (aka GEP)"), \

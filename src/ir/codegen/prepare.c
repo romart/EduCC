@@ -241,12 +241,11 @@ static void destroyPhiNodes(MachineFunction *mf) {
 //   [ fp + 16 .. ]  incoming stack arguments   (the caller laid these out)
 //   [ fp +  8    ]  return address
 //   [ fp +  0    ]  saved frame pointer
-//   [ fp -  ..   ]  stack-pointer save slot    (only with a dynamic alloca)
 //   [ fp -  ..   ]  locals that survived mem2reg
 //   [ fp -  ..   ]  spill area                 <- stage 2, size unknown here
 //   [ fp -  ..   ]  callee-saved registers     <- stage 3
 //
-// Only the middle is this pass's business. The two below it are sized by
+// Only the top is this pass's business. The two below it are sized by
 // decisions nobody has made yet - how much the allocator has to spill, and
 // which registers a function ends up clobbering - which is exactly why offsets
 // are left symbolic as MO_FRAME_IDX operands and only resolved during
@@ -306,9 +305,7 @@ static void layoutFrame(MachineFunction *mf) {
   int32_t offset = 0;
 
   // Collected in program order so that the layout of a function does not
-  // depend on how its blocks happen to be linked. Everything allocating a
-  // fixed-size slot goes in the same pass, ahead of resolving its offset,
-  // because the save slot below has to come first in the frame.
+  // depend on how its blocks happen to be linked.
   Vector allocas = {0};
   initVector(&allocas, INITIAL_VECTOR_CAPACITY);
 
@@ -323,15 +320,11 @@ static void layoutFrame(MachineFunction *mf) {
     }
   }
 
-  // A dynamically sized allocation moves the stack pointer at run time, so the
-  // old one is parked where the epilogue can find it. Placed first, hence
-  // closest to the frame pointer, so that it stays reachable by a short
-  // displacement no matter how far the frame grows below it.
-  if (mf->frame.hasDynamicAlloca) {
-    int32_t saveIdx = addMachineFrameObject(mf, MFO_DYNAMIC_ALLOCA_SAVE, sizeof(intptr_t),
-                                            sizeof(intptr_t));
-    offset = placeMachineFrameObject(mf, offset, saveIdx);
-  }
+  // A dynamically sized allocation moves the stack pointer at run time and
+  // nothing here has to remember where it was: everything this frame holds is
+  // addressed from the frame pointer, and the epilogue restores rsp from it.
+  // The slot the layout used to reserve for the old stack pointer was never
+  // written and never read.
 
   for (size_t idx = 0; idx < allocas.size; ++idx) {
     const IrInstruction *i = (const IrInstruction *)getFromVector(&allocas, idx);
