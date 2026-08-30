@@ -725,7 +725,20 @@ void emitFPArith(GeneratedFunction *f, enum Opcodes opcode, uint8_t stId, Boolea
     }
 }
 
+// An x87 memory form addressed through r8..r15 needs REX.B like any other, and
+// the prefix goes in front of the opcode - so it cannot be left to encodeAR,
+// which runs after it. Never REX.W: the operand's width is the opcode's here,
+// not the prefix's.
+//
+// This emits nothing at all for an address off rsp, rbp or rip, which is every
+// address the legacy backend builds - which is why it was possible to not do
+// this for as long as x87 was the legacy backend's alone.
+static void emitFPAddressRex(GeneratedFunction *f, Address *addr) {
+  emitRex(f, R_BAD, addr->base, addr->index, FALSE);
+}
+
 void emitFPLoad(GeneratedFunction *f, Address *addr, int tid) {
+  emitFPAddressRex(f, addr);
   switch (tid) {
     case T_F4: emitByte(f, 0xD9); encodeAR(f, addr, 0); break;
     case T_F8: emitByte(f, 0xDD); encodeAR(f, addr, 0); break;
@@ -734,16 +747,19 @@ void emitFPLoad(GeneratedFunction *f, Address *addr, int tid) {
 }
 
 void emitFPIntLoad(GeneratedFunction *f, Address *addr, int32_t size) {
+  emitFPAddressRex(f, addr);
   emitByte(f, size == 4 ? 0xDB : 0xDF);
   encodeAR(f, addr, size == 8 ? 5 : 0);
 }
 
 void emitFPIntStore(GeneratedFunction *f, Address *addr, int32_t size) {
+  emitFPAddressRex(f, addr);
   emitByte(f, size == 4 ? 0xDB : 0xDF);
   encodeAR(f, addr, size == 8 ? 7 : 3);
 }
 
 void emitFPStore(GeneratedFunction *f, Address *addr, int tid) {
+  emitFPAddressRex(f, addr);
   switch (tid) {
     case T_F4: emitByte(f, 0xD9); encodeAR(f, addr, 3); break;
     case T_F8: emitByte(f, 0xDD); encodeAR(f, addr, 3); break;
@@ -762,6 +778,7 @@ void emitFPnoArg(GeneratedFunction *f, uint8_t opByte) {
 }
 
 void emitFPnoArgMem(GeneratedFunction *f, Address *addr, int digit) {
+  emitFPAddressRex(f, addr);
   emitByte(f, 0xD9);
   encodeAR(f, addr, digit);
 }
