@@ -86,17 +86,18 @@ int p_or(int *p, int *q) {
     return p || q;
 }
 
-// A string literal as an operand. Its IR type is IR_LITERAL, which says "the
-// address of a literal" rather than how wide the value is - it is not a type
-// anything computes with. Comparing it against zero, which is what making the
-// operand yield 0/1 requires, therefore needs a *pointer* zero: asking for an
-// integer zero of type IR_LITERAL builds a constant whose payload and whose
-// type disagree about which union member is live. That went unnoticed while
-// the constant cache was keyed on value alone, because the lookup quietly
-// handed back some other zero created earlier; keying it on the type as well
-// turned it into a crash on the first EduCC source file containing 'x && "s"'.
-// IR_REF, the symbol equivalent, takes the same path, but a bare '&g' operand
-// is a tautology gcc warns about, so it is not spelled out here.
+// A string literal as an operand. Its IR type used to be IR_LITERAL, which
+// said "the address of a literal" rather than how wide the value is - not a
+// type anything computes with. Comparing it against zero, which is what making
+// the operand yield 0/1 requires, therefore asked for an integer zero of a type
+// whose payload was a char*, and the two disagreed about which union member was
+// live. That went unnoticed while the constant cache was keyed on value alone,
+// because the lookup quietly handed back some other zero created earlier;
+// keying it on the type as well turned it into a crash on the first EduCC
+// source file containing 'x && "s"'. A literal's address is now IR_PTR like any
+// other, so the zero is an ordinary null pointer. A symbol's address took the
+// same path, but a bare '&g' operand is a tautology gcc warns about, so it is
+// not spelled out here.
 int lit_and(int a) {
     return a && "text";
 }

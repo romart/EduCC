@@ -317,8 +317,6 @@ uint8_t irTypeMachineSize(enum IrTypeKind type) {
   case IR_F80:
   case IR_P_AGG:
   case IR_PTR:
-  case IR_REF:
-  case IR_LITERAL:
   case IR_LABEL:
     return 8;
   default:

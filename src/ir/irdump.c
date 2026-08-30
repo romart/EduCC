@@ -73,14 +73,11 @@ static int32_t dumpIrType(FILE *stream, const enum IrTypeKind type) {
 	  case IR_F64: return fprintf(stream, "F64");
 	  case IR_F80: return fprintf(stream, "F80");
 
-	  case IR_LITERAL: return fprintf(stream, "LIT");
-
 	  case IR_P_AGG: return fprintf(stream, "AGG");
 
 	  case IR_PTR: return fprintf(stream, "PTR");
 	  case IR_LABEL: return fprintf(stream, "LABEL");
 	  case IR_VOID: return fprintf(stream, "VOID");
-      case IR_REF: return fprintf(stream, "REF");
 
 	  default: unreachable("Unknown Ir Type");
 	}

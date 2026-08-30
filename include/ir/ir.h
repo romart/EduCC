@@ -147,16 +147,16 @@ enum IrTypeKind {
     // IR_M_LOAD of one is the address itself.
     IR_F80,
 
-    IR_LITERAL,
-
 	IR_P_AGG, // packed aggregate
 
     IR_PTR,
-    IR_REF,
     IR_LABEL,
     IR_VOID,
 };
 
+// What a constant holds, and the only thing that says so: the address of a
+// string literal and the address of a symbol are both IR_PTR values like any
+// other address, so the type no longer implies which union member is live.
 enum IrConstKind {
   IR_CK_INTEGER,
   IR_CK_FLOAT,

@@ -331,16 +331,12 @@ translateInitializerIntoMemory(IrInstruction *base, int32_t offset,
 
 static IrInstruction *translateConstant(AstExpression *expr) {
   assert(expr->op == E_CONST);
-  // Think about representation
-  enum IrTypeKind constType = expr->constExpr.op == CK_STRING_LITERAL
-                                  ? IR_LITERAL
-                                  : typeRefToIrType(expr->type);
 
   switch (expr->constExpr.op) {
   case CK_INT_CONST:
-    return createIntegerConstant(constType, expr->constExpr.i);
+    return createIntegerConstant(typeRefToIrType(expr->type), expr->constExpr.i);
   case CK_FLOAT_CONST:
-    return createFloatConstant(constType, expr->constExpr.f);
+    return createFloatConstant(typeRefToIrType(expr->type), expr->constExpr.f);
   case CK_STRING_LITERAL:
     return createLiteralConstant(expr->constExpr.l.s, expr->constExpr.l.length);
   }
@@ -1011,18 +1007,11 @@ static IrInstruction *translateLogicalExpression(AstExpression *expr) {
 
   if (!yieldsBoolean(rightOp)) {
     Boolean isFloatOperand = isRealType(expr->binaryExpr.right->type);
-    // The zero has to match the operand's machine type, and for a string
-    // literal or a symbol that is not the operand's own type: IR_LITERAL and
-    // IR_REF say "this is the address of a literal / of a symbol", not how
-    // wide it is, and nothing computes with them. Comparing one against zero
-    // is an ordinary null-pointer test, so the zero is IR_PTR. Asking for an
-    // *integer* constant of type IR_LITERAL - which is what 'flag && "text"'
-    // did - builds a constant whose payload and whose type disagree about
-    // which union member is live, and every later reader picks the wrong one.
+    // The zero matches the operand's machine type, which for a string literal
+    // or a symbol is IR_PTR like any other address - comparing one against
+    // zero is an ordinary null-pointer test. 'flag && "text"' asked for an
+    // integer zero of a type that was not a machine type at all.
     enum IrTypeKind zeroType = rightOp->type;
-    if (zeroType == IR_LITERAL || zeroType == IR_REF)
-      zeroType = IR_PTR;
-
     IrInstruction *zero = isFloatOperand
                               ? createFloatConstant(zeroType, 0.0)
                               : createIntegerConstant(zeroType, 0);

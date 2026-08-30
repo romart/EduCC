@@ -52,9 +52,7 @@ Boolean isUnsignedIrType(enum IrTypeKind k) {
 }
 
 Boolean isIntegerLikeIrType(enum IrTypeKind k) {
-    // IR_REF and IR_LITERAL are addresses too - a symbol's and a string
-    // literal's - until step 22 of the roadmap merges them into IR_PTR.
-    return isIntegerIrType(k) || k == IR_PTR || k == IR_REF || k == IR_LITERAL;
+    return isIntegerIrType(k) || k == IR_PTR;
 }
 
 Boolean isIntegerComparisonKind(enum IrIntructionKind k) {
@@ -71,7 +69,7 @@ Boolean isUnsignedIrOperand(enum IrTypeKind k) {
     // Pointers compare unsigned - an address above the middle of the space is
     // not a negative address - and so does anything already narrowed to a
     // predicate, whose only two values are 0 and 1.
-    return isUnsignedIrType(k) || k == IR_PTR || k == IR_REF || k == IR_LITERAL || k == IR_BOOL;
+    return isUnsignedIrType(k) || k == IR_PTR || k == IR_BOOL;
 }
 
 void cleanAndErase(IrInstruction *i) {
@@ -862,13 +860,13 @@ typedef struct _ConstantCacheData {
     // a ternary in tinyc/46_grep.c come out with different types and trip
     // translateTernary's same-type assertion.
     //
-    // The kind is deliberately *not* stored here: constKindOfType() derives it
-    // from the type, so keeping a copy would be a second field saying what the
-    // first already says, and comparing both would only ever confirm the
-    // derivation. The instruction still carries one, since its readers want a
-    // four-way discriminator on hand; the caller's is checked against the type
-    // in getOrAddConstant() and then dropped.
+    // The kind is part of the key too, and has to be: a null pointer, a string
+    // address and a symbol address are all IR_PTR, so the type no longer says
+    // which union member the payload below is. It did once, and keying on the
+    // type alone while it did was correct; the moment IR_LITERAL/IR_REF left
+    // IrTypeKind it stopped being.
     enum IrTypeKind type;
+    enum IrConstKind kind;
     IrConstantData data;
     IrInstruction *value;
 } ConstantCacheData;
@@ -881,36 +879,14 @@ void addToCCDVector(Vector *v, ConstantCacheData *data) {
   addToVector(v, (intptr_t)data);
 }
 
-// Which union member of IrConstantData a constant of this type holds. The kind
-// is not independent information: a float type carries a float and nothing
-// else, and IR_LITERAL/IR_REF exist only to say "string" and "symbol" - they
-// are not machine types anything can compute with. Deriving it here is what
-// lets the cache key be the type alone; the instruction keeps a stored copy
-// because three of its four readers (isel, cp, irdump) want a four-way
-// discriminator on hand rather than a call at every use.
-static enum IrConstKind constKindOfType(enum IrTypeKind type) {
-    switch (type) {
-    case IR_F32:
-    case IR_F64:
-    case IR_F80:
-      return IR_CK_FLOAT;
-    case IR_LITERAL:
-      return IR_CK_LITERAL;
-    case IR_REF:
-      return IR_CK_SYMBOL;
-    default:
-      return IR_CK_INTEGER;
-    }
-}
-
 static IrInstruction *getFromCache(const ConstantCacheData *data) {
     const ConstantCacheData **cacheData = (const ConstantCacheData **)ctx->constantCache.storage;
     for (size_t i = 0; i < ctx->constantCache.size; ++i) {
         ConstantCacheData *cacheData = getCCDFromVector(&ctx->constantCache, i);
-        if (cacheData->type == data->type) {
-            // Same type means same union member on both sides, so one lookup
+        if (cacheData->type == data->type && cacheData->kind == data->kind) {
+            // Same kind means same union member on both sides, so one lookup
             // covers the entry as well as the query.
-            switch (constKindOfType(data->type)) {
+            switch (data->kind) {
             case  IR_CK_INTEGER:
                 if (data->data.i == cacheData->data.i) {
                     assert(cacheData->value != NULL);
@@ -940,15 +916,12 @@ static IrInstruction *getFromCache(const ConstantCacheData *data) {
 
 static IrInstruction *getOrAddConstant(ConstantCacheData *data, enum IrConstKind kind, enum IrTypeKind type) {
 
-    // The caller says which union member it filled in; the type says which one
-    // a constant of that type holds. They have to agree, and this is the one
-    // place both are in hand. Asking for an *integer* constant of type
-    // IR_LITERAL - which is what 'flag && "text"' used to do - fails here
-    // rather than building a constant whose payload and whose type disagree
-    // about which member is live. Past this point only the type is kept.
-    assert(kind == constKindOfType(type));
+    // A float type carries a float and nothing else; the other three kinds all
+    // sit on integer-like types, so only this direction can be checked.
+    assert(isRealIrType(type) == (kind == IR_CK_FLOAT));
 
     data->type = type;
+    data->kind = kind;
 
     IrInstruction *cached = getFromCache(data);
 
@@ -990,14 +963,14 @@ IrInstruction *createFloatConstant(enum IrTypeKind type, float80_const_t v) {
 IrInstruction *createSymbolConstant(Symbol *s) {
     ConstantCacheData d;
     d.data.s = s;
-    return getOrAddConstant(&d, IR_CK_SYMBOL, IR_REF);
+    return getOrAddConstant(&d, IR_CK_SYMBOL, IR_PTR);
 }
 
 IrInstruction *createLiteralConstant(const char *v, size_t l) {
     ConstantCacheData d;
     d.data.l.length = l;
     d.data.l.s = v;
-    return getOrAddConstant(&d, IR_CK_LITERAL, IR_LITERAL);
+    return getOrAddConstant(&d, IR_CK_LITERAL, IR_PTR);
 }
 
 IrInstruction *newGEPInstruction(IrInstruction *base, IrInstruction *offset, const TypeRef *underType) {

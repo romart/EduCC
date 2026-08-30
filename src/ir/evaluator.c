@@ -10,7 +10,20 @@ extern IrInstruction *topI;
 extern IrInstruction *bottomI;
 
 
+// An address whose bits are not known until link time: the payload is a
+// Symbol* or a char*, not the value the program will see, so folding with it
+// computes on this compiler's own pointers. The type used to say so - a
+// literal was IR_LITERAL - and since it says IR_PTR like any other address,
+// the kind is the only thing left that can.
+static Boolean isComputableConstant(const IrInstruction *c) {
+  return c->info.constant.kind == IR_CK_INTEGER ||
+         c->info.constant.kind == IR_CK_FLOAT;
+}
+
 IrInstruction *evaluateUnary(IrInstruction *i, IrInstruction *arg) {
+  if (!isComputableConstant(arg))
+    return i;
+
   if (i->kind == IR_U_NOT) {
     return createIntegerConstant(i->type, !arg->info.constant.data.i);
   } else if (i->kind == IR_U_BNOT) {
@@ -59,10 +72,8 @@ static enum IrTypeClass irTypeClass(enum IrTypeKind k) {
     case IR_F80:
       return IR_TC_FLOAT;
 
-    case IR_LITERAL:
 	case IR_P_AGG: // packed aggregate
     case IR_PTR:
-    case IR_REF:
     case IR_LABEL:
       return IR_TC_PTR;
 
@@ -105,6 +116,11 @@ IrInstruction *evaluateBitCast(IrInstruction *i, IrInstruction *arg) {
 
   enum IrTypeKind fromT = i->info.fromCastType;
   enum IrTypeKind toT = i->type;
+
+  // A cast of a link-time address folds only when it changes nothing but the
+  // label; anything narrowing or reinterpreting would have to know the bits.
+  if (!isComputableConstant(arg))
+    return fromT == toT ? arg : i;
 
   enum IrTypeClass fromC = irTypeClass(fromT);
   enum IrTypeClass toC = irTypeClass(toT);
@@ -180,6 +196,15 @@ static IrInstruction *evaluateBitCastInternal(IrInstruction *i) {
 IrInstruction *evaluateBinary(IrInstruction *i, IrInstruction *lhs, IrInstruction *rhs) {
   assert(isConstantInstr(lhs));
   assert(isConstantInstr(rhs));
+
+  // One constant compared against itself is equal to itself whatever it holds,
+  // which is the only thing worth folding about an address: 'a == b' with both
+  // sides the same string literal is one IR_DEF_CONST twice over.
+  if (lhs == rhs && (i->kind == IR_E_EQ || i->kind == IR_E_NE))
+    return createIntegerConstant(i->type, i->kind == IR_E_EQ);
+
+  if (!isComputableConstant(lhs) || !isComputableConstant(rhs))
+    return i;
 
   // Division, remainder and the right shift take their signedness from the
   // type of the value being operated on, which for all three is the
