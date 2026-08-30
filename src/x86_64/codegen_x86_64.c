@@ -836,7 +836,14 @@ static void generateF10toU8(GeneratedFunction *f, enum Registers to) {
 
   AstConst cv = { 0 };
   cv.op = CK_FLOAT_CONST;
-  cv.f = 18446744073709551616.0;
+  // 2^63 and not 2^64, which is what this said. The value is used twice - as
+  // the bound that chooses the arm and as the bias the large arm subtracts -
+  // and the bit put back at the end is 2^63, so 2^64 disagreed with the
+  // correction and, worse, made the bound unreachable: every value below 2^64
+  // took the direct arm, where a signed fistp overflows for anything at or
+  // above 2^63 and stores the integer-indefinite value. So the whole top half
+  // of the unsigned range answered 0x8000000000000000.
+  cv.f = 9223372036854775808.0L;
   Address magic = { 0 };
   emitFloatConst(f, &cv, T_F10, &magic);
 
@@ -2149,7 +2156,22 @@ static void generateVaArg(GeneratedFunction *f, AstExpression *expression) {
    * } __va_elem;
    */
 
-  if (isRealType(vatype)) {
+  // Whether the argument was passed in a register, which is the same question
+  // classifyParametersGeneric answers at the call site and has to get the same
+  // answer here - va_arg reads what the caller wrote. That is why this is a
+  // size test and not SysV's classification: SysV splits an aggregate of up to
+  // sixteen bytes into two eightbytes and passes those in registers, and
+  // EduCC does not (see the TODO in src/ir/target.c). Both sides agreeing is
+  // what matters; matching gcc is that TODO's business, and it will have to
+  // change this in the same commit.
+  //
+  // Long double is the scalar that is in neither save area even so: SysV gives
+  // it the X87 class, which is passed in memory, so it is only ever in the
+  // overflow area however few SSE arguments came before it. Asking isRealType
+  // alone sent it to read whatever the eighth SSE slot happened to hold.
+  Boolean inRegister = computeTypeSize(vatype) <= dataSize;
+
+  if (inRegister && isRealType(vatype)) {
       int32_t fp_offset_off = memberOffset(vastruct, "fp_offset");
       valist_addr.imm = fp_offset_off;
       // R_ACC = va_list->fp_offset
@@ -2166,8 +2188,7 @@ static void generateVaArg(GeneratedFunction *f, AstExpression *expression) {
       valist_addr.imm = fp_offset_off;
       emitStore(f, R_TMP, &valist_addr, T_U4);
       emitJumpTo(f, &doneLabl, TRUE);
-  } else if (isScalarType(vatype) ||
-             (isCompositeType(vatype) && computeTypeSize(vatype) <= dataSize)) {
+  } else if (inRegister && (isScalarType(vatype) || isCompositeType(vatype))) {
       // A struct small enough to travel in a register is passed in an integer
       // one, so va_arg has to read it out of the same save area a scalar comes
       // from. Being neither real nor scalar, it used to fall through to the
@@ -2570,6 +2591,12 @@ static enum JumpCondition generateFloatCondition(GeneratedFunction *f, AstExpres
           generateExpression(f, right);
           emitFPArith(f, OP_FUCMP, 1, FALSE);
           emitSetccR(f, setcc, R_ACC);
+          // Zero-extended like the two arms below, and for the same reason:
+          // setcc writes one byte, the test at the end of this reads four, and
+          // the three in between are whatever the last call left in eax. Only
+          // the long double arm was missing it, so 'a == b' on two runtime
+          // long doubles answered from stale bits whenever they were equal.
+          emitMovxxRR(f, 0xB6, R_ACC, R_ACC);
           emitFPArith(f, OP_FUCMP, 1, TRUE);
           emitFPPop(f, 0);
       } else if (right->op == EU_DEREF) {
