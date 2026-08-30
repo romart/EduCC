@@ -1,0 +1,16 @@
+A floating-point operand of '&&' or '||' is never compared against zero. The
+truth test is emitted as an integer 'test %rax,%rax' after the operand has been
+loaded into an SSE register, so the branch is decided by whatever was left in
+%rax and every such expression answers as though the operand were true -
+'and_dd(2.5, 0.0)' returns 1, and so does 'and_dd(0.0, 0.0)'. There is no
+comisd/ucomisd anywhere in the generated function.
+
+The fix belongs in the legacy backend (src/x86_64/codegen_x86_64.c), where the
+truth test for a logical operand is generated, and is out of scope by decision:
+the legacy pipeline is not being taught this.
+
+Muted here alone. Under '-experimental' this fixture passes - see
+docs/ir-codegen-design.md section 11 step 20 for what that took - so if it ever
+reports as passing *here* too, confirm a comisd against zero in the
+disassembly before deleting this marker: with the answer decided by a register
+nobody set, garbage lining up favourably looks identical from the exit code.

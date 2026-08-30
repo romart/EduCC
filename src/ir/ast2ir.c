@@ -971,6 +971,19 @@ static IrInstruction *translateLogicalExpression(AstExpression *expr) {
   Boolean isAndAnd = expr->op == EB_ANDAND;
   IrInstruction *leftOp = translateRValue(expr->binaryExpr.left);
 
+  // The left operand is only ever branched on - the phi below never carries it
+  // - so it has to be testable rather than 0 or 1. A float is neither: 'test'
+  // on an xmm register is not an instruction, and the branch would read flags
+  // nothing set. The parser wraps every other controlling expression in a
+  // '!= 0' of its own (an 'if', 'while' or ternary on a double arrives here
+  // already compared); the operands of '&&' and '||' are the one place it does
+  // not, so the comparison has to be built here. An integer is left alone for
+  // yieldsBoolean's reason: nothing folds a redundant compare away later.
+  if (isRealType(expr->binaryExpr.left->type)) {
+    IrInstruction *zero = createFloatConstant(leftOp->type, 0.0);
+    leftOp = addBinaryOpeartion(IR_E_FNE, leftOp, zero, IR_BOOL, NULL, NULL);
+  }
+
   IrBasicBlock *fst = ctx->currentBB;
   IrBasicBlock *scnd = newBasicBlock(isAndAnd ? "< && >" : "< || >");
   IrBasicBlock *exit = newBasicBlock(isAndAnd ? "< &&-exit>" : "< ||-exit>");
@@ -1302,6 +1315,15 @@ static IrInstruction *translateUnary(AstExpression *expr) {
     break;
   }
   case EU_EXL:
+    // '!x' is 'x == 0', and for a floating operand that comparison has to be a
+    // floating one: IR_U_NOT selects an integer 'test', which given an xmm
+    // operand is not an instruction that exists. The same choice
+    // translateLogicalExpression makes for the operands of '&&' and '||'.
+    if (isRealType(expr->unaryExpr.argument->type)) {
+      IrInstruction *zero = createFloatConstant(arg->type, 0.0);
+      result = addBinaryOpeartion(IR_E_FEQ, arg, zero, irType, type, expr);
+      break;
+    }
     exl = TRUE;
   case EU_TILDA: {
     assert(!isFloat);

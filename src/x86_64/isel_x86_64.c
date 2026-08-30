@@ -2302,11 +2302,28 @@ static void selectInstruction_x86_64(MachineBuilder *b, const IrInstruction *i) 
   // so every instruction that defines the register is a correct one. Zero is
   // the one that makes the resulting misbehaviour reproducible rather than
   // dependent on what the previous function happened to leave behind.
+  //
+  // A floating one allocates in an xmm register and there is no move of an
+  // immediate into one, so the zero goes through a general register and across,
+  // exactly as a float constant does. Writing the immediate straight to the
+  // destination encoded the xmm as the same-numbered GP register instead.
   case IR_BAD: {
+    uint8_t size = valueSize(i);
+    uint32_t dst = machineBuilderVreg(b, i);
+    Boolean viaGp = isFloatIrType(i->type);
+    uint32_t zero = viaGp ? createVirtualRegister(b->mf, RC_GP, size) : dst;
+
     MachineInstr *mi = buildMachineInstr(b, X86_MOV, 1, 1);
-    setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+    setRegisterOperand(mi, 0, zero);
     setImmediateOperand(mi, 1, 0);
-    mi->opSize = valueSize(i);
+    mi->opSize = size;
+
+    if (viaGp) {
+      MachineInstr *across = buildMachineInstr(b, X86_MOVD, 1, 1);
+      setRegisterOperand(across, 0, dst);
+      setRegisterOperand(across, 1, zero);
+      across->opSize = size;
+    }
     break;
   }
 

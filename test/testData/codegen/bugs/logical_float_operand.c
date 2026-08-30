@@ -2,8 +2,8 @@
 // against zero, so every one of them answers as though the operand were true.
 //
 // The truth test for a scalar is "compare against zero", and for a double that
-// has to be a floating-point compare. EduCC emits an *integer* one. From the
-// legacy backend's own output for 'a && b' on two doubles:
+// has to be a floating-point compare. The legacy backend emits an *integer*
+// one. From its own output for 'a && b' on two doubles:
 //
 //     movsd  -0x10(%rbp),%xmm0    ; the operand goes into an SSE register
 //     test   %rax,%rax            ; ...and an unrelated GP register is tested
@@ -12,44 +12,37 @@
 // There is no comisd/ucomisd anywhere in the function. %rax holds whatever was
 // left there, so the branch is decided by garbage - which in practice means
 // 'and_dd(2.5, 0.0)' returns 1, and so does every other combination including
-// 'and_dd(0.0, 0.0)'. The second operand goes the same way: 'test %rax,%rax'
-// followed by 'setne %al'.
+// 'and_dd(0.0, 0.0)'. That is where it still stands: fixing it belongs in
+// src/x86_64/codegen_x86_64.c and is out of scope by decision, so this file is
+// muted for the legacy backend alone.
 //
-// For the binary operators this is a legacy-backend bug
-// (src/x86_64/codegen_x86_64.c), not an IR-pipeline one: instruction selection
-// does not cover them, so canEmitMachineFunction() declines and
-// generateCodeForFile() hands them back. A file containing only 'and_dd'
-// compiles to a byte-identical object with and without '-experimental'.
+// Under '-experimental' it passes, and what it took is the useful part of the
+// record (design doc section 11 step 20). Three separate defects, only the
+// first of which is about floats:
 //
-// 'not_d' is the exception, and it goes wrong twice more. The new backend does
-// emit it, selection picks 'test' with an *SSE* operand - 'test.8 $xmm8, $xmm8',
-// an instruction that does not exist - and emission then encodes that xmm
-// operand as the same-numbered general-purpose register:
+//   - Nothing checked an operand's register class on the way out of stage 3.
+//     xmm8 and r8 are different ids in the flat physical namespace but the
+//     same encoded register number, so an operand arriving in the wrong bank
+//     did not fail to encode - it encoded as a different real register, and
+//     the machine IR still read correctly while the bytes did not.
 //
-//     movsd  -0x8(%rbp),%xmm8
-//     test   %r8,%r8               ; xmm8 became r8
-//     sete   %r10b
+//   - '!' on a double selected an integer 'test' with an SSE operand
+//     ('test.8 $xmm8, $xmm8', not an instruction that exists), which the
+//     emitter then wrote as 'test %r8,%r8'. It is built as a float compare
+//     against zero now, the same choice the '&&' / '||' translation makes.
 //
-// so 'sete' reads flags left by something unrelated. The register class is
-// never checked on the way out, which is the part with reach beyond floats:
-// any operand that reaches the emitter in the wrong bank is silently encoded
-// as a different real register rather than refused.
+//   - The *left* operand of '&&' / '||' was branched on as it stood. The
+//     parser wraps every other controlling expression in a '!= 0' of its own -
+//     an 'if', 'while' or ternary on a double arrives already compared, which
+//     is why cond_d below was correct all along - and the operands of a
+//     logical operator are the one place it does not.
 //
-// Note what is *not* broken, because it narrows the fix considerably: 'if (a)'
-// on a double is correct (cond_d below), as is a written-out 'a != 0.0'. So the
-// machinery for branching on a float exists and works; what is missing is its
-// use when the float is an operand of a logical operator rather than the
-// controlling expression of an 'if'.
+// The first check was what found the third: it is the class of bug with reach
+// beyond floats, and an undefined double (the placeholder SSA leaves where a
+// promoted local is read on a path that never wrote it) was materializing
+// through it too.
 //
-// Because the branch is decided by a register nobody set, *which* check fails
-// first depends on what the caller happened to leave in %rax: this file returns
-// 1 (and_dd) compiled normally and 6 (not_d) under '-experimental', where main
-// itself is emitted by the new backend and so leaves different garbage behind.
-// Both are stable for a given build. Treat a sudden pass as something to
-// confirm in the disassembly - a comisd against zero appearing - rather than as
-// the bug being fixed, since garbage lining up favourably would look the same.
-//
-// Muted - see the sibling .muted file. Expected values below are gcc's.
+// Expected values below are gcc's.
 
 // The core case: both operands floating-point.
 int and_dd(double a, double b) {

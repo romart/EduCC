@@ -127,10 +127,36 @@ static void bindBlockLabel(GeneratedFunction *f, struct Label *l) {
 // from how this file reads it, and the useful moment to find that out is the
 // first time it happens rather than several instructions later.
 
-static enum Registers regOperand(const EmitContext *e, const MachineInstr *mi, uint16_t idx) {
+// The flat namespace physReg() maps down from is the only thing that tells the
+// two banks apart: xmm8 and r8 are different ids but the same encoded register
+// number, so an operand arriving in the wrong bank does not fail to encode -
+// it encodes as a different real register, and the bytes are wrong while every
+// dump still reads correctly. Naming the class the opcode encodes at each use
+// is what makes that an assertion instead.
+static uint32_t regIdOperand(const MachineInstr *mi, uint16_t idx) {
   const MachineOperand *op = machineOperandAt((MachineInstr *)mi, idx);
   assert(op->kind == MO_REG);
-  return physReg(e, op->info.reg);
+  return op->info.reg;
+}
+
+static enum Registers regOperandIn(const EmitContext *e, const MachineInstr *mi, uint16_t idx,
+                                   enum RegClass rc) {
+  uint32_t reg = regIdOperand(mi, idx);
+  enum Registers r = physReg(e, reg);
+
+  assert(e->mf->target->regClass[reg] == rc && "operand is in the wrong register bank");
+
+  return r;
+}
+
+static enum Registers regOperand(const EmitContext *e, const MachineInstr *mi, uint16_t idx) {
+  return regOperandIn(e, mi, idx, RC_GP);
+}
+
+// For the opcodes that encode an SSE register where regOperand encodes a
+// general-purpose one.
+static enum Registers fpOperand(const EmitContext *e, const MachineInstr *mi, uint16_t idx) {
+  return regOperandIn(e, mi, idx, RC_FP);
 }
 
 static Boolean isImmOperand(const MachineInstr *mi, uint16_t idx) {
@@ -313,12 +339,17 @@ static MachineBasicBlock *blockOperand(const MachineInstr *mi, uint16_t idx) {
 
 // -============================ Instruction arms ==========================-
 
+// A copy is the one shape with no bank of its own: it moves whatever it was
+// given, and the two ends have to agree - crossing banks is movd, not a copy.
 static void emitCopy(EmitContext *e, const MachineInstr *mi) {
-  enum Registers dst = regOperand(e, mi, 0);
-  enum Registers src = regOperand(e, mi, 1);
-  uint32_t srcId = machineOperandAt((MachineInstr *)mi, 1)->info.reg;
+  uint32_t dstId = regIdOperand(mi, 0);
+  uint32_t srcId = regIdOperand(mi, 1);
+  enum Registers dst = physReg(e, dstId);
+  enum Registers src = physReg(e, srcId);
 
-  if (dst == src && isFpReg(e, srcId) == isFpReg(e, machineOperandAt((MachineInstr *)mi, 0)->info.reg)) {
+  assert(isFpReg(e, dstId) == isFpReg(e, srcId) && "a copy across register banks");
+
+  if (dst == src) {
     return; // the allocator gave both ends the same register
   }
 
@@ -331,7 +362,7 @@ static void emitCopy(EmitContext *e, const MachineInstr *mi) {
 
 static void emitSpill(EmitContext *e, const MachineInstr *mi) {
   Address addr = frameAddress(e, frameIdxOperand(mi, 0));
-  uint32_t srcId = machineOperandAt((MachineInstr *)mi, 1)->info.reg;
+  uint32_t srcId = regIdOperand(mi, 1);
   enum Registers src = physReg(e, srcId);
 
   if (isFpReg(e, srcId)) {
@@ -342,7 +373,7 @@ static void emitSpill(EmitContext *e, const MachineInstr *mi) {
 }
 
 static void emitReload(EmitContext *e, const MachineInstr *mi) {
-  uint32_t dstId = machineOperandAt((MachineInstr *)mi, 0)->info.reg;
+  uint32_t dstId = regIdOperand(mi, 0);
   enum Registers dst = physReg(e, dstId);
   Address addr = frameAddress(e, frameIdxOperand(mi, 1));
 
@@ -357,15 +388,21 @@ static void emitReload(EmitContext *e, const MachineInstr *mi) {
 // same register read back, operand 2 is the right-hand side. Selection built
 // them that way (see machine_x86_64.h) so there is nothing to reassociate
 // here - only the choice between the register and the immediate encoding.
-static void emitTwoAddress(EmitContext *e, const MachineInstr *mi, enum Opcodes op) {
-  enum Registers dst = regOperand(e, mi, 0);
-  assert(regOperand(e, mi, 1) == dst && "two-address form did not survive allocation");
+static void emitTwoAddressIn(EmitContext *e, const MachineInstr *mi, enum Opcodes op,
+                             enum RegClass rc) {
+  enum Registers dst = regOperandIn(e, mi, 0, rc);
+  assert(regOperandIn(e, mi, 1, rc) == dst && "two-address form did not survive allocation");
 
   if (isImmOperand(mi, 2)) {
+    assert(rc == RC_GP && "no SSE arithmetic takes an immediate");
     emitArithConst(e->gen, op, dst, immOperand(mi, 2), typeIdForSize(mi->opSize));
   } else {
-    emitArithRR(e->gen, op, dst, regOperand(e, mi, 2), mi->opSize);
+    emitArithRR(e->gen, op, dst, regOperandIn(e, mi, 2, rc), mi->opSize);
   }
+}
+
+static void emitTwoAddress(EmitContext *e, const MachineInstr *mi, enum Opcodes op) {
+  emitTwoAddressIn(e, mi, op, RC_GP);
 }
 
 // A shift is two-address as well, but its variable count lives in cl and
@@ -523,7 +560,7 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
 
   case X86_LOAD: {
     Address addr = addressOperand(e, mi, 1);
-    uint32_t dstId = machineOperandAt((MachineInstr *)mi, 0)->info.reg;
+    uint32_t dstId = regIdOperand(mi, 0);
 
     if (isFpReg(e, dstId)) {
       emitMovfpAR(f, &addr, physReg(e, dstId), mi->opSize);
@@ -535,7 +572,7 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
 
   case X86_STORE: {
     Address addr = addressOperand(e, mi, 0);
-    uint32_t srcId = machineOperandAt((MachineInstr *)mi, 1)->info.reg;
+    uint32_t srcId = regIdOperand(mi, 1);
 
     if (isFpReg(e, srcId)) {
       emitMovfpRA(f, physReg(e, srcId), &addr, mi->opSize);
@@ -550,23 +587,23 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
     emitWiden(e, mi);
     break;
 
-  case X86_FADD: emitTwoAddress(e, mi, OP_FADD); break;
-  case X86_FSUB: emitTwoAddress(e, mi, OP_FSUB); break;
-  case X86_FMUL: emitTwoAddress(e, mi, OP_FMUL); break;
-  case X86_FDIV: emitTwoAddress(e, mi, OP_FDIV); break;
+  case X86_FADD: emitTwoAddressIn(e, mi, OP_FADD, RC_FP); break;
+  case X86_FSUB: emitTwoAddressIn(e, mi, OP_FSUB, RC_FP); break;
+  case X86_FMUL: emitTwoAddressIn(e, mi, OP_FMUL, RC_FP); break;
+  case X86_FDIV: emitTwoAddressIn(e, mi, OP_FDIV, RC_FP); break;
 
   case X86_FCMP:
   case X86_FUCMP:
     // Like the integer compare, no destination: it writes only flags, so its
     // operands start at index 0.
-    emitArithRR(f, mi->opcode == X86_FCMP ? OP_FOCMP : OP_FUCMP, regOperand(e, mi, 0),
-                regOperand(e, mi, 1), mi->opSize);
+    emitArithRR(f, mi->opcode == X86_FCMP ? OP_FOCMP : OP_FUCMP, fpOperand(e, mi, 0),
+                fpOperand(e, mi, 1), mi->opSize);
     break;
 
   case X86_MOVD:
     // 66 0F 6E: 'movd xmm, r32' and, with REX.W, 'movq xmm, r64'. The bits go
     // across unchanged - this is not a conversion.
-    emitMovdq(f, 0x66, 0x0F, 0x6E, regOperand(e, mi, 1), regOperand(e, mi, 0),
+    emitMovdq(f, 0x66, 0x0F, 0x6E, regOperand(e, mi, 1), fpOperand(e, mi, 0),
               mi->opSize == 8);
     break;
 
@@ -574,7 +611,7 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
     // 66 0F 7E, the other direction. The operands go to emitMovdq the other way
     // round too: it takes the r/m register first, and here that is the general
     // one being written rather than the xmm one being read.
-    emitMovdq(f, 0x66, 0x0F, 0x7E, regOperand(e, mi, 0), regOperand(e, mi, 1),
+    emitMovdq(f, 0x66, 0x0F, 0x7E, regOperand(e, mi, 0), fpOperand(e, mi, 1),
               mi->opSize == 8);
     break;
 
@@ -636,21 +673,21 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
     // cvtss2sd or cvtsd2ss, chosen by which way the widths go. The prefix
     // names the *source* here, unlike the arithmetic above.
     emitConvertFP(f, machineInstrSrcSize(mi) == 8 ? 0xF2 : 0xF3, 0x5A,
-                  regOperand(e, mi, 1), regOperand(e, mi, 0), FALSE);
+                  fpOperand(e, mi, 1), fpOperand(e, mi, 0), FALSE);
     break;
 
   case X86_CVTSI2F:
     // cvtsi2ss/cvtsi2sd: the prefix is the destination's float width, REX.W
     // the source's integer width.
     emitConvertFP(f, mi->opSize == 8 ? 0xF2 : 0xF3, 0x2A, regOperand(e, mi, 1),
-                  regOperand(e, mi, 0), machineInstrSrcSize(mi) == 8);
+                  fpOperand(e, mi, 0), machineInstrSrcSize(mi) == 8);
     break;
 
   case X86_CVTF2SI:
     // cvttss2si/cvttsd2si - the truncating form, which is the one a C cast
     // means; the rounding form would follow the current rounding mode.
     emitConvertFP(f, machineInstrSrcSize(mi) == 8 ? 0xF2 : 0xF3, 0x2C,
-                  regOperand(e, mi, 1), regOperand(e, mi, 0), mi->opSize == 8);
+                  fpOperand(e, mi, 1), regOperand(e, mi, 0), mi->opSize == 8);
     break;
 
   case X86_ADD:  emitTwoAddress(e, mi, OP_ADD); break;
