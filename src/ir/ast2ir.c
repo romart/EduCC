@@ -446,6 +446,13 @@ static IrInstruction *translateVaArg(AstExpression *expr) {
   // register save area however few SSE arguments came before it. Asking
   // isRealType first sent it there to read whatever the eighth SSE slot
   // happened to hold.
+  // Nothing was passed for it, so nothing is consumed reading it back: the
+  // va_list is left where it is and the next va_arg gets the argument that
+  // really is next. The address handed back names zero bytes, so the va_list's
+  // own is as good as any.
+  if (isEmptyCompositeType(vatype))
+    return valistInstr;
+
   Boolean inRegister = computeTypeSize(vatype) <= dataSize;
 
   IrBasicBlock *memoryBlock = NULL, *updateBlock = NULL, *doneBlock = NULL;
@@ -657,6 +664,12 @@ static IrInstruction *translateCall(AstExpression *expr) {
 
     IrInstruction *argOp = translateRValue(argExpr);
     IrInstruction *realArgOp = NULL;
+
+    // A zero-sized argument is passed in nothing at all, so it is evaluated
+    // and then not handed over. Loading the eightbyte below would have read
+    // past it and taken up the register the next argument goes in.
+    if (isEmptyCompositeType(argType))
+      continue;
 
     if (isCompositeType(argType)) {
       if (argSize > sizeof(intptr_t)) {
@@ -2371,6 +2384,14 @@ static Boolean translateReturn(AstStatement *stmt) {
     IrInstruction *returnValue = translateRValue(expr);
     IrInstruction *returnSlot = ctx->currentFunc->retOperand;
     IrInstruction *copyInstr = NULL;
+
+    // Nothing goes back, but the expression still runs: 'return f();' with a
+    // zero-sized result is a call like any other.
+    if (!isTypeRequiresReturnValue(expr->type)) {
+      jumpToBlock(ctx->currentFunc->exit, stmt);
+      return TRUE;
+    }
+
     assert(returnSlot != NULL);
     if (isCompositeType(expr->type)) {
       IrInstruction *dst = returnSlot;
@@ -2832,7 +2853,7 @@ static void generateExitBlock(IrFunction *func, TypeRef *returnType) {
   ctx->currentBB = func->exit;
 
   IrInstruction *ret = newInstruction(IR_RET, IR_VOID);
-  if (!isVoidType(returnType)) {
+  if (isTypeRequiresReturnValue(returnType)) {
     assert(func->retOperand != NULL);
 
     // Whatever the return type, the slot holds what the ABI hands back and the
@@ -3089,7 +3110,7 @@ static uint32_t buildInitialIr(IrFunction *func,
     ;
 
   size_t numOfReturnSlots = 0;
-  if (!isVoidType(declaration->returnType)) {
+  if (isTypeRequiresReturnValue(declaration->returnType)) {
     numOfReturnSlots = 1;
   }
 

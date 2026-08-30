@@ -44,6 +44,8 @@ Boolean isUnsignedType(const TypeRef *type);
 Boolean isScalarType(const TypeRef *type);
 Boolean isUnionType(const TypeRef *type);
 Boolean isCompositeType(const TypeRef *type);
+Boolean isEmptyCompositeType(const TypeRef *type);
+Boolean isTypeRequiresReturnValue(const TypeRef *type);
 Boolean isFlatType(const TypeRef *type);
 Boolean isFunctionalType(const TypeRef *type);
 Boolean is_va_list_Type(const TypeRef *type);

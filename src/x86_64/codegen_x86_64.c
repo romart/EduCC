@@ -1948,6 +1948,13 @@ static void generateCall(GeneratedFunction *f, AstExpression *expression) {
 
       ++count;
 
+      // Passed in nothing: it takes neither an argument register nor a slot in
+      // the outgoing area, so the arguments around it are placed as if it were
+      // not written.
+      if (isEmptyCompositeType(t)) {
+        continue;
+      }
+
       if (isRealType(t)) {
         if (fpRegArgs < R_FP_PARAM_COUNT && argSize <= 8) {
           ++fpRegArgs;
@@ -1992,7 +1999,11 @@ static void generateCall(GeneratedFunction *f, AstExpression *expression) {
 
     Address dst = { R_ESP, R_BAD, 0, rspOffset, NULL, NULL };
 
-    if (isCompositeType(argType) && argSize > sizeof(intptr_t)) {
+    if (isEmptyCompositeType(argType)) {
+      // Evaluated for its side effects and handed over nowhere - the
+      // classification loop above reserved nothing for it.
+      generateExpression(f, arg);
+    } else if (isCompositeType(argType) && argSize > sizeof(intptr_t)) {
       Address addr = { 0 };
 
       if (arg->op == EU_DEREF) {
@@ -2111,7 +2122,12 @@ static void generateCall(GeneratedFunction *f, AstExpression *expression) {
     emitCall(f, R_R10);
   }
 
-  if (isCompositeType(returnType) && returnTypeSize <= sizeof(intptr_t)) {
+  if (isEmptyCompositeType(returnType)) {
+      // Nothing came back, so there is nothing to park in the struct buffer -
+      // which a function returning only zero-sized composites does not even
+      // have, so this used to write eight bytes of R_ACC over the saved frame
+      // pointer at [rbp].
+  } else if (isCompositeType(returnType) && returnTypeSize <= sizeof(intptr_t)) {
       Address addr = { R_EBP, R_BAD, 0, f->structBufferOffset, NULL, NULL };
       emitMoveRA(f, R_ACC, &addr, sizeof(intptr_t));
       emitLea(f, &addr, R_ACC);
@@ -2138,6 +2154,13 @@ static void generateVaArg(GeneratedFunction *f, AstExpression *expression) {
 
   TypeRef *vatype = expression->vaArg.argType;
   struct Label memLabl = { 0 }, doneLabl = { 0 };
+
+  // Nothing was passed for it, so nothing is consumed reading it back: the
+  // va_list is left where it is and the next va_arg gets the argument that
+  // really is next. R_ACC already holds the va_list's address, which names
+  // zero bytes as well as any other.
+  if (isEmptyCompositeType(vatype))
+    return;
 
   emitMoveRR(f, R_ACC, R_EDI, sizeof(intptr_t));
 
@@ -2965,7 +2988,11 @@ static Boolean generateStatement(GeneratedFunction *f, AstStatement *stmt) {
   }
   case SK_RETURN: {
       AstExpression *retExpr = stmt->jumpStmt.expression;
-      if (retExpr) {
+      if (retExpr && !isTypeRequiresReturnValue(retExpr->type)) {
+          // Zero bytes go back, and 'void' never did: evaluate and fall
+          // through to the epilogue.
+          generateExpression(f, retExpr);
+      } else if (retExpr) {
           if (isCompositeType(retExpr->type)) {
             Address src = { 0 };
             if (retExpr->op == EU_DEREF) {
@@ -3092,7 +3119,12 @@ static size_t allocateLocalSlots(GeneratedFunction *g, AstFunctionDefinition *f)
     size_t size = max(computeTypeSize(paramType), sizeof(intptr_t));
     size_t align = max(typeAlignment(paramType), sizeof(intptr_t));
 
-    if (isCompositeType(paramType) && size > sizeof(intptr_t)) {
+    if (isEmptyCompositeType(paramType)) {
+        // Arrives in nothing: no argument register is consumed and no incoming
+        // stack slot belongs to it. The address names zero bytes, so it can be
+        // any address in the frame.
+        gp->baseOffset = -baseOffset;
+    } else if (isCompositeType(paramType) && size > sizeof(intptr_t)) {
         int32_t alignedOffset = ALIGN_SIZE(stackParamOffset, align);
         gp->baseOffset = alignedOffset;
         stackParamOffset = alignedOffset + size;

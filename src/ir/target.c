@@ -74,6 +74,17 @@ void classifyParametersGeneric(const TargetDescriptor *target,
 
     Boolean inRegister = FALSE;
 
+    if (isEmptyCompositeType(paramType)) {
+      // Passed in nothing: no register is used up and no stack space is
+      // reserved, so the parameter behind it arrives where it would have with
+      // this one absent. The address still has to be somewhere - the argument
+      // area is where a stack parameter's is - but it names zero bytes, so
+      // nothing reads or writes through it.
+      pi->isRegister = FALSE;
+      pi->loc.stackOffset = ALIGN_SIZE(stackParamOffset, sizeof(intptr_t));
+      continue;
+    }
+
     if (isCompositeType(paramType) && size > sizeof(intptr_t)) {
       // TODO: SysV splits an aggregate of <= 16 bytes into two eightbytes and
       // passes those in registers; riscv64 LP64D has its own rules. Both are

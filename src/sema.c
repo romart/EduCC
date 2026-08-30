@@ -268,6 +268,13 @@ Boolean isCompositeType(const TypeRef *type) {
   return FALSE;
 }
 
+// A zero-sized object, which only a struct or union can be and only as a GNU
+// extension. SysV gives it no eightbytes at all, so it is passed and returned
+// in nothing rather than in a word of whatever was next to it.
+Boolean isEmptyCompositeType(const TypeRef *type) {
+  return isCompositeType(type) && computeTypeSize(type) == 0;
+}
+
 Boolean isFlatType(const TypeRef *type) {
   return type->kind == TR_ARRAY || isCompositeType(type);
 }
@@ -280,6 +287,13 @@ Boolean isVoidType(const TypeRef *type) {
   if (type->kind == TR_VALUE && type->descriptorDesc->typeId == T_VOID)
     return TRUE;
   return FALSE;
+}
+
+// Whether a function with this return type hands anything back at all. 'void'
+// does not, and neither does a zero-sized composite - it travels in no
+// register and through no buffer, so there is nothing to hold or to read out.
+Boolean isTypeRequiresReturnValue(const TypeRef *type) {
+  return !isVoidType(type) && !isEmptyCompositeType(type);
 }
 
 Boolean isIntegerType(const TypeRef *type) {
