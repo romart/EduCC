@@ -895,6 +895,16 @@ static Boolean isCompatibleType(ParserContext *ctx, Coordinates *coords, TypeRef
   if (isErrorType(t1)) return FALSE;
   if (isErrorType(t2)) return FALSE;
 
+  // A void expression has no value, so nothing can be assigned from it, passed
+  // as an argument or returned. Caught here rather than in each caller because
+  // every one of them ends in the same permissive 'return TRUE' below - which
+  // is how a void call reached the backend as an argument with no register
+  // class at all.
+  if (isVoidType(t2) && !isVoidType(t1)) {
+      *diag = DIAG_VOID_NOT_IGNORED;
+      return FALSE;
+  }
+
   if (isStructualType(t1) || isStructualType(t2)) {
       if (typesEquals(t1, t2)) {
           return TRUE;
@@ -2472,6 +2482,15 @@ void verifyAndTransformCallAruments(ParserContext *ctx, Coordinates *coords, Typ
           while(argument) {
               AstExpression *arg = argument->expression;
               TypeRef *argType = arg->type;
+
+              // Nothing below promotes a void expression, and no parameter
+              // type catches it here - a trailing argument has none.
+              if (isVoidType(argType)) {
+                  reportDiagnostic(ctx, DIAG_VOID_NOT_IGNORED, &arg->coordinates);
+                  argument = argument->next;
+                  continue;
+              }
+
               int size = computeTypeSize(argType);
 
               if (isRealType(argType) && size == 4) {

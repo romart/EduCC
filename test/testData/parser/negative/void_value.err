@@ -1,0 +1,6 @@
+test/testData/parser/negative/void_value.c:24:5: error: void value not ignored as it ought to be
+test/testData/parser/negative/void_value.c:28:5: error: void value not ignored as it ought to be
+test/testData/parser/negative/void_value.c:32:11: error: void value not ignored as it ought to be
+test/testData/parser/negative/void_value.c:36:8: error: void value not ignored as it ought to be
+test/testData/parser/negative/void_value.c:42:15: error: void value not ignored as it ought to be
+test/testData/parser/negative/void_value.c:46:3: error: void value not ignored as it ought to be

@@ -1,0 +1,48 @@
+FILE test/testData/parser/negative/void_value.c
+  FUN void nothing 
+----
+  FUN void sink 
+    #0: signed int x
+----
+  FUN void variadic 
+    #0: signed int n
+    ## ...
+----
+  signed int g
+----
+  FUN void assignToLocal 
+  BEGIN
+    signed int x
+    *x = nothing()    
+  END
+----
+  FUN void assignToGlobal 
+  BEGIN
+    *g = nothing()    
+  END
+----
+  FUN void initialize 
+  BEGIN
+    signed int x = \
+      ERROR EXPR    
+  END
+----
+  FUN void passAsArgument 
+  BEGIN
+    sink(nothing())    
+  END
+----
+  FUN void passAsTrailingArgument 
+  BEGIN
+    variadic(1, nothing())    
+  END
+----
+  FUN signed int returnIt 
+  BEGIN
+    RETURN nothing()    
+  END
+----
+  FUN void statementIsFine 
+  BEGIN
+    nothing()    
+  END
