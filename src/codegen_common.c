@@ -233,61 +233,6 @@ static void emitStaticLocals(GenerationContext *ctx, ArchCodegen *archCodegen,
   }
 }
 
-static const char *fallbackReason(const ArchCodegen *archCodegen, const MachineFunction *mf) {
-  if (archCodegen->generateFunctionFromIr == NULL)
-    return "this target has no IR emitter";
-  if (mf == NULL)
-    return "no machine function was built for it";
-  if (mf->refusalReason != NULL)
-    return mf->refusalReason;
-  if (mf->firstUnselectedReason != NULL)
-    return mf->firstUnselectedReason;
-  if (mf->hasUnallocated)
-    return "register allocation declined it";
-  return "reason unrecorded";
-}
-
-static Boolean isAllowedFallback(const Configuration *config, const char *name) {
-  for (const StringList *a = config->allowedFallbacks; a != NULL; a = a->next) {
-    if (strcmp(a->s, name) == 0)
-      return TRUE;
-  }
-  return FALSE;
-}
-
-// '-noFallback': falling back is the backend quietly doing less than it did
-// yesterday, and nothing else notices. Diagnostics are already printed by the
-// time codegen runs, so this reports directly and sets the same error flag.
-static void noteFallback(GenerationContext *ctx, const ArchCodegen *archCodegen, Vector *fellBack,
-                         const char *fileName, const char *name, const MachineFunction *mf) {
-  Configuration *config = ctx->parserContext->config;
-
-  addToVector(fellBack, (intptr_t)name);
-
-  if (!isAllowedFallback(config, name)) {
-    fprintf(stderr, "%s: error: '%s' fell back to the legacy backend: %s\n",
-            fileName, name, fallbackReason(archCodegen, mf));
-    config->hadError = 1;
-  }
-}
-
-// A stale exemption is how coverage rots unnoticed in the other direction.
-static void checkFallbackAllowances(GenerationContext *ctx, const Vector *fellBack, const char *fileName) {
-  Configuration *config = ctx->parserContext->config;
-
-  for (const StringList *a = config->allowedFallbacks; a != NULL; a = a->next) {
-    Boolean seen = FALSE;
-    for (size_t idx = 0; idx < fellBack->size && !seen; ++idx) {
-      seen = strcmp((const char *)getFromVector(fellBack, idx), a->s) == 0;
-    }
-    if (!seen) {
-      fprintf(stderr, "%s: error: '%s' is allowed to fall back but did not; drop it from -allowFallback\n",
-              fileName, a->s);
-      config->hadError = 1;
-    }
-  }
-}
-
 GeneratedFile *generateCodeForFile(ParserContext *pctx, ArchCodegen *archCodegen, AstFile *astFile,
                                    struct _IrFunctionList *irFunctions) {
     Section nullSection = { "", SHT_NULL, 0x00, 0 };
@@ -342,32 +287,21 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, ArchCodegen *archCodegen
     assert(archCodegen->generateFunction != NULL);
     assert(archCodegen->generateVaribale != NULL);
 
-    Boolean noFallback = pctx->config->noFallback;
-    Vector fellBack = { 0 };
-    if (noFallback) {
-      initVector(&fellBack, INITIAL_VECTOR_CAPACITY);
-    }
-
     while (unit) {
       if (unit->kind == TU_FUNCTION_DEFINITION) {
-          // The choice between the two backends is per function, not per file.
-          // The IR backend does not cover the language yet - a function
-          // containing anything selection has no rule for, or that register
-          // allocation declined, is left to the legacy one - and the
-          // alternative to falling back would be to refuse to compile it,
-          // which would mean the new pipeline could not be exercised on real
-          // programs until it was finished. This way every fixture in the
-          // suite runs under -experimental from the first day stage 3 exists,
-          // with the new backend taking whatever it can and the coverage
-          // growing as selection does.
+          // Which backend a function goes to is decided by '-experimental' and
+          // by nothing else. It used to be decided per function, because the
+          // IR backend covered less than the language and handing back what it
+          // could not do was what let the new pipeline be exercised on real
+          // programs before it was finished. It covers the corpus now, and
+          // step 18 took the choice away: an IR compile that cannot emit a
+          // function aborts rather than quietly producing the other backend's
+          // code, which is what makes a lost capability visible the day it is
+          // lost. See docs/ir-codegen-design.md section 6.21.
           MachineFunction *mf = machineFunctionFor(irFunctions, unit->definition);
-          Boolean fromIr = mf != NULL && archCodegen->generateFunctionFromIr != NULL
-                        && canEmitMachineFunction(mf);
-
-          if (noFallback && !fromIr) {
-            noteFallback(&ctx, archCodegen, &fellBack, astFile->fileName,
-                         unit->definition->declaration->name, mf);
-          }
+          assert((irFunctions == NULL) == (mf == NULL) &&
+                 "the IR pipeline builds a machine function for every definition");
+          Boolean fromIr = mf != NULL;
 
           GeneratedFunction *f = fromIr ? archCodegen->generateFunctionFromIr(&ctx, mf)
                                         : archCodegen->generateFunction(&ctx, unit->definition);
@@ -412,11 +346,6 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, ArchCodegen *archCodegen
           }
       }
       unit = unit->next;
-    }
-
-    if (noFallback) {
-      checkFallbackAllowances(&ctx, &fellBack, astFile->fileName);
-      releaseVector(&fellBack);
     }
 
     buildElfFile(&ctx, astFile, file, &elfFile);

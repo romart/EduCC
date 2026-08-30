@@ -6,7 +6,7 @@
 // at the end of an ordinary block. Step 15 taught the IR pipeline to do it on
 // every path round a 'for', 'while' or 'do', which is what stops a loop's frame
 // growing without bound (codegen/experimental/vla_in_loop.c); what is left is
-// the general scope rule, and that is roadmap step 17 in
+// the general scope rule, and that is roadmap step 19 in
 // docs/ir-codegen-design.md.
 //
 // The checks read the property off the *addresses*, because that is what the

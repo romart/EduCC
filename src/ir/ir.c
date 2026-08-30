@@ -948,6 +948,31 @@ IrInstruction *newMemoryCopyInstruction(IrInstruction *dst, IrInstruction *src, 
   return copyInstr;
 }
 
+#define MEM_ARG_WORD_BITS (8 * sizeof(uint64_t))
+
+void allocateCallMemoryArgs(IrInstruction *call, size_t numInputs) {
+  assert(call->inputs.size == 0 && "the bitmap is sized for inputs not yet added");
+  size_t words = (numInputs + MEM_ARG_WORD_BITS - 1) / MEM_ARG_WORD_BITS;
+  call->info.call.memArgs = areanAllocate(ctx->irArena, words * sizeof(uint64_t));
+}
+
+void setCallMemoryArg(IrInstruction *call, size_t idx) {
+  assert(call->info.call.memArgs != NULL);
+  call->info.call.memArgs[idx / MEM_ARG_WORD_BITS] |=
+      (uint64_t)1 << (idx % MEM_ARG_WORD_BITS);
+}
+
+Boolean isCallMemoryArg(const IrInstruction *call, size_t idx) {
+  assert(idx < call->inputs.size && "the bitmap holds one bit per input, no more");
+
+  if (call->info.call.memArgs == NULL) {
+    return FALSE;
+  }
+
+  return (call->info.call.memArgs[idx / MEM_ARG_WORD_BITS] >>
+          (idx % MEM_ARG_WORD_BITS)) & 1;
+}
+
 IrInstruction *addLoadInstr(enum IrTypeKind valueType, IrInstruction *ptr, const AstExpression *ast) {
     assert(valueType != IR_VOID);
     IrInstruction *loadInstr = newInstruction(IR_M_LOAD, valueType);

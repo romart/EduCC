@@ -48,25 +48,25 @@
 //                     function went back to naming two. 'long double' reached
 //                     it next, and was expected to do so durably.
 //
-//                     It no longer does, and step 18 is why. Lowering x87 into
+//                     It no longer does, and step 17 is why. Lowering x87 into
 //                     the backend turned this function's five FP registers into
 //                     no FP registers at all: an IR_F80 value is an address, an
 //                     x87 instruction names one at a time, and there is no
 //                     MOP_UNSELECTED left in the function to stand in for the
 //                     call. So 'Registers: not allocated' is gone from the
-//                     baseline and this half of the fixture now checks that the
-//                     limit is *not* reached, which is not what it was written
-//                     for.
+//                     baseline.
 //
-//                     Left standing rather than rewritten, because the question
-//                     it asks has moved: with nothing unselected anywhere in the
-//                     corpus, the scratch budget may now be unreachable by any C
-//                     program, and if it is then the honest place to say so is
-//                     the allocator rather than a test that no longer tests it.
-//                     That is the unselected-cleanup step's to settle - see
-//                     docs/ir-codegen-design.md section 11 - and it should
-//                     either find an input that still reaches the limit or
-//                     delete the refusal and this half of the fixture together.
+//                     Step 18 settled what that meant. With the placeholder
+//                     deleted outright, every instruction the allocator sees is
+//                     one selection genuinely built, and the widest of those
+//                     names three registers - so nothing can reach the budget
+//                     and the refusal became an abort (fitsScratchBudget, in
+//                     src/ir/codegen/regalloc.c). This half of the fixture now
+//                     checks that the limit is not reached rather than that it
+//                     is, which is a weaker claim than it was written for but
+//                     the only one left to make: it is the widest call in the
+//                     corpus, and its baseline is where a future addressing
+//                     mode with a third register operand would show up first.
 //
 // Values, checked against both the legacy pipeline and gcc, for whoever turns
 // these into executable fixtures at step 6: ra_byte_setcc(0, 0) == 0 and

@@ -143,18 +143,13 @@ if(BUILD_TESTING)
   # ignores it. --compiler-flag is spelled with '=' because argparse will not
   # take a value beginning with '-' as a separate word.
   #
-  # --no-fallback is what makes it an assertion rather than a description: a
-  # function handed back to the legacy backend fails the test, unless it is
-  # named in a '<name>.fallback' sibling, and a name listed there that stops
-  # falling back fails it too. Without it the suite passes on legacy output and
-  # coverage can regress with nothing going red.
-  #
-  # There are no '.fallback' files left anywhere in the tree since step 18 gave
-  # long double a lowering, so what this asserts now is that *every* function in
-  # the corpus is built by the IR backend. Adding one back is the thing to
-  # notice in review: it means a capability was lost, not that a test was
-  # relaxed.
-  educc_add_test(codegen_experimental codegen codegen 300 ssa --compiler-flag=-experimental --no-fallback)
+  # No opt-out flag is needed for this to be an assertion rather than a
+  # description any more. '-experimental' now compiles every function through
+  # the IR backend or aborts trying - step 18 removed the per-function fallback
+  # along with the '--no-fallback' switch and the '<name>.fallback' exemption
+  # files that went with it - so a lost capability is a failed test by
+  # construction and cannot be papered over by a sibling file.
+  educc_add_test(codegen_experimental codegen codegen 300 ssa --compiler-flag=-experimental)
   # Compares '-irDump:ssa' output against golden dumps, isolating buildSSA
   # from scp/gvn/dce (see test/testRunner.py's runIrTest).
   educc_add_test(ir_ssa ir/ssa ir 60 ssa)

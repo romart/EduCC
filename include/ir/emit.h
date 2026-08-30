@@ -18,19 +18,16 @@ struct _GeneratedFunction;
 // registers the code actually names is only settled once allocation has run -
 // so the prologue and epilogue are built here and nowhere earlier.
 //
-// Not every machine function can be emitted. One that still contains
-// MOP_UNSELECTED has instructions with no encoding, and one register
-// allocation declined still has virtual registers in its operands; both are
-// recorded on the MachineFunction and both make this refuse. Refusing is a
-// supported outcome rather than an error: the caller falls back to the legacy
-// backend for that function, which is what lets the new pipeline take over one
-// construct at a time instead of all at once.
-Boolean canEmitMachineFunction(const MachineFunction *mf);
-
+// Every machine function that reaches here can be emitted. There used to be a
+// pair of "not this one" flags on the MachineFunction - selection had left a
+// placeholder, or allocation had declined - and a caller that fell back to the
+// legacy backend when either was set. Step 18 removed both: what the earlier
+// stages cannot express aborts where it is found, so by the time emission runs
+// every operand is a physical register and every opcode has an encoding.
+//
 // Emits 'mf' into the context's .text section. Returns the GeneratedFunction
 // describing it, exactly as the legacy generateFunction would, so everything
 // downstream - symbols, relocations, ELF layout - cannot tell the two apart.
-// Only valid when canEmitMachineFunction() says so.
 struct _GeneratedFunction *emitMachineFunction_x86_64(struct _GenerationContext *ctx,
                                                      MachineFunction *mf);
 

@@ -153,12 +153,6 @@ static int32_t dumpMachineOpcode(FILE *stream, const MachineFunction *mf, const 
 
   if (mi->opcode < MOP_GENERIC_COUNT) {
     r += fprintf(stream, "%s", genericOpcodeNames[mi->opcode]);
-    // Which IR instruction has no rule yet is the entire content of a
-    // placeholder, and the trailing '; %n' does not carry it - ids go sparse
-    // and nobody remembers what %41 was.
-    if (mi->opcode == MOP_UNSELECTED && mi->origin != NULL) {
-      r += fprintf(stream, "(%s)", irInstructionMnemonic(mi->origin->kind));
-    }
   } else {
     const char *name = targetOpcodeName(mf->target, mi->opcode);
     r += name != NULL ? fprintf(stream, "%s", name) : fprintf(stream, "op#%u", mi->opcode);
@@ -347,13 +341,6 @@ int32_t dumpMachineFunction(FILE *stream, const MachineFunction *mf) {
   const char *name = mf->ast ? mf->ast->declaration->name : "<unnamed>";
   int32_t r = fprintf(stream, "MachineFunction '%s' [target = %s]\n", name, mf->target->name);
 
-  // Said here rather than left to be inferred from an empty body: a function
-  // refused before selection ran keeps nothing but stage 0's phi copies, and a
-  // baseline showing that without saying why looks like finished code.
-  if (mf->refusalReason != NULL) {
-    r += fprintf(stream, "Refused before selection: %s\n", mf->refusalReason);
-  }
-
   if (mf->vregs.size == 0) {
     r += fprintf(stream, "VRegs: <none>\n");
   } else {
@@ -389,12 +376,6 @@ int32_t dumpMachineFunction(FILE *stream, const MachineFunction *mf) {
       }
     }
     r += fputc('\n', stream);
-  }
-
-  if (mf->hasUnallocated) {
-    // Which is to say: what follows still names virtual registers. Worth a
-    // line of its own rather than being left for the reader to notice.
-    r += fprintf(stream, "Registers: not allocated\n");
   }
 
   for (const MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {

@@ -228,8 +228,15 @@ struct _IrInstruction {
           // them, and no type distinguishes them - which is the whole of why
           // such a call used to be refused. Set in translateCall, where the
           // argument's own type is still in hand. Bit 0 is the callee and is
-          // never set, so a zero mask means "nothing unusual here".
-          uint64_t memArgs;
+          // never set, so an all-zero mask means "nothing unusual here".
+          //
+          // One word per sixty-four inputs, allocated alongside the call
+          // rather than being a single word in it. An argument list has no
+          // bound, and a fixed word has to answer "not a memory argument" for
+          // everything past the sixty-fourth - which is an address passed
+          // where the callee reads bytes. NULL until setCallMemoryArg is
+          // called; ask isCallMemoryArg rather than reading it.
+          uint64_t *memArgs;
         } call;
         struct {
           uint32_t cacheIdx;
@@ -384,6 +391,13 @@ IrInstruction *newCondBranch(IrInstruction *cond, IrBasicBlock *thenBB, IrBasicB
 IrInstruction *newTableBranch(IrInstruction *cond, SwitchTable *table);
 IrInstruction *newGEPInstruction(IrInstruction *base, IrInstruction *offset, const TypeRef *underType);
 IrInstruction *newMemoryCopyInstruction(IrInstruction *dst, IrInstruction *src, IrInstruction *count, const TypeRef *copyType);
+
+// IrInstruction.info.call.memArgs, which is a bitmap and not a word. Sized for
+// 'numInputs' before any input is added, because that is the only point at
+// which the count is known and the bits are set as the inputs arrive.
+void allocateCallMemoryArgs(IrInstruction *call, size_t numInputs);
+void setCallMemoryArg(IrInstruction *call, size_t idx);
+Boolean isCallMemoryArg(const IrInstruction *call, size_t idx);
 
 IrBasicBlock *updateBlock();
 void addInstruction(IrInstruction *instr);

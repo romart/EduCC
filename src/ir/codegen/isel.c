@@ -525,45 +525,6 @@ MachineBasicBlock *machineBuilderBlock(MachineBuilder *b, const IrBasicBlock *ta
   return mbb;
 }
 
-void buildUnselected(MachineBuilder *b, const IrInstruction *i, const char *reason) {
-  // The first refusal is the one that matters - it is what makes stage 3 hand
-  // the whole function back to the legacy backend - but the rest are printed
-  // too, because "what else would have to be selected for this function to
-  // make it through" is exactly the question the next step asks.
-  printf("ISEL: '%s' falls back at %c%u (%s): %s\n", b->mf->ir->ast->declaration->name, '%',
-         i->id, irInstructionMnemonic(i->kind), reason);
-
-  // Inputs carrying no value of their own have no register to name and are
-  // left out. What is kept is enough for the placeholder to look to liveness
-  // like the thing it stands for: it reads these, and writes that.
-  uint16_t numUses = 0;
-  for (size_t idx = 0; idx < i->inputs.size; ++idx) {
-    if (getInstructionFromVector(&i->inputs, idx)->type != IR_VOID) {
-      numUses += 1;
-    }
-  }
-
-  uint16_t numDefs = i->type != IR_VOID ? 1 : 0;
-  MachineInstr *mi = buildMachineInstr(b, MOP_UNSELECTED, numDefs, numUses);
-
-  if (numDefs != 0) {
-    setRegisterOperand(mi, 0, machineVregForValue(b->mf, i));
-  }
-
-  uint16_t op = numDefs;
-  for (size_t idx = 0; idx < i->inputs.size; ++idx) {
-    const IrInstruction *input = getInstructionFromVector(&i->inputs, idx);
-    if (input->type != IR_VOID) {
-      setValueOperand(b, mi, op++, input);
-    }
-  }
-
-  b->mf->hasUnselected = TRUE;
-  if (b->mf->firstUnselectedReason == NULL) {
-    b->mf->firstUnselectedReason = reason;
-  }
-}
-
 // -============================ The walk ============================-
 
 static void selectBlock(MachineBuilder *b, const ArchSelector *sel, MachineBasicBlock *mbb) {
@@ -606,12 +567,11 @@ static void selectBlock(MachineBuilder *b, const ArchSelector *sel, MachineBasic
 void selectInstructions(MachineFunction *mf) {
   const ArchSelector *sel = archSelectorFor(mf->target);
 
-  // riscv64 has no selector yet. Leaving the skeleton stage 0 built is the
-  // honest outcome: an empty machine function is visibly unfinished, whereas
-  // x86 instructions under a riscv64 header would not be.
-  if (sel == NULL) {
-    return;
-  }
+  // A target with no selector cannot get here: '-experimental' is refused for
+  // any '-march' but x86_64 where the options are read. This used to leave the
+  // skeleton stage 0 built and let every function fall back one at a time,
+  // which is not a thing that can happen any more.
+  assert(sel != NULL && "this target has no instruction selector");
 
   layoutBlocks(mf);
 

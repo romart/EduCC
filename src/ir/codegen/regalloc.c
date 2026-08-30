@@ -192,36 +192,25 @@ static int collectAssignments(const MachineFunction *mf, MachineInstr *mi,
 //
 // It cannot when a single instruction names more distinct virtual registers of
 // one class than the target reserves as scratch, because there is then nowhere
-// to put them all at once. Across the whole test corpus the widest thing stage
-// 1 genuinely selects names three - a store through a base and an index, once
-// address operands existed - against a budget of three, so it fits, but only
-// just. MOP_UNSELECTED is what actually reaches the limit: it stands in for an
-// IR instruction with as many inputs as that instruction had, so a call the
-// selector turned away reads one register per argument.
+// to put them all at once. The widest thing selection builds names three - a
+// store through a base and an index, once address operands existed - against a
+// budget of three, so it fits, but only just.
 //
-// So the limit is only ever reached by a placeholder, which means only by a
-// function that already carries MachineFunction.hasUnselected and already
-// cannot be emitted. Declining the whole function rather than half-allocating
-// it keeps the postcondition worth having: a machine function either names no
-// virtual registers at all, or is exactly as selection left it.
+// Nothing reaches the limit any more, and this is now a check rather than a
+// refusal. What used to reach it was MOP_UNSELECTED, which stood in for an IR
+// instruction with as many inputs as that instruction had and so read one
+// register per argument of a call selection had turned away. Step 7 took the
+// common case (an ordinary integer call), step 13 the large aggregate
+// argument, step 17 long double, and step 18 the placeholder itself: with
+// every instruction genuinely selected, the widest one is three registers by
+// construction.
 //
-// Step 7 took the common case away: an ordinary integer call used to be the
-// placeholder that got here, and is now a sequence of one-register moves that
-// does not come close. What is left is the calls selection still refuses -
-// long double most durably, its lowering being soft-float work outside step 7
-// altogether. A large aggregate argument was on that list until step 13, which
-// turned it into loads and pushes naming one register at a time.
-// test/testData/ir/gvn/ra_limits.c pins one, and if a later step leaves
-// nothing at all able to reach this, say so here rather than deleting the
-// check: it is cheap, and it is what makes the postcondition above a statement
-// about every function rather than about the ones tried so far.
-//
-// Note that the margin is now one register, not several, and that a store
-// through base+index is what ate it. An addressing mode with a scaled index
-// *and* a displacement register, or any three-operand form, would need a
-// fourth scratch register rather than a fallback - so if this starts declining
-// functions that selection genuinely covered, the answer is to widen
-// TargetDescriptor.scratchRegs and not to relax the check.
+// Kept rather than deleted because it is what makes the postcondition a
+// statement about every function rather than about the ones tried so far, and
+// because the margin is one register and not several. An addressing mode with
+// a scaled index *and* a displacement register, or any three-operand form,
+// would need a fourth scratch register - so if this ever fires, the answer is
+// to widen TargetDescriptor.scratchRegs, not to relax the check.
 static Boolean fitsScratchBudget(MachineFunction *mf) {
   ScratchAssignment table[MAX_SCRATCH_REGS];
 
@@ -333,21 +322,17 @@ static void recordUsedPhysRegs(MachineFunction *mf) {
 void allocateRegisters(MachineFunction *mf) {
   const TargetDescriptor *target = mf->target;
 
-  // A target with no scratch registers has no backend yet - riscv64 has no
-  // selector either, so its blocks hold nothing but stage 0's phi copies.
-  // Leaving those alone is the honest outcome, exactly as selection does.
-  if (target->scratchRegCount[RC_GP] == 0) {
-    mf->hasUnallocated = TRUE;
-    return;
-  }
+  // Only x86_64 reaches this - '-experimental' with any other '-march' is
+  // refused where the options are read, riscv64 having neither a selector nor
+  // scratch registers to hand out.
+  assert(target->scratchRegCount[RC_GP] != 0 && "this target has no IR backend");
 
   for (size_t rc = 0; rc < RC_CLASS_COUNT; ++rc) {
     assert(target->scratchRegCount[rc] <= MAX_SCRATCH_REGS);
   }
 
   if (!fitsScratchBudget(mf)) {
-    mf->hasUnallocated = TRUE;
-    return;
+    unreachable("an instruction names more registers than the target has scratch");
   }
 
   RegAllocContext ra = {0};

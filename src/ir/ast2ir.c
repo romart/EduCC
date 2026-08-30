@@ -615,6 +615,20 @@ static IrInstruction *translateCall(AstExpression *expr) {
   IrInstruction *calleeOp = translateRValue(callee);
   IrInstruction *callInstr =
       newInstruction(IR_CALL, typeRefToIrType(expr->type));
+
+  // The callee, an optional return buffer, and one input per argument - the
+  // width the memory-argument bitmap has to cover, counted before the first
+  // input goes in because that is when it can still be sized.
+  size_t numInputs = 1;
+  if (isCompositeType(returnType) && returnTypeSize > sizeof(intptr_t)) {
+    numInputs += 1;
+  }
+  for (AstExpressionList *args = expr->callExpr.arguments; args != NULL;
+       args = args->next) {
+    numInputs += 1;
+  }
+  allocateCallMemoryArgs(callInstr, numInputs);
+
   addInstructionInput(callInstr, calleeOp);
 
   callInstr->astType = expr->type;
@@ -654,13 +668,7 @@ static IrInstruction *translateCall(AstExpression *expr) {
         realArgOp->astType = makePointedType(ctx->pctx, 0, argType);
         generateCompositeCopy(argType, argOp, realArgOp, expr);
 
-        // Bit 0 names the callee, which is never one of these, so it is free
-        // to mean "there is one the mask could not hold" - and selection
-        // refuses the call rather than passing an address by mistake.
-        size_t inputIdx = callInstr->inputs.size;
-        size_t maskBits = 8 * sizeof(callInstr->info.call.memArgs);
-        callInstr->info.call.memArgs |= (uint64_t)1
-                                        << (inputIdx < maskBits ? inputIdx : 0);
+        setCallMemoryArg(callInstr, callInstr->inputs.size);
       } else {
         IrInstruction *offset = createIntegerConstant(IR_I64, 0);
         IrInstruction *gep = newGEPInstruction(argOp, offset, argType);
@@ -1049,8 +1057,11 @@ static enum IrIntructionKind getBinaryArith(ExpressionType op,
   case EB_DIV:
     k = isFloatOperand ? IR_E_FDIV : IR_E_DIV;
     break;
+  // Like the bitwise operators below: C's '%' takes integer operands only, so
+  // sema has already rejected the float case and IR_E_FMOD has no producer.
   case EB_MOD:
-    k = isFloatOperand ? IR_E_FMOD : IR_E_MOD;
+    assert(!isFloatOperand);
+    k = IR_E_MOD;
     break;
   case EB_LHS:
     assert(!isFloatOperand);
@@ -1409,6 +1420,11 @@ static IrInstruction *translateArrayAccess(AstExpression *expr) {
       addInstruction(scaledIndexOp);
       scaledIndexOp->meta.astExpr = expr;
       scaledIndexOp->astType = indexType;
+    } else if (elementSize == 0) {
+      // An empty struct, which this frontend accepts as GCC does. Every
+      // element of an array of them is at the same address, so the index
+      // scales to nothing at all rather than to itself.
+      scaledIndexOp = createIntegerConstant(IR_I64, 0);
     } else {
       assert(elementSize == 1);
       scaledIndexOp = indexInstr;

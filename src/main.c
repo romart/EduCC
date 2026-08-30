@@ -336,7 +336,6 @@ int main(int argc, char** argv) {
   StringList mhead = { 0 }, *mcur = &mhead;
   StringList lhead = { 0 }, *lcur = &lhead;
   StringList lDirHead = { 0 }, *lDirCur = &lDirHead;
-  StringList afHead = { 0 }, *afCur = &afHead;
 
   unsigned inputCountC = 0;
   unsigned inputCountO = 0;
@@ -392,15 +391,6 @@ int main(int argc, char** argv) {
       config.asmDump = 1;
     } else if (strcmp("-experimental", arg) == 0) {
       config.experimental = 1;
-    } else if (strcmp("-noFallback", arg) == 0) {
-      config.noFallback = 1;
-    } else if (strcmp("-allowFallback", arg) == 0) {
-      const char *fn = i + 1 < argc ? argv[++i] : NULL;
-      if (fn == NULL) {
-        fprintf(stderr, "function name expected after '-allowFallback' option\n");
-        return 2;
-      }
-      afCur = afCur->next = newStringNode(fn);
     } else if (strcmp("-c", arg) == 0) {
         config.objOutput = 1;
         continue;
@@ -497,8 +487,12 @@ int main(int argc, char** argv) {
     }
   }
 
-  if ((config.noFallback || afHead.next != NULL) && !config.experimental) {
-      fprintf(stderr, "fatal error: '-noFallback'/'-allowFallback' are only meaningful with '-experimental'\n");
+  // The IR pipeline emits every function it is given or aborts trying; there
+  // is no longer a legacy backend behind it to catch what it cannot do. Only
+  // x86_64 has a selector, so asking for another target has to be refused here
+  // rather than discovered as an empty machine function much later.
+  if (config.experimental && config.arch != X86_64) {
+      fprintf(stderr, "fatal error: '-experimental' has no backend for this '-march'\n");
       return 2;
   }
 
@@ -521,7 +515,6 @@ int main(int argc, char** argv) {
   }
 
   config.macroses = mhead.next;
-  config.allowedFallbacks = afHead.next;
 
   StringList *compiledObjFiles = compileFiles(chead.next, &config, tmpDir);
 

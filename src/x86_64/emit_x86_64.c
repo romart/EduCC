@@ -725,7 +725,7 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
     break;
 
   default:
-    unreachable("stage 3 has no encoding for this opcode - canEmitMachineFunction should have refused");
+    unreachable("stage 3 has no encoding for this opcode");
   }
 }
 
@@ -823,12 +823,8 @@ static void emitJumpTables(EmitContext *e) {
 
 // -============================ Entry points ==============================-
 
-Boolean canEmitMachineFunction(const MachineFunction *mf) {
-  return mf != NULL && !mf->hasUnselected && !mf->hasUnallocated;
-}
-
 GeneratedFunction *emitMachineFunction_x86_64(GenerationContext *ctx, MachineFunction *mf) {
-  assert(canEmitMachineFunction(mf));
+  assert(mf != NULL);
 
   GeneratedFunction *gen = allocateGenFunction(ctx);
   gen->symbol = mf->ast->declaration->symbol;

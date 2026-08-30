@@ -1,0 +1,5 @@
+The IR backend sizes an empty struct parameter's frame slot from
+computeTypeSize(), which is zero, and then stores the incoming eight-byte
+register into it - over the frame base. The legacy backend passes the same
+eight bytes of nothing in particular but has somewhere to put them, so it gets
+the right answer. See the file's header comment for the two ways out.

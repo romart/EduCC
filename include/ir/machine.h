@@ -35,14 +35,6 @@ struct _MachineFunction;
 // one integer means a MachineInstr never has to say which namespace its opcode
 // came from.
 //
-// MOP_UNSELECTED is the placeholder selection leaves behind for an IR
-// instruction it has no rule for yet - loads, floats, aggregates, everything
-// outside the integer subset stage 1 covers today. It is deliberately
-// well-formed rather than a hole: it defines the value's register and uses its
-// inputs, so the machine function stays a connected graph that liveness and
-// the dumper can walk. What it is *not* is emittable, which is what
-// MachineFunction.hasUnselected records.
-//
 // MOP_SPILL/MOP_RELOAD are the register allocator's two moves between a
 // register and a frame slot. They are generic rather than per-target because
 // the allocator that creates them is, and because every target spells them as
@@ -52,7 +44,6 @@ struct _MachineFunction;
 #define MACHINE_GENERIC_OPCODES                                             \
   MOP_DEF(PHI, "phi node, destroyed by stage 0 - never reaches allocation"), \
   MOP_DEF(COPY, "register to register move, either register class"),        \
-  MOP_DEF(UNSELECTED, "an IR instruction stage 1 has no rule for yet"),     \
   MOP_DEF(SPILL, "store a register into its frame slot"),                   \
   MOP_DEF(RELOAD, "load a register back out of its frame slot")
 
@@ -353,35 +344,6 @@ typedef struct _MachineFunction {
   // carries. Never shared between functions even in principle - the entries
   // name blocks of one particular function.
   Vector jumpTables;
-
-  // Set when selection left at least one MOP_UNSELECTED behind, i.e. this
-  // function contains something stage 1 cannot express yet. Register
-  // allocation is still meaningful on such a function - the placeholder has
-  // ordinary defs and uses - but emission is not, so stage 3 has to refuse it
-  // rather than emit nonsense for the opcode it does not recognise.
-  Boolean hasUnselected;
-
-  // Why, when the whole function was turned away before selection rather than
-  // one instruction at a time. NULL otherwise, including when hasUnselected
-  // was set by an ordinary MOP_UNSELECTED placeholder - those say what they
-  // are in the dump themselves.
-  //
-  // It exists so that a dump of such a function is not just mysteriously
-  // empty: refusing before selection means the blocks hold nothing but stage
-  // 0's phi copies, and without this the baseline would show a function that
-  // looks finished and is not.
-  const char *refusalReason;
-
-  // The reason the first MOP_UNSELECTED placeholder was built with, so that a
-  // report of this function falling back can say why without the reader having
-  // to go find the matching 'ISEL:' line. NULL when nothing was refused.
-  const char *firstUnselectedReason;
-
-  // Set when register allocation declined this function - see
-  // allocateRegisters(). Like hasUnselected it is a statement about
-  // emittability and not about well-formedness: the machine function is
-  // exactly as selection left it, virtual registers and all.
-  Boolean hasUnallocated;
 
   // Which physical registers the finished code names, as a bit per register id
   // (IR_PHYS_REG_MAX is 64, so one word covers the namespace). Filled in by

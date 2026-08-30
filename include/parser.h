@@ -58,9 +58,6 @@ typedef struct _Configuration {
   IncludePath *includePath;
   StringList *macroses;
 
-  // '-allowFallback <fn>': functions exempt from the '-noFallback' check.
-  StringList *allowedFallbacks;
-
   enum Arch arch;
 
   unsigned irDumpPhases; // bitmask of enum IrDumpPhase values; 0 == legacy final-only dump
@@ -76,10 +73,6 @@ typedef struct _Configuration {
   unsigned objOutput : 1;
 
   unsigned experimental : 1;
-
-  // '-noFallback': an -experimental compile where the IR backend hands a
-  // function back to the legacy one is an error, not a silent substitution.
-  unsigned noFallback : 1;
 
   unsigned hadError : 1;
 } Configuration;

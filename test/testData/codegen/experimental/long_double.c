@@ -16,7 +16,7 @@
 //
 // Check 1 is about the lexer rather than the backend: an 'L' suffix used to be
 // recognised and then dropped, so every long double literal in this file was a
-// double until step 18.
+// double until step 17.
 
 int main(void) {
   // The suffix reaches the type. Without it 'x' is a double widened on

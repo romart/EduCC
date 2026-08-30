@@ -8,22 +8,18 @@
 #include "machine_x86_64.h"
 #include "instructions_x86_64.h"
 
-static const char *callRefusalReason(const IrInstruction *call);
-
 // -============================ x86-64 instruction selection ==============-
 //
 // One IR instruction at a time, into the two-address form the ISA actually
 // has. See docs/ir-codegen-design.md section 6 for the shape and
 // machine_x86_64.h for the opcodes.
 //
-// What is covered is the integer subset - constants, values arriving in
-// registers, arithmetic, compares and branches - plus calls and returns,
-// memory, floats and conversions, and the aggregate cases the IR expresses.
-// What is not - string literals, switch tables, computed gotos, dynamic
-// allocas, long double, and the aggregate and variadic cases sections 6.10 and
-// 6.11 of the design document set out - falls through to buildUnselected(),
-// which leaves a well-formed placeholder rather than a hole and says out loud
-// why, so the rest of the function still selects and can still be read.
+// Every IR instruction this compiler builds has a rule here. There is no
+// placeholder and no fallback any more: what the switches below do not name is
+// something the IR never contains, and each such arm says which side of the
+// pipeline makes it so rather than deferring to another backend. A gap is
+// therefore a crash rather than quieter code, which is the point - see section
+// 6.21 of the design document.
 //
 // Flags are not modelled. x86's compare writes EFLAGS and the setcc or jcc
 // after it reads them, and nothing here says so: the two are simply emitted
@@ -342,10 +338,8 @@ static void selectX87Store(MachineBuilder *b, const IrInstruction *i);
 static void selectMemoryLoad(MachineBuilder *b, const IrInstruction *i) {
   enum IrTypeKind t = i->info.memory.opType;
 
-  if (!isAddressableIrType(t)) {
-    buildUnselected(b, i, "no single load moves a value of this type");
-    return;
-  }
+  // addLoadInstr asserts the same thing: a load of nothing is not a load.
+  assert(isAddressableIrType(t) && "a load of a value with no register class");
 
   if (t == IR_F80) {
     selectX87Load(b, i);
@@ -360,9 +354,14 @@ static void selectMemoryLoad(MachineBuilder *b, const IrInstruction *i) {
   mi->opSize = irTypeMachineSize(t);
 }
 
-// Whether the copy is one the rule below covers. Asked twice: once by that
-// rule, and once by the driver, which has to know whether this instruction's
-// pointers will reach an addressing mode before it decides to fold them away.
+// Whether the copy's count is a constant, which every copy this compiler
+// builds has: generateCompositeCopy is the only thing that makes one, and it
+// takes the count from computeTypeSize(). Asked by the driver, which has to
+// know whether this instruction's pointers will reach an addressing mode
+// before it decides to fold them away.
+//
+// Zero is a count like any other - an empty struct is a GNU extension this
+// frontend accepts, and copying nothing is the right amount of code for it.
 //
 // The size is read from the IR rather than from the operand, because whether
 // it was folded into an immediate is a question about *uses* and this one is
@@ -370,11 +369,8 @@ static void selectMemoryLoad(MachineBuilder *b, const IrInstruction *i) {
 static Boolean isUnrollableCopy(const IrInstruction *i) {
   const IrInstruction *size = inputAt(i, 2);
 
-  if (size->kind != IR_DEF_CONST || size->info.constant.kind != IR_CK_INTEGER) {
-    return FALSE;
-  }
-
-  return size->info.constant.data.i > 0;
+  return size->kind == IR_DEF_CONST && size->info.constant.kind == IR_CK_INTEGER &&
+         size->info.constant.data.i >= 0;
 }
 
 // 'copy n bytes from src to dst', as a run of load/store pairs at increasing
@@ -393,6 +389,10 @@ static Boolean isUnrollableCopy(const IrInstruction *i) {
 // frame that scales with the copy is the worse of the two.
 static void selectFixedCopy(MachineBuilder *b, const MachineAddress *to,
                             const MachineAddress *from, int32_t bytes) {
+  if (bytes == 0) {
+    return;
+  }
+
   // Widest the chunks get, so the narrow tail borrows the same slot; the
   // instructions carry their own width and only ever read back what they wrote.
   uint32_t tmp = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
@@ -423,13 +423,13 @@ static void selectFixedCopy(MachineBuilder *b, const MachineAddress *to,
 static void selectMemoryCopy(MachineBuilder *b, const IrInstruction *i) {
   const IrInstruction *size = inputAt(i, 2);
 
-  // A size known only at run time is the one shape left: it needs a loop, and
-  // nothing here builds one. Size alone is no longer a reason to refuse - see
-  // docs/ir-codegen-design.md section 10.
-  if (!isUnrollableCopy(i)) {
-    buildUnselected(b, i, "copies a number of bytes not known until run time");
-    return;
-  }
+  // A count known only at run time would need a loop, and nothing here builds
+  // one - but nothing builds such a copy either. generateCompositeCopy is the
+  // only producer of an IR_M_COPY and its count is always computeTypeSize() of
+  // the type being copied, C having no assignment of an object whose size is
+  // not known: a VLA cannot be assigned, and a flexible array member is not
+  // part of its struct's size.
+  assert(isUnrollableCopy(i) && "a copy of a size only known at run time");
 
   // Both addresses once, outside the loop: the chunks differ only in their
   // displacement, and an address that had to widen an index would otherwise
@@ -443,10 +443,9 @@ static void selectMemoryCopy(MachineBuilder *b, const IrInstruction *i) {
 static void selectMemoryStore(MachineBuilder *b, const IrInstruction *i) {
   enum IrTypeKind t = i->info.memory.opType;
 
-  if (!isAddressableIrType(t)) {
-    buildUnselected(b, i, "no single store moves a value of this type");
-    return;
-  }
+  // The stored value's own type, so this is "a void expression was assigned to
+  // something" - which sema rejects now (DIAG_VOID_NOT_IGNORED).
+  assert(isAddressableIrType(t) && "a store of a value with no register class");
 
   if (t == IR_F80) {
     selectX87Store(b, i);
@@ -1313,10 +1312,10 @@ static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
     return;
   }
 
-  if (fromType == IR_P_AGG || toType == IR_P_AGG) {
-    buildUnselected(b, i, "converts to or from a type with no register class");
-    return;
-  }
+  // C has no cast to or from a struct or union type, and the frontend rejects
+  // one before this could see it.
+  assert(fromType != IR_P_AGG && toType != IR_P_AGG &&
+         "a conversion to or from an aggregate");
 
   // A conversion to _Bool is the one conversion that is not a change of
   // width: C defines it as 'x != 0', so (_Bool)0x100 is 1 rather than the low
@@ -1353,11 +1352,9 @@ static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
     // of the range at or above 2^63 needs control flow and selection is not
     // allowed to invent a block. Nothing that goes through translateCast
     // reaches here any more; anything that finds another way to build one
-    // should refuse rather than convert it as signed.
-    if (!isConvertibleIntType(fromType)) {
-      buildUnselected(b, i, "converts an unsigned 64-bit integer to a float");
-      return;
-    }
+    // must not be converted as signed, so this is a crash and not a fallback.
+    assert(isConvertibleIntType(fromType) &&
+           "an unsigned 64-bit integer reached selection unlowered");
 
     uint8_t srcSize = conversionIntSize(valueSize(value));
     // An unsigned source is widened to eight bytes and then converted as a
@@ -1378,10 +1375,8 @@ static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
   }
 
   // The same backstop the other way up; see above.
-  if (!isConvertibleIntType(toType)) {
-    buildUnselected(b, i, "converts a float to an unsigned 64-bit integer");
-    return;
-  }
+  assert(isConvertibleIntType(toType) &&
+         "an unsigned 64-bit integer reached selection unlowered");
 
   // Float to integer, truncating toward zero, which is what a C cast does.
   // The instruction writes four or eight bytes; a narrower destination takes
@@ -1426,14 +1421,12 @@ static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
 static Boolean callArgInMemory(const IrInstruction *call, size_t idx) {
   // A long double is always one, and needs no bit in the mask to say so: SysV
   // gives it the X87 class, which is passed in memory, and the type already
-  // says everything the mask would. Input 0 is the callee and is never one, so
-  // this cannot collide with the overflow flag that bit carries.
+  // says everything the mask would.
   if (inputAt(call, idx)->type == IR_F80) {
     return TRUE;
   }
 
-  return idx < 8 * sizeof(call->info.call.memArgs) &&
-         (call->info.call.memArgs & ((uint64_t)1 << idx)) != 0;
+  return isCallMemoryArg(call, idx);
 }
 
 // What a memory argument takes in the outgoing area: its size rounded up to a
@@ -1694,13 +1687,6 @@ static void selectMemoryArgument(MachineBuilder *b, const IrInstruction *arg) {
 
 static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   const TargetDescriptor *target = b->mf->target;
-
-  const char *refusal = callRefusalReason(i);
-
-  if (refusal != NULL) {
-    buildUnselected(b, i, refusal);
-    return;
-  }
 
   uint32_t numFpRegs = 0, numRegArgs = 0, numStackSlots = 0;
   callArgCounts(target, i, &numFpRegs, &numRegArgs, &numStackSlots);
@@ -2324,13 +2310,19 @@ static void selectInstruction_x86_64(MachineBuilder *b, const IrInstruction *i) 
     break;
   }
 
-  // Floats, casts, aggregate copies. Each of these is a step of its own in
-  // docs/ir-codegen-design.md section 11, and until then a placeholder is more
-  // useful than an abort: the rest of the function still selects, the dump
-  // names exactly what is missing, and buildUnselected says so out loud.
+  // What is left of the IR opcode list is what nothing builds. IR_MOVE and
+  // IR_BLOCK_PTR have no producer anywhere in the compiler; IR_E_CMP and
+  // IR_E_FCMP are named only by gvn's classification switch and by nothing
+  // that creates one; IR_E_FMOD is what getBinaryArith would make of '%' on
+  // floating operands, which sema rejects before it gets there. IR_PHI and
+  // IR_ALLOCA never arrive - the walk skips a phi and the frame takes an
+  // alloca, both above.
+  //
+  // So this is a crash rather than a placeholder. Anything that starts
+  // building one of these needs a rule in the same commit, and a backend that
+  // quietly did less instead is what step 18 removed.
   default:
-    buildUnselected(b, i, "no rule yet");
-    break;
+    unreachable("no selection rule for this IR instruction");
   }
 }
 
@@ -2342,9 +2334,10 @@ static void selectTerminator_x86_64(MachineBuilder *b, const IrInstruction *i) {
   case IR_TBRANCH: selectTableBranch(b, i); break;
   case IR_IBRANCH: selectIndirectBranch(b, i); break;
 
+  // Every terminator the IR has is above; a block ends in one of these five or
+  // termintateBlock would not have accepted it.
   default:
-    buildUnselected(b, i, "no rule yet");
-    break;
+    unreachable("no selection rule for this IR terminator");
   }
 }
 
@@ -2433,40 +2426,24 @@ static Boolean x86IsLegalImmediate(const IrInstruction *use, size_t operandIdx,
 }
 
 
-// What this rule covers. Returns NULL when it covers the call, and otherwise
-// what stopped it, for the log line the placeholder prints. Everything it
-// turns away becomes a placeholder, which is what it already was.
-static const char *callRefusalReason(const IrInstruction *call) {
-  // Bit 0 is the callee's, so it cannot mean an argument; translateCall sets it
-  // to say there was a memory argument too far along the list for the mask to
-  // name. Refusing is the whole of the handling - the alternative is passing
-  // its address where the callee reads bytes.
-  if (callArgInMemory(call, 0)) {
-    return "passes an aggregate argument past the sixty-fourth, which the call's"
-           " memory-argument mask cannot name";
-  }
-
-  for (size_t idx = firstCallArgIndex(call); idx < call->inputs.size; ++idx) {
-    const IrInstruction *arg = inputAt(call, idx);
-
-    if (callArgInMemory(call, idx)) {
-      // An over-aligned aggregate used to be refused here, because pushing
-      // eightbyte by eightbyte lands a struct at whatever alignment the
-      // eightbyte before it left the stack pointer at. callStackArea lays the
-      // area out instead, so the padding SysV asks for is there and the
-      // refusal is gone - which is what a long double argument needed anyway,
-      // it being the reason a struct is ever aligned wider than an eightbyte.
-      continue;
-    }
-
-    if (arg->type == IR_VOID) {
-      return "passes an argument of a type with no register class";
-    }
-  }
-
-  return NULL;
-}
-
+// Every call is covered now, and the two things that used to stop one are both
+// gone rather than merely unreached.
+//
+// A memory argument past the sixty-fourth was refused while the mask saying
+// which inputs are aggregate bytes was one word: past that it had to answer
+// "no", which is an address passed where the callee reads bytes. It is a
+// bitmap sized to the input count now (see setCallMemoryArg), so the position
+// no longer means anything.
+//
+// An argument of no register class - a void expression handed to a function
+// expecting a value - was a frontend hole rather than a backend gap. Sema
+// rejects it now (DIAG_VOID_NOT_IGNORED, see isCompatibleType), so nothing of
+// the kind reaches translation at all.
+//
+// An over-aligned aggregate was the third, and step 17 removed it: pushing
+// eightbyte by eightbyte landed a struct at whatever alignment the eightbyte
+// before it left the stack pointer at, and callStackArea lays the area out
+// instead.
 
 // What one memory operand can hold. The scale lives in the SIB byte as a shift
 // amount, so it is 1, 2, 4 or 8 and nothing else, and the displacement is a
@@ -2480,19 +2457,16 @@ static Boolean x86IsLegalAddressMode(uint32_t scale, int64_t disp) {
   return disp >= INT32_MIN && disp <= INT32_MAX;
 }
 
-// Which inputs reach an addressing mode, as a bit per position. Zero for
-// anything the rules above are going to refuse: a placeholder names its
-// inputs' registers, so a pointer folded away underneath one would leave it
-// reading a register nothing ever wrote.
+// Which inputs reach an addressing mode, as a bit per position.
 static uint32_t x86AddressOperands(const IrInstruction *i) {
   switch (i->kind) {
   case IR_M_LOAD:
   case IR_M_STORE:
-    return isAddressableIrType(i->info.memory.opType) ? 1u : 0;
+    return 1u;
 
   // Both of them: a copy addresses its destination and its source alike.
   case IR_M_COPY:
-    return isUnrollableCopy(i) ? 3u : 0;
+    return 3u;
 
   // An x87 operand is an address that fld reads through, so it folds the way
   // a load's pointer does - and both of them, an x87 instruction naming two.
