@@ -283,6 +283,18 @@ static Address addressOperand(EmitContext *e, const MachineInstr *mi, uint16_t i
   }
 }
 
+// Which x87 memory form a width names. Ten and not sixteen: the object
+// occupies sixteen bytes of stack for alignment, and fld/fstp move the ten
+// that mean anything.
+static int fpMemoryTypeId(uint8_t size) {
+  switch (size) {
+  case 4:  return T_F4;
+  case 8:  return T_F8;
+  case 10: return T_F10;
+  default: unreachable("no x87 memory form of this width");
+  }
+}
+
 static MachineBasicBlock *blockOperand(const MachineInstr *mi, uint16_t idx) {
   const MachineOperand *op = machineOperandAt((MachineInstr *)mi, idx);
   assert(op->kind == MO_MBB);
@@ -565,6 +577,60 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
     emitMovdq(f, 0x66, 0x0F, 0x7E, regOperand(e, mi, 0), regOperand(e, mi, 1),
               mi->opSize == 8);
     break;
+
+  // x87. Every one of these is one emit* call and an address, because
+  // selection already spelled the sequence out - see selectX87 in
+  // isel_x86_64.c. The arithmetic and compare forms name no operand at all:
+  // they read st(0) and st(1), which the two loads in front of them put there.
+  case X86_FLD: {
+    Address addr = addressOperand(e, mi, 0);
+    emitFPLoad(f, &addr, fpMemoryTypeId(mi->opSize));
+    break;
+  }
+
+  case X86_FSTP: {
+    Address addr = addressOperand(e, mi, 0);
+    emitFPStore(f, &addr, fpMemoryTypeId(mi->opSize));
+    break;
+  }
+
+  case X86_FILD: {
+    Address addr = addressOperand(e, mi, 0);
+    emitFPIntLoad(f, &addr, mi->opSize);
+    break;
+  }
+
+  case X86_FISTP: {
+    Address addr = addressOperand(e, mi, 0);
+    emitFPIntStore(f, &addr, mi->opSize);
+    break;
+  }
+
+  // st(1) op= st(0), pop - which leaves the answer where the next fstp will
+  // find it. The register number is 1 and never anything else: nothing here
+  // reaches deeper into the stack than the two operands it just pushed.
+  case X86_FADDP: emitFPArith(f, OP_FADD, 1, TRUE); break;
+  case X86_FSUBP: emitFPArith(f, OP_FSUB, 1, TRUE); break;
+  case X86_FMULP: emitFPArith(f, OP_FMUL, 1, TRUE); break;
+  case X86_FDIVP: emitFPArith(f, OP_FDIV, 1, TRUE); break;
+
+  case X86_FCOMIP:  emitFPArith(f, OP_FOCMP, 1, TRUE); break;
+  case X86_FUCOMIP: emitFPArith(f, OP_FUCMP, 1, TRUE); break;
+
+  case X86_FLDZ: emitFPnoArg(f, 0xEE); break;
+  case X86_FPOP: emitFPPop(f, 0); break;
+
+  case X86_FNSTCW: {
+    Address addr = addressOperand(e, mi, 0);
+    emitFPnoArgMem(f, &addr, 7);
+    break;
+  }
+
+  case X86_FLDCW: {
+    Address addr = addressOperand(e, mi, 0);
+    emitFPnoArgMem(f, &addr, 5);
+    break;
+  }
 
   case X86_CVTF2F:
     // cvtss2sd or cvtsd2ss, chosen by which way the widths go. The prefix

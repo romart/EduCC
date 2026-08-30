@@ -79,6 +79,44 @@
                                       above for the reason LOAD and STORE are  \
                                       both "mov" - it is the mnemonic, and the \
                                       operands say which way it goes */        \
+                                                                               \
+  /* x87, and only where a long double leaves it no choice. Every sequence     \
+     these appear in is balanced - it loads its operands, computes, stores the \
+     answer to memory and leaves the stack as deep as it found it - so no      \
+     value is ever live in st(i) across an instruction boundary and the        \
+     allocator never learns x87 exists. That is what makes a stack register    \
+     file usable behind a flat allocator; see section 6.20 of                  \
+     docs/ir-codegen-design.md.                                                \
+                                                                               \
+     opSize on a load or a store is the width in memory - 4, 8 or 10 for a     \
+     float, 4 or 8 for an integer - and not the 80 bits x87 computes in. */    \
+  X86_OPCODE_DEF(FLD, "fld"),      /* push [address] onto the x87 stack */     \
+  X86_OPCODE_DEF(FSTP, "fstp"),    /* pop the top into [address] */            \
+  X86_OPCODE_DEF(FILD, "fild"),    /* push a signed integer at [address] */    \
+  X86_OPCODE_DEF(FISTP, "fistp"),  /* pop the top into an integer at           \
+                                      [address], rounding by whatever the      \
+                                      control word says - so a C cast needs    \
+                                      FLDCW around it */                       \
+  X86_OPCODE_DEF(FADDP, "faddp"),  /* st(1) op= st(0), then pop: the whole of  \
+                                      x87 arithmetic as this backend uses it,  \
+                                      two operands in and one answer left */   \
+  X86_OPCODE_DEF(FSUBP, "fsubp"),                                              \
+  X86_OPCODE_DEF(FMULP, "fmulp"),                                              \
+  X86_OPCODE_DEF(FDIVP, "fdivp"),                                              \
+  X86_OPCODE_DEF(FCOMIP, "fcomip"),   /* compare st(0) with st(1) into the     \
+                                         ordinary flags, and pop. The flags    \
+                                         are the ones comis* sets, so every    \
+                                         setcc and jcc downstream is shared */ \
+  X86_OPCODE_DEF(FUCOMIP, "fucomip"), /* the same, quiet on a quiet NaN */     \
+  X86_OPCODE_DEF(FLDZ, "fldz"),       /* push +0.0, for the one comparison     \
+                                         that has no operand to compare        \
+                                         against: (_Bool)someLongDouble */     \
+  X86_OPCODE_DEF(FPOP, "fstp"),       /* drop st(0). The second half of a      \
+                                         compare, which pops only one of the   \
+                                         two it read */                        \
+  X86_OPCODE_DEF(FNSTCW, "fnstcw"),   /* the control word out to [address] */  \
+  X86_OPCODE_DEF(FLDCW, "fldcw"),     /* and back in from [address] */         \
+                                                                               \
   X86_OPCODE_DEF(CVTF2F, "cvtf2f"),   /* float <-> double */                   \
   X86_OPCODE_DEF(CVTSI2F, "cvtsi2f"), /* integer -> float; srcSize is the      \
                                          integer's width */                    \
