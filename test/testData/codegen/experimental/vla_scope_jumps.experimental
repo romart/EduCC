@@ -1,0 +1,6 @@
+The jump edges of the scope rule vla_scope_exit covers the plain ones of, and
+only the IR backend has any of it. The legacy backend gives a VLA's storage
+back when the function returns and at no other point - the same design that
+keeps it out of vla_in_loop and vla_scope_exit - and is not going to be taught
+to, so this is skipped there rather than muted: there is no bug here waiting to
+be fixed and flagged.

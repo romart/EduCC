@@ -123,6 +123,8 @@
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, CONTINUE_NOT_IN_LOOP, "'continue' statement not in loop statement"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, BRAEK_NOT_IN_LOOP_OR_SWITCH, "'break' statement not in loop or switch statement"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, LABEL_REDEFINITION, "redefinition of label '%s'"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, JUMP_INTO_VM_SCOPE, "jump into scope of identifier with variably modified type"), \
+  DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, SWITCH_INTO_VM_SCOPE, "switch jumps into scope of identifier with variably modified type"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, EXTERN_VAR_INIT, "'extern' variable cannot have an initializer"), \
   DIAGNOSTIC_DEF(ERROR, SEMANTHICAL, ARRAY_EXPLICIT_SIZE_OR_INIT, "definition of variable with array type needs an explicit size or an initializer"), \
   DIAGNOSTIC_DEF(WARNING, SEMANTHICAL, DECLARES_NOTHING, "declaration does not declare anything"), \

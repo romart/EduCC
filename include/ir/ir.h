@@ -319,6 +319,23 @@ struct _IrContext {
     struct _IrBasicBlock *breakBB;
     struct _IrBasicBlock *defaultCaseBB;
 
+    // The scopes that carve storage out of the stack and owe it back, one
+    // IR_STACK_SAVE each, innermost last. A 'break', 'continue' or 'goto' can
+    // leave several at once, which is why this is a stack and not the single
+    // save-per-loop it replaced.
+    Vector stackScopes;
+
+    // How deep that stack was where the current loop or switch began, so a
+    // jump out of one knows how many scopes it is leaving. Saved and restored
+    // around a loop exactly as breakBB/continueBB are.
+    size_t breakScopeDepth;
+    size_t continueScopeDepth;
+
+    // Label name -> the same depth for a 'goto' target, biased by one so an
+    // absent entry reads as zero. Filled in before translation because a label
+    // may be jumped to long before it is reached.
+    HashMap *labelScopeMap;
+
     struct _SwitchTable *switchTable;
 
     struct _IrBasicBlock *currentBB;

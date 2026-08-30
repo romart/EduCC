@@ -1,0 +1,118 @@
+FILE test/testData/parser/negative/vla_jump_into_scope.c
+  E signed int n
+----
+  FUN void gotoForward 
+  BEGIN
+    IF (*n)
+    THEN
+      GOTO inside
+    END_IF
+    unsigned long <v.0.length> = \
+      (unsigned long)*n
+    signed int[<v.0.length>] v = \
+      *<v.0.length> * 4
+    inside: (*v)[0] = 1        
+  END
+----
+  FUN void gotoSideways 
+  BEGIN
+    unsigned long <a.0.length> = \
+      (unsigned long)*n
+    signed int[<a.0.length>] a = \
+      *<a.0.length> * 4
+    (*a)[0] = 0
+    GOTO other    
+    unsigned long <b.0.length> = \
+      (unsigned long)*n
+    signed int[<b.0.length>] b = \
+      *<b.0.length> * 4
+    other: (*b)[0] = 1        
+  END
+----
+  FUN void gotoNested 
+  BEGIN
+    GOTO deep
+    unsigned long <outer.0.length> = \
+      (unsigned long)*n
+    signed int[<outer.0.length>] outer = \
+      *<outer.0.length> * 4
+    unsigned long <inner.0.length> = \
+      (unsigned long)*n
+    signed int[<inner.0.length>] inner = \
+      *<inner.0.length> * 4
+    deep: (*inner)[0] = (*outer)[0]            
+  END
+----
+  FUN void switchCase 
+  BEGIN
+    SWITCH (*n)
+      unsigned long <v.0.length> = \
+        (unsigned long)*n
+      signed int[<v.0.length>] v = \
+        *<v.0.length> * 4
+      CASE 4: (*v)[0] = 1
+      BREAK      
+    END_SWITCH    
+  END
+----
+  FUN void switchDefault 
+  BEGIN
+    SWITCH (*n)
+      unsigned long <v.0.length> = \
+        (unsigned long)*n
+      signed int[<v.0.length>] v = \
+        *<v.0.length> * 4
+      DEFAULT: (*v)[0] = 1
+      BREAK      
+    END_SWITCH    
+  END
+----
+  FUN void switchNestedCase 
+  BEGIN
+    SWITCH (*n)
+      CASE 1: unsigned long <v.0.length> = \
+  (unsigned long)*n
+signed int[<v.0.length>] v = \
+  *<v.0.length> * 4
+CASE 2: (*v)[0] = 1
+BREAK      
+    END_SWITCH    
+  END
+----
+  FUN void jumpToLabelAboveDeclaration 
+  BEGIN
+    IF (*n)
+    THEN
+      GOTO beforeTheArray
+    END_IF
+    beforeTheArray: 
+    unsigned long <v.0.length> = \
+      (unsigned long)*n
+    signed int[<v.0.length>] v = \
+      *<v.0.length> * 4
+    (*v)[0] = 1        
+  END
+----
+  FUN void caseAboveDeclaration 
+  BEGIN
+    SWITCH (*n)
+      CASE 1: 
+      unsigned long <v.0.length> = \
+        (unsigned long)*n
+      signed int[<v.0.length>] v = \
+        *<v.0.length> * 4
+      (*v)[0] = 1
+      BREAK      
+    END_SWITCH    
+  END
+----
+  FUN void gotoOutOfScope 
+  BEGIN
+    unsigned long <v.0.length> = \
+      (unsigned long)*n
+    signed int[<v.0.length>] v = \
+      *<v.0.length> * 4
+    (*v)[0] = 1
+    GOTO done    
+    done:     
+  END

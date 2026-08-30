@@ -1,0 +1,6 @@
+test/testData/parser/negative/vla_jump_into_scope.c:28:12: error: jump into scope of identifier with variably modified type
+test/testData/parser/negative/vla_jump_into_scope.c:42:9: error: jump into scope of identifier with variably modified type
+test/testData/parser/negative/vla_jump_into_scope.c:55:5: error: jump into scope of identifier with variably modified type
+test/testData/parser/negative/vla_jump_into_scope.c:71:5: error: switch jumps into scope of identifier with variably modified type
+test/testData/parser/negative/vla_jump_into_scope.c:82:5: error: switch jumps into scope of identifier with variably modified type
+test/testData/parser/negative/vla_jump_into_scope.c:96:5: error: switch jumps into scope of identifier with variably modified type

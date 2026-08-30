@@ -122,6 +122,8 @@ void initializeIrContext(IrContext *_ctx, ParserContext* pctx) {
     _ctx->pctx = pctx;
     _ctx->target = getTargetDescriptor(pctx->config->arch);
     _ctx->labelMap = createHashMap(DEFAULT_MAP_CAPACITY, &stringHashCode, &stringCmp);
+    _ctx->labelScopeMap = createHashMap(DEFAULT_MAP_CAPACITY, &stringHashCode, &stringCmp);
+    initVector(&_ctx->stackScopes, INITIAL_VECTOR_CAPACITY);
     initVector(&_ctx->constantCache, INITIAL_VECTOR_CAPACITY);
     initVector(&_ctx->allocas, INITIAL_VECTOR_CAPACITY);
     initVector(&_ctx->referencedBlocks, INITIAL_VECTOR_CAPACITY);
@@ -132,12 +134,16 @@ void releaseIrContext(IrContext *_ctx) {
     ctx = NULL;
     releaseArena(_ctx->irArena);
     releaseHashMap(_ctx->labelMap);
+    releaseHashMap(_ctx->labelScopeMap);
+    releaseVector(&_ctx->stackScopes);
     releaseVector(&_ctx->constantCache);
     releaseVector(&_ctx->allocas);
     releaseVector(&_ctx->referencedBlocks);
 }
 
 void resetIrContext(IrContext *_ctx) {
+  assert(_ctx->stackScopes.size == 0 &&
+         "every scope opened during translation is left by the end of it");
   clearVector(&_ctx->constantCache);
   clearVector(&_ctx->allocas);
   clearVector(&_ctx->referencedBlocks);
@@ -151,6 +157,12 @@ void resetIrContext(IrContext *_ctx) {
   // HashMap, so the map is replaced outright.
   releaseHashMap(_ctx->labelMap);
   _ctx->labelMap =
+      createHashMap(DEFAULT_MAP_CAPACITY, &stringHashCode, &stringCmp);
+
+  // Scoped to a function for the same reason, and holding depths rather than
+  // blocks makes a stale entry quieter and no less wrong.
+  releaseHashMap(_ctx->labelScopeMap);
+  _ctx->labelScopeMap =
       createHashMap(DEFAULT_MAP_CAPACITY, &stringHashCode, &stringCmp);
 
   _ctx->bbCnt = _ctx->opCnt = _ctx->instrCnt = _ctx->vregCnt = 0;

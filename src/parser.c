@@ -3142,6 +3142,188 @@ static void* parseDeclarationList(ParserContext *ctx, struct _Scope* scope) {
     return NULL;
 }
 
+// C99 6.8.6.1p1: a jump may not enter the scope of an identifier with a
+// variably modified type. The array is carved out of the stack where its
+// declaration runs, so a jump past that declaration reaches the name without
+// having allocated anything - and the block cannot give the storage back
+// either, because it never took the mark it would give it back to.
+//
+// Measured in blocks: a declaration is not a statement in C, so a VLA can only
+// appear in a block's statement list or in a 'for' initializer, and everything
+// after it there is one scope deeper than everything before it.
+typedef struct _VlaLabel {
+  struct _VlaLabel *next;
+  const char *name;
+  unsigned depth;
+  // The innermost scope the label sits in, NULL at depth 0. Two scopes at the
+  // same depth are different scopes, so a depth alone cannot say whether a
+  // jump stays inside the one it started in.
+  const AstStatement *scope;
+} VlaLabel;
+
+typedef struct _VlaGoto {
+  struct _VlaGoto *next;
+  const AstStatement *stmt;
+  unsigned depth;
+  const AstStatement **chain; // the scopes enclosing it, outermost first
+} VlaGoto;
+
+typedef struct _VlaScopeWalk {
+  ParserContext *ctx;
+  Vector chain;
+  VlaLabel *labels;
+  VlaGoto *gotos;
+} VlaScopeWalk;
+
+#define NO_ENCLOSING_SWITCH ((unsigned)-1)
+
+static Boolean declaresVlaLocal(const AstStatement *stmt) {
+  if (stmt->statementKind != SK_DECLARATION) {
+    return FALSE;
+  }
+
+  const AstDeclaration *d = stmt->declStmt.declaration;
+  return d->kind == DK_VAR && d->variableDeclaration->flags.bits.isLocal &&
+         d->variableDeclaration->type->kind == TR_VLA;
+}
+
+static void collectVlaJumps(VlaScopeWalk *w, const AstStatement *stmt,
+                            unsigned switchDepth) {
+  if (stmt == NULL) {
+    return;
+  }
+
+  switch (stmt->statementKind) {
+  case SK_BLOCK: {
+    Boolean scoped = FALSE;
+
+    for (const AstStatementList *s = stmt->block.stmts; s != NULL; s = s->next) {
+      collectVlaJumps(w, s->stmt, switchDepth);
+
+      // Everything after the declaration is inside the array's scope; what
+      // comes before it is not, and a jump may still land there.
+      if (!scoped && declaresVlaLocal(s->stmt)) {
+        pushToStack(&w->chain, (intptr_t)stmt);
+        scoped = TRUE;
+      }
+    }
+
+    if (scoped) {
+      popOffStack(&w->chain, 1);
+    }
+    return;
+  }
+  case SK_LABEL:
+    if (stmt->labelStmt.kind == LK_LABEL) {
+      VlaLabel *l = heapAllocate(sizeof(VlaLabel));
+      l->name = stmt->labelStmt.label;
+      l->depth = w->chain.size;
+      l->scope = l->depth == 0 ? NULL
+                               : (const AstStatement *)topOfStack(&w->chain);
+      l->next = w->labels;
+      w->labels = l;
+    } else if (w->chain.size > switchDepth) {
+      // A 'case' or 'default' is jumped to from the switch's own head, so it
+      // is the depth there that it has to match.
+      reportDiagnostic(w->ctx, DIAG_SWITCH_INTO_VM_SCOPE, &stmt->coordinates);
+    }
+    collectVlaJumps(w, stmt->labelStmt.body, switchDepth);
+    return;
+  case SK_GOTO_L: {
+    VlaGoto *g = heapAllocate(sizeof(VlaGoto));
+    g->stmt = stmt;
+    g->depth = w->chain.size;
+    g->chain = g->depth == 0
+                   ? NULL
+                   : heapAllocate(g->depth * sizeof(const AstStatement *));
+    for (unsigned i = 0; i < g->depth; ++i) {
+      g->chain[i] = (const AstStatement *)getFromVector(&w->chain, i);
+    }
+    g->next = w->gotos;
+    w->gotos = g;
+    return;
+  }
+  case SK_IF:
+    collectVlaJumps(w, stmt->ifStmt.thenBranch, switchDepth);
+    collectVlaJumps(w, stmt->ifStmt.elseBranch, switchDepth);
+    return;
+  case SK_SWITCH:
+    collectVlaJumps(w, stmt->switchStmt.body, w->chain.size);
+    return;
+  case SK_WHILE:
+  case SK_DO_WHILE:
+    collectVlaJumps(w, stmt->loopStmt.body, switchDepth);
+    return;
+  case SK_FOR: {
+    // A VLA in the initializer is in scope for the whole statement, so the
+    // body is already one deeper than the 'for' was.
+    Boolean scoped = FALSE;
+
+    for (const AstStatementList *s = stmt->forStmt.initial; s != NULL;
+         s = s->next) {
+      if (!scoped && declaresVlaLocal(s->stmt)) {
+        pushToStack(&w->chain, (intptr_t)stmt);
+        scoped = TRUE;
+      }
+    }
+
+    collectVlaJumps(w, stmt->forStmt.body, switchDepth);
+
+    if (scoped) {
+      popOffStack(&w->chain, 1);
+    }
+    return;
+  }
+  default:
+    return;
+  }
+}
+
+// Whether the jump stays inside the scopes it started in. The chains are root
+// paths through the same tree of blocks, so agreeing at the label's innermost
+// scope is agreeing all the way out.
+static Boolean staysInScope(const VlaGoto *g, const VlaLabel *l) {
+  if (l->depth > g->depth) {
+    return FALSE;
+  }
+
+  return l->depth == 0 || g->chain[l->depth - 1] == l->scope;
+}
+
+// An indirect 'goto' is not checked: its target is a value, so there is no
+// label to measure it against. See section 10 of docs/ir-codegen-design.md.
+static void verifyVlaJumps(ParserContext *ctx, const AstStatement *body) {
+  VlaScopeWalk w = { .ctx = ctx, .labels = NULL, .gotos = NULL };
+  initVector(&w.chain, INITIAL_VECTOR_CAPACITY);
+
+  collectVlaJumps(&w, body, NO_ENCLOSING_SWITCH);
+  assert(w.chain.size == 0);
+  releaseVector(&w.chain);
+
+  while (w.gotos != NULL) {
+    VlaGoto *g = w.gotos;
+
+    for (VlaLabel *l = w.labels; l != NULL; l = l->next) {
+      if (strcmp(l->name, g->stmt->jumpStmt.label) == 0 && !staysInScope(g, l)) {
+        reportDiagnostic(ctx, DIAG_JUMP_INTO_VM_SCOPE, &g->stmt->coordinates);
+        break;
+      }
+    }
+
+    w.gotos = g->next;
+    if (g->chain != NULL) {
+      releaseHeap(g->chain);
+    }
+    releaseHeap(g);
+  }
+
+  while (w.labels != NULL) {
+    VlaLabel *l = w.labels;
+    w.labels = l->next;
+    releaseHeap(l);
+  }
+}
+
 static void verifyLabels(ParserContext *ctx) {
   DefinedLabel *def = ctx->labels.definedLabels;
   ctx->labels.definedLabels = NULL;
@@ -3255,6 +3437,7 @@ static AstTranslationUnit *parseFunctionDeclaration(ParserContext *ctx, Declarat
   ctx->stateFlags.inStaticScope = 0;
   AstStatement *body = parseFunctionBody(ctx);
   verifyLabels(ctx);
+  verifyVlaJumps(ctx, body);
   ctx->stateFlags.inStaticScope = 1;
   ctx->parsingFunction = NULL;
   ctx->currentScope = functionScope->parent;

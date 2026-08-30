@@ -37,6 +37,12 @@ static Boolean translateFor(AstStatement *stmt);
 
 static IrBasicBlock *getOrCreateLabelBlock(const char *labelName);
 
+static Boolean declaresVla(const AstStatement *stmt);
+static Boolean blockDeclaresVla(const AstStatement *block);
+static Boolean enterStackScope(Boolean opens);
+static void leaveStackScope(Boolean opened);
+static void restoreStackScopes(size_t depth);
+
 static IrFunction *newIrFunction(AstFunctionDefinition *function) {
   IrFunction *func = areanAllocate(ctx->irArena, sizeof(IrFunction));
   ctx->currentFunc = func;
@@ -1715,13 +1721,26 @@ static Boolean translateBlock(AstStatement *block) {
     bb->ast = block;
   }
 
+  Boolean opensScope = blockDeclaresVla(block);
+  Boolean opened = FALSE;
+
   AstStatementList *stmt = block->block.stmts;
   Boolean terminated = FALSE;
 
   while (stmt != NULL) {
+    // At the declaration and not at the head of the block: a label may sit
+    // above the declaration and be jumped to from outside - legal C, the array
+    // not being in scope there - and a save taken at the head is skipped by
+    // exactly that jump while the restore below still runs.
+    if (opensScope && !opened && declaresVla(stmt->stmt)) {
+      opened = enterStackScope(TRUE);
+    }
+
     terminated |= translateStatement(stmt->stmt);
     stmt = stmt->next;
   }
+
+  leaveStackScope(opened);
 
   return terminated;
 }
@@ -1925,91 +1944,178 @@ static Boolean translateIf(AstStatement *ifStmt) {
   return FALSE;
 }
 
-// Whether running this statement carves storage out of the stack that the
-// iteration it ran in is supposed to give back. A variable-length array is
-// allocated where its declaration runs and, by C99 6.2.4p6, is dead at the end
-// of the block that declared it.
+// Whether this statement is a declaration of a variable-length array - the one
+// thing that carves storage out of the stack and, by C99 6.2.4p6, owes it back
+// at the end of the block that declared it.
 //
 // A call to alloca() deliberately does not count. Its storage lives until the
-// function returns, not until the end of the block, so freeing it per
-// iteration would take memory the program is still entitled to - and gcc
-// agrees: an alloca() in a loop grows the frame every time round and the first
-// block is still readable at the end.
-static Boolean allocatesOnStack(const AstStatement *stmt) {
-  if (stmt == NULL) {
+// function returns, not until the end of the block, so a scope must not
+// reclaim it - and gcc agrees: an alloca() in a loop grows the frame every
+// time round and the first block is still readable at the end.
+static Boolean declaresVla(const AstStatement *stmt) {
+  if (stmt == NULL || stmt->statementKind != SK_DECLARATION) {
     return FALSE;
   }
 
-  switch (stmt->statementKind) {
-  case SK_DECLARATION: {
-    const AstDeclaration *d = stmt->declStmt.declaration;
-    return d->kind == DK_VAR && d->variableDeclaration->flags.bits.isLocal &&
-           d->variableDeclaration->type->kind == TR_VLA;
-  }
-  case SK_BLOCK:
-    for (const AstStatementList *s = stmt->block.stmts; s != NULL; s = s->next) {
-      if (allocatesOnStack(s->stmt)) {
-        return TRUE;
-      }
-    }
-    return FALSE;
-  case SK_LABEL:
-    return allocatesOnStack(stmt->labelStmt.body);
-  case SK_IF:
-    return allocatesOnStack(stmt->ifStmt.thenBranch) ||
-           allocatesOnStack(stmt->ifStmt.elseBranch);
-  case SK_SWITCH:
-    return allocatesOnStack(stmt->switchStmt.body);
-  case SK_WHILE:
-  case SK_DO_WHILE:
-    return allocatesOnStack(stmt->loopStmt.body);
-  // Only the body. A VLA in the initializer clause is scoped to the whole
-  // statement and is allocated once, so it is not this loop's to reclaim -
-  // and the save below is taken after the initializer has run.
-  case SK_FOR:
-    return allocatesOnStack(stmt->forStmt.body);
-  default:
-    return FALSE;
-  }
+  const AstDeclaration *d = stmt->declStmt.declaration;
+  return d->kind == DK_VAR && d->variableDeclaration->flags.bits.isLocal &&
+         d->variableDeclaration->type->kind == TR_VLA;
 }
 
-// The stack pointer as the loop found it, or NULL when the body allocates
-// nothing that has to be given back.
+// A block owes storage back when it declares a variable-length array of its
+// own. Nested blocks are not looked into: each one answers for itself, which
+// is what makes the depth of the scope stack mean the same thing here and in
+// the pre-pass that measures where a label sits.
 //
-// Emitted into whatever block precedes the loop, which dominates every block
-// in it, so the restores below can all read it.
-static IrInstruction *saveLoopStack(const AstStatement *body) {
-  if (!allocatesOnStack(body)) {
-    return NULL;
+// Only a block and a 'for' initializer can hold a declaration at all - in C a
+// declaration is not a statement - so those are the only two shapes that open
+// a scope.
+static Boolean blockDeclaresVla(const AstStatement *block) {
+  assert(block->statementKind == SK_BLOCK);
+
+  // The function's own body is the one block that never needs a mark. The
+  // only ways out of it are a 'return' and falling off the end, both of which
+  // land in the epilogue, and 'leave' puts rsp back from the frame pointer
+  // there - so a save taken here would only ever be dead.
+  if (block == ctx->currentFunc->ast->body) {
+    return FALSE;
+  }
+
+  for (const AstStatementList *s = block->block.stmts; s != NULL; s = s->next) {
+    if (declaresVla(s->stmt)) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+static Boolean forInitDeclaresVla(const AstStatement *stmt) {
+  assert(stmt->statementKind == SK_FOR);
+
+  for (const AstStatementList *s = stmt->forStmt.initial; s != NULL;
+       s = s->next) {
+    if (declaresVla(s->stmt)) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+// Opens a scope: the stack pointer as the scope found it, taken at the
+// declaration that opens it rather than at the head of the block. Every path
+// that can reach a restore crosses the declaration, so the save dominates all
+// of them - landing below the declaration without having crossed it is what
+// C99 6.8.6.1p1 forbids and verifyVlaJumps rejects.
+static Boolean enterStackScope(Boolean opens) {
+  if (!opens) {
+    return FALSE;
   }
 
   IrInstruction *save = newInstruction(IR_STACK_SAVE, IR_PTR);
   addInstruction(save);
-  return save;
+  pushToStack(&ctx->stackScopes, (intptr_t)save);
+  return TRUE;
 }
 
-// Puts it back at the head of the two blocks every path out of the body runs
-// into: the continue target, where the next iteration begins, and the exit.
-//
-// There rather than at the end of the body because the paths out do not share
-// an instruction - falling out of the bottom, a 'continue' and a 'break' each
-// jump from somewhere else - but they do all land in one of these two blocks.
-// A 'goto' out of the loop is the one that escapes both, and leaves the
-// allocation standing until the function returns; that costs stack rather than
-// correctness, and it is where this stops being a scope rule and stays a loop
-// rule.
-static void restoreLoopStack(IrInstruction *save, IrBasicBlock *continueBB,
-                             IrBasicBlock *exitBB) {
-  if (save == NULL) {
+// Puts the stack pointer back to where scope 'depth' was entered, which undoes
+// that scope and everything nested inside it. One restore however many scopes
+// are being left at once: the outermost of them was saved before all the
+// others, so its mark is the one they all sit above.
+static void restoreStackScopes(size_t depth) {
+  if (ctx->stackScopes.size <= depth) {
     return;
   }
 
-  IrBasicBlock *blocks[] = { continueBB, exitBB };
+  // Nothing runs after a terminator, and the jump this restore belongs in
+  // front of will not be emitted either.
+  if (ctx->currentBB == NULL || ctx->currentBB->term != NULL) {
+    return;
+  }
 
-  for (size_t idx = 0; idx < sizeof(blocks) / sizeof(blocks[0]); ++idx) {
-    IrInstruction *restore = newInstruction(IR_STACK_RESTORE, IR_VOID);
-    addInstructionInput(restore, save);
-    addInstructionHead(blocks[idx], restore);
+  IrInstruction *save = (IrInstruction *)getFromVector(&ctx->stackScopes, depth);
+  IrInstruction *restore = newInstruction(IR_STACK_RESTORE, IR_VOID);
+  addInstructionInput(restore, save);
+  addInstruction(restore);
+}
+
+// Leaves by falling off the end, which is the one edge out of a scope that is
+// not a jump.
+static void leaveStackScope(Boolean opened) {
+  if (!opened) {
+    return;
+  }
+
+  assert(ctx->stackScopes.size > 0);
+  restoreStackScopes(ctx->stackScopes.size - 1);
+  popOffStack(&ctx->stackScopes, 1);
+}
+
+// Where a 'goto' target sits, as a depth into the scope stack. A valid program
+// only ever jumps outwards or sideways past whole scopes (C99 6.8.6.1p1), so
+// the label's depth is a prefix of the jump's and counting is enough to say
+// which scopes are being left.
+static size_t labelScopeDepth(const char *label) {
+  intptr_t biased = getFromHashMap(ctx->labelScopeMap, (intptr_t)label);
+
+  // A label the pre-pass never saw is one no valid program jumps to. Claiming
+  // the current depth restores nothing, which costs stack rather than
+  // correctness.
+  return biased == 0 ? ctx->stackScopes.size : (size_t)(biased - 1);
+}
+
+// Measures every label in the function against the same scope rule translation
+// applies, before translation starts - a 'goto' is routinely written above the
+// label it names, and it has to know then how far out it is jumping.
+static void collectLabelScopeDepths(const AstStatement *stmt, size_t depth) {
+  if (stmt == NULL) {
+    return;
+  }
+
+  switch (stmt->statementKind) {
+  case SK_BLOCK: {
+    // Positional, exactly as translateBlock is: the scope opens at the
+    // declaration, so a label above it is still outside. Jumping to one below
+    // it is what verifyVlaJumps rejects, so the two walks only ever have to
+    // agree about the labels a valid program can reach.
+    Boolean scoped = blockDeclaresVla(stmt);
+    Boolean opened = FALSE;
+    size_t inner = depth;
+
+    for (const AstStatementList *s = stmt->block.stmts; s != NULL; s = s->next) {
+      if (scoped && !opened && declaresVla(s->stmt)) {
+        inner = depth + 1;
+        opened = TRUE;
+      }
+      collectLabelScopeDepths(s->stmt, inner);
+    }
+    return;
+  }
+  case SK_LABEL:
+    if (stmt->labelStmt.kind == LK_LABEL) {
+      putToHashMap(ctx->labelScopeMap, (intptr_t)stmt->labelStmt.label,
+                   (intptr_t)(depth + 1));
+    }
+    collectLabelScopeDepths(stmt->labelStmt.body, depth);
+    return;
+  case SK_IF:
+    collectLabelScopeDepths(stmt->ifStmt.thenBranch, depth);
+    collectLabelScopeDepths(stmt->ifStmt.elseBranch, depth);
+    return;
+  case SK_SWITCH:
+    collectLabelScopeDepths(stmt->switchStmt.body, depth);
+    return;
+  case SK_WHILE:
+  case SK_DO_WHILE:
+    collectLabelScopeDepths(stmt->loopStmt.body, depth);
+    return;
+  case SK_FOR:
+    collectLabelScopeDepths(stmt->forStmt.body,
+                            forInitDeclaresVla(stmt) ? depth + 1 : depth);
+    return;
+  default:
+    return;
   }
 }
 
@@ -2022,7 +2128,9 @@ static Boolean translateWhile(AstStatement *stmt) {
   AstExpression *condition = stmt->loopStmt.condition;
   AstStatement *body = stmt->loopStmt.body;
 
-  IrInstruction *stackSave = saveLoopStack(body);
+  size_t oldBreakDepth = ctx->breakScopeDepth;
+  size_t oldContinueDepth = ctx->continueScopeDepth;
+  ctx->breakScopeDepth = ctx->continueScopeDepth = ctx->stackScopes.size;
 
   IrBasicBlock *loopHead = ctx->continueBB = newBasicBlock("<while_head>");
   IrBasicBlock *loopBody = newBasicBlock("<while_body>");
@@ -2051,11 +2159,11 @@ static Boolean translateWhile(AstStatement *stmt) {
     termintateBlock(gotoLoop);
   }
 
-  restoreLoopStack(stackSave, loopHead, loopExit);
-
   ctx->currentBB = loopExit;
   ctx->continueBB = oldContinueBB;
   ctx->breakBB = oldBreakBB;
+  ctx->continueScopeDepth = oldContinueDepth;
+  ctx->breakScopeDepth = oldBreakDepth;
   return FALSE;
 }
 
@@ -2068,7 +2176,9 @@ static Boolean translateDoWhile(AstStatement *stmt) {
   AstStatement *body = stmt->loopStmt.body;
   AstExpression *condition = stmt->loopStmt.condition;
 
-  IrInstruction *stackSave = saveLoopStack(body);
+  size_t oldBreakDepth = ctx->breakScopeDepth;
+  size_t oldContinueDepth = ctx->continueScopeDepth;
+  ctx->breakScopeDepth = ctx->continueScopeDepth = ctx->stackScopes.size;
 
   IrBasicBlock *loopBody = newBasicBlock("<do_body>");
   IrBasicBlock *loopTail = ctx->continueBB = newBasicBlock("<do_tail>");
@@ -2097,11 +2207,11 @@ static Boolean translateDoWhile(AstStatement *stmt) {
   addSuccessor(ctx->currentBB, loopExit);
   termintateBlock(irCondBranch);
 
-  restoreLoopStack(stackSave, loopTail, loopExit);
-
   ctx->currentBB = loopExit;
   ctx->continueBB = oldContinueBB;
   ctx->breakBB = oldBreakBB;
+  ctx->continueScopeDepth = oldContinueDepth;
+  ctx->breakScopeDepth = oldBreakDepth;
   return FALSE;
 }
 
@@ -2113,6 +2223,11 @@ static Boolean translateFor(AstStatement *stmt) {
   AstExpression *modifier = stmt->forStmt.modifier;
   AstStatement *body = stmt->forStmt.body;
 
+  // A VLA in the initializer clause is scoped to the whole statement, not to
+  // an iteration of it: it is allocated once, before the mark the loop's own
+  // jumps restore to, and given back where the 'for' ends.
+  Boolean scope = enterStackScope(forInitDeclaresVla(stmt));
+
   while (decl != NULL) {
     translateStatement(decl->stmt);
     decl = decl->next;
@@ -2120,10 +2235,9 @@ static Boolean translateFor(AstStatement *stmt) {
 
   IrBasicBlock *oldBreakBB = ctx->breakBB;
   IrBasicBlock *oldContinueBB = ctx->continueBB;
-
-  // After the initializer clause, so that a VLA declared there - which is
-  // scoped to the whole statement and allocated once - stays above the mark.
-  IrInstruction *stackSave = saveLoopStack(body);
+  size_t oldBreakDepth = ctx->breakScopeDepth;
+  size_t oldContinueDepth = ctx->continueScopeDepth;
+  ctx->breakScopeDepth = ctx->continueScopeDepth = ctx->stackScopes.size;
 
   IrBasicBlock *loopHead = newBasicBlock("<for_head>");
   IrBasicBlock *loopBody = newBasicBlock("<for_body>");
@@ -2163,12 +2277,13 @@ static Boolean translateFor(AstStatement *stmt) {
     gotoToBlock(loopHead);
   }
 
-  restoreLoopStack(stackSave, modifierBB != NULL ? modifierBB : loopHead,
-                   loopExit);
-
   ctx->currentBB = loopExit;
   ctx->continueBB = oldContinueBB;
   ctx->breakBB = oldBreakBB;
+  ctx->continueScopeDepth = oldContinueDepth;
+  ctx->breakScopeDepth = oldBreakDepth;
+
+  leaveStackScope(scope);
   return FALSE;
 }
 
@@ -2218,6 +2333,7 @@ static Boolean translateBreak(AstStatement *stmt) {
   assert(stmt->statementKind == SK_BREAK);
   assert(ctx->breakBB != NULL);
 
+  restoreStackScopes(ctx->breakScopeDepth);
   jumpToBlock(ctx->breakBB, stmt);
   return TRUE;
 }
@@ -2226,6 +2342,7 @@ static Boolean translateContinue(AstStatement *stmt) {
   assert(stmt->statementKind == SK_CONTINUE);
   assert(ctx->continueBB != NULL);
 
+  restoreStackScopes(ctx->continueScopeDepth);
   jumpToBlock(ctx->continueBB, stmt);
   return TRUE;
 }
@@ -2247,6 +2364,7 @@ static Boolean translateGotoLabel(AstStatement *stmt) {
 
   IrBasicBlock *labelBlock = getOrCreateLabelBlock(stmt->jumpStmt.label);
 
+  restoreStackScopes(labelScopeDepth(stmt->jumpStmt.label));
   jumpToBlock(labelBlock, stmt);
   return TRUE;
 }
@@ -2394,6 +2512,9 @@ static Boolean translateSwitch(AstStatement *stmt) {
                                 ? newBasicBlock("<default_case>")
                                 : switchExitBB;
 
+  size_t oldBreakDepth = ctx->breakScopeDepth;
+  ctx->breakScopeDepth = ctx->stackScopes.size;
+
   ctx->breakBB = switchExitBB;
   ctx->defaultCaseBB = defaultBB;
   ctx->switchTable = switchTable;
@@ -2425,6 +2546,7 @@ static Boolean translateSwitch(AstStatement *stmt) {
 
   ctx->switchTable = oldSwitchTable;
   ctx->breakBB = oldBreakBB;
+  ctx->breakScopeDepth = oldBreakDepth;
   ctx->defaultCaseBB = oldDefaultCaseBB;
 
   return FALSE;
@@ -2637,6 +2759,7 @@ static void collectTranslationInfo(const AstStatement *body) {
          "Local Operand map need to be allocated at this point");
 
   collectTranslationInfoStmt(body);
+  collectLabelScopeDepths(body, 0);
 }
 
 static void generateExitBlock(IrFunction *func, TypeRef *returnType) {

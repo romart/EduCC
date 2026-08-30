@@ -1,0 +1,10 @@
+The general form of vla_in_loop's rule, and only the IR backend has it. C99
+6.2.4p6 ends a VLA's lifetime with the block that declared it; step 19 puts the
+stack pointer back on every edge leaving such a block, so the storage is reused
+by the next allocation and this fixture reads that off the addresses.
+
+The legacy backend gives none of it back before the function returns - the same
+design that keeps it out of vla_in_loop, its temporaries being addressed from
+rsp rather than from the frame pointer - and is not going to be taught to. So
+this is skipped there rather than muted: there is no bug here waiting to be
+fixed and flagged.
