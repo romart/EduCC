@@ -116,7 +116,7 @@ FILE test/testData/parser/negative/expressions/numericalConsts.c
     double d1 = \
       431.000000
     double d2 = \
-      431.000000
+      (double)431.000000
     double d3 = \
-      431.000000    
+      (double)431.000000    
   END

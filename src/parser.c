@@ -442,6 +442,7 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx) {
         }
         case F_CONSTANT: typeId = T_F4; goto fconst;
         case D_CONSTANT: typeId = T_F8; goto fconst;
+        case LD_CONSTANT: typeId = T_F10; goto fconst;
         fconst: {
             float80_const_t f = ctx->token->value.ldv;
             result = createAstConst(ctx, &coords, CK_FLOAT_CONST, &f, 0);

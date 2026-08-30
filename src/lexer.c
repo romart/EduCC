@@ -502,7 +502,13 @@ static void parseFloatLiteral(Token *new, unsigned flags, const char *buffer, si
 
   long double r;
   sscanf(copy, "%Lf", &r);
-  new->code = flags & SEEN_FSUFFIX ? F_CONSTANT : D_CONSTANT;
+  // C99 6.4.4.2p4: no suffix is a double, 'f' a float, 'l' a long double. The
+  // last was lexed and then dropped, so '1.0L' was a double everywhere - which
+  // only shows where nothing converts it back afterwards, an argument to a
+  // variadic function being the case with no conversion at all.
+  new->code = flags & SEEN_FSUFFIX  ? F_CONSTANT
+              : flags & SEEN_LSUFFIX ? LD_CONSTANT
+                                     : D_CONSTANT;
   new->rawCode = F_CONSTANT_RAW;
   new->value.ldv = r;
 
