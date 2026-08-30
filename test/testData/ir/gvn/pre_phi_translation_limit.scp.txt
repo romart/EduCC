@@ -9,18 +9,18 @@ Locals:
    r:-1|<ret_slot> = %14
 BB #0, '<entry>', -> #2, dominatees [#2]
 
-  %23 = IR_DEF_CONST () [kind = integer, v = 2, id = 2]
+  %24 = IR_DEF_CONST () [kind = integer, v = 2, id = 2]
   %16 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
   %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
   %3 = IR_P_REG () [preg = $rdi]
   %6 = IR_P_REG () [preg = $rsi]
   %9 = IR_P_REG () [preg = $rdx]
   %12 = IR_P_REG () [preg = $rcx]
-  %44 = IR_BRANCH () [target = #2]
+  %46 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #3, strict dom #3
 
-  %42 = IR_RET (%39) []
+  %44 = IR_RET (%41) []
 
 BB #2, '<FIRST>', <- #0, -> #4 #3, strict dom #0, dominatees [#3, #4]
 
@@ -29,20 +29,22 @@ BB #2, '<FIRST>', <- #0, -> #4 #3, strict dom #0, dominatees [#3, #4]
 
 BB #3, '<if_exit>', <- #2 #4, -> #1, strict dom #2, dominatees [#1]
 
-  %45 = IR_PHI ([%16, #2], [%28, #4]) [var = x]
-  %34 = IR_E_SHL (%6, %23) []
-  %35 = IR_GET_ELEMENT_PTR (%3, %34) [underlying type = signed int, index = %33]
-  %36 = IR_M_LOAD (%35) [load type = I32]
-  %38 = IR_E_ADD (%36, %9) []
-  %39 = IR_E_ADD (%45, %38) []
-  %41 = IR_BRANCH () [target = #1]
+  %47 = IR_PHI ([%16, #2], [%29, #4]) [var = x]
+  %35 = IR_E_BITCAST (%6) [I32->I64]
+  %36 = IR_E_SHL (%35, %24) []
+  %37 = IR_GET_ELEMENT_PTR (%3, %36) [underlying type = signed int, index = %35]
+  %38 = IR_M_LOAD (%37) [load type = I32]
+  %40 = IR_E_ADD (%38, %9) []
+  %41 = IR_E_ADD (%47, %40) []
+  %43 = IR_BRANCH () [target = #1]
 
 BB #4, '<if_then>', <- #2, -> #3, strict dom #2, domination frontier [#3]
 
-  %24 = IR_E_SHL (%6, %23) []
-  %25 = IR_GET_ELEMENT_PTR (%3, %24) [underlying type = signed int, index = %22]
-  %26 = IR_M_LOAD (%25) [load type = I32]
-  %28 = IR_E_ADD (%26, %9) []
-  %30 = IR_BRANCH () [target = #3]
+  %23 = IR_E_BITCAST (%6) [I32->I64]
+  %25 = IR_E_SHL (%23, %24) []
+  %26 = IR_GET_ELEMENT_PTR (%3, %25) [underlying type = signed int, index = %23]
+  %27 = IR_M_LOAD (%26) [load type = I32]
+  %29 = IR_E_ADD (%27, %9) []
+  %31 = IR_BRANCH () [target = #3]
 
 

@@ -6,7 +6,7 @@ Locals:
    r:-1|<ret_slot> = %5
 BB #0, '<entry>', -> #2, dominatees [#2]
 
-  %13 = IR_DEF_CONST () [kind = integer, v = 3, id = 4]
+  %14 = IR_DEF_CONST () [kind = integer, v = 3, id = 4]
   %12 = IR_DEF_CONST () [kind = integer, v = 0, id = 3]
   %10 = IR_DEF_CONST () [kind = integer, v = 0, id = 2]
   %8 = IR_DEF_CONST () [kind = integer, v = 40, id = 1]
@@ -14,20 +14,20 @@ BB #0, '<entry>', -> #2, dominatees [#2]
   %3 = IR_P_REG () [preg = $rsi]
   %6 = IR_P_REG () [preg = $rdi]
   %9 = IR_ALLOCA (%8) [size = 40, declaration = 1 | 'r']
-  %24 = IR_BRANCH () [target = #2]
+  %25 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #2, strict dom #2
 
-  %22 = IR_RET (%6) []
+  %23 = IR_RET (%6) []
 
 BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
   %11 = IR_GET_ELEMENT_PTR (%9, %10) [underlying type = signed long[5], member = a]
-  %15 = IR_GET_ELEMENT_PTR (%11, %10) [underlying type = signed long, index = %12]
-  %17 = IR_E_BITCAST (%3) [I32->I64]
-  %18 = IR_M_STORE (%15, %17) [store type = I64]
-  %20 = IR_M_COPY (%6, %9, %8) [elementType = STRUCT Large]
-  %21 = IR_BRANCH () [target = #1]
+  %16 = IR_GET_ELEMENT_PTR (%11, %10) [underlying type = signed long, index = %13]
+  %18 = IR_E_BITCAST (%3) [I32->I64]
+  %19 = IR_M_STORE (%16, %18) [store type = I64]
+  %21 = IR_M_COPY (%6, %9, %8) [elementType = STRUCT Large]
+  %22 = IR_BRANCH () [target = #1]
 
 
 --- Phase: dce ---
@@ -76,9 +76,10 @@ Locals:
    r:-1|<ret_slot> = %19
 BB #0, '<entry>', -> #2, dominatees [#2]
 
-  %60 = IR_DEF_CONST () [kind = integer, v = 8, id = 7]
-  %38 = IR_DEF_CONST () [kind = integer, v = 1, id = 6]
-  %27 = IR_DEF_CONST () [kind = integer, v = 3, id = 5]
+  %63 = IR_DEF_CONST () [kind = integer, v = 8, id = 8]
+  %62 = IR_DEF_CONST () [kind = integer, v = 1, id = 7]
+  %39 = IR_DEF_CONST () [kind = integer, v = 1, id = 6]
+  %28 = IR_DEF_CONST () [kind = integer, v = 3, id = 5]
   %26 = IR_DEF_CONST () [kind = integer, v = 0, id = 4]
   %24 = IR_DEF_CONST () [kind = integer, v = 0, id = 3]
   %22 = IR_DEF_CONST () [kind = integer, v = 40, id = 2]
@@ -93,28 +94,28 @@ BB #0, '<entry>', -> #2, dominatees [#2]
   %18 = IR_E_ADD (%0, %17) []
   %20 = IR_P_REG () [preg = $rdi]
   %23 = IR_ALLOCA (%22) [size = 40, declaration = 6 | 'r']
-  %53 = IR_BRANCH () [target = #2]
+  %55 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #2, strict dom #2
 
-  %51 = IR_RET (%20) []
+  %53 = IR_RET (%20) []
 
 BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
   %25 = IR_GET_ELEMENT_PTR (%23, %24) [underlying type = signed long[5], member = a]
-  %29 = IR_GET_ELEMENT_PTR (%25, %24) [underlying type = signed long, index = %26]
-  %32 = IR_E_ADD (%3, %6) []
-  %34 = IR_E_ADD (%32, %9) []
-  %35 = IR_E_BITCAST (%34) [I32->I64]
-  %36 = IR_M_STORE (%29, %35) [store type = I64]
-  %40 = IR_GET_ELEMENT_PTR (%25, %60) [underlying type = signed long, index = %38]
-  %43 = IR_E_ADD (%12, %15) []
-  %44 = IR_M_LOAD (%18) [load type = I32]
-  %45 = IR_E_ADD (%43, %44) []
-  %46 = IR_E_BITCAST (%45) [I32->I64]
-  %47 = IR_M_STORE (%40, %46) [store type = I64]
-  %49 = IR_M_COPY (%20, %23, %22) [elementType = STRUCT Large]
-  %50 = IR_BRANCH () [target = #1]
+  %30 = IR_GET_ELEMENT_PTR (%25, %24) [underlying type = signed long, index = %27]
+  %33 = IR_E_ADD (%3, %6) []
+  %35 = IR_E_ADD (%33, %9) []
+  %36 = IR_E_BITCAST (%35) [I32->I64]
+  %37 = IR_M_STORE (%30, %36) [store type = I64]
+  %42 = IR_GET_ELEMENT_PTR (%25, %63) [underlying type = signed long, index = %40]
+  %45 = IR_E_ADD (%12, %15) []
+  %46 = IR_M_LOAD (%18) [load type = I32]
+  %47 = IR_E_ADD (%45, %46) []
+  %48 = IR_E_BITCAST (%47) [I32->I64]
+  %49 = IR_M_STORE (%42, %48) [store type = I64]
+  %51 = IR_M_COPY (%20, %23, %22) [elementType = STRUCT Large]
+  %52 = IR_BRANCH () [target = #1]
 
 
 --- Phase: dce ---
@@ -125,12 +126,12 @@ Locals:
    r:-1|<ret_slot> = %5
 BB #0, '<entry>', -> #2, dominatees [#2]
 
-  %48 = IR_DEF_CONST () [kind = integer, v = -1, id = 9]
-  %47 = IR_DEF_CONST () [kind = integer, v = -1, id = 8]
-  %46 = IR_DEF_CONST () [kind = integer, v = 1, id = 7]
-  %45 = IR_DEF_CONST () [kind = integer, v = 8, id = 6]
-  %23 = IR_DEF_CONST () [kind = integer, v = 1, id = 5]
-  %13 = IR_DEF_CONST () [kind = integer, v = 3, id = 4]
+  %51 = IR_DEF_CONST () [kind = integer, v = -1, id = 9]
+  %50 = IR_DEF_CONST () [kind = integer, v = -1, id = 8]
+  %49 = IR_DEF_CONST () [kind = integer, v = 8, id = 7]
+  %48 = IR_DEF_CONST () [kind = integer, v = 1, id = 6]
+  %24 = IR_DEF_CONST () [kind = integer, v = 1, id = 5]
+  %14 = IR_DEF_CONST () [kind = integer, v = 3, id = 4]
   %12 = IR_DEF_CONST () [kind = integer, v = 0, id = 3]
   %10 = IR_DEF_CONST () [kind = integer, v = 0, id = 2]
   %8 = IR_DEF_CONST () [kind = integer, v = 40, id = 1]
@@ -138,34 +139,34 @@ BB #0, '<entry>', -> #2, dominatees [#2]
   %3 = IR_P_REG () [preg = $rsi]
   %6 = IR_P_REG () [preg = $rdi]
   %9 = IR_ALLOCA (%8) [size = 40, declaration = 1 | 'r']
-  %42 = IR_BRANCH () [target = #2]
+  %45 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #4 #3, strict dom #2
 
-  %40 = IR_RET (%6) []
+  %43 = IR_RET (%6) []
 
 BB #2, '<FIRST>', <- #0, -> #4 #3, strict dom #0, dominatees [#1, #3, #4]
 
   %11 = IR_GET_ELEMENT_PTR (%9, %10) [underlying type = signed long[5], member = a]
-  %15 = IR_GET_ELEMENT_PTR (%11, %10) [underlying type = signed long, index = %12]
-  %17 = IR_E_BITCAST (%3) [I32->I64]
-  %18 = IR_M_STORE (%15, %17) [store type = I64]
-  %20 = IR_E_LT (%3, %12) []
-  %21 = IR_CBRANCH (%20) [taken = #4, non taken = #3]
+  %16 = IR_GET_ELEMENT_PTR (%11, %10) [underlying type = signed long, index = %13]
+  %18 = IR_E_BITCAST (%3) [I32->I64]
+  %19 = IR_M_STORE (%16, %18) [store type = I64]
+  %21 = IR_E_LT (%3, %12) []
+  %22 = IR_CBRANCH (%21) [taken = #4, non taken = #3]
 
 BB #3, '<if_exit>', <- #2, -> #1, strict dom #2, domination frontier [#1]
 
-  %34 = IR_GET_ELEMENT_PTR (%11, %45) [underlying type = signed long, index = %23]
-  %36 = IR_M_STORE (%34, %46) [store type = I64]
-  %38 = IR_M_COPY (%6, %9, %8) [elementType = STRUCT Large]
-  %39 = IR_BRANCH () [target = #1]
+  %37 = IR_GET_ELEMENT_PTR (%11, %49) [underlying type = signed long, index = %35]
+  %39 = IR_M_STORE (%37, %48) [store type = I64]
+  %41 = IR_M_COPY (%6, %9, %8) [elementType = STRUCT Large]
+  %42 = IR_BRANCH () [target = #1]
 
 BB #4, '<if_then>', <- #2, -> #1, strict dom #2, domination frontier [#1]
 
-  %25 = IR_GET_ELEMENT_PTR (%11, %45) [underlying type = signed long, index = %23]
-  %28 = IR_M_STORE (%25, %48) [store type = I64]
-  %30 = IR_M_COPY (%6, %9, %8) [elementType = STRUCT Large]
-  %31 = IR_BRANCH () [target = #1]
+  %27 = IR_GET_ELEMENT_PTR (%11, %49) [underlying type = signed long, index = %25]
+  %30 = IR_M_STORE (%27, %51) [store type = I64]
+  %32 = IR_M_COPY (%6, %9, %8) [elementType = STRUCT Large]
+  %33 = IR_BRANCH () [target = #1]
 
 
 --- Phase: dce ---

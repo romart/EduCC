@@ -15,11 +15,11 @@ BB #0, '<entry>', -> #2, dominatees [#2]
   %3 = IR_P_REG () [preg = $rdi]
   %6 = IR_P_REG () [preg = $rsi]
   %9 = IR_P_REG () [preg = $rdx]
-  %50 = IR_BRANCH () [target = #2]
+  %54 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #3, strict dom #3
 
-  %48 = IR_RET (%45) []
+  %52 = IR_RET (%49) []
 
 BB #2, '<FIRST>', <- #0, -> #4 #5, strict dom #0, dominatees [#3, #4, #5]
 
@@ -28,27 +28,31 @@ BB #2, '<FIRST>', <- #0, -> #4 #5, strict dom #0, dominatees [#3, #4, #5]
 
 BB #3, '<if_exit>', <- #4 #5, -> #1, strict dom #2, dominatees [#1]
 
-  %53 = IR_PHI ([%22, #4], [%33, #5]) [var = ptr1]
-  %51 = IR_PHI ([%27, #4], [%38, #5]) [var = ptr2]
-  %42 = IR_M_LOAD (%53) [load type = I32]
-  %44 = IR_M_LOAD (%51) [load type = I32]
-  %45 = IR_E_ADD (%42, %44) []
-  %47 = IR_BRANCH () [target = #1]
+  %57 = IR_PHI ([%23, #4], [%36, #5]) [var = ptr1]
+  %55 = IR_PHI ([%29, #4], [%42, #5]) [var = ptr2]
+  %46 = IR_M_LOAD (%57) [load type = I32]
+  %48 = IR_M_LOAD (%55) [load type = I32]
+  %49 = IR_E_ADD (%46, %48) []
+  %51 = IR_BRANCH () [target = #1]
 
 BB #4, '<if_then>', <- #2, -> #3, strict dom #2, domination frontier [#3]
 
-  %21 = IR_E_MUL (%6, %20) []
-  %22 = IR_E_ADD (%3, %21) []
-  %26 = IR_E_MUL (%6, %20) []
-  %27 = IR_E_ADD (%3, %26) []
-  %29 = IR_BRANCH () [target = #3]
+  %21 = IR_E_BITCAST (%6) [I32->I64]
+  %22 = IR_E_MUL (%21, %20) []
+  %23 = IR_E_ADD (%3, %22) []
+  %27 = IR_E_BITCAST (%6) [I32->I64]
+  %28 = IR_E_MUL (%27, %20) []
+  %29 = IR_E_ADD (%3, %28) []
+  %31 = IR_BRANCH () [target = #3]
 
 BB #5, '<if_else>', <- #2, -> #3, strict dom #2, domination frontier [#3]
 
-  %32 = IR_E_MUL (%6, %20) []
-  %33 = IR_E_ADD (%3, %32) []
-  %37 = IR_E_MUL (%6, %20) []
-  %38 = IR_E_ADD (%3, %37) []
-  %40 = IR_BRANCH () [target = #3]
+  %34 = IR_E_BITCAST (%6) [I32->I64]
+  %35 = IR_E_MUL (%34, %20) []
+  %36 = IR_E_ADD (%3, %35) []
+  %40 = IR_E_BITCAST (%6) [I32->I64]
+  %41 = IR_E_MUL (%40, %20) []
+  %42 = IR_E_ADD (%3, %41) []
+  %44 = IR_BRANCH () [target = #3]
 
 

@@ -51,6 +51,22 @@ Boolean isUnsignedIrType(enum IrTypeKind k) {
     return IR_U8 <= k && k <= IR_U64;
 }
 
+Boolean isIntegerLikeIrType(enum IrTypeKind k) {
+    // IR_REF and IR_LITERAL are addresses too - a symbol's and a string
+    // literal's - until step 22 of the roadmap merges them into IR_PTR.
+    return isIntegerIrType(k) || k == IR_PTR || k == IR_REF || k == IR_LITERAL;
+}
+
+Boolean isIntegerComparisonKind(enum IrIntructionKind k) {
+    switch (k) {
+    case IR_E_EQ: case IR_E_NE: case IR_E_LT:
+    case IR_E_LE: case IR_E_GT: case IR_E_GE:
+      return TRUE;
+    default:
+      return FALSE;
+    }
+}
+
 Boolean isUnsignedIrOperand(enum IrTypeKind k) {
     // Pointers compare unsigned - an address above the middle of the space is
     // not a negative address - and so does anything already narrowed to a
@@ -408,7 +424,56 @@ static void addInstructionToBlock(IrInstruction *instr, IrBasicBlock *block) {
   addInstructionTail(block, instr);
 }
 
+// Whether this opcode's operands are values of its own type. The arithmetic
+// and bitwise ones are: an add of an I64 adds two I64s, and an operand that is
+// narrower than that is a register whose upper bytes nothing wrote. A compare
+// answers IR_BOOL and says nothing about its operands' width, so it is checked
+// against them rather than against itself; a shift's count is not a value of
+// the shifted type at all.
+static Boolean isWidthUniformOperation(enum IrIntructionKind k) {
+  switch (k) {
+  case IR_E_ADD: case IR_E_SUB: case IR_E_MUL: case IR_E_DIV: case IR_E_MOD:
+  case IR_E_AND: case IR_E_OR: case IR_E_XOR:
+  case IR_U_NOT: case IR_U_BNOT:
+    return TRUE;
+  default:
+    return FALSE;
+  }
+}
+
+static Boolean isShiftOperation(enum IrIntructionKind k) {
+  return k == IR_E_SHL || k == IR_E_SHR;
+}
+
+// docs/ir-codegen-design.md section 10, "operations on operands narrower than
+// their result": an operand used at more than its own width reads bytes that
+// nothing defined. The conversion belongs in the IR, where what to do with
+// those bytes - sign or zero - is still known.
+static void validateOperandWidths(const IrInstruction *instr) {
+  if ((isWidthUniformOperation(instr->kind) || isShiftOperation(instr->kind)) &&
+      isIntegerLikeIrType(instr->type)) {
+    uint8_t size = irTypeMachineSize(instr->type);
+    // A shift's count is not a value of the shifted type; only what is shifted
+    // has to be as wide as the result.
+    size_t operands = isShiftOperation(instr->kind) ? 1 : instr->inputs.size;
+    for (size_t idx = 0; idx < operands; ++idx) {
+      const IrInstruction *input = getInstructionFromVector(&instr->inputs, idx);
+      assert(irTypeMachineSize(input->type) == size &&
+             "an operand narrower than the operation it feeds");
+    }
+  }
+
+  if (isIntegerComparisonKind(instr->kind) && instr->inputs.size == 2) {
+    const IrInstruction *lhs = getInstructionFromVector(&instr->inputs, 0);
+    const IrInstruction *rhs = getInstructionFromVector(&instr->inputs, 1);
+    assert(irTypeMachineSize(lhs->type) == irTypeMachineSize(rhs->type) &&
+           "a comparison of two operands of different widths");
+  }
+}
+
 void addInstruction(IrInstruction *instr) {
+    validateOperandWidths(instr);
+
     IrBasicBlock *bb = ctx->currentBB;
     if (bb != NULL) {
         assert(bb->term == NULL && "Adding instruction into terminated block");

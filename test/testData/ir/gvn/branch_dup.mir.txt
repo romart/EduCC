@@ -1,9 +1,9 @@
 --- Phase: mir ---
 MachineFunction 'branch_dup' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %53
-  %v1 : gp/8 ; %22
-  %v2 : gp/8 ; %33
+  %v0 : gp/8 ; %57
+  %v1 : gp/8 ; %23
+  %v2 : gp/8 ; %36
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
 
@@ -14,9 +14,9 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
 MBB #3, '<if_exit>', ir #3, <- #4 #5, -> #1
 
 MBB #4, '<if_then>', ir #4, <- #2, -> #3
-  %v0 = MOP_COPY.8 %v1 ; %53
+  %v0 = MOP_COPY.8 %v1 ; %57
 
 MBB #5, '<if_else>', ir #5, <- #2, -> #3
-  %v0 = MOP_COPY.8 %v2 ; %53
+  %v0 = MOP_COPY.8 %v2 ; %57
 
 

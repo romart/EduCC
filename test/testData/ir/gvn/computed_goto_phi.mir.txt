@@ -1,9 +1,9 @@
 --- Phase: mir ---
 MachineFunction 'computed_goto_phi' [target = x86_64]
 VRegs:
-  %v0 : gp/4 ; %56
-  %v1 : gp/4 ; %45
-  %v2 : gp/4 ; %50
+  %v0 : gp/4 ; %60
+  %v1 : gp/4 ; %49
+  %v2 : gp/4 ; %54
 Frame: 32 bytes
   fi#0 : local 8/4 @ -8 'acc' ; %9
   fi#1 : local 16/8 @ -24 'tab' ; %11
@@ -12,10 +12,10 @@ MBB #0, '<entry>', ir #0, -> #4
 MBB #1, '<exit>', ir #1, <- #2 #3
 
 MBB #2, 'A', ir #2, <- #6 #5, -> #1
-  %v0 = MOP_COPY.4 %v1 ; %56
+  %v0 = MOP_COPY.4 %v1 ; %60
 
 MBB #3, 'B', ir #3, <- #6 #5, -> #1
-  %v0 = MOP_COPY.4 %v2 ; %56
+  %v0 = MOP_COPY.4 %v2 ; %60
 
 MBB #4, '<FIRST>', ir #4, <- #0, -> #6 #5
 

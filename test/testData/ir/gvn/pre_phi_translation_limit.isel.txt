@@ -1,22 +1,20 @@
 --- Phase: isel ---
 MachineFunction 'pre_phi_translation_limit' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %54
-  %v1 : gp/8 ; %55
-  %v2 : gp/4 ; %45
+  %v0 : gp/8 ; %56
+  %v1 : gp/8 ; %57
+  %v2 : gp/4 ; %47
   %v3 : gp/4 ; %16
-  %v4 : gp/8 ; %24
-  %v5 : gp/4 ; %28
+  %v4 : gp/8 ; %23
+  %v5 : gp/4 ; %29
   %v6 : gp/8 ; %3
   %v7 : gp/4 ; %6
   %v8 : gp/4 ; %9
   %v9 : gp/4 ; %12
-  %v10 : gp/8
-  %v11 : gp/8
-  %v12 : gp/4 ; %26
-  %v13 : gp/4 ; %36
-  %v14 : gp/4 ; %38
-  %v15 : gp/4 ; %39
+  %v10 : gp/4 ; %27
+  %v11 : gp/4 ; %38
+  %v12 : gp/4 ; %40
+  %v13 : gp/4 ; %41
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
   %v3 = mov.4 0 ; %16
@@ -30,32 +28,28 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
   jg #4 ; %20
 
 MBB #5, '<crit_splitter>', ir #5, <- #2, -> #3
-  %v10 = movsx.8/4 %v7 ; %55
-  %v1 = MOP_COPY.8 %v10 ; %55
-  %v1 = shl.8 %v1, 2 ; %55
-  %v0 = MOP_COPY.8 %v1 ; %54
-  %v2 = MOP_COPY.4 %v3 ; %45
-  jmp #3 ; %53
+  %v1 = movsx.8/4 %v7 ; %57
+  %v0 = MOP_COPY.8 %v1 ; %56
+  %v2 = MOP_COPY.4 %v3 ; %47
+  jmp #3 ; %55
 
 MBB #4, '<if_then>', ir #4, <- #2, -> #3
-  %v11 = movsx.8/4 %v7 ; %24
-  %v4 = MOP_COPY.8 %v11 ; %24
-  %v4 = shl.8 %v4, 2 ; %24
-  %v12 = mov.4 [%v6 + %v4*1] ; %26
-  %v5 = MOP_COPY.4 %v12 ; %28
-  %v5 = add.4 %v5, %v8 ; %28
-  %v0 = MOP_COPY.8 %v4 ; %54
-  %v2 = MOP_COPY.4 %v5 ; %45
+  %v4 = movsx.8/4 %v7 ; %23
+  %v10 = mov.4 [%v6 + %v4*4] ; %27
+  %v5 = MOP_COPY.4 %v10 ; %29
+  %v5 = add.4 %v5, %v8 ; %29
+  %v0 = MOP_COPY.8 %v4 ; %56
+  %v2 = MOP_COPY.4 %v5 ; %47
 
 MBB #3, '<if_exit>', ir #3, <- #5 #4, -> #1
-  %v13 = mov.4 [%v6 + %v0*1] ; %36
-  %v14 = MOP_COPY.4 %v13 ; %38
-  %v14 = add.4 %v14, %v8 ; %38
-  %v15 = MOP_COPY.4 %v2 ; %39
-  %v15 = add.4 %v15, %v14 ; %39
+  %v11 = mov.4 [%v6 + %v0*4] ; %38
+  %v12 = MOP_COPY.4 %v11 ; %40
+  %v12 = add.4 %v12, %v8 ; %40
+  %v13 = MOP_COPY.4 %v2 ; %41
+  %v13 = add.4 %v13, %v12 ; %41
 
 MBB #1, '<exit>', ir #1, <- #3
-  $rax = MOP_COPY.4 %v15 ; %42
-  ret ; %42
+  $rax = MOP_COPY.4 %v13 ; %44
+  ret ; %44
 
 

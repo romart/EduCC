@@ -1,12 +1,12 @@
 --- Phase: mir ---
 MachineFunction 'pre_phi_translation_limit' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %54
-  %v1 : gp/8 ; %55
-  %v2 : gp/4 ; %45
+  %v0 : gp/8 ; %56
+  %v1 : gp/8 ; %57
+  %v2 : gp/4 ; %47
   %v3 : gp/4 ; %16
-  %v4 : gp/8 ; %24
-  %v5 : gp/4 ; %28
+  %v4 : gp/8 ; %23
+  %v5 : gp/4 ; %29
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
 
@@ -17,11 +17,11 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
 MBB #3, '<if_exit>', ir #3, <- #5 #4, -> #1
 
 MBB #4, '<if_then>', ir #4, <- #2, -> #3
-  %v0 = MOP_COPY.8 %v4 ; %54
-  %v2 = MOP_COPY.4 %v5 ; %45
+  %v0 = MOP_COPY.8 %v4 ; %56
+  %v2 = MOP_COPY.4 %v5 ; %47
 
 MBB #5, '<crit_splitter>', ir #5, <- #2, -> #3
-  %v0 = MOP_COPY.8 %v1 ; %54
-  %v2 = MOP_COPY.4 %v3 ; %45
+  %v0 = MOP_COPY.8 %v1 ; %56
+  %v2 = MOP_COPY.4 %v3 ; %47
 
 

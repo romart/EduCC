@@ -7,25 +7,26 @@ Locals:
    r:-1|<ret_slot> = %8
 BB #0, '<entry>', -> #2, dominatees [#2]
 
-  %19 = IR_DEF_CONST () [kind = integer, v = 1, id = 2]
+  %20 = IR_DEF_CONST () [kind = integer, v = 1, id = 2]
   %12 = IR_DEF_CONST () [kind = integer, v = 4, id = 1]
   %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
   %3 = IR_P_REG () [preg = $rdi]
   %6 = IR_P_REG () [preg = $rsi]
-  %28 = IR_BRANCH () [target = #2]
+  %29 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #2, strict dom #2
 
-  %26 = IR_RET (%23) []
+  %27 = IR_RET (%24) []
 
 BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
-  %13 = IR_E_MUL (%6, %12) []
-  %14 = IR_E_ADD (%3, %13) []
-  %18 = IR_M_LOAD (%14) [load type = I32]
-  %20 = IR_E_ADD (%18, %19) []
-  %21 = IR_M_STORE (%14, %20) [store type = I32]
-  %23 = IR_M_LOAD (%14) [load type = I32]
-  %25 = IR_BRANCH () [target = #1]
+  %13 = IR_E_BITCAST (%6) [I32->I64]
+  %14 = IR_E_MUL (%13, %12) []
+  %15 = IR_E_ADD (%3, %14) []
+  %19 = IR_M_LOAD (%15) [load type = I32]
+  %21 = IR_E_ADD (%19, %20) []
+  %22 = IR_M_STORE (%15, %21) [store type = I32]
+  %24 = IR_M_LOAD (%15) [load type = I32]
+  %26 = IR_BRANCH () [target = #1]
 
 

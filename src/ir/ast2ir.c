@@ -1156,6 +1156,27 @@ static ExpressionType assignArithToArith(ExpressionType op) {
   return E_NUM_OF_OPS;
 }
 
+// 'value' as a value of 'type', widening it if it is narrower.
+//
+// An operand used at more than its own width reads bytes that nothing wrote,
+// and selection is not the place to invent the conversion: what goes in those
+// bytes follows from the source's signedness, which is a fact about the
+// expression and not about the machine. docs/ir-codegen-design.md section 10.
+static IrInstruction *widenOperand(IrInstruction *value, enum IrTypeKind type,
+                                   AstExpression *expr) {
+  if (irTypeMachineSize(value->type) >= irTypeMachineSize(type)) {
+    return value;
+  }
+
+  IrInstruction *cast = newInstruction(IR_E_BITCAST, type);
+  cast->info.fromCastType = value->type;
+  cast->meta.astExpr = expr;
+  addInstructionInput(cast, value);
+  addInstruction(cast);
+
+  return cast;
+}
+
 static IrInstruction *translateBinary(AstExpression *expr) {
   assert(isBinary(expr->op));
 
@@ -1170,6 +1191,27 @@ static IrInstruction *translateBinary(AstExpression *expr) {
 
   assert(leftOp != NULL);
   assert(rightOp != NULL);
+
+  // 'p == 0' reaches here as a pointer against an 'int' zero: a null pointer
+  // constant is one by C99 6.3.2.3p3 whatever it is spelled as, and sema
+  // leaves the conversion to the pointer type implicit. Comparing the two
+  // would read eight bytes of a four-byte value, so the narrow side is
+  // widened, by its own signedness, before the comparison sees it.
+  if (!isFloatOperand && isIntegerComparisonKind(k)) {
+    leftOp = widenOperand(leftOp, rightOp->type, expr);
+    rightOp = widenOperand(rightOp, leftOp->type, expr);
+  } else if (isIntegerLikeIrType(type)) {
+    // The same for an operand of the operation itself. Pointer arithmetic is
+    // where it happens: 'p + i' is desugared in the parser into a scaling of
+    // 'i' at pointer width, and the multiplication it builds keeps the index's
+    // own 'int' type on one side. A shift's count is not a value of the
+    // shifted type, so it is left alone.
+    leftOp = widenOperand(leftOp, type, expr);
+    if (k != IR_E_SHL && k != IR_E_SHR) {
+      rightOp = widenOperand(rightOp, type, expr);
+    }
+  }
+
   // NOTE: pointer arithmethic is desugared during parser phase
   IrInstruction *instr = newInstruction(k, type);
   addInstructionInput(instr, leftOp);
@@ -1235,6 +1277,13 @@ static IrInstruction *translateAssignArith(AstExpression *expr) {
   }
 
   // NOTE: Pointer arithmethic is desugared during parser phase
+  if (!isFloat && isIntegerLikeIrType(valueType)) {
+    lhs = widenOperand(lhs, valueType, expr);
+    if (ik != IR_E_SHL && ik != IR_E_SHR) {
+      rvalue = widenOperand(rvalue, valueType, expr);
+    }
+  }
+
   IrInstruction *operation = newInstruction(ik, valueType);
   addInstructionInput(operation, lhs);
   addInstructionInput(operation, rvalue);
@@ -1370,7 +1419,8 @@ static IrInstruction *computeVLAElementType(const TypeRef *vlaElementType) {
     AstExpression *sizeExpr = vlaElementType->vlaDescriptor.sizeExpression;
     assert(sizeExpr != NULL);
     // Cache at the array declaration
-    IrInstruction *arraySize = translateRValue(sizeExpr);
+    IrInstruction *arraySize =
+        widenOperand(translateRValue(sizeExpr), IR_U64, sizeExpr);
     IrInstruction *mulInstr = newInstruction(IR_E_MUL, IR_U64);
     addInstructionInput(mulInstr, arraySize);
     addInstructionInput(mulInstr, elementSizeOp);
@@ -1417,7 +1467,12 @@ static IrInstruction *translateArrayAccess(AstExpression *expr) {
   const enum IrTypeKind indexIrType = typeRefToIrType(indexType);
 
   IrInstruction *baseInstr = translateRValue(base);
-  IrInstruction *indexInstr = translateRValue(index);
+  // Widened before it is scaled, not after: the scaling happens at the width
+  // of an address, and an 'int' index only fills half of one. Which half the
+  // rest is - the sign of a negative index or zeroes - is what the index's own
+  // type says, and nothing below this point still knows it.
+  IrInstruction *indexInstr =
+      widenOperand(translateRValue(index), indexIrType, index);
 
   IrInstruction *scaledIndexOp = NULL;
 

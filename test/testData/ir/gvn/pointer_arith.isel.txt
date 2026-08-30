@@ -5,11 +5,11 @@ VRegs:
   %v1 : gp/8 ; %3
   %v2 : gp/4 ; %6
   %v3 : gp/8 ; %15
-  %v4 : gp/8
-  %v5 : gp/8 ; %16
-  %v6 : gp/4 ; %24
-  %v7 : gp/4 ; %26
-  %v8 : gp/4 ; %27
+  %v4 : gp/8 ; %16
+  %v5 : gp/8 ; %17
+  %v6 : gp/4 ; %26
+  %v7 : gp/4 ; %28
+  %v8 : gp/4 ; %29
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
   %v0 = mov.8 4 ; %14
@@ -17,18 +17,18 @@ MBB #0, '<entry>', ir #0, -> #2
   %v2 = MOP_COPY.4 $rsi ; %6
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  %v4 = movsx.8/4 %v2 ; %15
-  %v3 = MOP_COPY.8 %v4 ; %15
-  %v3 = imul.8 %v3, %v0 ; %15
-  %v5 = MOP_COPY.8 %v1 ; %16
-  %v5 = add.8 %v5, %v3 ; %16
-  %v6 = mov.4 [%v5] ; %24
-  %v7 = mov.4 [%v5] ; %26
-  %v8 = MOP_COPY.4 %v6 ; %27
-  %v8 = add.4 %v8, %v7 ; %27
+  %v3 = movsx.8/4 %v2 ; %15
+  %v4 = MOP_COPY.8 %v3 ; %16
+  %v4 = imul.8 %v4, %v0 ; %16
+  %v5 = MOP_COPY.8 %v1 ; %17
+  %v5 = add.8 %v5, %v4 ; %17
+  %v6 = mov.4 [%v5] ; %26
+  %v7 = mov.4 [%v5] ; %28
+  %v8 = MOP_COPY.4 %v6 ; %29
+  %v8 = add.4 %v8, %v7 ; %29
 
 MBB #1, '<exit>', ir #1, <- #2
-  $rax = MOP_COPY.4 %v8 ; %32
-  ret ; %32
+  $rax = MOP_COPY.4 %v8 ; %34
+  ret ; %34
 
 

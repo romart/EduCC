@@ -43,14 +43,35 @@ static const IrInstruction *inputAt(const IrInstruction *i, size_t idx) {
 // extended explicitly, and which extension is the *value's* signedness rather
 // than the using operation's.
 //
-// This is what makes 'a[i]' with a signed index correct. The IR scales the
-// index to a byte offset at the index's own width and hands the 32-bit result
-// to a GEP that adds it to a 64-bit pointer (see translateArrayAccess in
-// ast2ir.c). Reading the low half of a register as a 64-bit index would pick
-// up whatever the top half held, and zero-extending it - which is what a plain
-// 32-bit move does - would turn 'a[-1]' into 'a[4294967295]'. This is the gap
-// docs/ir-codegen-design.md section 10 recorded as unreachable while nothing
-// touching memory was selected; selecting GEPs is what reaches it.
+// Reading the low half of a register as a 64-bit index would pick up whatever
+// the top half held, and zero-extending it - which is what a plain 32-bit move
+// does - would turn 'a[-1]' into 'a[4294967295]'.
+//
+// The IR asks for the conversion itself now (widenOperand in ast2ir.c), so
+// this covers the uses the IR has no instruction for: an argument, a store, a
+// compare against a wider operand.
+static uint32_t widenRegisterInto(MachineBuilder *b, uint32_t dst, uint32_t src, uint8_t srcSize,
+                                  uint8_t size, Boolean isUnsigned) {
+  MachineInstr *mi = buildMachineInstr(b, isUnsigned ? X86_MOVZX : X86_MOVSX, 1, 1);
+
+  setRegisterOperand(mi, 0, dst);
+  setRegisterOperand(mi, 1, src);
+  // Eight bytes even for the four-byte unsigned source, which x86 spells as a
+  // plain 32-bit move (emitWiden). Saying four here would be a def of half a
+  // register: true of the hardware, which zeroes the rest, and not of the
+  // machine model, whose next reader is a spill of the whole slot.
+  mi->opSize = size;
+  mi->srcSize = srcSize;
+
+  return dst;
+}
+
+static uint32_t widenRegister(MachineBuilder *b, uint32_t src, uint8_t srcSize, uint8_t size,
+                              Boolean isUnsigned) {
+  return widenRegisterInto(b, createVirtualRegister(b->mf, RC_GP, size), src, srcSize, size,
+                           isUnsigned);
+}
+
 static uint32_t selectWidened(MachineBuilder *b, const IrInstruction *value, uint8_t size) {
   uint32_t src = machineBuilderVreg(b, value);
   uint8_t srcSize = valueSize(value);
@@ -62,22 +83,7 @@ static uint32_t selectWidened(MachineBuilder *b, const IrInstruction *value, uin
     return src;
   }
 
-  Boolean isUnsigned = isUnsignedIrOperand(value->type);
-  // A 32-bit move zeroes the top half of its destination, which is exactly an
-  // unsigned widening from four bytes - just as well, since x86 has no
-  // 'movzx r64, r32' to spell it with.
-  Boolean byPlainMove = isUnsigned && srcSize == 4;
-
-  uint32_t dst = createVirtualRegister(b->mf, RC_GP, size);
-  MachineInstr *mi =
-      buildMachineInstr(b, byPlainMove ? MOP_COPY : isUnsigned ? X86_MOVZX : X86_MOVSX, 1, 1);
-
-  setRegisterOperand(mi, 0, dst);
-  setRegisterOperand(mi, 1, src);
-  mi->opSize = byPlainMove ? srcSize : size;
-  mi->srcSize = srcSize;
-
-  return dst;
+  return widenRegister(b, src, srcSize, size, isUnsignedIrOperand(value->type));
 }
 
 // 'dst <- value' at 'size' bytes, in whichever form the value has. A folded
@@ -393,13 +399,21 @@ static void selectFixedCopy(MachineBuilder *b, const MachineAddress *to,
     return;
   }
 
-  // Widest the chunks get, so the narrow tail borrows the same slot; the
-  // instructions carry their own width and only ever read back what they wrote.
-  uint32_t tmp = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+  // One register per chunk width rather than one for all of them: a copy uses
+  // at most four widths whatever its size, and a register whose width is the
+  // load's is a register the spill of it writes whole. The single eight-byte
+  // temporary the chunks used to share was the tail's half-written slot -
+  // section 9's allocation checker (b) reported every such copy.
+  uint32_t tmp[4] = { NO_REG, NO_REG, NO_REG, NO_REG };
 
   for (int32_t done = 0; done < bytes;) {
     int32_t left = bytes - done;
     uint8_t chunk = left >= 8 ? 8 : left >= 4 ? 4 : left >= 2 ? 2 : 1;
+    uint32_t *slot = &tmp[chunk == 8 ? 3 : chunk == 4 ? 2 : chunk == 2 ? 1 : 0];
+
+    if (*slot == NO_REG) {
+      *slot = createVirtualRegister(b->mf, RC_GP, chunk);
+    }
 
     MachineAddress fromChunk = *from;
     MachineAddress toChunk = *to;
@@ -407,13 +421,13 @@ static void selectFixedCopy(MachineBuilder *b, const MachineAddress *to,
     toChunk.disp += done;
 
     MachineInstr *load = buildMachineInstr(b, X86_LOAD, 1, 1);
-    setRegisterOperand(load, 0, tmp);
+    setRegisterOperand(load, 0, *slot);
     setMemoryOperand(load, 1, &fromChunk);
     load->opSize = chunk;
 
     MachineInstr *store = buildMachineInstr(b, X86_STORE, 0, 2);
     setMemoryOperand(store, 0, &toChunk);
-    setRegisterOperand(store, 1, tmp);
+    setRegisterOperand(store, 1, *slot);
     store->opSize = chunk;
 
     done += chunk;
@@ -721,13 +735,31 @@ static uint32_t setOpcodeFor(enum IrIntructionKind kind, Boolean isUnsigned) {
 // a move leaves the flags alone, an overwrite of them does not.
 static uint32_t emitIntegerCompare(MachineBuilder *b, const IrInstruction *i) {
   const IrInstruction *lhs = inputAt(i, 0);
+  const IrInstruction *rhs = inputAt(i, 1);
+
+  // The wider of the two, and both operands brought up to it. A compare of a
+  // pointer against a null constant typed 'int' is the shape that needs it:
+  // one side is eight bytes and the other four, and reading eight of the
+  // narrow one is reading four bytes nothing wrote.
+  uint8_t size = valueSize(lhs);
+  if (valueSize(rhs) > size) {
+    size = valueSize(rhs);
+  }
+
+  uint32_t lhsReg = selectWidened(b, lhs, size);
+  Boolean folded = machineBuilderIsFolded(b, rhs);
+  uint32_t rhsReg = folded ? NO_REG : selectWidened(b, rhs, size);
 
   MachineInstr *cmp = buildMachineInstr(b, X86_CMP, 0, 2);
   // The left-hand side is never an immediate: x86 encodes the immediate as the
   // source operand, which is what isLegalImmediate's position rule enforces.
-  setRegisterOperand(cmp, 0, machineBuilderVreg(b, lhs));
-  setValueOperand(b, cmp, 1, inputAt(i, 1));
-  cmp->opSize = valueSize(lhs);
+  setRegisterOperand(cmp, 0, lhsReg);
+  if (folded) {
+    setValueOperand(b, cmp, 1, rhs);
+  } else {
+    setRegisterOperand(cmp, 1, rhsReg);
+  }
+  cmp->opSize = size;
 
   return setOpcodeFor(i->kind, isUnsignedIrOperand(lhs->type));
 }
@@ -1190,7 +1222,9 @@ static void selectX87ToInteger(MachineBuilder *b, uint32_t dst, const IrInstruct
                                uint8_t toSize) {
   int32_t cw = x87Scratch(b, 2 * sizeof(uint32_t), sizeof(uint32_t));
   int32_t result = x87Scratch(b, sizeof(intptr_t), sizeof(intptr_t));
-  uint32_t word = createVirtualRegister(b->mf, RC_GP, sizeof(uint32_t));
+  // The control word is sixteen bits, and so is every instruction below that
+  // touches it; a wider register would be one the loads leave half written.
+  uint32_t word = createVirtualRegister(b->mf, RC_GP, sizeof(uint16_t));
 
   x87Push(b, value);
   x87Frame(b, X86_FNSTCW, cw, 0, sizeof(uint16_t));
@@ -1327,9 +1361,21 @@ static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
 
   // Integer to integer. Widening is the only one that costs an instruction;
   // narrowing is a copy, because the low bytes of the register are already the
-  // answer. selectLoadInto covers both, and picks the extension from the
-  // *source's* signedness, which is what C says a conversion does.
+  // answer. Either way the extension follows the *source's* signedness, which
+  // is what C says a conversion does.
   if (!fromFloat && !toFloat) {
+    uint8_t srcSize = valueSize(value);
+
+    // Straight into the conversion's own register when it widens: going
+    // through selectLoadInto would widen into a register of its own and then
+    // copy that here, and this is the one place where the widening *is* the
+    // instruction being selected rather than something a use needed.
+    if (srcSize < toSize && !machineBuilderIsFolded(b, value)) {
+      widenRegisterInto(b, dst, machineBuilderVreg(b, value), srcSize, toSize,
+                        isUnsignedIrOperand(fromType));
+      return;
+    }
+
     selectLoadInto(b, dst, value, toSize);
     return;
   }
@@ -1735,21 +1781,28 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
     // argument that is passed in one, exactly so that this cannot be an
     // immediate - the assembler has no push of one.
     uint32_t src = machineBuilderVreg(b, arg);
+    uint8_t argSize = valueSize(arg);
 
     if (callArgClass(arg) == RC_FP) {
       // There is no 'push xmm', so the bits come out into a general register
-      // first. At a whole word whatever the float's own width is: what gets
-      // pushed is an eightbyte either way, and 'movd' into a 64-bit register
-      // clears the half above a 'float' rather than leaving it as whatever the
-      // register held.
-      uint32_t bits = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+      // first, at the float's own width.
+      uint32_t bits = createVirtualRegister(b->mf, RC_GP, argSize);
 
       MachineInstr *out = buildMachineInstr(b, X86_MOVDR, 1, 1);
       setRegisterOperand(out, 0, bits);
       setRegisterOperand(out, 1, src);
-      out->opSize = valueSize(arg);
+      out->opSize = argSize;
 
-      src = bits;
+      // A whole eightbyte is what gets pushed, so the half above a 'float' is
+      // written rather than left as whatever the register held. Zero-extended,
+      // which is what the bits of a stack argument's padding are worth.
+      src = argSize < sizeof(intptr_t)
+                ? widenRegister(b, bits, argSize, sizeof(intptr_t), TRUE)
+                : bits;
+    } else if (argSize < sizeof(intptr_t)) {
+      // Same for a narrow integer: push writes eight bytes and the value has
+      // to fill them, by its own signedness.
+      src = selectWidened(b, arg, sizeof(intptr_t));
     }
 
     MachineInstr *push = buildMachineInstr(b, X86_PUSH, 0, 1);

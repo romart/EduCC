@@ -9,27 +9,28 @@ Locals:
    r:-1|<ret_slot> = %11
 BB #0, '<entry>', -> #2, dominatees [#2]
 
-  %19 = IR_DEF_CONST () [kind = integer, v = 4, id = 2]
-  %16 = IR_DEF_CONST () [kind = integer, v = 3, id = 1]
+  %20 = IR_DEF_CONST () [kind = integer, v = 4, id = 2]
+  %17 = IR_DEF_CONST () [kind = integer, v = 3, id = 1]
   %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
   %3 = IR_P_REG () [preg = $rdi]
   %6 = IR_P_REG () [preg = $rsi]
   %9 = IR_P_REG () [preg = $rdx]
-  %39 = IR_BRANCH () [target = #2]
+  %41 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #2, strict dom #2
 
-  %37 = IR_RET (%34) []
+  %39 = IR_RET (%36) []
 
 BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
-  %17 = IR_E_SHL (%6, %16) []
-  %18 = IR_GET_ELEMENT_PTR (%3, %17) [underlying type = STRUCT Item, index = %15]
-  %20 = IR_GET_ELEMENT_PTR (%18, %19) [underlying type = signed int, member = weight]
-  %21 = IR_M_LOAD (%20) [load type = I32]
-  %28 = IR_M_LOAD (%20) [load type = I32]
-  %32 = IR_E_ADD (%21, %28) []
-  %34 = IR_E_ADD (%32, %9) []
-  %36 = IR_BRANCH () [target = #1]
+  %16 = IR_E_BITCAST (%6) [I32->I64]
+  %18 = IR_E_SHL (%16, %17) []
+  %19 = IR_GET_ELEMENT_PTR (%3, %18) [underlying type = STRUCT Item, index = %16]
+  %21 = IR_GET_ELEMENT_PTR (%19, %20) [underlying type = signed int, member = weight]
+  %22 = IR_M_LOAD (%21) [load type = I32]
+  %30 = IR_M_LOAD (%21) [load type = I32]
+  %34 = IR_E_ADD (%22, %30) []
+  %36 = IR_E_ADD (%34, %9) []
+  %38 = IR_BRANCH () [target = #1]
 
 

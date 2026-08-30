@@ -55,7 +55,8 @@ VRegs:
   %v13 : gp/8
   %v14 : gp/8 ; %8
   %v15 : gp/8
-  %v16 : gp/8 ; %20
+  %v16 : gp/2
+  %v17 : gp/8 ; %20
 Frame: 208 bytes
   fi#0 : param 16/16 @ 16 'a' ; %2
   fi#1 : param 16/16 @ 32 'b' ; %4
@@ -79,7 +80,8 @@ Frame: 208 bytes
   fi#19 : spill 8/8 @ -176 %v13
   fi#20 : spill 8/8 @ -184 %v14 ; %8
   fi#21 : spill 8/8 @ -192 %v15
-  fi#22 : spill 8/8 @ -200 %v16 ; %20
+  fi#22 : spill 2/2 @ -194 %v16
+  fi#23 : spill 8/8 @ -208 %v17 ; %20
 Physical registers used: $rsp $r10 $r11
 MBB #0, '<entry>', ir #0, -> #2
   $r10 = mov.8 16 ; %5
@@ -168,14 +170,14 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   mov.8 [fi#2], $r10 ; %17
   $r11 = MOP_RELOAD.8 fi#20
   $r10 = mov.2 [$r11 + 8] ; %17
-  MOP_SPILL.8 fi#21, $r10
-  $r10 = MOP_RELOAD.8 fi#21
+  MOP_SPILL.2 fi#22, $r10
+  $r10 = MOP_RELOAD.2 fi#22
   mov.2 [fi#2 + 8], $r10 ; %17
 
 MBB #1, '<exit>', ir #1, <- #2
   $r10 = lea.8 [fi#2] ; %20
-  MOP_SPILL.8 fi#22, $r10
-  $r10 = MOP_RELOAD.8 fi#22
+  MOP_SPILL.8 fi#23, $r10
+  $r10 = MOP_RELOAD.8 fi#23
   fld.10 [$r10] ; %19
   ret ; %19
 

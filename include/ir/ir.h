@@ -483,6 +483,18 @@ Boolean isFloatIrType(enum IrTypeKind k);
 // register file.
 Boolean isRealIrType(enum IrTypeKind k);
 Boolean isIntegerIrType(enum IrTypeKind k);
+
+// Whether a value of this type is an integer or an address - everything that
+// lives in a general register and whose type alone says how wide it is. Ask
+// this wherever the question is about width rather than about arithmetic:
+// pointer arithmetic is integer arithmetic that happens to be typed IR_PTR.
+// IR_BOOL is deliberately not one: it is a one-bit predicate rather than a
+// value of a width anything computes in.
+Boolean isIntegerLikeIrType(enum IrTypeKind k);
+
+// Whether this opcode compares two integer-like operands and answers IR_BOOL.
+// The float comparisons are a separate set of opcodes and not one of these.
+Boolean isIntegerComparisonKind(enum IrIntructionKind k);
 Boolean isSignedIrType(enum IrTypeKind k);
 Boolean isUnsignedIrType(enum IrTypeKind k);
 

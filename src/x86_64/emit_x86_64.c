@@ -453,8 +453,8 @@ static void emitCallInstr(EmitContext *e, const MachineInstr *mi) {
 // A widening move: opSize is the destination's width and srcSize the source's,
 // which together pick the opcode. x86 spells the 32-to-64 case with its own
 // instruction (movsxd) rather than with the 0F-prefixed family the narrower
-// sources use, and has no zero-extending form of it at all - selection knows
-// that and emits a plain 32-bit move instead, so it never arrives here.
+// sources use, and has no zero-extending form of it at all: a plain 32-bit
+// move is how one is written, since it zeroes the half above what it writes.
 static void emitWiden(EmitContext *e, const MachineInstr *mi) {
   enum Registers dst = regOperand(e, mi, 0);
   enum Registers src = regOperand(e, mi, 1);
@@ -464,8 +464,11 @@ static void emitWiden(EmitContext *e, const MachineInstr *mi) {
   assert(srcSize < mi->opSize && "a widening move that widens nothing");
 
   if (srcSize == 4) {
-    assert(isSigned && "a 32-bit move already zero-extends; selection emits that instead");
-    emitMovsxdRR(e->gen, src, dst, mi->opSize);
+    if (isSigned) {
+      emitMovsxdRR(e->gen, src, dst, mi->opSize);
+    } else {
+      emitMoveRR(e->gen, src, dst, srcSize);
+    }
     return;
   }
 

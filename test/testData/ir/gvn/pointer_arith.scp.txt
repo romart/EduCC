@@ -13,21 +13,23 @@ BB #0, '<entry>', -> #2, dominatees [#2]
   %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
   %3 = IR_P_REG () [preg = $rdi]
   %6 = IR_P_REG () [preg = $rsi]
-  %34 = IR_BRANCH () [target = #2]
+  %36 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #2, strict dom #2
 
-  %32 = IR_RET (%27) []
+  %34 = IR_RET (%29) []
 
 BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
-  %15 = IR_E_MUL (%6, %14) []
-  %16 = IR_E_ADD (%3, %15) []
-  %20 = IR_E_MUL (%6, %14) []
-  %21 = IR_E_ADD (%3, %20) []
-  %24 = IR_M_LOAD (%16) [load type = I32]
-  %26 = IR_M_LOAD (%21) [load type = I32]
-  %27 = IR_E_ADD (%24, %26) []
-  %31 = IR_BRANCH () [target = #1]
+  %15 = IR_E_BITCAST (%6) [I32->I64]
+  %16 = IR_E_MUL (%15, %14) []
+  %17 = IR_E_ADD (%3, %16) []
+  %21 = IR_E_BITCAST (%6) [I32->I64]
+  %22 = IR_E_MUL (%21, %14) []
+  %23 = IR_E_ADD (%3, %22) []
+  %26 = IR_M_LOAD (%17) [load type = I32]
+  %28 = IR_M_LOAD (%23) [load type = I32]
+  %29 = IR_E_ADD (%26, %28) []
+  %33 = IR_BRANCH () [target = #1]
 
 
