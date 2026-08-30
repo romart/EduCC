@@ -431,8 +431,20 @@ static IrInstruction *translateVaArg(AstExpression *expr) {
   // here; one small enough to travel in a register comes out of the integer
   // area like any other, and one too large is only ever in the overflow area -
   // so there is no register path to choose between, and no branch to build.
-  Boolean inRegister = isRealType(vatype) || isScalarType(vatype) ||
-                       computeTypeSize(vatype) <= dataSize;
+  //
+  // Size is the whole question, and it used to be asked last. It is a size
+  // test rather than SysV's classification because the call site's is too:
+  // SysV splits an aggregate of up to sixteen bytes into two eightbytes and
+  // passes those in registers, and classifyParametersGeneric does not (see the
+  // TODO there). The two have to agree - va_arg reads what the caller wrote -
+  // so whoever finishes that TODO has to finish this in the same commit.
+  //
+  // Long double is the scalar that is in neither save area even so: SysV gives
+  // it the X87 class, which is passed in memory, so it is never in the
+  // register save area however few SSE arguments came before it. Asking
+  // isRealType first sent it there to read whatever the eighth SSE slot
+  // happened to hold.
+  Boolean inRegister = computeTypeSize(vatype) <= dataSize;
 
   IrBasicBlock *memoryBlock = NULL, *updateBlock = NULL, *doneBlock = NULL;
   IrInstruction *valuePtr = NULL;
@@ -748,6 +760,15 @@ static Boolean isWideUnsigned(enum IrTypeKind t) {
   return isUnsignedIrOperand(t) && irTypeMachineSize(t) == sizeof(intptr_t);
 }
 
+// Whether every 64-bit unsigned value is exactly representable in this
+// floating type. Only x87's is - its mantissa is 64 bits wide - and that makes
+// the halving below not merely unnecessary but wrong: ((2k+1) >> 1) | 1 is
+// k+1 whenever k is even, and doubling that answers 2k+2 for a value the
+// format could have held exactly.
+static Boolean representsEveryWideUnsigned(enum IrTypeKind t) {
+  return t == IR_F80;
+}
+
 // (double)someUnsignedLong.
 //
 //   x < 2^63 ? (double)(int64_t)x
@@ -758,14 +779,24 @@ static Boolean isWideUnsigned(enum IrTypeKind t) {
 // doubles would then round to even in the wrong direction. Or-ing it back -
 // round to odd - leaves the halved value on the correct side of the midpoint,
 // so doubling afterwards gives the correctly rounded answer.
+//
+// A long double destination takes the other arm, which is the same shape and
+// exact rather than correctly rounded:
+//
+//   x < 2^63 ? (long double)(int64_t)x
+//            : (long double)(int64_t)x + 2^64
+//
+// Reading x signed above 2^63 gives x - 2^64, and both that and the constant
+// put back are exact in a 64-bit mantissa, so the sum is x itself.
 static IrInstruction *translateWideUnsignedToFloat(IrInstruction *src, enum IrTypeKind irFromType,
                                                    enum IrTypeKind irToType, TypeRef *toType,
                                                    AstExpression *expr) {
+  Boolean exact = representsEveryWideUnsigned(irToType);
   IrInstruction *signBit = createIntegerConstant(irFromType, (int64_const_t)1 << 63);
   IrInstruction *fits = addBinaryOpeartion(IR_E_LT, src, signBit, IR_BOOL, NULL, NULL);
 
   IrBasicBlock *small = newBasicBlock("<u2f_signed>");
-  IrBasicBlock *large = newBasicBlock("<u2f_halved>");
+  IrBasicBlock *large = newBasicBlock(exact ? "<u2f_biased>" : "<u2f_halved>");
   IrBasicBlock *exit = newBasicBlock("<u2f_exit>");
 
   IrInstruction *branch = newCondBranch(fits, small, large);
@@ -780,22 +811,32 @@ static IrInstruction *translateWideUnsignedToFloat(IrInstruction *src, enum IrTy
   gotoToBlock(exit);
 
   ctx->currentBB = large;
-  IrInstruction *one = createIntegerConstant(irFromType, 1);
-  IrInstruction *shifted = addBinaryOpeartion(IR_E_SHR, src, one, irFromType, NULL, NULL);
-  IrInstruction *odd = addBinaryOpeartion(IR_E_AND, src, one, irFromType, NULL, NULL);
-  IrInstruction *rounded = addBinaryOpeartion(IR_E_OR, shifted, odd, irFromType, NULL, NULL);
-  IrInstruction *halfSigned = addCastInstr(rounded, irFromType, IR_I64, NULL, expr);
-  IrInstruction *half = addCastInstr(halfSigned, IR_I64, irToType, toType, expr);
-  // Doubled by adding it to itself rather than by multiplying by two: both are
-  // exact, and this needs no float constant to materialize.
-  IrInstruction *doubled = addBinaryOpeartion(IR_E_FADD, half, half, irToType, toType, NULL);
+  IrInstruction *wide = NULL;
+
+  if (exact) {
+    IrInstruction *asSigned2 = addCastInstr(src, irFromType, IR_I64, NULL, expr);
+    IrInstruction *converted = addCastInstr(asSigned2, IR_I64, irToType, toType, expr);
+    IrInstruction *twoTo64 = createFloatConstant(irToType, 18446744073709551616.0L);
+    wide = addBinaryOpeartion(IR_E_FADD, converted, twoTo64, irToType, toType, NULL);
+  } else {
+    IrInstruction *one = createIntegerConstant(irFromType, 1);
+    IrInstruction *shifted = addBinaryOpeartion(IR_E_SHR, src, one, irFromType, NULL, NULL);
+    IrInstruction *odd = addBinaryOpeartion(IR_E_AND, src, one, irFromType, NULL, NULL);
+    IrInstruction *rounded = addBinaryOpeartion(IR_E_OR, shifted, odd, irFromType, NULL, NULL);
+    IrInstruction *halfSigned = addCastInstr(rounded, irFromType, IR_I64, NULL, expr);
+    IrInstruction *half = addCastInstr(halfSigned, IR_I64, irToType, toType, expr);
+    // Doubled by adding it to itself rather than by multiplying by two: both
+    // are exact, and this needs no float constant to materialize.
+    wide = addBinaryOpeartion(IR_E_FADD, half, half, irToType, toType, NULL);
+  }
+
   IrBasicBlock *largeEnd = ctx->currentBB;
   gotoToBlock(exit);
 
   ctx->currentBB = exit;
   IrInstruction *phi = newPhiInstruction(irToType);
   addPhiInput(phi, direct, smallEnd);
-  addPhiInput(phi, doubled, largeEnd);
+  addPhiInput(phi, wide, largeEnd);
   addInstruction(phi);
   phi->astType = toType;
 
@@ -861,17 +902,14 @@ static IrInstruction *translateCast(AstExpression *expr) {
 
   IrInstruction *src = translateRValue(expr->castExpr.argument);
 
-  // F32 and F64 by name rather than isFloatIrType: F80 has no register class at
-  // all, and expanding it here would replace a refusal that says so with three
-  // blocks of arithmetic that get refused anyway.
-  Boolean toSse = irToType == IR_F32 || irToType == IR_F64;
-  Boolean fromSse = irFromType == IR_F32 || irFromType == IR_F64;
-
-  if (toSse && isWideUnsigned(irFromType)) {
+  // isRealIrType and not isFloatIrType: long double needs this as much as the
+  // SSE types do - more, since x87 has no unsigned form of anything either -
+  // and it is not an isFloatIrType, having no register class of its own.
+  if (isRealIrType(irToType) && isWideUnsigned(irFromType)) {
     return translateWideUnsignedToFloat(src, irFromType, irToType, toType, expr);
   }
 
-  if (fromSse && isWideUnsigned(irToType)) {
+  if (isRealIrType(irFromType) && isWideUnsigned(irToType)) {
     return translateFloatToWideUnsigned(src, irFromType, irToType, toType, expr);
   }
 

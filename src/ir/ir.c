@@ -32,6 +32,10 @@ Boolean isLeafInstr(const IrInstruction *instr) {
 }
 
 Boolean isFloatIrType(enum IrTypeKind k) {
+    return IR_F32 <= k && k <= IR_F64;
+}
+
+Boolean isRealIrType(enum IrTypeKind k) {
     return IR_F32 <= k && k <= IR_F80;
 }
 

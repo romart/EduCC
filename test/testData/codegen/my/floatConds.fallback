@@ -1,4 +1,0 @@
-# 'long double' constants, and in 'testLD' a load of one as well. See
-# bugs/ld_to_ul.fallback; roadmap step 18 removes both.
-main
-testLD

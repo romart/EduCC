@@ -37,11 +37,13 @@ BB #0, '<entry>', -> #2, dominatees [#2]
   %0 = IR_P_REG () [preg = $rsp]
   %2 = IR_E_ADD (%0, %1) []
   %4 = IR_E_ADD (%0, %3) []
+  %6 = IR_ALLOCA (%5) [size = 16]
   %21 = IR_BRANCH () [target = #2]
 
 BB #1, '<exit>', <- #2, strict dom #2
 
-  %19 = IR_RET (%8) []
+  %20 = IR_M_LOAD (%6) [load type = F80]
+  %19 = IR_RET (%20) []
 
 BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
@@ -54,6 +56,7 @@ BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
   %15 = IR_M_LOAD (%4) [load type = F80]
   %16 = IR_E_FSUB (%14, %15) []
   %8 = IR_CALL (%7, %9, %10, %13, %16) [size = 0]
+  %17 = IR_M_STORE (%6, %8) [store type = F80]
   %18 = IR_BRANCH () [target = #1]
 
 

@@ -132,6 +132,19 @@ enum IrTypeKind {
 
     IR_F32,
     IR_F64,
+
+    // The one type whose values are not the thing they name. An IR_F80 value
+    // is *the address of* a sixteen-byte x87 extended object, never the object
+    // itself - x87 has no register a flat allocator could hand out, so the
+    // sixteen bytes stay in memory and what travels is a pointer to them, the
+    // same way IR_P_AGG names an aggregate. See section 6.20 of
+    // docs/ir-codegen-design.md.
+    //
+    // So an IR_F80 is eight bytes wide, allocates in RC_GP, and is not an
+    // isFloatIrType - anything asking "does this go in an xmm register" has to
+    // get "no". What makes it a float rather than a pointer is what the
+    // instructions reading it do: IR_E_FADD on two of them is an x87 add, and
+    // IR_M_LOAD of one is the address itself.
     IR_F80,
 
     IR_LITERAL,
@@ -429,7 +442,15 @@ Boolean isLeafInstr(const IrInstruction *instr);
 // for lives.
 uint8_t irTypeMachineSize(enum IrTypeKind k);
 
+// Whether values of this type live in a floating-point register. IR_F80 does
+// not - see the note on it above - so this is the SSE types alone, and the
+// question "is this a floating-point value" is isRealIrType.
 Boolean isFloatIrType(enum IrTypeKind k);
+
+// Whether this is one of C's floating types, IR_F80 included. Ask this when
+// what matters is the arithmetic; ask isFloatIrType when what matters is the
+// register file.
+Boolean isRealIrType(enum IrTypeKind k);
 Boolean isIntegerIrType(enum IrTypeKind k);
 Boolean isSignedIrType(enum IrTypeKind k);
 Boolean isUnsignedIrType(enum IrTypeKind k);

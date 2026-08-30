@@ -1,8 +1,0 @@
-# 'long double' throughout - see bugs/ld_to_ul.fallback for the reasoning and
-# roadmap step 18 for what removes it. This is the file that contributes most
-# of the remaining refusal sites: 'ibm_ldconv' and 'ldcast_test' are long
-# double constants alone, 'float_h' and 'tstall' pass them as arguments too.
-float_h
-ibm_ldconv
-ldcast_test
-tstall

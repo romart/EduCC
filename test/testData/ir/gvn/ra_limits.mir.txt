@@ -12,9 +12,10 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #1
 --- Phase: mir ---
 MachineFunction 'ra_scratch_budget' [target = x86_64]
 VRegs: <none>
-Frame: 0 bytes
+Frame: 16 bytes
   fi#0 : param 16/16 @ 16 'a' ; %2
   fi#1 : param 16/16 @ 32 'b' ; %4
+  fi#2 : local 16/8 @ -16 ; %6
 MBB #0, '<entry>', ir #0, -> #2
 
 MBB #1, '<exit>', ir #1, <- #2

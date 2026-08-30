@@ -311,13 +311,10 @@ uint8_t irTypeMachineSize(enum IrTypeKind type) {
   case IR_U64:
   case IR_F64:
     return 8;
-  // x87's 80-bit format occupies 16 bytes once aligned. Nothing can hold one
-  // in a register of either class, which is the point of the soft-float
-  // lowering docs/ir-codegen-design.md section 10 leaves open; sizing it here
-  // is only so a long double value can be named before that lands.
+  // An aggregate is named by its address, never held whole - and so is an x87
+  // extended value, whose sixteen bytes fit no register this allocator hands
+  // out. See the note on IR_F80 in include/ir/ir.h.
   case IR_F80:
-    return 16;
-  // An aggregate is named by its address, never held whole.
   case IR_P_AGG:
   case IR_PTR:
   case IR_REF:

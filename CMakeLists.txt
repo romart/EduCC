@@ -147,8 +147,13 @@ if(BUILD_TESTING)
   # function handed back to the legacy backend fails the test, unless it is
   # named in a '<name>.fallback' sibling, and a name listed there that stops
   # falling back fails it too. Without it the suite passes on legacy output and
-  # coverage can regress with nothing going red. The only exemptions left are
-  # four files' worth of 'long double', which roadmap step 18 removes.
+  # coverage can regress with nothing going red.
+  #
+  # There are no '.fallback' files left anywhere in the tree since step 18 gave
+  # long double a lowering, so what this asserts now is that *every* function in
+  # the corpus is built by the IR backend. Adding one back is the thing to
+  # notice in review: it means a capability was lost, not that a test was
+  # relaxed.
   educc_add_test(codegen_experimental codegen codegen 300 ssa --compiler-flag=-experimental --no-fallback)
   # Compares '-irDump:ssa' output against golden dumps, isolating buildSSA
   # from scp/gvn/dce (see test/testRunner.py's runIrTest).

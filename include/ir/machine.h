@@ -268,6 +268,12 @@ enum MachineFrameObjectKind {
   // has a composite value - so selection is what discovers the need, and these
   // appear during stage 1 rather than stage 0.
   MFO_CALL_RESULT,
+  // Somewhere for selection to put a value that has to pass through memory:
+  // the answer to an x87 operation, and the scratch a value crossing between
+  // the x87 stack and a register file goes through. Discovered in stage 1 for
+  // MFO_CALL_RESULT's reason - the IR asked for no allocation, because at IR
+  // level a long double add simply has a value.
+  MFO_SCRATCH,
   // A virtual register's home, handed out by register allocation - the last of
   // the three sources the frame grows from, after what the IR asked for in
   // stage 0 and what selection discovered in stage 1. Each of the three leaves

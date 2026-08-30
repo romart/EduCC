@@ -45,16 +45,28 @@
 //                     calls a selection rule, at which point it stopped
 //                     reaching the limit: each argument became its own
 //                     one-register move and the widest instruction in the
-//                     function went back to naming two. 'long double' is what
-//                     reaches it now, and durably - the four arguments and the
-//                     result are five FP registers against a budget of three,
-//                     and lowering x87 arithmetic is soft-float work that
-//                     docs/ir-codegen-design.md section 11 puts outside step 7
-//                     altogether. Should that ever land, check whether any C
-//                     program can still reach this at all before rewriting the
-//                     fixture again: the honest answer may be that the refusal
-//                     has become defensive, and the place to say so is the
-//                     allocator rather than a test that no longer tests it.
+//                     function went back to naming two. 'long double' reached
+//                     it next, and was expected to do so durably.
+//
+//                     It no longer does, and step 18 is why. Lowering x87 into
+//                     the backend turned this function's five FP registers into
+//                     no FP registers at all: an IR_F80 value is an address, an
+//                     x87 instruction names one at a time, and there is no
+//                     MOP_UNSELECTED left in the function to stand in for the
+//                     call. So 'Registers: not allocated' is gone from the
+//                     baseline and this half of the fixture now checks that the
+//                     limit is *not* reached, which is not what it was written
+//                     for.
+//
+//                     Left standing rather than rewritten, because the question
+//                     it asks has moved: with nothing unselected anywhere in the
+//                     corpus, the scratch budget may now be unreachable by any C
+//                     program, and if it is then the honest place to say so is
+//                     the allocator rather than a test that no longer tests it.
+//                     That is the unselected-cleanup step's to settle - see
+//                     docs/ir-codegen-design.md section 11 - and it should
+//                     either find an input that still reaches the limit or
+//                     delete the refusal and this half of the fixture together.
 //
 // Values, checked against both the legacy pipeline and gcc, for whoever turns
 // these into executable fixtures at step 6: ra_byte_setcc(0, 0) == 0 and

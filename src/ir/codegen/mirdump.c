@@ -278,6 +278,7 @@ static const char *frameObjectKindName(enum MachineFrameObjectKind kind) {
   case MFO_LOCAL: return "local";
   case MFO_INCOMING_PARAM: return "param";
   case MFO_CALL_RESULT: return "call-result";
+  case MFO_SCRATCH: return "scratch";
   case MFO_SPILL: return "spill";
   default: return "?";
   }

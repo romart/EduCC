@@ -24,40 +24,79 @@ MBB #1, '<exit>', ir #1, <- #2
 --- Phase: isel ---
 MachineFunction 'ra_scratch_budget' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %0
-  %v1 : gp/8 ; %2
-  %v2 : gp/8 ; %4
-  %v3 : fp/16 ; %9
-  %v4 : fp/16 ; %10
-  %v5 : fp/16 ; %11
-  %v6 : fp/16 ; %12
-  %v7 : fp/16 ; %13
-  %v8 : fp/16 ; %14
-  %v9 : fp/16 ; %15
-  %v10 : fp/16 ; %16
-  %v11 : fp/16 ; %8
-Frame: 0 bytes
+  %v0 : gp/8 ; %5
+  %v1 : gp/8 ; %0
+  %v2 : gp/8 ; %9
+  %v3 : gp/8 ; %10
+  %v4 : gp/8 ; %11
+  %v5 : gp/8 ; %12
+  %v6 : gp/8 ; %13
+  %v7 : gp/8 ; %14
+  %v8 : gp/8 ; %15
+  %v9 : gp/8 ; %16
+  %v10 : gp/8
+  %v11 : gp/8
+  %v12 : gp/8
+  %v13 : gp/8
+  %v14 : gp/8 ; %8
+  %v15 : gp/8
+  %v16 : gp/8 ; %20
+Frame: 64 bytes
   fi#0 : param 16/16 @ 16 'a' ; %2
   fi#1 : param 16/16 @ 32 'b' ; %4
+  fi#2 : local 16/8 @ -16 ; %6
+  fi#3 : scratch 16/16 @ -32
+  fi#4 : scratch 16/16 @ -48
+  fi#5 : scratch 16/16 @ -64
 MBB #0, '<entry>', ir #0, -> #2
-  %v0 = MOP_COPY.8 $rsp ; %0
-  %v1 = lea.8 [fi#0] ; %2
-  %v2 = lea.8 [fi#1] ; %4
+  %v0 = mov.8 16 ; %5
+  %v1 = MOP_COPY.8 $rsp ; %0
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  %v3 = MOP_UNSELECTED(IR_M_LOAD) %v1 ; %9
-  %v4 = MOP_UNSELECTED(IR_M_LOAD) %v2 ; %10
-  %v5 = MOP_UNSELECTED(IR_M_LOAD) %v1 ; %11
-  %v6 = MOP_UNSELECTED(IR_M_LOAD) %v2 ; %12
-  %v7 = MOP_COPY.16 %v5 ; %13
-  %v7 = fadd.16 %v7, %v6 ; %13
-  %v8 = MOP_UNSELECTED(IR_M_LOAD) %v1 ; %14
-  %v9 = MOP_UNSELECTED(IR_M_LOAD) %v2 ; %15
-  %v10 = MOP_COPY.16 %v8 ; %16
-  %v10 = fsub.16 %v10, %v9 ; %16
-  %v11 = MOP_UNSELECTED(IR_CALL) ra_limits_callee, %v3, %v4, %v7, %v10 ; %8
+  %v2 = lea.8 [fi#0] ; %9
+  %v3 = lea.8 [fi#1] ; %10
+  %v4 = lea.8 [fi#0] ; %11
+  %v5 = lea.8 [fi#1] ; %12
+  fld.10 [%v4] ; %13
+  fld.10 [%v5] ; %13
+  faddp ; %13
+  fstp.10 [fi#3] ; %13
+  %v6 = lea.8 [fi#3] ; %13
+  %v7 = lea.8 [fi#0] ; %14
+  %v8 = lea.8 [fi#1] ; %15
+  fld.10 [%v7] ; %16
+  fld.10 [%v8] ; %16
+  fsubp ; %16
+  fstp.10 [fi#4] ; %16
+  %v9 = lea.8 [fi#4] ; %16
+  %v10 = mov.8 [%v9 + 8] ; %8
+  push.8 %v10 ; %8
+  %v10 = mov.8 [%v9] ; %8
+  push.8 %v10 ; %8
+  %v11 = mov.8 [%v6 + 8] ; %8
+  push.8 %v11 ; %8
+  %v11 = mov.8 [%v6] ; %8
+  push.8 %v11 ; %8
+  %v12 = mov.8 [%v3 + 8] ; %8
+  push.8 %v12 ; %8
+  %v12 = mov.8 [%v3] ; %8
+  push.8 %v12 ; %8
+  %v13 = mov.8 [%v2 + 8] ; %8
+  push.8 %v13 ; %8
+  %v13 = mov.8 [%v2] ; %8
+  push.8 %v13 ; %8
+  call ra_limits_callee <clobbers caller-saved> ; %8
+  $rsp = add.8 $rsp, 64 ; %8
+  fstp.10 [fi#5] ; %8
+  %v14 = lea.8 [fi#5] ; %8
+  %v15 = mov.8 [%v14] ; %17
+  mov.8 [fi#2], %v15 ; %17
+  %v15 = mov.2 [%v14 + 8] ; %17
+  mov.2 [fi#2 + 8], %v15 ; %17
 
 MBB #1, '<exit>', ir #1, <- #2
-  MOP_UNSELECTED(IR_RET) %v11 ; %19
+  %v16 = lea.8 [fi#2] ; %20
+  fld.10 [%v16] ; %19
+  ret ; %19
 
 

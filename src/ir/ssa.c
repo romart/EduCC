@@ -64,6 +64,17 @@ static Boolean analyzeAllocaInstruction(IrInstruction *allocaInstr, AllocaOptInf
 
   for (size_t i = 0; i < uses->size; ++i) {
     IrInstruction *useInstr = getInstructionFromVector(uses, i);
+    // An x87 value is named by its address (see IR_F80 in include/ir/ir.h), so
+    // a load of one hands back the address it was given and a store of one is
+    // a sixteen-byte copy. Promoting the alloca would turn both into moves of
+    // that address, which makes 'a = b' alias b's storage instead of copying
+    // it - and a later write to b would then be visible through a.
+    if ((useInstr->kind == IR_M_LOAD || useInstr->kind == IR_M_STORE) &&
+        useInstr->info.memory.opType == IR_F80) {
+      printf("  alloca %c%u holds a long double, which lives in memory\n", '%', allocaInstr->id);
+      return FALSE;
+    }
+
     switch (useInstr->kind) {
       case IR_M_LOAD:
         setBit(&info->useBlocks, useInstr->block->id);

@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <string.h>
 
+#include "codegen.h"
 #include "ir/ir.h"
 #include "ir/isel.h"
 #include "sema.h"
@@ -186,9 +187,11 @@ static Boolean isAddressableIrType(enum IrTypeKind t) {
   // arrived in (see translateCall and initializeParamterLocal in ast2ir.c).
   // Anything larger is an IR_M_COPY between two addresses and never a load.
   //
-  // Long double is the type left out: it lives on the x87 stack, which this
-  // backend does not model at all.
-  return t != IR_F80 && t != IR_VOID;
+  // IR_F80 is one too, and the odd one: it *is* an address, so the "load" is
+  // that address arriving in a register and the "store" is a copy of the bytes
+  // it points at. Both still address memory, which is what this question is
+  // for - see selectX87Load and selectX87Store.
+  return t != IR_VOID;
 }
 
 // The addressing mode a pointer denotes, in the form an operand takes.
@@ -333,11 +336,19 @@ static void selectGep(MachineBuilder *b, const IrInstruction *i) {
   mi->opSize = sizeof(intptr_t);
 }
 
+static void selectX87Load(MachineBuilder *b, const IrInstruction *i);
+static void selectX87Store(MachineBuilder *b, const IrInstruction *i);
+
 static void selectMemoryLoad(MachineBuilder *b, const IrInstruction *i) {
   enum IrTypeKind t = i->info.memory.opType;
 
   if (!isAddressableIrType(t)) {
     buildUnselected(b, i, "no single load moves a value of this type");
+    return;
+  }
+
+  if (t == IR_F80) {
+    selectX87Load(b, i);
     return;
   }
 
@@ -380,35 +391,18 @@ static Boolean isUnrollableCopy(const IrInstruction *i) {
 // - on top of the source and the destination themselves. Reuse costs a future
 // scheduler the freedom to see the chunks as independent, which they are; a
 // frame that scales with the copy is the worse of the two.
-static void selectMemoryCopy(MachineBuilder *b, const IrInstruction *i) {
-  const IrInstruction *size = inputAt(i, 2);
-
-  // A size known only at run time is the one shape left: it needs a loop, and
-  // nothing here builds one. Size alone is no longer a reason to refuse - see
-  // docs/ir-codegen-design.md section 10.
-  if (!isUnrollableCopy(i)) {
-    buildUnselected(b, i, "copies a number of bytes not known until run time");
-    return;
-  }
-
-  int64_t bytes = size->info.constant.data.i;
-
-  // Both addresses once, outside the loop: the chunks differ only in their
-  // displacement, and an address that had to widen an index would otherwise
-  // widen it again for every eight bytes copied.
-  MachineAddress from = addressFor(b, inputAt(i, 1), 0);
-  MachineAddress to = addressFor(b, inputAt(i, 0), 0);
-
+static void selectFixedCopy(MachineBuilder *b, const MachineAddress *to,
+                            const MachineAddress *from, int32_t bytes) {
   // Widest the chunks get, so the narrow tail borrows the same slot; the
   // instructions carry their own width and only ever read back what they wrote.
   uint32_t tmp = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
 
-  for (int32_t done = 0; done < (int32_t)bytes;) {
-    int32_t left = (int32_t)bytes - done;
+  for (int32_t done = 0; done < bytes;) {
+    int32_t left = bytes - done;
     uint8_t chunk = left >= 8 ? 8 : left >= 4 ? 4 : left >= 2 ? 2 : 1;
 
-    MachineAddress fromChunk = from;
-    MachineAddress toChunk = to;
+    MachineAddress fromChunk = *from;
+    MachineAddress toChunk = *to;
     fromChunk.disp += done;
     toChunk.disp += done;
 
@@ -426,11 +420,36 @@ static void selectMemoryCopy(MachineBuilder *b, const IrInstruction *i) {
   }
 }
 
+static void selectMemoryCopy(MachineBuilder *b, const IrInstruction *i) {
+  const IrInstruction *size = inputAt(i, 2);
+
+  // A size known only at run time is the one shape left: it needs a loop, and
+  // nothing here builds one. Size alone is no longer a reason to refuse - see
+  // docs/ir-codegen-design.md section 10.
+  if (!isUnrollableCopy(i)) {
+    buildUnselected(b, i, "copies a number of bytes not known until run time");
+    return;
+  }
+
+  // Both addresses once, outside the loop: the chunks differ only in their
+  // displacement, and an address that had to widen an index would otherwise
+  // widen it again for every eight bytes copied.
+  MachineAddress from = addressFor(b, inputAt(i, 1), 0);
+  MachineAddress to = addressFor(b, inputAt(i, 0), 0);
+
+  selectFixedCopy(b, &to, &from, (int32_t)size->info.constant.data.i);
+}
+
 static void selectMemoryStore(MachineBuilder *b, const IrInstruction *i) {
   enum IrTypeKind t = i->info.memory.opType;
 
   if (!isAddressableIrType(t)) {
     buildUnselected(b, i, "no single store moves a value of this type");
+    return;
+  }
+
+  if (t == IR_F80) {
+    selectX87Store(b, i);
     return;
   }
 
@@ -753,12 +772,14 @@ static int64_t floatConstantBits(const IrInstruction *i) {
   return (int64_t)bits;
 }
 
+static void selectX87Constant(MachineBuilder *b, const IrInstruction *i);
+
 static void selectFloatConstant(MachineBuilder *b, const IrInstruction *i) {
-  // Not through floatConstantBits: it would answer for a long double by
-  // rounding it to a double, and the bits of a value this does not represent
-  // are worse than no rule at all.
+  // Not through floatConstantBits, which would answer for a long double by
+  // rounding it to a double: x87 has no immediate form at all, so the value
+  // goes to memory whole and is loaded from there.
   if (i->type == IR_F80) {
-    buildUnselected(b, i, "a long double constant, which has no SSE form");
+    selectX87Constant(b, i);
     return;
   }
 
@@ -779,7 +800,14 @@ static void selectFloatConstant(MachineBuilder *b, const IrInstruction *i) {
 // 'dst = lhs op rhs' in SSE's two-address form, which is the same shape as the
 // integer one - and shares selectLoadInto with it, since a copy between xmm
 // registers is still a copy.
+static void selectX87Binary(MachineBuilder *b, const IrInstruction *i);
+
 static void selectFloatBinary(MachineBuilder *b, const IrInstruction *i, uint32_t opcode) {
+  if (i->type == IR_F80) {
+    selectX87Binary(b, i);
+    return;
+  }
+
   uint8_t size = valueSize(i);
   uint32_t dst = machineBuilderVreg(b, i);
 
@@ -820,8 +848,14 @@ static uint32_t floatSetOpcodeFor(enum IrIntructionKind kind) {
   return X86_SETE;
 }
 
+static uint32_t emitX87Compare(MachineBuilder *b, const IrInstruction *i);
+
 // As emitIntegerCompare, for the SSE comparisons.
 static uint32_t emitFloatCompare(MachineBuilder *b, const IrInstruction *i) {
+  if (inputAt(i, 0)->type == IR_F80) {
+    return emitX87Compare(b, i);
+  }
+
   Boolean isEquality = i->kind == IR_E_FEQ || i->kind == IR_E_FNE;
   // '<' and '<=' are '>' and '>=' with the operands the other way round.
   Boolean swap = i->kind == IR_E_FLT || i->kind == IR_E_FLE;
@@ -862,6 +896,176 @@ static void selectFloatCompare(MachineBuilder *b, const IrInstruction *i) {
   setRegisterOperand(mi, 1, dst);
   setRegisterOperand(mi, 2, ordered);
   mi->opSize = size;
+}
+
+// -============================ x87 ============================-
+//
+// Long double, and nothing else on this target uses x87 at all.
+//
+// An IR_F80 value is the *address* of the sixteen bytes rather than the bytes
+// (see the note on it in include/ir/ir.h), which is what makes a stack
+// register file usable behind an allocator that only knows about flat ones:
+// every rule below pushes its operands out of memory, does the one x87
+// instruction, and pops the answer back into memory, so the stack is exactly
+// as deep after the rule as before it and no value is ever live in st(i)
+// across an instruction boundary. The allocator never learns x87 exists.
+//
+// The two exceptions are the ABI's, and they are exceptions on purpose: a
+// return leaves its value in st(0) and a call takes its result out of st(0),
+// because that is where SysV says a long double is handed over. The stack is
+// balanced across the pair.
+
+// fld and fstp move the ten bytes that mean anything. The object occupies
+// sixteen so that its address has the alignment the ABI gives it, and nothing
+// ever reads the six above the ten.
+#define X87_MEM_SIZE 10
+#define X87_OBJECT_SIZE 16
+#define X87_OBJECT_ALIGN 16
+
+// Somewhere to put a value that has to pass through memory. Laid out here for
+// the reason selectRegisterReturnedStruct lays its slot out here: the IR asked
+// for no allocation, because at IR level a long double add simply has a value.
+static int32_t x87Scratch(MachineBuilder *b, uint32_t size, uint32_t align) {
+  MachineFunction *mf = b->mf;
+  int32_t frameIdx = addMachineFrameObject(mf, MFO_SCRATCH, size, align);
+
+  mf->frame.size = (uint32_t)ALIGN_SIZE(
+      placeMachineFrameObject(mf, (int32_t)mf->frame.size, frameIdx), 2 * sizeof(intptr_t));
+
+  return frameIdx;
+}
+
+// One instruction naming one address, which is every x87 form here except the
+// arithmetic and the compares - those name no operand at all, reading st(0)
+// and st(1) where the pushes in front of them left their operands.
+static void x87Mem(MachineBuilder *b, uint32_t opcode, const MachineAddress *addr, uint8_t size) {
+  MachineInstr *mi = buildMachineInstr(b, opcode, 0, 1);
+  setMemoryOperand(mi, 0, addr);
+  mi->opSize = size;
+}
+
+static void x87Frame(MachineBuilder *b, uint32_t opcode, int32_t frameIdx, int32_t disp,
+                     uint8_t size) {
+  MachineAddress addr = { MAK_FRAME, NO_REG, NO_REG, 0, disp };
+  addr.anchor.frameIdx = frameIdx;
+  x87Mem(b, opcode, &addr, size);
+}
+
+// Push what an IR_F80 value names onto the x87 stack.
+static void x87Push(MachineBuilder *b, const IrInstruction *value) {
+  MachineAddress addr = addressFor(b, value, 0);
+  x87Mem(b, X86_FLD, &addr, X87_MEM_SIZE);
+}
+
+// The address of a frame slot, in a register - which is what an IR_F80 result
+// is, so this is how every rule producing one finishes.
+static void x87SlotAddress(MachineBuilder *b, const IrInstruction *i, int32_t frameIdx) {
+  MachineInstr *lea = buildMachineInstr(b, X86_LEA, 1, 1);
+  setRegisterOperand(lea, 0, machineBuilderVreg(b, i));
+  setFrameAddressOperand(lea, 1, frameIdx);
+  lea->opSize = sizeof(intptr_t);
+}
+
+// Pop the top of the stack into a slot of its own and give the instruction's
+// value that slot's address.
+static void x87PopToValue(MachineBuilder *b, const IrInstruction *i) {
+  int32_t frameIdx = x87Scratch(b, X87_OBJECT_SIZE, X87_OBJECT_ALIGN);
+
+  x87Frame(b, X86_FSTP, frameIdx, 0, X87_MEM_SIZE);
+  x87SlotAddress(b, i, frameIdx);
+}
+
+// A long double constant, written into a slot an eightbyte at a time.
+//
+// Both eightbytes, though only ten bytes mean anything: writing the slot whole
+// is one 'mov' more and saves needing a two-byte store form, and the six bytes
+// above the value are inside the slot the object was given.
+static void selectX87Constant(MachineBuilder *b, const IrInstruction *i) {
+  LongDoubleBytes ld = { 0 };
+  ld.ld = (long double)i->info.constant.data.f;
+
+  int32_t frameIdx = x87Scratch(b, X87_OBJECT_SIZE, X87_OBJECT_ALIGN);
+  uint32_t bits = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
+  for (int32_t half = 0; half < 2; ++half) {
+    MachineInstr *mov = buildMachineInstr(b, X86_MOV, 1, 1);
+    setRegisterOperand(mov, 0, bits);
+    setImmediateOperand(mov, 1, (int64_t)ld.qwords[half]);
+    mov->opSize = sizeof(intptr_t);
+
+    MachineAddress addr = { MAK_FRAME, NO_REG, NO_REG, 0, half * (int32_t)sizeof(intptr_t) };
+    addr.anchor.frameIdx = frameIdx;
+
+    MachineInstr *store = buildMachineInstr(b, X86_STORE, 0, 2);
+    setMemoryOperand(store, 0, &addr);
+    setRegisterOperand(store, 1, bits);
+    store->opSize = sizeof(intptr_t);
+  }
+
+  x87SlotAddress(b, i, frameIdx);
+}
+
+// Loading a long double moves nothing: the value *is* the address, so this is
+// the address arriving in a register. What reads the bytes is whatever reads
+// the value afterwards.
+static void selectX87Load(MachineBuilder *b, const IrInstruction *i) {
+  MachineAddress addr = addressFor(b, inputAt(i, 0), 0);
+
+  MachineInstr *mi = buildMachineInstr(b, X86_LEA, 1, 1);
+  setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+  setMemoryOperand(mi, 1, &addr);
+  mi->opSize = sizeof(intptr_t);
+}
+
+// Storing one is the copy that a load is not - 'a = b' has to leave a with its
+// own bytes, or a later write to b would be visible through it.
+static void selectX87Store(MachineBuilder *b, const IrInstruction *i) {
+  MachineAddress to = addressFor(b, inputAt(i, 0), 0);
+  MachineAddress from = addressFor(b, inputAt(i, 1), 0);
+
+  selectFixedCopy(b, &to, &from, X87_MEM_SIZE);
+}
+
+static uint32_t x87ArithOpcode(enum IrIntructionKind kind) {
+  switch (kind) {
+  case IR_E_FADD: return X86_FADDP;
+  case IR_E_FSUB: return X86_FSUBP;
+  case IR_E_FMUL: return X86_FMULP;
+  case IR_E_FDIV: return X86_FDIVP;
+  default: unreachable("not an x87 arithmetic operation");
+  }
+
+  return X86_FADDP;
+}
+
+// The left operand is pushed first, so it lands in st(1) and the right in
+// st(0) - which is the order 'st(1) op= st(0)' needs for a subtract and a
+// divide to come out the right way round.
+static void selectX87Binary(MachineBuilder *b, const IrInstruction *i) {
+  x87Push(b, inputAt(i, 0));
+  x87Push(b, inputAt(i, 1));
+  buildMachineInstr(b, x87ArithOpcode(i->kind), 0, 0);
+  x87PopToValue(b, i);
+}
+
+// fcomip compares st(0) against st(1), so the operands go on in the opposite
+// order to the arithmetic - the left one last, on top. The flags it leaves are
+// the ones comis* leaves, which is what lets floatSetOpcodeFor and every jcc
+// downstream be shared with SSE rather than duplicated for x87.
+//
+// It pops one of the two operands; the other is dropped explicitly, which is
+// what keeps the stack balanced across the rule.
+static uint32_t emitX87Compare(MachineBuilder *b, const IrInstruction *i) {
+  Boolean isEquality = i->kind == IR_E_FEQ || i->kind == IR_E_FNE;
+  Boolean swap = i->kind == IR_E_FLT || i->kind == IR_E_FLE;
+
+  x87Push(b, inputAt(i, swap ? 0 : 1));
+  x87Push(b, inputAt(i, swap ? 1 : 0));
+
+  buildMachineInstr(b, isEquality ? X86_FUCOMIP : X86_FCOMIP, 0, 0);
+  buildMachineInstr(b, X86_FPOP, 0, 0);
+
+  return floatSetOpcodeFor(i->kind);
 }
 
 // -============================ Conversions ============================-
@@ -949,6 +1153,151 @@ static void selectBooleanConversion(MachineBuilder *b, const IrInstruction *i, u
   mi->opSize = 1;
 }
 
+// (_Bool)someLongDouble, which is 'x != 0' like every other conversion to
+// _Bool. Same shape as the SSE one in selectBooleanConversion, down to folding
+// the ordered-ness in: an unordered compare sets the zero flag, so a NaN would
+// otherwise come out 0 where C says 1.
+static void selectX87BooleanConversion(MachineBuilder *b, uint32_t dst,
+                                       const IrInstruction *value) {
+  x87Push(b, value);
+  buildMachineInstr(b, X86_FLDZ, 0, 0);
+  buildMachineInstr(b, X86_FUCOMIP, 0, 0);
+  buildMachineInstr(b, X86_FPOP, 0, 0);
+
+  selectSetcc(b, X86_SETNE, dst, FALSE);
+
+  uint32_t unordered = createVirtualRegister(b->mf, RC_GP, 1);
+  selectSetcc(b, X86_SETP, unordered, FALSE);
+
+  MachineInstr *mi = buildMachineInstr(b, X86_OR, 1, 2);
+  setRegisterOperand(mi, 0, dst);
+  setRegisterOperand(mi, 1, dst);
+  setRegisterOperand(mi, 2, unordered);
+  mi->opSize = 1;
+}
+
+// x87 rounds by whatever the control word says, and C casts truncate. So the
+// word is saved, the rounding field set to "toward zero", the store done, and
+// the word put back - which is the sequence the legacy backend's
+// generateF10toInt spells out, and there is no shorter one that does not raise
+// the ISA baseline (fisttp is SSE3).
+//
+// Always into eight bytes, whatever the destination is. A narrower fistp
+// answers "integer indefinite" for anything that does not fit, where the wide
+// form is exact for every value a defined conversion can produce and the low
+// bytes of it are then the answer - the same reasoning selectConversion's
+// wideForUnsigned uses.
+static void selectX87ToInteger(MachineBuilder *b, uint32_t dst, const IrInstruction *value,
+                               uint8_t toSize) {
+  int32_t cw = x87Scratch(b, 2 * sizeof(uint32_t), sizeof(uint32_t));
+  int32_t result = x87Scratch(b, sizeof(intptr_t), sizeof(intptr_t));
+  uint32_t word = createVirtualRegister(b->mf, RC_GP, sizeof(uint32_t));
+
+  x87Push(b, value);
+  x87Frame(b, X86_FNSTCW, cw, 0, sizeof(uint16_t));
+
+  MachineAddress saved = { MAK_FRAME, NO_REG, NO_REG, 0, 0 };
+  saved.anchor.frameIdx = cw;
+  MachineAddress truncating = saved;
+  truncating.disp = sizeof(uint32_t);
+
+  MachineInstr *load = buildMachineInstr(b, X86_LOAD, 1, 1);
+  setRegisterOperand(load, 0, word);
+  setMemoryOperand(load, 1, &saved);
+  load->opSize = sizeof(uint16_t);
+
+  // Bits 10 and 11 are the rounding control; 11 is "toward zero".
+  MachineInstr *set = buildMachineInstr(b, X86_OR, 1, 2);
+  setRegisterOperand(set, 0, word);
+  setRegisterOperand(set, 1, word);
+  setImmediateOperand(set, 2, 0x0C00);
+  set->opSize = sizeof(uint16_t);
+
+  MachineInstr *store = buildMachineInstr(b, X86_STORE, 0, 2);
+  setMemoryOperand(store, 0, &truncating);
+  setRegisterOperand(store, 1, word);
+  store->opSize = sizeof(uint16_t);
+
+  x87Mem(b, X86_FLDCW, &truncating, sizeof(uint16_t));
+  x87Frame(b, X86_FISTP, result, 0, sizeof(intptr_t));
+  x87Mem(b, X86_FLDCW, &saved, sizeof(uint16_t));
+
+  MachineAddress at = { MAK_FRAME, NO_REG, NO_REG, 0, 0 };
+  at.anchor.frameIdx = result;
+
+  MachineInstr *out = buildMachineInstr(b, X86_LOAD, 1, 1);
+  setRegisterOperand(out, 0, dst);
+  setMemoryOperand(out, 1, &at);
+  out->opSize = toSize;
+}
+
+// Everything with a long double on one side of it. The two register files
+// cannot see each other's values, so each direction goes through a frame slot:
+// x87 only ever loads and stores memory, and SSE and the GP file only ever
+// reach memory the same way.
+static void selectX87Conversion(MachineBuilder *b, const IrInstruction *i, uint32_t dst) {
+  enum IrTypeKind fromType = i->info.fromCastType;
+  enum IrTypeKind toType = i->type;
+  const IrInstruction *value = inputAt(i, 0);
+
+  if (toType == IR_F80) {
+    if (fromType == IR_F80) {
+      // A cast of a long double to its own type. It yields an rvalue, and an
+      // rvalue of one is an address like any other, so nothing is copied - the
+      // same aliasing a load does.
+      selectX87Load(b, i);
+      return;
+    }
+
+    // An SSE value or an integer, neither of which x87 can be handed directly.
+    // Widened first for a narrow integer, for selectConversion's reason: the
+    // widening is part of what '(long double)someChar' means.
+    uint8_t srcSize = isFloatIrType(fromType) ? valueSize(value)
+                                              : conversionIntSize(valueSize(value));
+    if (!isFloatIrType(fromType) && isUnsignedIrOperand(fromType)) {
+      srcSize = sizeof(intptr_t);
+    }
+
+    int32_t slot = x87Scratch(b, sizeof(intptr_t), sizeof(intptr_t));
+    MachineAddress at = { MAK_FRAME, NO_REG, NO_REG, 0, 0 };
+    at.anchor.frameIdx = slot;
+
+    MachineInstr *store = buildMachineInstr(b, X86_STORE, 0, 2);
+    setMemoryOperand(store, 0, &at);
+    setRegisterOperand(store, 1, isFloatIrType(fromType)
+                                     ? machineBuilderVreg(b, value)
+                                     : selectWidened(b, value, srcSize));
+    store->opSize = srcSize;
+
+    x87Mem(b, isFloatIrType(fromType) ? X86_FLD : X86_FILD, &at, srcSize);
+    x87PopToValue(b, i);
+    return;
+  }
+
+  if (toType == IR_BOOL) {
+    selectX87BooleanConversion(b, dst, value);
+    return;
+  }
+
+  if (isFloatIrType(toType)) {
+    uint8_t toSize = valueSize(i);
+    int32_t slot = x87Scratch(b, sizeof(intptr_t), sizeof(intptr_t));
+    MachineAddress at = { MAK_FRAME, NO_REG, NO_REG, 0, 0 };
+    at.anchor.frameIdx = slot;
+
+    x87Push(b, value);
+    x87Mem(b, X86_FSTP, &at, toSize);
+
+    MachineInstr *load = buildMachineInstr(b, X86_LOAD, 1, 1);
+    setRegisterOperand(load, 0, dst);
+    setMemoryOperand(load, 1, &at);
+    load->opSize = toSize;
+    return;
+  }
+
+  selectX87ToInteger(b, dst, value, valueSize(i));
+}
+
 static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
   enum IrTypeKind fromType = i->info.fromCastType;
   enum IrTypeKind toType = i->type;
@@ -959,7 +1308,12 @@ static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
   Boolean fromFloat = isFloatIrType(fromType);
   Boolean toFloat = isFloatIrType(toType);
 
-  if (fromType == IR_F80 || toType == IR_F80 || fromType == IR_P_AGG || toType == IR_P_AGG) {
+  if (fromType == IR_F80 || toType == IR_F80) {
+    selectX87Conversion(b, i, dst);
+    return;
+  }
+
+  if (fromType == IR_P_AGG || toType == IR_P_AGG) {
     buildUnselected(b, i, "converts to or from a type with no register class");
     return;
   }
@@ -1070,25 +1424,45 @@ static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
 // same IR_PTR here, the temporary the bytes were copied into being the only
 // difference and not one this file can see. See IrInstruction.info.call.
 static Boolean callArgInMemory(const IrInstruction *call, size_t idx) {
+  // A long double is always one, and needs no bit in the mask to say so: SysV
+  // gives it the X87 class, which is passed in memory, and the type already
+  // says everything the mask would. Input 0 is the callee and is never one, so
+  // this cannot collide with the overflow flag that bit carries.
+  if (inputAt(call, idx)->type == IR_F80) {
+    return TRUE;
+  }
+
   return idx < 8 * sizeof(call->info.call.memArgs) &&
          (call->info.call.memArgs & ((uint64_t)1 << idx)) != 0;
 }
 
-// The eightbytes a memory argument occupies, which is its size rounded up.
+// What a memory argument takes in the outgoing area: its size rounded up to a
+// whole number of eightbytes, and the alignment the *callee* will read it at.
 //
-// The same count the callee advances its incoming cursor by: every parameter
-// is aligned to at least eight bytes there, so the bytes above an aggregate
-// that does not fill its last eightbyte are padding on both sides. See
-// classifyParametersGeneric.
-static uint32_t memArgStackSlots(const IrInstruction *arg) {
+// Both come from the callee's view of the same argument - see
+// classifyParametersGeneric - because the two sides have to agree about where
+// the bytes are, and only the caller can put them there.
+static void memArgShape(const IrInstruction *arg, uint32_t *size, uint32_t *align) {
+  if (arg->type == IR_F80) {
+    *size = X87_OBJECT_SIZE;
+    *align = X87_OBJECT_ALIGN;
+    return;
+  }
+
   // The mask is the authority on which inputs get here; astType only supplies
   // the size, and translateCall sets the two together.
   assert(arg->astType != NULL && isPointerLikeType(arg->astType));
 
   const TypeRef *type = arg->astType->pointed;
-  int32_t size = computeTypeSize(type);
 
-  return (uint32_t)((size + sizeof(intptr_t) - 1) / sizeof(intptr_t));
+  *size = (uint32_t)ALIGN_SIZE(computeTypeSize(type), sizeof(intptr_t));
+  *align = (uint32_t)max((int32_t)sizeof(intptr_t), typeAlignment(type));
+}
+
+static uint32_t memArgStackSlots(const IrInstruction *arg) {
+  uint32_t size = 0, align = 0;
+  memArgShape(arg, &size, &align);
+  return size / (uint32_t)sizeof(intptr_t);
 }
 
 static size_t firstCallArgIndex(const IrInstruction *call) {
@@ -1170,6 +1544,51 @@ static void callArgCounts(const TargetDescriptor *target, const IrInstruction *c
   *numFpRegs = used[RC_FP];
   *numRegArgs = inRegs;
   *numStackSlots = onStack;
+}
+
+// Lays the outgoing argument area out the way classifyParametersGeneric lays
+// the incoming one out, and answers two questions about it: how many bytes it
+// takes, and where one particular argument sits inside it. Offsets are from
+// the bottom, which is where the stack pointer ends up once everything is on.
+//
+// This exists because of alignment, and alignment exists because of long
+// double. A stack argument is aligned to at least an eightbyte and a long
+// double to sixteen, so an odd number of eightbytes in front of one leaves a
+// gap the callee expects - and pushing eightbyte by eightbyte would close it
+// and hand the callee its argument eight bytes low. Everything else lands
+// where a plain sequence of pushes would put it, which is why nothing needed
+// this until now.
+//
+// Pass SIZE_MAX for wantedIdx to ask only for the total.
+static uint32_t callStackArea(const TargetDescriptor *target, const IrInstruction *call,
+                              size_t wantedIdx, int32_t *wantedOffset) {
+  int32_t offset = 0;
+
+  for (size_t idx = firstCallArgIndex(call); idx < call->inputs.size; ++idx) {
+    if (callArgLocation(target, call, idx) != NO_REG) {
+      continue;
+    }
+
+    uint32_t size = sizeof(intptr_t), align = sizeof(intptr_t);
+
+    if (callArgInMemory(call, idx)) {
+      memArgShape(inputAt(call, idx), &size, &align);
+    }
+
+    offset = (int32_t)ALIGN_SIZE(offset, align);
+
+    if (idx == wantedIdx) {
+      *wantedOffset = offset;
+    }
+
+    offset += (int32_t)size;
+  }
+
+  // SysV wants rsp sixteen-byte aligned when the call executes. It already is
+  // everywhere else in the function - the entry misalignment is undone by
+  // pushing rbp, and every frame size stage 3 subtracts is rounded to 16 - so
+  // rounding the area up is the whole of keeping it that way.
+  return (uint32_t)ALIGN_SIZE(offset, 2 * sizeof(intptr_t));
 }
 
 // The stack pointer moves twice around a call with stack arguments: down to
@@ -1286,26 +1705,40 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   uint32_t numFpRegs = 0, numRegArgs = 0, numStackSlots = 0;
   callArgCounts(target, i, &numFpRegs, &numRegArgs, &numStackSlots);
 
-  // SysV wants rsp 16-byte aligned when the call executes. It already is
-  // everywhere else in the function - the entry misalignment is undone by
-  // pushing rbp, and every frame size stage 3 subtracts is rounded to 16 - so
-  // the only thing that can break it is an odd number of eight-byte arguments,
-  // and eight bytes of padding above them puts it back.
-  uint32_t padding = (numStackSlots & 1) != 0 ? sizeof(intptr_t) : 0;
-  uint32_t stackBytes = numStackSlots * sizeof(intptr_t) + padding;
-
-  if (padding != 0) {
-    selectStackAdjust(b, X86_SUB, padding);
-  }
+  uint32_t stackBytes = callStackArea(target, i, SIZE_MAX, NULL);
 
   // Backwards, so that the last stack argument is pushed first and the first
   // one ends up at [rsp] where the callee looks for it.
+  //
+  // The cursor is how far above the eventual stack pointer the last push left
+  // us; where the layout puts the next argument lower than that, the gap is
+  // the alignment padding it asked for and the stack pointer takes it in one
+  // move. It reaches zero exactly, the first stack argument being at offset
+  // zero by construction, so no adjustment is needed after the loop.
+  int32_t cursor = (int32_t)stackBytes;
+
   for (size_t idx = i->inputs.size; idx > firstCallArgIndex(i); --idx) {
     const IrInstruction *arg = inputAt(i, idx - 1);
 
     if (callArgLocation(target, i, idx - 1) != NO_REG) {
       continue;
     }
+
+    uint32_t size = sizeof(intptr_t), align = sizeof(intptr_t);
+
+    if (callArgInMemory(i, idx - 1)) {
+      memArgShape(arg, &size, &align);
+    }
+
+    int32_t offset = 0;
+    callStackArea(target, i, idx - 1, &offset);
+
+    int32_t gap = cursor - (offset + (int32_t)size);
+    if (gap > 0) {
+      selectStackAdjust(b, X86_SUB, gap);
+    }
+
+    cursor = offset;
 
     if (callArgInMemory(i, idx - 1)) {
       selectMemoryArgument(b, arg);
@@ -1367,7 +1800,10 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   // - they are where the ABI says the arguments are - but they have to be in
   // the operand list all the same, or nothing connects the copies to the call
   // and liveness is free to conclude they are dead.
-  Boolean hasResult = i->type != IR_VOID;
+  // A long double comes back in st(0), which is not in the register file at
+  // all, so the call names no destination for it. What takes it out of st(0)
+  // is the fstp below.
+  Boolean hasResult = i->type != IR_VOID && i->type != IR_F80;
   uint16_t numArgRegs = (uint16_t)numRegArgs;
 
   MachineInstr *call = buildMachineInstr(b, X86_CALL, hasResult ? 1 : 0, 1 + numArgRegs);
@@ -1400,7 +1836,13 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
     selectStackAdjust(b, X86_ADD, stackBytes);
   }
 
-  if (i->type == IR_P_AGG && i->info.call.returnBuffer == NULL) {
+  if (i->type == IR_F80) {
+    // Off the x87 stack and into a slot of this frame, which is what makes the
+    // pair balanced: the callee's return pushed one value, and this pops it.
+    // After the stack adjustment above, so that the slot is addressed off a
+    // frame pointer that is not about to move.
+    x87PopToValue(b, i);
+  } else if (i->type == IR_P_AGG && i->info.call.returnBuffer == NULL) {
     // A struct small enough to come back in a register. Everything downstream
     // of the call reads a composite as an *address* - that is what IR_P_AGG
     // means - so the bytes have to be given one, and giving them a frame slot
@@ -1449,7 +1891,9 @@ static uint32_t selectBranchCondition(MachineBuilder *b, const IrInstruction *co
     const IrInstruction *branch = b->origin;
     b->origin = cond;
 
-    uint32_t cc = isFloatIrType(inputAt(cond, 0)->type) ? emitFloatCompare(b, cond)
+    // isRealIrType and not isFloatIrType: a long double comparison is a float
+    // comparison, whatever register file it does or does not have.
+    uint32_t cc = isRealIrType(inputAt(cond, 0)->type) ? emitFloatCompare(b, cond)
                                                         : emitIntegerCompare(b, cond);
 
     b->origin = branch;
@@ -1520,8 +1964,13 @@ static void selectReturn(MachineBuilder *b, const IrInstruction *i) {
   if (i->inputs.size != 0) {
     const IrInstruction *value = inputAt(i, 0);
 
+    // A long double is returned in st(0), which no register class names, so
+    // this leaves it on the x87 stack rather than loading it into anything.
+    // The stack is balanced across the call all the same: the caller's fstp is
+    // the pop that matches this push. See selectCall.
     if (value->type == IR_F80) {
-      buildUnselected(b, i, "returns a long double, which lives on the x87 stack");
+      x87Push(b, value);
+      buildMachineInstr(b, X86_RET, 0, 0);
       return;
     }
 
@@ -1927,8 +2376,11 @@ static Boolean x86IsLegalImmediate(const IrInstruction *use, size_t operandIdx,
            callArgLocation(&targetX86_64, use, operandIdx) != NO_REG;
   }
 
+  // A returned constant is a move into the return register, which takes any
+  // width - except a long double, which is returned by being loaded onto the
+  // x87 stack out of memory, and an immediate has no address.
   if (use->kind == IR_RET) {
-    return TRUE;
+    return cnst->type != IR_F80;
   }
 
   // The right-hand operand only. x86 encodes an immediate as the source, so
@@ -1985,10 +2437,6 @@ static Boolean x86IsLegalImmediate(const IrInstruction *use, size_t operandIdx,
 // what stopped it, for the log line the placeholder prints. Everything it
 // turns away becomes a placeholder, which is what it already was.
 static const char *callRefusalReason(const IrInstruction *call) {
-  if (call->type == IR_F80) {
-    return "returns a long double, which lives on the x87 stack";
-  }
-
   // Bit 0 is the callee's, so it cannot mean an argument; translateCall sets it
   // to say there was a memory argument too far along the list for the mask to
   // name. Refusing is the whole of the handling - the alternative is passing
@@ -2002,21 +2450,16 @@ static const char *callRefusalReason(const IrInstruction *call) {
     const IrInstruction *arg = inputAt(call, idx);
 
     if (callArgInMemory(call, idx)) {
-      // Pushed eightbyte by eightbyte, which lands the struct at whatever
-      // alignment the eightbyte before it left the stack pointer at. SysV
-      // gives an over-aligned aggregate its own alignment in the argument
-      // area, and getting there means laying the area out rather than pushing
-      // into it - so this refuses instead of misplacing the bytes. Nothing in
-      // the corpus reaches it: a struct is eight-aligned unless it contains a
-      // long double, and that is refused a line below anyway.
-      if (typeAlignment(arg->astType->pointed) > (int32_t)sizeof(intptr_t)) {
-        return "passes an aggregate argument aligned wider than an eightbyte,"
-               " which pushing cannot place";
-      }
+      // An over-aligned aggregate used to be refused here, because pushing
+      // eightbyte by eightbyte lands a struct at whatever alignment the
+      // eightbyte before it left the stack pointer at. callStackArea lays the
+      // area out instead, so the padding SysV asks for is there and the
+      // refusal is gone - which is what a long double argument needed anyway,
+      // it being the reason a struct is ever aligned wider than an eightbyte.
       continue;
     }
 
-    if (arg->type == IR_F80 || arg->type == IR_VOID) {
+    if (arg->type == IR_VOID) {
       return "passes an argument of a type with no register class";
     }
   }
@@ -2050,6 +2493,20 @@ static uint32_t x86AddressOperands(const IrInstruction *i) {
   // Both of them: a copy addresses its destination and its source alike.
   case IR_M_COPY:
     return isUnrollableCopy(i) ? 3u : 0;
+
+  // An x87 operand is an address that fld reads through, so it folds the way
+  // a load's pointer does - and both of them, an x87 instruction naming two.
+  case IR_E_FADD:
+  case IR_E_FSUB:
+  case IR_E_FMUL:
+  case IR_E_FDIV:
+  case IR_E_FEQ:
+  case IR_E_FNE:
+  case IR_E_FLT:
+  case IR_E_FLE:
+  case IR_E_FGT:
+  case IR_E_FGE:
+    return inputAt(i, 0)->type == IR_F80 ? 3u : 0;
 
   default:
     return 0;
