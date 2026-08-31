@@ -18,3 +18,4 @@ ast.dump
 ast.canon.dump 
 *.o
 a.out
+__pycache__/
