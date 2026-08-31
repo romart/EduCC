@@ -905,8 +905,10 @@ GeneratedFunction *emitMachineFunction_x86_64(GenerationContext *ctx, MachineFun
 
   // Where the instructions stop, which is not where the function's bytes do:
   // the tables below belong to it and are counted in its size, but they are
-  // data and disassembling them would print nonsense.
-  address codeEnd = gen->section->pc;
+  // data and disassembling them would print nonsense. Held as a length rather
+  // than as an address, because emitting the tables can grow - and so move -
+  // the section buffer this points into.
+  size_t codeSize = gen->section->pc - (gen->section->start + gen->sectionOffset);
 
   emitJumpTables(&e);
 
@@ -914,8 +916,7 @@ GeneratedFunction *emitMachineFunction_x86_64(GenerationContext *ctx, MachineFun
 
   if (ctx->parserContext->config->asmDump) {
     fprintf(stdout, "<<< %s >>>\n", gen->name);
-    address b = gen->section->start + gen->sectionOffset;
-    disassemble(stdout, b, codeEnd - b);
+    disassemble(stdout, gen->section->start + gen->sectionOffset, codeSize);
     fprintf(stdout, "<<<>>>\n");
   }
 
