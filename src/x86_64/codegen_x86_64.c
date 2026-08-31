@@ -291,8 +291,16 @@ static Boolean emitFloatConst(GeneratedFunction *f, AstConst *_const, TypeId tid
       offset = rodata->pc - rodata->start;
       emitFloatIntoSection(rodata, tid, _const->f);
 
+      // The key is dereferenced by every later lookup, so it must not point
+      // into the caller's AstConst: some callers build one on the stack -
+      // generateU8toF10's 2^64 - and it is gone by the next lookup, which then
+      // hashes and compares whatever reused that stack slot. Keep a copy that
+      // lives as long as the cache.
+      float80_const_t *key = areanAllocate(ctx->codegenArena, sizeof(float80_const_t));
+      *key = _const->f;
+
       HashMap *cache = floatCache(ctx, tid);
-      putToHashMap(cache, (intptr_t)&_const->f, offset + 1);
+      putToHashMap(cache, (intptr_t)key, offset + 1);
   }
 
   Relocation *reloc = allocateRelocation(ctx);
