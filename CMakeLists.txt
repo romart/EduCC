@@ -12,8 +12,23 @@ set(CMAKE_C_FLAGS_DEBUG "-g -O0")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# Needed both by the udis86 fallback build (opcode table generation) and by
-# the test suite (test/testRunner.py), so find it once, unconditionally.
+# A separate build directory with -fsanitize=address. Worth its own option
+# rather than hand-passed flags because the compiler is an arena allocator over
+# a memory-mapped source buffer: nothing it gets wrong about lifetimes shows up
+# as a crash where the mistake is, and several of the bugs found in this tree
+# were silent until a sanitized binary ran the same input. Off by default -
+# EduCC cannot compile its own sanitized self, so a bootstrap needs it off.
+option(EDUCC_SANITIZE "Build with AddressSanitizer (host compiler only)" OFF)
+if(EDUCC_SANITIZE)
+  if(NOT CMAKE_C_COMPILER_ID)
+    message(FATAL_ERROR "EDUCC_SANITIZE needs a real host compiler; CMAKE_C_COMPILER "
+                        "('${CMAKE_C_COMPILER}') is not one.")
+  endif()
+  add_compile_options(-fsanitize=address -fno-omit-frame-pointer -g)
+  add_link_options(-fsanitize=address)
+endif()
+
+# Used by the test suite (test/testRunner.py).
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
