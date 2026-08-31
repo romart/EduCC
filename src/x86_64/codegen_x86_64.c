@@ -1,7 +1,7 @@
 
 #include <assert.h>
 
-#include <udis86.h>
+#include <Zydis.h>
 #include <alloca.h>
 
 #include "_elf.h"
@@ -13,23 +13,30 @@
 #include "ir/emit.h"
 
 void disassemble(FILE *output, uint8_t *buffer, size_t size) {
-  ud_t ud_obj;
+  ZydisDecoder decoder;
+  ZydisFormatter formatter;
 
-  ud_init(&ud_obj);
-  ud_set_input_buffer(&ud_obj, buffer, size);
-  ud_set_mode(&ud_obj, 64);
-  ud_set_syntax(&ud_obj, UD_SYN_INTEL);
+  ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64, ZYDIS_STACK_WIDTH_64);
+  ZydisFormatterInit(&formatter, ZYDIS_FORMATTER_STYLE_INTEL);
 
-  while (ud_disassemble(&ud_obj)) {
-      uint64_t offset = ud_insn_off(&ud_obj);
+  size_t offset = 0;
+  while (offset < size) {
+      ZydisDecodedInstruction instruction;
+      ZydisDecodedOperand operands[ZYDIS_MAX_OPERAND_COUNT];
+      char text[256];
+
+      Boolean decoded = ZYAN_SUCCESS(ZydisDecoderDecodeFull(&decoder, buffer + offset,
+                                                            size - offset, &instruction, operands));
+      // Not necessarily code: a caller that hands over a whole function body
+      // runs into its jump tables. Print the byte and step over it rather than
+      // stopping, so what follows stays readable.
+      size_t length = decoded ? instruction.length : 1;
+
       fprintf(output, "<%08lx>\t", offset);
 
-      unsigned c = 0, i = 0;
-      const char *hex = ud_insn_hex(&ud_obj);
-
-      while (hex[i]) {
-          fputc(hex[i++], output);
-          fputc(hex[i++], output);
+      unsigned c = 0;
+      while (c < length) {
+          fprintf(output, "%.2x", buffer[offset + c]);
           ++c;
       }
 
@@ -39,7 +46,16 @@ void disassemble(FILE *output, uint8_t *buffer, size_t size) {
           ++c;
       }
 
-      fprintf(output, "%s\n", ud_insn_asm(&ud_obj));
+      if (decoded
+          && ZYAN_SUCCESS(ZydisFormatterFormatInstruction(&formatter, &instruction, operands,
+                                                          instruction.operand_count_visible,
+                                                          text, sizeof text, offset, NULL))) {
+          fprintf(output, "%s\n", text);
+      } else {
+          fprintf(output, "(bad)\n");
+      }
+
+      offset += length;
   }
   fflush(output);
 }

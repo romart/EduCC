@@ -17,7 +17,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-include(Udis86)
+include(Zydis)
 
 set(SOURCES
   src/main.c
@@ -62,7 +62,7 @@ set(SOURCES
 
 add_executable(main ${SOURCES})
 target_include_directories(main PRIVATE include)
-target_link_libraries(main PRIVATE udis86 m)
+target_link_libraries(main PRIVATE zydis m)
 
 if(NOT CMAKE_C_COMPILER_ID)
   # Self-hosting: CMAKE_C_COMPILER is an EduCC binary from a previous stage.
