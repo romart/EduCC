@@ -14,28 +14,45 @@ CMake is authoritative (`CMakeLists.txt` + `cmake/`); there is no more Makefile.
 cmake -B build -S .                                  # configure
 cmake --build build -j$(nproc)                        # builds build/bin/main using the default host compiler
 cmake -B build -S . -DCMAKE_C_COMPILER=clang           # build with a different host compiler
+cmake -B build-asan -S . -DEDUCC_SANITIZE=ON            # a second, AddressSanitizer build (see below)
 rm -rf build                                           # "clean" (no incremental clean target is defined)
 ```
 
-Build artifacts go under `build/` (git-ignored), with the final binary at `build/bin/main`.
+Build artifacts go under `build/` (git-ignored), with the final binary at `build/bin/main`. Third-party sources are downloaded and unpacked into `.deps/` (also git-ignored) rather than into the build directory, so that `bootstrap.sh` throwing `build/` away between stages does not re-fetch them five times.
 
-Linking requires `-ludis86` (disassembler, used by the x86_64 backend) and a real `ld`/glibc/gcc toolchain on the host (`main.c`'s `runLinker`/`gccLibPath` locate `crt1.o`/`crtbegin.o` etc. under common Linux paths). SDK headers used when compiling test/user programs live under `sdk/include`.
+Linking requires Zydis (disassembler, used by the x86_64 backend's `-S`) and a real `ld`/glibc/gcc toolchain on the host (`main.c`'s `runLinker`/`gccLibPath` locate `crt1.o`/`crtbegin.o` etc. under common Linux paths). SDK headers used when compiling test/user programs live under `sdk/include`.
 
-### The udis86 dependency (`cmake/Udis86.cmake`)
+### The Zydis dependency (`cmake/Zydis.cmake`)
 
-udis86 has no official prebuilt binaries anywhere upstream (`vmt/udis86` only ever published source tags, never a GitHub Release). `cmake/Udis86.cmake` handles this in two tiers:
-1. `find_path`/`find_library` for an already-installed system udis86 (e.g. via a distro package or AUR) — used as-is via an `IMPORTED` target if present.
-2. Otherwise, it fetches the upstream `v1.7.2` source tarball via `FetchContent` and builds it as a static lib. Two things needed patching to make this work on a modern system, both handled automatically:
-   - udis86's opcode-table generator (`scripts/ud_itab.py`/`ud_opcode.py`) is Python-2-only; `cmake/patch_udis86_py3.cmake` rewrites the two offending lines (integer-division `/` and `dict.keys().sort()`) to run under Python 3.
-   - `udis86.c` calls `memset()` without including `<string.h>`, which GCC ≥ 14 now treats as a hard error by default in gnu99 mode; suppressed for this vendored target only.
-   Crucially, this fallback build always compiles with a real host compiler (`gcc`/`clang`/`cc`, auto-detected), **never** with `CMAKE_C_COMPILER` directly — see Bootstrapping below for why.
+`disassemble()` in `src/x86_64/codegen_x86_64.c` renders `-S` output through Zydis. `cmake/Zydis.cmake` fetches the project's **amalgamated** release artifact (`zydis-amalgamated.tar.gz`, hash-pinned to v4.1.0) — one `Zydis.c` and one `Zydis.h` — and compiles it into a static `libzydis.a` with a hand-written rule rather than Zydis' own CMakeLists, for the same reason the build never hands third-party code to `CMAKE_C_COMPILER`: see Bootstrapping. Nothing is generated and nothing is patched.
+
+Do not pass `ZYDIS_DISABLE_ENCODER` or the other `ZYDIS_DISABLE_*` switches: the amalgamated header honours them but the amalgamated `Zydis.c` still carries the bodies whose declarations they remove, so turning one off is a build error rather than a saving.
+
+This replaced udis86, which was abandoned upstream in 2013, needed a Python-2 opcode-table generator and two local source patches to build at all, and — the reason it went — decoded correct bytes wrongly about one run in twenty, because `decode_prefixes()` read an uninitialized local as a REX prefix (roadmap step 26, `docs/ir-codegen-design.md` §10).
+
+### The AddressSanitizer build (`-DEDUCC_SANITIZE=ON`)
+
+`cmake -B build-asan -S . -DEDUCC_SANITIZE=ON && cmake --build build-asan -j$(nproc)` gives a second binary at `build-asan/bin/main` built with `-fsanitize=address`. Keep it working and reach for it early: the compiler is an arena allocator over a memory-mapped source buffer, so nothing it gets wrong about a lifetime shows up as a crash anywhere near the mistake. Several bugs in this tree were completely silent until a sanitized binary ran the same input — a use-after-free in the preprocessor's `#endif` handling that only aborted on one input in the whole corpus, a stale stack pointer kept as a hash-map key in the float constant cache, a dead 31-byte `memcpy` reading past a two-byte allocation.
+
+Two ways to use it, both of which should stay clean:
+
+```sh
+for f in $(find test/testData -name '*.c'); do
+  ASAN_OPTIONS=detect_leaks=0 build-asan/bin/main -oneline -c -o /tmp/o.o "$f" 2>&1 | grep -q AddressSanitizer && echo "$f"
+done
+# and the same over EduCC's own sources, which is the deepest input it has:
+#   build-asan/bin/main -c -I include -I sdk/include -I .deps/zydis_src-src \
+#       -DZYDIS_STATIC_BUILD -DZYCORE_STATIC_BUILD -o /tmp/o.o src/parser.c
+```
+
+The option refuses to configure unless `CMAKE_C_COMPILER` is a real host compiler; EduCC cannot compile a sanitized version of itself, so a bootstrap needs it off (it is off by default).
 
 ### Bootstrapping
 
-`./bootstrap.sh` performs a multi-stage self-host build: configures+builds `main` with the host compiler, then repeatedly reconfigures with `-DCMAKE_C_COMPILER=<path to the previous stage's binary>` and rebuilds, diffing `sha1sum` of the resulting binaries to verify a fixed point. Use this to sanity-check changes that could affect self-compilation.
+`./bootstrap.sh` performs a multi-stage self-host build: configures+builds `main` with the host compiler, then repeatedly reconfigures with `-DCMAKE_C_COMPILER=<path to the previous stage's binary>` and rebuilds, diffing `sha1sum` of the resulting binaries to verify a fixed point. Use this to sanity-check changes that could affect self-compilation. It reconfigures `build/` with the host compiler again before it exits — CMake caches `CMAKE_C_COMPILER`, so without that a later plain `cmake -B build -S .` silently keeps whichever EduCC stage ran last, and every build and test run after it is self-compiled without saying so.
 
-Two build-system-level workarounds exist solely to keep this working, both in `CMakeLists.txt`/`cmake/Udis86.cmake`:
-- The vendored udis86 fallback (above) is always built with a real compiler, never with the in-progress EduCC binary — EduCC can't yet parse arbitrary third-party C against real system headers well enough to compile it.
+Two build-system-level workarounds exist solely to keep this working, both in `CMakeLists.txt`/`cmake/Zydis.cmake`:
+- The vendored Zydis (above) is always built with a real compiler, never with the in-progress EduCC binary — EduCC can't yet parse arbitrary third-party C against real system headers well enough to compile it. (It *can* parse `Zydis.h`, which is what lets `-S` survive a bootstrap; the library's own 55k-line `Zydis.c` is a different question and has never been asked.)
 - `src/main.c` adds a default include path `"sdk/include"` that EduCC resolves relative to its *current working directory* at invocation time. That assumption holds for `make` (always invoked from the repo root) but not CMake, which always runs compile recipes from the build directory. When `CMAKE_C_COMPILER_ID` is empty (i.e. the compiler is an unrecognized EduCC binary, not gcc/clang), `CMakeLists.txt` adds an explicit absolute `-I<repo>/sdk/include` to the `main` target so EduCC can still find its `stddef.h`/`stdarg.h` shims. This is inert for normal gcc/clang builds.
 
 ## Running the compiler
@@ -82,6 +99,27 @@ Notes on the runner's behavior:
 - `--compiler-flag` (repeatable) prepends a flag to every compiler invocation, which is how one set of fixtures is run against a second configuration rather than being copied. The `codegen_experimental` CTest entry uses it for `-experimental`. It has to be spelled with `=` (`--compiler-flag=-experimental`), since argparse will not take a value beginning with `-` as a separate word.
 - A test can be **muted** by placing a `<name>.muted` file next to its `<name>.c`, with the reason as the file's contents (printed whenever the test runs). This is for known-broken fixtures kept in the repo so a bug stays reproducible: the test still runs and reports, but its failures don't count towards the exit code. If a muted test passes every check, the summary flags it under `MUTED TESTS THAT NOW PASS` so the stale marker gets deleted — loudly, but without failing the run. `--update-baselines` deliberately skips muted tests rather than baking their known-wrong output into a golden file. A `<name>.muted.legacy` / `<name>.muted.experimental` sibling mutes in that one configuration only, for a bug that belongs to one backend and not the other (`codegen/bugs/float_to_bool.c`) — without it the fixture is reported as a muted test that now passes on every run of the configuration that gets it right.
 - A `<name>.experimental` or `<name>.legacy` sibling (reason as its contents) marks a fixture that belongs to that backend alone, the other one not being going to be taught to agree — a VLA in a loop, whose storage the legacy backend never gives back (`codegen/experimental/vla_in_loop.c`), or a fixture reading one local through a pointer to the next, which the IR backend is right to disagree with and which gcc fails too (`codegen/my/adjacent_locals.c`). Such a test is **skipped** in every other configuration and listed under `Skipped (belong to the other backend)`; it is not muted, because muting is for a bug someone intends to fix and a muted test is flagged the day it starts passing.
+
+### Structural checkers (`test/checkers/`)
+
+A golden baseline says the output has not changed, not that it was ever right. The checkers say it is right: each walks the corpus, asks the compiler for one of its dumps, and asserts an invariant over it. They all take the same two arguments and exit nonzero on a finding:
+
+```sh
+python3 test/checkers/<checker>.py build/bin/main test/testData/codegen
+```
+
+| checker | what it asserts |
+| --- | --- |
+| `phi_destruction.py` | symbolically execute each edge's copy sequence; the phi's register ends up holding that edge's value |
+| `frame_layout.py` | no two frame objects overlap, every offset is aligned to its own alignment, locals inside the reported size, incoming arguments at +16 |
+| `selection.py` | over `-irDump:isel`: nothing read before written, two-address form intact, emitted branches agree with the CFG's successors |
+| `allocation.py` | over `-irDump:ra`: backward liveness over physical registers and spill slots, no scratch register live across a block boundary, spill widths, and five more |
+| `allocation_widths.py` | forward walk over `-irDump:ra` tracking how many bytes of each register were actually written; a spill may not store more than that |
+| `call_alignment.py` | simulate `rsp` through `-S`; 16-byte aligned at every call, restored by the epilogue |
+| `emission_objdump.py` | differential: compare the machine IR against GNU `objdump` as multisets of (mnemonic, register set). The only check that can see stage 3 at all |
+| `disasm_stable.py` | `-S` output is byte-identical across runs of the same command, under both backends, with and without ASLR |
+
+They share `test/checkers/corpus.py` (argument parsing, the corpus walk, the dump invocation, the report). None is wired into `ctest`: each is one or more compiler invocations per file per phase, a different cost from the suites, and a deliberate look is what they are for. **They rot.** Every one of them was written against the dumps of its day and had to be repaired when it was checked in — a `<clobbers ...>` annotation moved a bracket, index registers made a load look two-address, `movsx.8/4` gave widths a second number, a sparse switch put a conditional branch mid-block. Read a finding as a question about the checker first.
 
 ## Architecture
 

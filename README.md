@@ -6,8 +6,9 @@ An educational, from-scratch C compiler targeting `x86_64` and (in progress) `ri
 
 - CMake >= 3.16
 - A host C compiler (gcc or clang)
-- Python 3 (only needed to build the [udis86](https://github.com/vmt/udis86) dependency from source, if it isn't already installed as a system package)
+- Python 3 (for the test runner and the structural checkers under `test/checkers/`)
 - `ld` and a glibc/gcc toolchain on `PATH` (for linking compiled programs)
+- Network access on the first `cmake` configure, which fetches [Zydis](https://github.com/zyantific/zydis) (used to disassemble `-S` output) into `.deps/`
 
 ## Build
 
