@@ -16,8 +16,8 @@ BB #1, '<exit>', <- #2, strict dom #2
 
 BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
-  %7 = IR_CALL (%6, %3) [size = 0]
-  %9 = IR_CALL (%6, %3) [size = 0]
+  %7 = IR_CALL (%6, %3) []
+  %9 = IR_CALL (%6, %3) []
   %11 = IR_E_ADD (%7, %9) []
   %13 = IR_BRANCH () [target = #1]
 

@@ -171,6 +171,7 @@ static int32_t dumpIrInstructionExtra(FILE *stream, const IrInstruction *instr) 
     if (instr->info.call.symbol != NULL) {
       r += fprintf(stream, "symbol = %s", instr->info.call.symbol->name);
     }
+    break;
   case IR_ALLOCA:
     if (instr->info.alloca.sizeInstr != NULL) {
       r += fprintf(stream, "size = %c%u", '%', instr->info.alloca.sizeInstr->id);

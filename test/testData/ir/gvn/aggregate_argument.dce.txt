@@ -21,7 +21,7 @@ BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
   %8 = IR_ALLOCA (%7) [size = 24]
   %9 = IR_M_COPY (%8, %2, %7) [elementType = STRUCT Big]
-  %6 = IR_CALL (%5, %8) [size = 0]
+  %6 = IR_CALL (%5, %8) []
   %11 = IR_BRANCH () [target = #1]
 
 
@@ -52,7 +52,7 @@ BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
   %15 = IR_ALLOCA (%14) [size = 24]
   %16 = IR_M_COPY (%15, %6, %14) [elementType = STRUCT Big]
-  %12 = IR_CALL (%11, %3, %15, %8) [size = 0]
+  %12 = IR_CALL (%11, %3, %15, %8) []
   %19 = IR_BRANCH () [target = #1]
 
 
@@ -79,7 +79,7 @@ BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
 
   %9 = IR_GET_ELEMENT_PTR (%2, %8) [underlying type = STRUCT Small]
   %10 = IR_M_LOAD (%9) [load type = AGG]
-  %7 = IR_CALL (%6, %10) [size = 0]
+  %7 = IR_CALL (%6, %10) []
   %12 = IR_BRANCH () [target = #1]
 
 
