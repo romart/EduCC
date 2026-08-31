@@ -1,0 +1,8 @@
+A computed goto that gives a VLA's storage back, which only the IR backend
+does. The legacy backend reclaims nothing before the function returns - the
+same design that keeps it out of vla_in_loop and vla_scope_exit - so this is
+skipped there rather than muted: there is no bug here waiting to be fixed and
+flagged.
+
+gcc reclaims nothing on a computed goto either, so unlike its two neighbours
+this fixture is not a gcc-parity test. See its header.

@@ -217,6 +217,40 @@ static int labelAboveDeclaration(int n) {
     return a == b;
 }
 
+// -------- a backward jump over the declaration --------
+
+// The same label, jumped to from below instead of from beside: 'resume' is
+// above 'w', so the loop this builds re-enters the block at a point outside
+// w's scope and crosses the declaration again on every round. Two things have
+// to be true at once for the address to repeat - the jump has to carry the
+// restore, and the mark has to be re-taken each round rather than held from
+// the first, which is what taking it at the declaration and not at the head of
+// the block gets for free. A jump that carried no restore would climb by one
+// array per round and only give the last one back.
+static int backwardOverDeclaration(int n) {
+    char *first = 0;
+    int ok = 1;
+    int round = 0;
+
+    {
+    resume:
+        ;
+        int w[n];
+        char *a = (char *)w;
+
+        if (round == 0) {
+            first = a;
+        } else if (a != first) {
+            ok = 0;
+        }
+
+        w[0] = round;
+        if (++round < 4) goto resume;
+    }
+
+    return ok;
+}
+
 int main(void) {
     check(breakOut(64), 1);
     check(continueOut(64), 2);
@@ -225,6 +259,7 @@ int main(void) {
     check(forInitVla(64), 5);
     check(allocaSurvivesScope(64), 6);
     check(labelAboveDeclaration(64), 7);
+    check(backwardOverDeclaration(64), 8);
 
     return failures;
 }

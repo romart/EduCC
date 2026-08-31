@@ -2144,6 +2144,36 @@ static size_t labelScopeDepth(const char *label) {
   return biased == 0 ? ctx->stackScopes.size : (size_t)(biased - 1);
 }
 
+// The same question for a 'goto *', whose target is a value rather than a
+// name. Every label it can reach is one whose address was taken, and the
+// deepest of them is the only depth that is honest for all of them: restoring
+// to it is exact for that one and hands back too little for the shallower
+// ones, whereas going by any shallower target would free a scope a deeper one
+// is still entitled to read.
+static size_t indirectTargetScopeDepth(void) {
+  if (ctx->referencedBlocks.size == 0) {
+    return ctx->stackScopes.size;
+  }
+
+  size_t depth = 0;
+
+  for (uint32_t idx = 0; idx < ctx->referencedBlocks.size; ++idx) {
+    const IrBasicBlock *b = getBlockFromVector(&ctx->referencedBlocks, idx);
+    intptr_t biased = getFromHashMap(ctx->labelScopeMap, (intptr_t)b->name);
+
+    // A target the pre-pass never measured: restore nothing rather than guess.
+    if (biased == 0) {
+      return ctx->stackScopes.size;
+    }
+
+    if ((size_t)(biased - 1) > depth) {
+      depth = (size_t)(biased - 1);
+    }
+  }
+
+  return depth;
+}
+
 // Measures every label in the function against the same scope rule translation
 // applies, before translation starts - a 'goto' is routinely written above the
 // label it names, and it has to know then how far out it is jumping.
@@ -2469,6 +2499,10 @@ static Boolean translateGotoPtr(AstStatement *stmt) {
 
   translateExpression(stmt->jumpStmt.expression);
   IrInstruction *target = ctx->lastOp;
+
+  // After the target has been computed, not before: the expression naming it
+  // may well be read out of the storage this hands back.
+  restoreStackScopes(indirectTargetScopeDepth());
 
   IrInstruction *iBranch = newInstruction(IR_IBRANCH, IR_VOID);
   addInstructionInput(iBranch, target);
