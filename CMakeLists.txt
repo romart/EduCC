@@ -197,4 +197,36 @@ if(BUILD_TESTING)
   # so folding it into ir_isel would let an allocation change quietly rewrite
   # the baselines that pin down selection.
   educc_add_test(ir_ra ir/gvn ir 60 ra)
+
+  # The structural checkers (test/checkers/, docs/ir-codegen-design.md section
+  # 9). A golden baseline says the output has not changed; these say it is
+  # right, which is a different question and the only one that catches a bug
+  # that has always been there. They are one CTest entry each, labelled
+  # 'checkers', so they can be run alone with `ctest -L checkers` or left out
+  # with `ctest -LE checkers`.
+  #
+  # On by default because the whole set costs about ten seconds - they walk the
+  # corpus once per phase they read, which is a few hundred compiler runs, not
+  # the hours the note in section 9 used to assume. -DEDUCC_RUN_CHECKERS=OFF
+  # takes them out entirely.
+  #
+  # SKIP_RETURN_CODE catches a checker that cannot answer rather than one that
+  # found something: emission_objdump needs GNU objdump as its oracle and exits
+  # 2 without it, which is a skip, not a failure.
+  option(EDUCC_RUN_CHECKERS "Register test/checkers/ as CTest tests" ON)
+  if(EDUCC_RUN_CHECKERS)
+    foreach(checker
+        phi_destruction frame_layout selection allocation allocation_widths
+        call_alignment emission_objdump disasm_stable)
+      add_test(NAME checker_${checker}
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/test/checkers/${checker}.py"
+                "$<TARGET_FILE:main>" "test/testData/codegen"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+      )
+      set_tests_properties(checker_${checker} PROPERTIES
+        TIMEOUT 300
+        LABELS checkers
+        SKIP_RETURN_CODE 2)
+    endforeach()
+  endif()
 endif()

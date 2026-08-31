@@ -75,7 +75,7 @@ build/bin/main -experimental -irDump hw.ir.txt ./test/testData/codegen/simple/gv
 
 ## Tests
 
-Tests are plain data-driven fixtures under `test/testData/{parser,pp,codegen}` run via `test/testRunner.py` against a built `build/bin/main`. `cmake --build build && cd build && ctest --output-on-failure` runs all three suites in one shot (each wired up as its own CTest test with a timeout — see `CMakeLists.txt`'s `educc_add_test`); `ctest --output-junit results.xml` produces a CI-friendly report. For scoping to a subdirectory or passing extra flags, invoke the runner directly, pointing `--compiler` at the built binary and `--working-dir` at a scratch directory for outputs:
+Tests are plain data-driven fixtures under `test/testData/{parser,pp,codegen}` run via `test/testRunner.py` against a built `build/bin/main`. `cmake --build build && cd build && ctest --output-on-failure` runs all three suites, the IR-dump suites and the structural checkers in one shot (each wired up as its own CTest test with a timeout — see `CMakeLists.txt`'s `educc_add_test`, and Structural checkers below for the `checkers` label); `ctest --output-junit results.xml` produces a CI-friendly report. For scoping to a subdirectory or passing extra flags, invoke the runner directly, pointing `--compiler` at the built binary and `--working-dir` at a scratch directory for outputs:
 
 ```sh
 # Parser/AST-dump tests (compares -astDump/-astCanonDump/stderr against *.txt/*.canon.txt/*.err)
@@ -119,7 +119,16 @@ python3 test/checkers/<checker>.py build/bin/main test/testData/codegen
 | `emission_objdump.py` | differential: compare the machine IR against GNU `objdump` as multisets of (mnemonic, register set). The only check that can see stage 3 at all |
 | `disasm_stable.py` | `-S` output is byte-identical across runs of the same command, under both backends, with and without ASLR |
 
-They share `test/checkers/corpus.py` (argument parsing, the corpus walk, the dump invocation, the report). None is wired into `ctest`: each is one or more compiler invocations per file per phase, a different cost from the suites, and a deliberate look is what they are for. **They rot.** Every one of them was written against the dumps of its day and had to be repaired when it was checked in — a `<clobbers ...>` annotation moved a bracket, index registers made a load look two-address, `movsx.8/4` gave widths a second number, a sparse switch put a conditional branch mid-block. Read a finding as a question about the checker first.
+They share `test/checkers/corpus.py` (argument parsing, the corpus walk, the dump invocation, the report), and each is also a CTest entry labelled `checkers`:
+
+```sh
+ctest --test-dir build                # the three suites, the IR dumps, and the checkers
+ctest --test-dir build -L checkers    # just the checkers (~11s)
+ctest --test-dir build -LE checkers   # everything but (~6s)
+cmake -B build -S . -DEDUCC_RUN_CHECKERS=OFF   # do not register them at all
+```
+
+A checker that cannot answer skips rather than fails (`SKIP_RETURN_CODE 2`) — `emission_objdump.py` needs GNU `objdump` as its oracle and exits 2 without it. **They rot.** Every one of them was written against the dumps of its day and had to be repaired when it was checked in — a `<clobbers ...>` annotation moved a bracket, index registers made a load look two-address, `movsx.8/4` gave widths a second number, a sparse switch put a conditional branch mid-block. Read a finding as a question about the checker first.
 
 ## Architecture
 
