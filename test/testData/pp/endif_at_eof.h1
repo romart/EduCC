@@ -1,0 +1,8 @@
+#ifndef ENDIF_AT_EOF_H1
+#define ENDIF_AT_EOF_H1
+
+int fromHeader;
+
+// Deliberately no newline after this '#endif'. Handling it reaches the end of
+// the file, which pops the lexer state the directive is being handled in.
+#endif

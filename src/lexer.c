@@ -1063,7 +1063,12 @@ Boolean lexTokenRaw2(ParserContext *ctx, Token *new) {
   switch (c) {
     case 0: // END_OF_FILE
       new->code = new->rawCode = END_OF_FILE;
-      tokenEnd = ++i;
+      // Deliberately not stepping over the terminator: it is the buffer's last
+      // byte, so advancing past it makes the next lex read out of bounds.
+      // Staying put makes lexing at the end of a file idempotent, which it has
+      // to be - a directive handler that consumes its trailing newline can hit
+      // the end of the file, and the token after that is asked for anyway.
+      tokenEnd = i;
       break;
     case '\\': { // escaping
         unsigned skipped = skipWhiteSpace(&buffer[i], bufferSize - i);
@@ -1560,6 +1565,15 @@ Token *lexToken(ParserContext *ctx) {
 
         handleDirective(ctx, directive);
 
+        // Handling the directive can have consumed the end of the file - an
+        // '#endif' on the last line with no newline after it - popping the
+        // last lexer state. There is nothing left to lex from.
+        if (ctx->lexerState == NULL) {
+            Token *eof = allocToken(ctx);
+            eof->code = eof->rawCode = END_OF_FILE;
+            return eof;
+        }
+
         continue;
     } else if (rawCode == IDENTIFIER) {
         // could be a macro to expand
@@ -1629,8 +1643,9 @@ Token *tokenizeBuffer(ParserContext *ctx) {
   Coordinates coords = { &head, &head };
 
   for (;;) {
+      // Nothing of lexState may be read here: the token that ends the file is
+      // produced by popping - and releasing - the very state it came from.
       current = current->next = lexCleanToken(ctx);
-      i = lexState->fileContext.pos;
 
       if (current->rawCode == END_OF_FILE) break;
   }

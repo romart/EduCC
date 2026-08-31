@@ -1118,6 +1118,15 @@ static Token *fetchConditionExpression(ParserContext *ctx, Token *directive) {
   return exprHead.next;
 }
 
+// A directive's trailing newline can be the end of the file, and reaching it
+// pops the lexer state the directive is being handled in - releasing it and
+// every condition frame it holds. Nothing belonging to that state may be
+// touched afterwards. A header whose last line is '#endif' with no newline
+// after it is the common way to get here.
+static Boolean fileEnded(const ParserContext *ctx, const LexerState *lex) {
+  return ctx->lexerState != lex;
+}
+
 static void handleIfDirective(ParserContext *ctx, Token *directive) {
   assert(directive->rawCode == IDENTIFIER && strcmp("if", directive->id) == 0);
 
@@ -1125,6 +1134,9 @@ static void handleIfDirective(ParserContext *ctx, Token *directive) {
   assert(lex->state == LS_FILE);
 
   Token *expr = fetchConditionExpression(ctx, directive);
+
+  if (fileEnded(ctx, lex))
+      return;
 
   int err = 0;
   int cond = evaluateTokenSequence(ctx, expr, &err);
@@ -1173,6 +1185,9 @@ void handleElifDirective(ParserContext *ctx, Token *directive) {
 
   Token *expr = fetchConditionExpression(ctx, directive);
 
+  if (fileEnded(ctx, lex))
+      return;
+
   int cond = !frame->isTaken;
 
   if (cond) {
@@ -1219,12 +1234,19 @@ static void handleElseDirective(ParserContext *ctx, Token *directive) {
       return;
   }
 
-  Token *nl = lexToken(ctx); // consume NEW_LINE
+  // Not lexToken: at the end of an included header that would pop the
+  // lexer state and carry on in the including file, so the next token -
+  // which belongs to that file - gets reported as an extra token on this
+  // line and swallowed. This stops at the end of the file instead.
+  Token *nl = lexTokenNoSubstitute(ctx); // consume NEW_LINE
   if (nl->rawCode != NEWLINE && nl->rawCode != END_OF_FILE) {
       coords.left = coords.right = nl;
       reportDiagnostic(ctx, DIAG_PP_EXTRA_TOKEN_ENDOF_DIRECTIVE, &coords, "else");
       skipUntilEoL(ctx);
   }
+
+  if (fileEnded(ctx, lex))
+      return;
 
   if (frame->isTaking) {
       frame->isTaken = 1;
@@ -1262,16 +1284,23 @@ static void handleEndifDirective(ParserContext *ctx, Token *directive) {
       return;
   }
 
-  Token *nl = lexToken(ctx); // consume NEW_LINE
+  // Pop off and release the current if-endif block first: consuming the
+  // newline below can reach the end of the file, and that releases this frame
+  // along with the lexer state - freeing it a second time here, and reporting
+  // the conditional this line just closed as unterminated.
+  lex->fileContext.conditionStack = frame->prev;
+  releaseHeap(frame);
+
+  // Not lexToken: at the end of an included header that would pop the
+  // lexer state and carry on in the including file, so the next token -
+  // which belongs to that file - gets reported as an extra token on this
+  // line and swallowed. This stops at the end of the file instead.
+  Token *nl = lexTokenNoSubstitute(ctx); // consume NEW_LINE
   if (nl->rawCode != NEWLINE && nl->rawCode != END_OF_FILE) {
       coords.left = coords.right = nl;
       reportDiagnostic(ctx, DIAG_PP_EXTRA_TOKEN_ENDOF_DIRECTIVE, &coords, "endif");
       skipUntilEoL(ctx);
   }
-
-  // pop off and release current if-endif block
-  lex->fileContext.conditionStack = frame->prev;
-  releaseHeap(frame);
 }
 
 void handleIfdefDirective(ParserContext *ctx, Token *directive, Boolean invert) {
@@ -1298,7 +1327,7 @@ void handleIfdefDirective(ParserContext *ctx, Token *directive, Boolean invert) 
     return;
   }
 
-  Token *nl = lexToken(ctx);
+  Token *nl = lexTokenNoSubstitute(ctx); // consume NEW_LINE
 
   coords.left = coords.right = nl;
 
@@ -1306,6 +1335,9 @@ void handleIfdefDirective(ParserContext *ctx, Token *directive, Boolean invert) 
       reportDiagnostic(ctx, DIAG_PP_EXTRA_TOKEN_ENDOF_DIRECTIVE, &coords, invert ? "ifndef" : "ifdef");
       skipUntilEoL(ctx);
   }
+
+  if (fileEnded(ctx, lex))
+      return;
 
   int cond = isMacro(ctx, id) != invert;
 
