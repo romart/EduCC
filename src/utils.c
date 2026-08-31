@@ -2,12 +2,25 @@
 
 #include <assert.h>
 #include <memory.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "mem.h"
 #include "utils.h"
+
+Boolean traceEnabled = FALSE;
+
+void trace(const char *fmt, ...) {
+  if (!traceEnabled)
+    return;
+
+  va_list args;
+  va_start(args, fmt);
+  vfprintf(stdout, fmt, args);
+  va_end(args);
+}
 
 static void resizeVector(Vector *v, size_t newCapacity) {
   if (newCapacity <= v->capacity)
@@ -37,8 +50,8 @@ void removeFromVector(Vector *vector, intptr_t v) {
     size_t n = i + 1;
     if (vector->storage[i] == v) {
       if (n < vector->size) {
-        printf("Memmove vector[%lu] %p %lu -> %lu (%p -> %p)\n", vector->size,
-               vector->storage, n, i, &vector->storage[i], &vector->storage[n]);
+        trace("Memmove vector[%lu] %p %lu -> %lu (%p -> %p)\n", vector->size,
+              vector->storage, n, i, &vector->storage[i], &vector->storage[n]);
         memmove(&vector->storage[i], &vector->storage[n],
                 (vector->size - n) * sizeof(intptr_t));
       }

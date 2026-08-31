@@ -116,4 +116,10 @@ int log2Integer(intptr_t v);
 
 size_t alignSize(size_t size, size_t alignment);
 
+// Pass tracing, off unless '-trace' asks for it. It goes to stdout, which is
+// also where '-E' writes preprocessed source and '-S' the disassembly, so
+// leaving it on unconditionally makes both of those unusable.
+extern Boolean traceEnabled;
+void trace(const char *fmt, ...);
+
 #endif // __UTILS_H__

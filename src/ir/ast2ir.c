@@ -94,8 +94,8 @@ IrFunctionList translateAstToIr(AstFile *file) {
 
   while (unit != NULL) {
     if (unit->kind == TU_FUNCTION_DEFINITION) {
-      fprintf(stdout, "Translate function '%s' into IR\n",
-              unit->definition->declaration->name);
+      trace("Translate function '%s' into IR\n",
+            unit->definition->declaration->name);
       IrFunction *function = translateFunction(unit->definition);
       addFunctionTail(&list, function);
     } else {
@@ -1931,8 +1931,8 @@ static void translateLocalDeclaration(AstValueDeclaration *v) {
   assert(v->flags.bits.isLocal);
   assert(v->index2 >= 0);
 
-  printf("Translate local variable '%s'..., next = %p, initizlier = %p..\n",
-         v->name, v->next, v->initializer);
+  trace("Translate local variable '%s'..., next = %p, initizlier = %p..\n",
+        v->name, v->next, v->initializer);
 
   LocalValueInfo *lvi = &ctx->localOperandMap[v->index2];
   TypeRef *astType = v->type;
@@ -1955,8 +1955,8 @@ static void translateLocalDeclaration(AstValueDeclaration *v) {
 
   if (init) {
     assert(size != -1);
-    printf(" translate initializer for variable '%s' (%c%u)\n", v->name, '%',
-           stackSlot->id);
+    trace(" translate initializer for variable '%s' (%c%u)\n", v->name, '%',
+          stackSlot->id);
     translateInitializerIntoMemory(stackSlot, 0, size, init);
   }
 }
@@ -3185,15 +3185,15 @@ static uint32_t buildInitialIr(IrFunction *func,
     frameOffset += alignSize(computeTypeSize(param->type), sizeof(intptr_t));
   }
 
-  printf("idx = %lu, param count = %lu\n", idx, numOfParams);
+  trace("idx = %lu, param count = %lu\n", idx, numOfParams);
   assert(idx == numOfParams);
 
   for (local = function->locals; local != NULL; local = local->next, ++idx) {
     local->index2 = idx;
   }
 
-  printf("idx = %lu (%lu), numOfLocals = %lu\n", idx, idx - numOfParams,
-         numOfLocals);
+  trace("idx = %lu (%lu), numOfLocals = %lu\n", idx, idx - numOfParams,
+        numOfLocals);
   assert((idx - numOfParams) == numOfLocals);
 
   if (numOfReturnSlots) {

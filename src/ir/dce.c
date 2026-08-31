@@ -157,7 +157,7 @@ void cleanupDeadInstructions(IrFunction *func) {
   while (changed) {
     changed = FALSE;
 
-    printf("DCE iteration %u...\n", iter++);
+    trace("DCE iteration %u...\n", iter++);
     for (IrBasicBlock *block = func->blocks.head; block != NULL; block = block->next) {
       IrInstruction *instr = block->instrunctions.tail;
 

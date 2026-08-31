@@ -21,7 +21,7 @@ static void updatePhiInput(IrInstruction *phi, IrInstruction *value, size_t idx)
 }
 
 static void replacePhiInputs(IrBasicBlock *defBlock, IrBasicBlock *phiBlock, Vector *stacks) {
-  printf("Replace phi inputs in #%u coming from #%u...\n", phiBlock->id, defBlock->id);
+  trace("Replace phi inputs in #%u coming from #%u...\n", phiBlock->id, defBlock->id);
   for (IrInstruction *instr = phiBlock->instrunctions.head; instr != NULL; instr = instr->next) {
     if (instr->kind != IR_PHI) { // assume all phi-nodes are at the beginning of block's instruciton list
       return;
@@ -49,11 +49,11 @@ static void replacePhiInputs(IrBasicBlock *defBlock, IrBasicBlock *phiBlock, Vec
 
 static Boolean analyzeAllocaInstruction(IrInstruction *allocaInstr, AllocaOptInfo *info) {
 
-  printf("Analyze Alloca %c%u...\n", '%',  allocaInstr->id);
+  trace("Analyze Alloca %c%u...\n", '%',  allocaInstr->id);
   assert(allocaInstr->inputs.size == 1);
   IrInstruction *sizeOp = getInstructionFromVector(&allocaInstr->inputs, 0);
   if (sizeOp->kind != IR_DEF_CONST) {
-    printf(".. alloca %c%u is VLA-lile, size = %c%u\n", '%',  allocaInstr->id, '%', sizeOp->id);
+    trace(".. alloca %c%u is VLA-lile, size = %c%u\n", '%',  allocaInstr->id, '%', sizeOp->id);
     return FALSE; // looks like VLA or explicit alloca call with unkown size
   }
 
@@ -71,7 +71,7 @@ static Boolean analyzeAllocaInstruction(IrInstruction *allocaInstr, AllocaOptInf
     // it - and a later write to b would then be visible through a.
     if ((useInstr->kind == IR_M_LOAD || useInstr->kind == IR_M_STORE) &&
         useInstr->info.memory.opType == IR_F80) {
-      printf("  alloca %c%u holds a long double, which lives in memory\n", '%', allocaInstr->id);
+      trace("  alloca %c%u holds a long double, which lives in memory\n", '%', allocaInstr->id);
       return FALSE;
     }
 
@@ -89,13 +89,13 @@ static Boolean analyzeAllocaInstruction(IrInstruction *allocaInstr, AllocaOptInf
             break;
           } else {
             assert(value == allocaInstr);
-            printf("  alloca %c%u is stored at %c%u\n", '%',  allocaInstr->id, '%', useInstr->id);
+            trace("  alloca %c%u is stored at %c%u\n", '%',  allocaInstr->id, '%', useInstr->id);
             // alloca ptr is stored into somewhere so it escapes
             return FALSE;
           }
         }
       default:
-        printf("  alloca %c%u is used in unsafe instruction %c%u\n", '%',  allocaInstr->id, '%', useInstr->id);
+        trace("  alloca %c%u is used in unsafe instruction %c%u\n", '%',  allocaInstr->id, '%', useInstr->id);
         return FALSE;
     }
   }
@@ -168,7 +168,7 @@ static void collectAllocaCandidates(IrFunction *func, Vector *results) {
 
     Boolean optimizable = analyzeAllocaInstruction(allocaInstr, info);
     if (optimizable && phiWouldLandOnUnsplittableEdge(func, info)) {
-      printf("  alloca %c%u would need a phi on an unsplittable edge\n", '%', allocaInstr->id);
+      trace("  alloca %c%u would need a phi on an unsplittable edge\n", '%', allocaInstr->id);
       optimizable = FALSE;
     }
 
@@ -197,7 +197,7 @@ static void insertPhiNode(IrBasicBlock *phiBlock, AllocaOptInfo *info) {
 
     info->phiInBlocks[phiBlock->id] = phiInstr;
     addInstructionHead(phiBlock, phiInstr);
-    printf("Insert phi %c%u for alloca %c%u into block #%u\n", '%', phiInstr->id, '%', allocaInstr->id, phiBlock->id);
+    trace("Insert phi %c%u for alloca %c%u into block #%u\n", '%', phiInstr->id, '%', allocaInstr->id, phiBlock->id);
 
     Vector *preds = &phiBlock->preds;
     for (size_t idx = 0; idx < preds->size; ++idx) {
@@ -214,13 +214,13 @@ static Boolean analyzeLiveness(IrBasicBlock *block, IrInstruction *allocaInstr) 
       IrInstruction *ptr = getInstructionFromVector(&i->inputs, 0);
       if (ptr == allocaInstr) {
         // the first usage is read so the value is alive
-        printf("LIVE: In block #%u found first USE of %c%u in %c%u\n", block->id, '%', allocaInstr->id, '%', i->id);
+        trace("LIVE: In block #%u found first USE of %c%u in %c%u\n", block->id, '%', allocaInstr->id, '%', i->id);
         return TRUE;
       }
     } else if (i->kind == IR_M_STORE) {
       IrInstruction *ptr = getInstructionFromVector(&i->inputs, 0);
       if (ptr == allocaInstr) {
-        printf("KILL: In block #%u found first DEF of %c%u in %c%u\n", block->id, '%', allocaInstr->id, '%', i->id);
+        trace("KILL: In block #%u found first DEF of %c%u in %c%u\n", block->id, '%', allocaInstr->id, '%', i->id);
         // first is store so the incoming value is not used and var at the beginning is dead
         return FALSE;
       }
@@ -294,9 +294,9 @@ static void renameLocalsImpl(IrBasicBlock *block, Vector *infos, Vector *stacks)
     IrInstruction *n = i->next;
     if (i->kind == IR_M_STORE) {
       IrInstruction *ptr = getInstructionFromVector(&i->inputs, 0);
-      printf("Check STORE instruction %c%u...\n", '%', i->id);
+      trace("Check STORE instruction %c%u...\n", '%', i->id);
       if (ptr->kind != IR_ALLOCA) {
-        printf("  not alloca ptr. We done here\n");
+        trace("  not alloca ptr. We done here\n");
         i = n;
         continue;
       }
@@ -304,7 +304,7 @@ static void renameLocalsImpl(IrBasicBlock *block, Vector *infos, Vector *stacks)
       AllocaOptInfo *info = findAllocaInfo(ptr, infos);
 
       if (info == NULL) {
-        printf("  cannot find alloca info. We done here\n");
+        trace("  cannot find alloca info. We done here\n");
         i = n;
         continue;
       }
@@ -317,12 +317,12 @@ static void renameLocalsImpl(IrBasicBlock *block, Vector *infos, Vector *stacks)
       assert(idx < numOfAllocas);
       resetPoints[idx] += 1;
 
-      printf("For alloca[%u] %c%u in block #%u found new value %c%u from %c%u\n", idx, '%', info->allocaInstr->id, block->id, '%', newValue->id, '%', i->id);
+      trace("For alloca[%u] %c%u in block #%u found new value %c%u from %c%u\n", idx, '%', info->allocaInstr->id, block->id, '%', newValue->id, '%', i->id);
 
       eraseInstruction(i);
       releaseInstruction(i);
     } else if (i->kind == IR_M_LOAD) {
-      printf("Check LOAD instruction %c%u...\n", '%', i->id);
+      trace("Check LOAD instruction %c%u...\n", '%', i->id);
       IrInstruction *ptr = getInstructionFromVector(&i->inputs, 0);
       if (ptr->kind != IR_ALLOCA) {
         i = n;
@@ -341,25 +341,25 @@ static void renameLocalsImpl(IrBasicBlock *block, Vector *infos, Vector *stacks)
 
       IrInstruction *actualValue = (IrInstruction *)topOfStack(stack);
 
-      printf("For alloca[%u] %c%u in block #%u replace usage of %c%u with %c%u\n", idx, '%', info->allocaInstr->id, block->id, '%', i->id, '%', actualValue->id);
+      trace("For alloca[%u] %c%u in block #%u replace usage of %c%u with %c%u\n", idx, '%', info->allocaInstr->id, block->id, '%', i->id, '%', actualValue->id);
 
       replaceUsageWith(i, actualValue);
       eraseInstruction(i);
       releaseInstruction(i);
     } else if (i->kind == IR_PHI) {
 
-      printf("Check PHI instruction %c%u...\n", '%', i->id);
+      trace("Check PHI instruction %c%u...\n", '%', i->id);
       AllocaOptInfo *info = i->info.phi.info;
 
       if (info == NULL) {
-        printf("This is not interesting phi...\n");
+        trace("This is not interesting phi...\n");
         i = n;
         continue;
       }
 
       uint32_t idx = info->index;
       assert(idx < numOfAllocas);
-      printf("For alloca[%u] %c%u in block #%u found new PHI value %c%u\n", idx, '%', info->allocaInstr->id, block->id, '%', i->id);
+      trace("For alloca[%u] %c%u in block #%u found new PHI value %c%u\n", idx, '%', info->allocaInstr->id, block->id, '%', i->id);
       Vector *stack = &stacks[idx];
       pushToStack(stack, (intptr_t)i);
       resetPoints[idx] += 1;
@@ -430,7 +430,7 @@ void buildSSA(IrFunction *func) {
   Vector optimizableAllocas = { 0 };
   initVector(&optimizableAllocas, ctx->allocas.size);
   collectAllocaCandidates(func, &optimizableAllocas);
-  printf("Found %lu candidates for alloca opt..\n", optimizableAllocas.size);
+  trace("Found %lu candidates for alloca opt..\n", optimizableAllocas.size);
   if (optimizableAllocas.size == 0)
     return;
 

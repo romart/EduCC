@@ -8,6 +8,7 @@
 
 
 #include "parser.h"
+#include "utils.h"
 
 extern char *strdup(const char *s);
 extern char *mkdtemp (char *__template);
@@ -381,6 +382,8 @@ int main(int argc, char** argv) {
       config.memoryStatistics = 1;
     } else if (strcmp("-logtokens", arg) == 0) {
       config.logTokens = 1;
+    } else if (strcmp("-trace", arg) == 0) {
+      traceEnabled = TRUE;
     } else if (strcmp("-skipCodegen", arg) == 0) {
       config.skipCodegen = 1;
     } else if (strcmp("-E", arg) == 0) {
@@ -520,7 +523,9 @@ int main(int argc, char** argv) {
 
   if (config.skipCodegen) return config.hadError ? 1 : 0;
 
-  if (!config.objOutput && !config.ppOutput) {
+  // A file that did not compile left no object behind, so linking would only
+  // report the same input missing a second time and in ld's words.
+  if (!config.hadError && !config.objOutput && !config.ppOutput) {
     runLinker(config.outputFile ? config.outputFile : "a.out", compiledObjFiles, ohead.next, lhead.next, lDirHead.next);
   }
 

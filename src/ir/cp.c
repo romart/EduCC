@@ -228,13 +228,13 @@ static void initLattices(IrFunction *func, SCCPContext *cpCtx) {
       putAtInstrVector(instrMapping, instr, iid);
       LatticeValue *lv = NULL;
       if (isConstantInstr(instr)) {
-        printf("Put into LVs[%c%u] <- %c%u\n", '%', iid, '%', iid);
+        trace("Put into LVs[%c%u] <- %c%u\n", '%', iid, '%', iid);
         lv = makeContantLV(cpCtx, instr);
       } else if (!isLeafInstr(instr) || instr->kind == IR_BAD) {
-        printf("Put into LVs[%c%u] <- BOTTOM\n", '%', iid);
+        trace("Put into LVs[%c%u] <- BOTTOM\n", '%', iid);
         lv = makeUndefLV(cpCtx);
       } else {
-        printf("Put into LVs[%c%u] <- TOP\n", '%', iid);
+        trace("Put into LVs[%c%u] <- TOP\n", '%', iid);
         lv = makeOverdefinedLV(cpCtx);
       }
       putLV(cpCtx, instr, lv);
@@ -688,12 +688,12 @@ void scp(IrFunction *func) {
   while (cpCtx.cfgWL.size != 0 || cpCtx.ssaWL.size != 0) {
     while (cpCtx.ssaWL.size != 0) {
       IrInstruction *i = popInstrFromStack(&cpCtx.ssaWL);
-      printf("SCCP: visit Instruction %c%u\n", '%', i->id);
+      trace("SCCP: visit Instruction %c%u\n", '%', i->id);
       visitInstuction(&cpCtx, i);
     }
     while (cpCtx.cfgWL.size != 0) {
       IrBasicBlock *block = popBlockFromStack(&cpCtx.cfgWL);
-      printf("SCCP: visit Block #%u\n", block->id);
+      trace("SCCP: visit Block #%u\n", block->id);
       visitBlock(&cpCtx, block);
     }
   }

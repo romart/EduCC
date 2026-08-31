@@ -69,7 +69,7 @@ static void buildDominatorTree(IrFunction *func, BitSet *domSets, const size_t b
 
         clearBit(blockDomSet, bb->id);
         if (isEmptyBitSet(blockDomSet)) {
-          printf("Block #%u has no dominator...\n", bb->id);
+          trace("Block #%u has no dominator...\n", bb->id);
           continue;
         }
 
@@ -80,7 +80,7 @@ static void buildDominatorTree(IrFunction *func, BitSet *domSets, const size_t b
         }
 
         IrBasicBlock *dom = closestDominator(bb, blockDomSet);
-        printf("Set dominator for block #%u to block #%d (%p)\n", bb->id, dom ? dom->id : -1, dom);
+        trace("Set dominator for block #%u to block #%d (%p)\n", bb->id, dom ? dom->id : -1, dom);
         bb->dominators.sdom = dom;
     }
 

@@ -180,5 +180,6 @@
   DIAGNOSTIC_DEF(ERROR, PP, PP_EXPECTED_VALUE_IN_EXPRESSION, "expected value in expression"), \
   DIAGNOSTIC_DEF(ERROR, PP, PP_AFTER_ELSE, "#%s after #else"), \
   DIAGNOSTIC_DEF(ERROR, PP, PP_INVALID_FILE_LINE, "invalid filename for #line directive"), \
-  DIAGNOSTIC_DEF(ERROR, PP, PP_UNSUPPORTED_DIRECTIVE, "unsupported preprocessor directive '%s'")
+  DIAGNOSTIC_DEF(ERROR, PP, PP_UNSUPPORTED_DIRECTIVE, "unsupported preprocessor directive '%s'"), \
+  DIAGNOSTIC_DEF(ERROR, PP, PP_CANNOT_OPEN_INPUT_FILE, "cannot open input file '%s': %s")
 

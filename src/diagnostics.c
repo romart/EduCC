@@ -347,19 +347,26 @@ void printDiagnostic(FILE *output, Diagnostic *diagnostic, Boolean verbose) {
   }
 
   LocationInfo *locInfo = diagnostic->location.locInfo;
-  unsigned pLine = diagnostic->location.lineStart;
-  const char *pFile = NULL;
 
-  if (locInfo->kind == LIK_FILE) {
-    findFileAndLine(locInfo, pLine, &pLine, &pFile);
-  } else {
-    pFile = "#macro";
-  }
+  // A diagnostic about a file rather than about a place inside one - an input
+  // that could not be opened has no line to name and no source to quote.
+  if (locInfo != NULL) {
+    unsigned pLine = diagnostic->location.lineStart;
+    const char *pFile = NULL;
 
-  fprintf(output, "%s:", pFile);
+    if (locInfo->kind == LIK_FILE) {
+      findFileAndLine(locInfo, pLine, &pLine, &pFile);
+    } else {
+      pFile = "#macro";
+    }
 
-  if (diagnostic->location.lineStart >= 0) {
-    fprintf(output, "%d:%d:", pLine, diagnostic->location.colStart);
+    fprintf(output, "%s:", pFile);
+
+    if (diagnostic->location.lineStart >= 0) {
+      fprintf(output, "%d:%d:", pLine, diagnostic->location.colStart);
+    }
+
+    fprintf(output, " ");
   }
 
   const Severity *severity = getSeverity(diagnostic->descriptor->severityKind);
@@ -370,7 +377,7 @@ void printDiagnostic(FILE *output, Diagnostic *diagnostic, Boolean verbose) {
       fprintf(output, "%s", typeColor);
   }
 
-  fprintf(output, " %s: ", severity->name);
+  fprintf(output, "%s: ", severity->name);
 
   if (toTerminal) {
       fprintf(output, ANSI_COLOR_RESET);
@@ -378,7 +385,7 @@ void printDiagnostic(FILE *output, Diagnostic *diagnostic, Boolean verbose) {
 
   fprintf(output, "%s", diagnostic->message);
 
-  if (verbose) {
+  if (verbose && locInfo != NULL) {
     printVerboseDiagnostic(output, diagnostic);
   }
 }

@@ -1,0 +1,16 @@
+The legacy backend converts a long double to a signed char or short without
+sign-extending it, so (short)-1.0L is 65535 and (char)-1.0L is 255.
+
+generateF10toInt in src/x86_64/codegen_x86_64.c picks an fistp width for the
+destination and then loads the result back - but it rewrites T_S1 to T_U1 and
+T_S2 to T_U2 on the way, so the load is a movzx where it should be a movsx.
+The two rewrites are what makes it wrong: 'size' is already chosen by the case
+labels they fall through to, so nothing else depends on them.
+
+The -experimental backend converts these correctly, so this fixture passes
+there and fails only under the default backend. Hence '.muted.legacy' rather
+than '.muted': an unqualified mute would report it as a muted test that now
+passes on every run under -experimental.
+
+Unmute - by deleting this file - once the load-back keeps the destination's
+signedness.

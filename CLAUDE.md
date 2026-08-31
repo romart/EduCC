@@ -49,6 +49,7 @@ The CLI intentionally mimics a subset of GCC flags (`-o`, `-c`, `-I`, `-L`, `-l`
 - `-skipCodegen` — stop after parsing/sema (used heavily by parser tests).
 - `-oneline` — non-verbose output (used by the test runner).
 - `-logtokens`, `-memstat` — debug tracing / arena memory statistics.
+- `-trace` — the IR passes' running commentary on stdout (`ast2ir`, `ssa`, `cp`, `dce`, `dominators`, and the vector helper in `utils.c`). Off by default, because stdout is also where `-E` writes preprocessed source and `-S` the disassembly. Add new tracing through `trace()` (`include/utils.h`), not `printf`.
 
 Example (matches `.dbg.config.json` / `.vimspector.json`):
 ```sh

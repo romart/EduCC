@@ -1,8 +1,10 @@
 
 
 #include <assert.h>
+#include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "tokens.h"
 #include "tree.h"
@@ -3800,7 +3802,10 @@ void compileFile(Configuration * config) {
   LexerState *lex = loadFile(config->fileToCompile, NULL);
 
   if (!lex) {
-      fprintf(stderr, "Cannot open file %s, %p\n", config->fileToCompile, lex);
+      reportDiagnostic(&context, DIAG_PP_CANNOT_OPEN_INPUT_FILE, NULL, config->fileToCompile, strerror(errno));
+      if (printDiagnostics(&context.diagnostics, config->verbose)) {
+          config->hadError = 1;
+      }
       return;
   }
 
