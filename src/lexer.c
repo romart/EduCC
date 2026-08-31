@@ -246,9 +246,6 @@ static unsigned verifyNumberLiteral(ParserContext *ctx, Token *new, const char *
   dummy.pos = buffer;
   Coordinates coords = { &dummy, &dummy };
 
-  char bx[32] = { 0 };
-  memcpy(bx, buffer, max(31, *size_ptr));
-
   size_t size = *size_ptr;
 
   unsigned i = 0;
