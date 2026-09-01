@@ -37,6 +37,10 @@ static Boolean translateFor(AstStatement *stmt);
 
 static IrBasicBlock *getOrCreateLabelBlock(const char *labelName);
 
+static IrInstruction *addCastInstr(IrInstruction *src, enum IrTypeKind irFromType,
+                                   enum IrTypeKind irToType, TypeRef *astType,
+                                   AstExpression *expr);
+
 static Boolean declaresVla(const AstStatement *stmt);
 static Boolean blockDeclaresVla(const AstStatement *block);
 static Boolean enterStackScope(Boolean opens);
@@ -134,6 +138,14 @@ static IrInstruction *encodeBitField(const TypeRef *type,
   addInstructionInput(storageMask, storageOp);
   addInstructionInput(storageMask, mask1Op);
   addInstruction(storageMask);
+
+  // The value arrives at its own width - 'b.flag = 1' hands over an int - and
+  // everything below operates on the storage unit, so convert first. Without
+  // it a one-bit field in an 'unsigned char' shifts an I32 as if it were a U8
+  // and reads a register byte nothing wrote.
+  if (irTypeMachineSize(valueOp->type) != irTypeMachineSize(irMemoryType)) {
+    valueOp = addCastInstr(valueOp, valueOp->type, irMemoryType, memoryType, NULL);
+  }
 
   // The value being assigned is what moves into place, not the storage it is
   // going into: this is '(old & ~mask) | ((value << offset) & mask)'.
