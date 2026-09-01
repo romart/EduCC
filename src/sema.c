@@ -442,6 +442,11 @@ TypeRef *computeArrayAccessExpressionType(ParserContext *ctx, Coordinates *coord
   TypeRef *arrayType = isPointerLikeType(l) ? l : r;
   TypeRef *indexType = arrayType == l ? r : l;
 
+  // A bit field indexes as its storage unit does; see computeBinaryType, which
+  // is what 'p + b.f' goes through and what this has to agree with.
+  if (indexType->kind == TR_BITFIELD)
+    indexType = indexType->bitFieldDesc.storageType;
+
   if (!isIntegerType(indexType)) {
       reportDiagnostic(ctx, DIAG_ARRAY_SUBSCRIPT_NOT_INT, coords);
       return makeErrorRef(ctx);
@@ -691,6 +696,13 @@ TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, AstExpressio
     reportDiagnostic(ctx, DIAG_VOID_NOT_IGNORED, coords);
     return makeErrorRef(ctx);
   }
+
+  // A bit field's value is its storage unit's; every rule below asks what kind
+  // of type it is and none of them how many bits it has. Without this only the
+  // shift and bitwise rules, which say so themselves, accepted one - 'b.f * 2'
+  // and 'p + b.f' were rejected while 'b.f << 2' and 'b.f + 2' were not.
+  if (left->kind == TR_BITFIELD) left = left->bitFieldDesc.storageType;
+  if (right->kind == TR_BITFIELD) right = right->bitFieldDesc.storageType;
 
   if (isStructualType(left) || isStructualType(right)) {
       reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
