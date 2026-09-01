@@ -25,8 +25,9 @@ irPhase = 'ssa'
 
 # Extra flags put in front of every compiler invocation ('--compiler-flag').
 # This is how one set of fixtures is run against a second configuration of the
-# compiler rather than being copied: today '-experimental', which routes
-# codegen through the IR pipeline instead of the legacy AST walker.
+# compiler rather than being copied: today '-legacy', which routes codegen
+# through the old AST walker instead of the IR pipeline the compiler uses by
+# default.
 compilerFlags = []
 
 # A test is muted by putting a '<name>.muted' file next to its '<name>.c'; the
@@ -35,7 +36,7 @@ compilerFlags = []
 # reproducible, and skipping them outright would mean nobody ever notices when
 # one starts passing again.
 #
-# '<name>.muted.legacy' and '<name>.muted.experimental' mute in one
+# '<name>.muted.legacy' and '<name>.muted.ir' mute in one
 # configuration only, for a bug that is one backend's and not the other's: the
 # fixture is then an ordinary passing test in the configuration that gets it
 # right, and would otherwise be reported as a muted test that now passes there
@@ -50,7 +51,7 @@ currentMuteReason = None
 mutedFailures = set()   # muted tests that failed, i.e. the marker is doing its job
 mutedPasses = set()     # muted tests that passed - candidates for unmuting
 
-# A '<name>.experimental' or '<name>.legacy' sibling means the fixture only
+# A '<name>.ir' or '<name>.legacy' sibling means the fixture only
 # makes sense under that one backend, and the other is not going to be taught to
 # agree: a VLA in a loop, which the legacy backend's design does not really let
 # it reclaim, or a fixture reading one local through a pointer to the next,
@@ -58,16 +59,17 @@ mutedPasses = set()     # muted tests that passed - candidates for unmuting
 # the other configuration rather than muted - muting is for a bug someone means
 # to fix, so a muted test still runs and is flagged the day it starts passing,
 # and neither of those is true here. The file's contents are the reason.
-ONLY_MARKER_EXTS = {'experimental': '.experimental', 'legacy': '.legacy'}
+ONLY_MARKER_EXTS = {'ir': '.ir', 'legacy': '.legacy'}
 
 skippedTests = set()
 
 
 def currentConfiguration():
-    """'experimental' or 'legacy', which is what the per-configuration markers
-    name. Read off the compiler flags rather than passed around, because a
-    marker is consulted from four different runXTest() paths."""
-    return 'experimental' if '-experimental' in compilerFlags else 'legacy'
+    """'ir' or 'legacy', which is what the per-configuration markers name.
+    Read off the compiler flags rather than passed around, because a marker is
+    consulted from four different runXTest() paths. 'ir' is the default because
+    the compiler's is."""
+    return 'legacy' if '-legacy' in compilerFlags else 'ir'
 
 
 def readMarker(markerPath):
@@ -95,7 +97,7 @@ def readMuteReason(dirname, name):
 
 def readOtherConfigurationReason(dirname, name):
     """The reason this fixture is skipped here, or None to run it. A
-    '<name>.experimental' or '<name>.legacy' marker names the one configuration
+    '<name>.ir' or '<name>.legacy' marker names the one configuration
     the fixture belongs to; every other configuration skips it."""
     for configuration, ext in ONLY_MARKER_EXTS.items():
         if configuration == currentConfiguration():
@@ -361,7 +363,7 @@ def runIrTest(compiler, workingDir, dirname, name):
 
     err = open(actualErrFilePath, 'w+')
 
-    compilationCommand = [compiler, "-experimental", "-skipCodegen", "-oneline", "-irDump:" + irPhase, actualIrFilePath, testFilePath]
+    compilationCommand = [compiler, "-skipCodegen", "-oneline", "-irDump:" + irPhase, actualIrFilePath, testFilePath]
     process = Popen(compilationCommand, stdout=subprocess.DEVNULL, stderr=err)
     exit_code = process.wait()
     err.close()
@@ -444,9 +446,9 @@ def parseArguments():
                     "'<name>.muted' file next to its '<name>.c', with the reason as its contents; "
                     "a muted test still runs and reports, but its failures do not count towards "
                     "the exit code, and it is called out in the summary if it starts passing. "
-                    "'<name>.muted.experimental' and '<name>.muted.legacy' mute in one "
+                    "'<name>.muted.ir' and '<name>.muted.legacy' mute in one "
                     "configuration only, for a bug that belongs to one backend. A "
-                    "'<name>.experimental' or '<name>.legacy' sibling means the fixture belongs to "
+                    "'<name>.ir' or '<name>.legacy' sibling means the fixture belongs to "
                     "that backend alone, and skips it in every other configuration.")
     parser.add_argument('-c', '--compiler', type=str, required=True, help="specify path to compiler")
     parser.add_argument('-wd', '--working-dir', type=str, required=True, help="specify working dir for tests")
@@ -459,8 +461,8 @@ def parseArguments():
                               "leaves it, 'isel' once instruction selection has filled the blocks in")
     parser.add_argument('--compiler-flag', type=str, action='append', default=[],
                          help='extra flag passed to the compiler on every invocation, repeatable '
-                              '(e.g. --compiler-flag -experimental to compile the fixtures through '
-                              'the IR pipeline)')
+                              '(e.g. --compiler-flag=-legacy to compile the fixtures through '
+                              'the old AST walker instead of the IR pipeline)')
     parser.add_argument('--update-baselines', action='store_true',
                          help='write actual output as the new expected baseline for every test instead of comparing '
                               '(use after an intentional behavior change to regenerate golden files)')

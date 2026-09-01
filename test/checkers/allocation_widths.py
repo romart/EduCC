@@ -103,7 +103,7 @@ def main():
         for f in files:
             if os.path.exists(f[:-2] + ".legacy"):
                 continue
-            r = subprocess.run([compiler, "-experimental", "-oneline", "-c",
+            r = subprocess.run([compiler, "-oneline", "-c",
                                 "-irDump:ra", dump, "-o", obj, f], capture_output=True)
             if r.returncode != 0 or not os.path.exists(dump):
                 failed.append(f)

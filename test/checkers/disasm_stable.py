@@ -12,7 +12,7 @@ That is exactly how the two step-26 bugs showed up. udis86's decode_prefixes()
 read an uninitialized local as a REX prefix, so the same bytes rendered as a
 different instruction depending on where the stack landed - and since the
 invented prefix changes an instruction's length, it ran the following ones
-together. The experimental backend measured its code as a pointer difference
+together. The IR backend measured its code as a pointer difference
 across a realloc, so a function with a jump table disassembled tens of
 kilobytes past its own end until it walked off the section. Neither is visible
 to a test that only checks what the compiled program returns.
@@ -42,8 +42,8 @@ def main():
     findings, failed, runs = [], [], 0
     with tempfile.TemporaryDirectory() as tmp:
         obj = os.path.join(tmp, "d.o")
-        for backend in ("experimental", "legacy"):
-            flags = ["-experimental"] if backend == "experimental" else []
+        for backend in ("ir", "legacy"):
+            flags = [] if backend == "ir" else ["-legacy"]
             for f in corpus.sources(roots, backend):
                 rc, first = disassemble(compiler, flags, f, obj, [])
                 runs += 1

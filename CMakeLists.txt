@@ -144,27 +144,27 @@ if(BUILD_TESTING)
 
   educc_add_test(parser parser parser 60)
   educc_add_test(preprocessor pp preprocessor 60)
-  # Compiles, links, and runs every fixture, so it gets more headroom.
+  # Compiles, links, and runs every fixture, so it gets more headroom. No flag:
+  # the compiler's default backend is the IR pipeline since step 30 of
+  # docs/ir-codegen-design.md, so this is the one that has to stay green.
   educc_add_test(codegen codegen codegen 300)
-  # Every one of those fixtures a second time, through the IR pipeline. It used
-  # to be the 'experimental' subdirectory alone - the fixtures written to stay
-  # inside what instruction selection covers - and is the whole tree since step
-  # 16 of docs/ir-codegen-design.md, which is the point at which "the
-  # experimental backend works" stopped being a number measured by hand and
-  # written down in that document and became something every run asserts.
+  # Every one of those fixtures a second time, through the old AST walker. It
+  # was the other way round until step 30 - the IR backend was the second
+  # configuration and had to ask for itself - and before step 16 it was the
+  # 'experimental' subdirectory alone, the fixtures written to stay inside what
+  # instruction selection covered.
+  #
+  # Kept because the legacy backend is still what a bootstrap of an unfinished
+  # IR change falls back to by hand, and because two independent code
+  # generators disagreeing is how several bugs in this tree were found. It is
+  # not the reference: where the two disagree the IR backend has been right
+  # more often than not, and three fixtures are muted here and nowhere else.
   #
   # The 'ssa' argument is there only because the pass-through slot comes after
   # the --ir-phase one; it is the runner's default and a codegen-mode run
   # ignores it. --compiler-flag is spelled with '=' because argparse will not
   # take a value beginning with '-' as a separate word.
-  #
-  # No opt-out flag is needed for this to be an assertion rather than a
-  # description any more. '-experimental' now compiles every function through
-  # the IR backend or aborts trying - step 18 removed the per-function fallback
-  # along with the '--no-fallback' switch and the '<name>.fallback' exemption
-  # files that went with it - so a lost capability is a failed test by
-  # construction and cannot be papered over by a sibling file.
-  educc_add_test(codegen_experimental codegen codegen 300 ssa --compiler-flag=-experimental)
+  educc_add_test(codegen_legacy codegen codegen 300 ssa --compiler-flag=-legacy)
   # Compares '-irDump:ssa' output against golden dumps, isolating buildSSA
   # from scp/gvn/dce (see test/testRunner.py's runIrTest).
   educc_add_test(ir_ssa ir/ssa ir 60 ssa)

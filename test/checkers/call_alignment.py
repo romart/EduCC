@@ -78,7 +78,7 @@ def checkFunction(where, name, body, stats):
 
 
 def checkSource(compiler, source, obj, stats):
-    r = subprocess.run([compiler, "-experimental", "-oneline", "-S", "-c", "-o", obj, source],
+    r = subprocess.run([compiler, "-oneline", "-S", "-c", "-o", obj, source],
                        capture_output=True, text=True)
     if r.returncode != 0:
         return None

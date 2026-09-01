@@ -331,6 +331,7 @@ int main(int argc, char** argv) {
 
   config.verbose = 1;
   config.arch = X86_64;
+  config.irBackend = 1;
 
   StringList chead = { 0 }, *ccur = &chead;
   StringList ohead = { 0 }, *ocur = &ohead;
@@ -392,8 +393,12 @@ int main(int argc, char** argv) {
       config.includePath = allocIncludePath(arg[2] ? &arg[2] : argv[++i], config.includePath);
     } else if (strcmp("-S", arg) == 0) {
       config.asmDump = 1;
+    } else if (strcmp("-legacy", arg) == 0) {
+      config.irBackend = 0;
     } else if (strcmp("-experimental", arg) == 0) {
-      config.experimental = 1;
+      // What it selected is the default now. Kept as a no-op rather than
+      // removed: it is in every script, launch configuration and shell history
+      // this compiler has, and rejecting it would break them to say nothing.
     } else if (strcmp("-c", arg) == 0) {
         config.objOutput = 1;
         continue;
@@ -490,13 +495,22 @@ int main(int argc, char** argv) {
     }
   }
 
-  // The IR pipeline emits every function it is given or aborts trying; there
-  // is no longer a legacy backend behind it to catch what it cannot do. Only
-  // x86_64 has a selector, so asking for another target has to be refused here
-  // rather than discovered as an empty machine function much later.
-  if (config.experimental && config.arch != X86_64) {
-      fprintf(stderr, "fatal error: '-experimental' has no backend for this '-march'\n");
-      return 2;
+  // x86_64 is the only target this compiler can generate code for, under
+  // either backend. The legacy backend's riscv64 half is unfinished and is not
+  // going to be finished - a second target is the IR backend's job, where a
+  // target is a selector and a descriptor rather than a second copy of the
+  // whole code generator - so sending '-march riscv64' here is not a fallback
+  // and nothing below should read it as one. It is where that arch's code
+  // already was, kept reachable so the in-progress files stay exercisable.
+  if (config.arch != X86_64) {
+      config.irBackend = 0;
+  }
+
+  // Easy to ask for by accident now that the IR backend is the default and
+  // '-legacy' is the opt-out: the legacy backend builds no IR, so the dump was
+  // silently not written and the file left as it was.
+  if (!config.irBackend && config.irDumpFileName) {
+      fprintf(stderr, "warning: '-irDump' has nothing to dump under '-legacy'\n");
   }
 
   if (config.objOutput && inputCountO > 0) {

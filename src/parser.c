@@ -3837,7 +3837,7 @@ void compileFile(Configuration * config) {
   }
 
   if (!hasError) {
-    if (config->experimental) {
+    if (config->irBackend) {
       IrContext irCtx;
       initializeIrContext(&irCtx, &context);
 

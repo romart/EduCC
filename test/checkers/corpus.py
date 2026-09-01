@@ -23,15 +23,15 @@ def parseArgs(doc):
     return sys.argv[1], sys.argv[2:]
 
 
-def sources(roots, backend="experimental"):
+def sources(roots, backend="ir"):
     """The .c fixtures under `roots`, minus the ones that belong to the other backend.
 
-    A '<name>.legacy' / '<name>.experimental' sibling marks a fixture the other
+    A '<name>.legacy' / '<name>.ir' sibling marks a fixture the other
     backend is not going to be taught to agree with (see test/testRunner.py);
     running a checker over the IR of a file the IR backend is not meant to
     compile only produces noise.
     """
-    other = ".legacy" if backend == "experimental" else ".experimental"
+    other = ".legacy" if backend == "ir" else ".ir"
     files = []
     for root in roots:
         for dirpath, _, names in os.walk(root):
@@ -44,7 +44,7 @@ def sources(roots, backend="experimental"):
 
 def dump(compiler, source, phase, out, obj):
     """Compile `source`, snapshotting the given pass into `out`. False if it did not compile."""
-    r = subprocess.run([compiler, "-experimental", "-oneline", "-c",
+    r = subprocess.run([compiler, "-oneline", "-c",
                         "-irDump:" + phase, out, "-o", obj, source],
                        capture_output=True)
     return r.returncode == 0 and os.path.exists(out)

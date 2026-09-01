@@ -72,7 +72,9 @@ typedef struct _Configuration {
 
   unsigned objOutput : 1;
 
-  unsigned experimental : 1;
+  // The IR backend, which is the default; '-legacy' turns it off, and so does
+  // any '-march' without a selector.
+  unsigned irBackend : 1;
 
   unsigned hadError : 1;
 } Configuration;
