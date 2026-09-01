@@ -135,6 +135,14 @@ def recordFailure(testFilePath):
     failedTests.append(testFilePath)
 
 
+def sameUnderComparison(actualFile, expectedFile):
+    with open(expectedFile) as expected, open(actualFile) as actual:
+        expt = expected.readlines()
+        actl = actual.readlines()
+    return len(expt) == len(actl) and all(e.rstrip() == a.rstrip()
+                                          for e, a in zip(expt, actl))
+
+
 def compareFilesLineByLine(marker, testFile, actualFile, expectedFile):
     with open(expectedFile) as expected, open(actualFile) as actual:
         expt = expected.readlines()
@@ -169,7 +177,21 @@ def checkOrUpdateBaseline(marker, testFile, actualFile, expectedFile):
             return True
 
         existed = path.exists(expectedFile)
+
+        # Leave a baseline the compiler still agrees with alone. Rewriting it
+        # unconditionally made a scoped regeneration touch every baseline it
+        # walked: the comparison below ignores trailing whitespace and a final
+        # newline, the corpus is inconsistent about both, and the rewrite is
+        # not - so a hundred files came out changed in whitespace only, and the
+        # `git diff` this is meant to be reviewed through drowned.
+        if existed and sameUnderComparison(actualFile, expectedFile):
+            return True
+
+        # Ends with a newline even when the dump does not, so the next diff of
+        # this file is not a '\ No newline at end of file' as well.
         content = open(actualFile).read()
+        if content and not content.endswith('\n'):
+            content += '\n'
         open(expectedFile, 'w+').write(content)
         print(f"  info: {marker} baseline {'updated' if existed else 'created'} ({expectedFile})")
         return True
