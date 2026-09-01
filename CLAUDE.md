@@ -78,7 +78,7 @@ build/bin/main -irDump hw.ir.txt ./test/testData/codegen/simple/gvn.c
 
 ## Tests
 
-Tests are plain data-driven fixtures under `test/testData/{parser,pp,codegen}` run via `test/testRunner.py` against a built `build/bin/main`. `cmake --build build && cd build && ctest --output-on-failure` runs all three suites, the IR-dump suites and the structural checkers in one shot (each wired up as its own CTest test with a timeout — see `CMakeLists.txt`'s `educc_add_test`, and Structural checkers below for the `checkers` label); `ctest --output-junit results.xml` produces a CI-friendly report. For scoping to a subdirectory or passing extra flags, invoke the runner directly, pointing `--compiler` at the built binary and `--working-dir` at a scratch directory for outputs:
+Tests are plain data-driven fixtures under `test/testData/{parser,pp,codegen,crossabi}` run via `test/testRunner.py` against a built `build/bin/main`. `cmake --build build && cd build && ctest --output-on-failure` runs all four suites, the IR-dump suites and the structural checkers in one shot (each wired up as its own CTest test with a timeout — see `CMakeLists.txt`'s `educc_add_test`, and Structural checkers below for the `checkers` label); `ctest --output-junit results.xml` produces a CI-friendly report. For scoping to a subdirectory or passing extra flags, invoke the runner directly, pointing `--compiler` at the built binary and `--working-dir` at a scratch directory for outputs:
 
 ```sh
 # Parser/AST-dump tests (compares -astDump/-astCanonDump/stderr against *.txt/*.canon.txt/*.err)
@@ -92,6 +92,9 @@ python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/cod
 
 # The same fixtures compiled through the old AST walker instead
 python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/codegen -m codegen --compiler-flag=-legacy
+
+# Cross-backend ABI tests (each fixture is two files, one compiled per backend, linked and run)
+python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/crossabi -m crossabi
 ```
 
 Notes on the runner's behavior:
@@ -101,6 +104,7 @@ Notes on the runner's behavior:
 - Nonzero process exit at the runner level is the failed-test count; on failure it also lists every failed test's path. Directory walks are sorted, so run order (and failure order) is deterministic across machines.
 - `--compiler-flag` (repeatable) prepends a flag to every compiler invocation, which is how one set of fixtures is run against a second configuration rather than being copied. The `codegen_legacy` CTest entry uses it for `-legacy`. It has to be spelled with `=` (`--compiler-flag=-legacy`), since argparse will not take a value beginning with `-` as a separate word.
 - A test can be **muted** by placing a `<name>.muted` file next to its `<name>.c`, with the reason as the file's contents (printed whenever the test runs). This is for known-broken fixtures kept in the repo so a bug stays reproducible: the test still runs and reports, but its failures don't count towards the exit code. If a muted test passes every check, the summary flags it under `MUTED TESTS THAT NOW PASS` so the stale marker gets deleted — loudly, but without failing the run. `--update-baselines` deliberately skips muted tests rather than baking their known-wrong output into a golden file. A `<name>.muted.legacy` / `<name>.muted.ir` sibling mutes in that one configuration only, for a bug that belongs to one backend and not the other (`codegen/bugs/float_to_bool.c`) — without it the fixture is reported as a muted test that now passes on every run of the configuration that gets it right.
+- `crossabi` mode is the odd one out: a fixture there is a **pair**, `<name>.c` and `<name>.partner.c`, compiled with a *different* backend each, linked into one binary and run — then swapped over and run again. The partner half is skipped by the directory walk rather than run as a fixture of its own, and `--compiler-flag` is deliberately ignored in this mode, since it names both backends itself. Every other suite runs one backend at a time, so this is the only place their ABI agreement is tested rather than assumed; it was tested by accident until roadmap step 18 removed the per-function fallback that arranged it.
 - A `<name>.ir` or `<name>.legacy` sibling (reason as its contents) marks a fixture that belongs to that backend alone, the other one not being going to be taught to agree — a VLA in a loop, whose storage the legacy backend never gives back (`codegen/experimental/vla_in_loop.c`, whose directory keeps its historical name), or a fixture reading one local through a pointer to the next, which the IR backend is right to disagree with and which gcc fails too (`codegen/my/adjacent_locals.c`). Such a test is **skipped** in every other configuration and listed under `Skipped (belong to the other backend)`; it is not muted, because muting is for a bug someone intends to fix and a muted test is flagged the day it starts passing.
 
 ### Structural checkers (`test/checkers/`)
@@ -125,7 +129,7 @@ python3 test/checkers/<checker>.py build/bin/main test/testData/codegen
 They share `test/checkers/corpus.py` (argument parsing, the corpus walk, the dump invocation, the report), and each is also a CTest entry labelled `checkers`:
 
 ```sh
-ctest --test-dir build                # the three suites, the IR dumps, and the checkers
+ctest --test-dir build                # the four suites, the IR dumps, and the checkers
 ctest --test-dir build -L checkers    # just the checkers (~11s)
 ctest --test-dir build -LE checkers   # everything but (~6s)
 cmake -B build -S . -DEDUCC_RUN_CHECKERS=OFF   # do not register them at all

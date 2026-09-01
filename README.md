@@ -47,7 +47,7 @@ clangd (and most editor integrations) will pick up `compile_commands.json` from 
 
 ## Tests
 
-Tests are data-driven fixtures under `test/testData/{parser,pp,codegen}`. The easiest way to run all of them is `ctest`, from the build directory:
+Tests are data-driven fixtures under `test/testData/{parser,pp,codegen,crossabi}`. The easiest way to run all of them is `ctest`, from the build directory:
 
 ```sh
 cmake -B build -S . -DCMAKE_EXPORT_COMPILE_COMMANDS=ON  # only needed once, or after editing CMakeLists.txt
@@ -55,7 +55,9 @@ cmake --build build -j$(nproc)
 cd build && ctest --output-on-failure
 ```
 
-This runs all three suites (`parser`, `preprocessor`, `codegen`) with a per-suite timeout, and can produce a CI-friendly report with `ctest --output-junit results.xml`. Use `ctest -R codegen` to run just one suite.
+This runs every suite with a per-suite timeout, and can produce a CI-friendly report with `ctest --output-junit results.xml`. Use `ctest -R codegen` to run just one. There are more of them than there are fixture directories: the codegen fixtures are compiled once through each backend (`codegen`, `codegen_legacy`), the IR dumps are compared once per pipeline phase, and `test/checkers/` contributes one entry each (`ctest -L checkers`, or `-LE checkers` to leave them out).
+
+The `crossabi` suite is the odd one out. Each of its fixtures is a *pair* of files — `<name>.c` and `<name>.partner.c` — compiled with a different backend each, linked into one binary and run, then swapped over and run again. Every other suite runs one backend at a time, so this is the only place the two code generators have to agree with each other about calling conventions.
 
 To run a suite directly (e.g. to pass extra flags, or scope to a single subdirectory), use `test/testRunner.py`:
 

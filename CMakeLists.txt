@@ -165,6 +165,12 @@ if(BUILD_TESTING)
   # ignores it. --compiler-flag is spelled with '=' because argparse will not
   # take a value beginning with '-' as a separate word.
   educc_add_test(codegen_legacy codegen codegen 300 ssa --compiler-flag=-legacy)
+  # The two backends inside one link: each fixture is a pair of files compiled
+  # with a different backend each, linked and run, then swapped over. Every
+  # other suite runs one backend at a time, so their ABI agreement is otherwise
+  # only assumed - it was tested by accident until step 18 removed the per
+  # function fallback that arranged it (docs/ir-codegen-design.md section 9).
+  educc_add_test(crossabi crossabi crossabi 120)
   # Compares '-irDump:ssa' output against golden dumps, isolating buildSSA
   # from scp/gvn/dce (see test/testRunner.py's runIrTest).
   educc_add_test(ir_ssa ir/ssa ir 60 ssa)

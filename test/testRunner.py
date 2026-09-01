@@ -63,6 +63,16 @@ ONLY_MARKER_EXTS = {'ir': '.ir', 'legacy': '.legacy'}
 
 skippedTests = set()
 
+# The second half of a 'crossabi' fixture: '<name>.c' is the driver and
+# '<name>.partner.c' the half compiled with the other backend. A suffix rather
+# than a subdirectory so the two sit next to each other in the listing; the
+# walk skips it, since it is not a test of its own.
+PARTNER_SUFFIX = '.partner'
+
+# What each backend is asked for on the command line. The IR pipeline is the
+# compiler's default and so has nothing to pass.
+CROSS_BACKEND_FLAGS = {'ir': [], 'legacy': ['-legacy']}
+
 
 def currentConfiguration():
     """'ir' or 'legacy', which is what the per-configuration markers name.
@@ -312,6 +322,79 @@ def runCodegenTest(compiler, workingDir, dirname, name):
             passTest(testFilePath)
 
 
+def printFileIfNotEmpty(filePath):
+    if path.getsize(filePath) > 0:
+        with open(filePath) as f:
+            print(f.read())
+
+
+def runCrossAbiTest(compiler, workingDir, dirname, name):
+    """Compiles '<name>.c' and '<name>.partner.c' with *different* backends,
+    links the two objects and runs the result - then swaps the halves over and
+    does it again. This is the only place the two code generators meet inside
+    one link, and so the only place their ABI agreement is tested rather than
+    assumed (docs/ir-codegen-design.md section 9).
+
+    --compiler-flag is deliberately not applied here: the mode names both
+    backends itself, and a '-legacy' from outside would compile both halves
+    with the same one, which is the one thing this must not do."""
+    driverPath = dirname + '/' + name + '.c'
+    partnerPath = dirname + '/' + name + PARTNER_SUFFIX + '.c'
+
+    outputDir = workingDir + '/' + dirname
+    if not path.exists(outputDir):
+        os.makedirs(outputDir)
+
+    if not path.exists(partnerPath):
+        failTest(driverPath, f"no partner half ({partnerPath}); a crossabi fixture is a pair")
+        return
+
+    for driverBackend, partnerBackend in (('ir', 'legacy'), ('legacy', 'ir')):
+        direction = f"driver={driverBackend}, partner={partnerBackend}"
+
+        objects = []
+        for source, backend, half in ((driverPath, driverBackend, 'driver'),
+                                      (partnerPath, partnerBackend, 'partner')):
+            objPath = f"{outputDir}/{name}.{half}.{backend}.o"
+            errPath = f"{outputDir}/{name}.{half}.{backend}.err"
+            with open(errPath, 'w+') as err:
+                command = [compiler] + CROSS_BACKEND_FLAGS[backend] \
+                        + ["-oneline", "-c", "-o", objPath, source]
+                exitCode = Popen(command, stdout=sys.stdout, stderr=err).wait()
+            if exitCode != 0:
+                failTest(driverPath, f"{direction}: compiling {source} with "
+                                     f"'{backend}' failed (exit code {exitCode})")
+                printFileIfNotEmpty(errPath)
+                objects = None
+                break
+            objects.append(objPath)
+
+        if objects is None:
+            continue
+
+        # Linking only: the compiler under test still drives it, since neither
+        # object came from anywhere else and it is its own linker invocation
+        # that has to find them.
+        binPath = f"{outputDir}/{name}.{driverBackend}-{partnerBackend}"
+        if path.exists(binPath):
+            os.remove(binPath)
+
+        errPath = binPath + '.link.err'
+        with open(errPath, 'w+') as err:
+            command = [compiler, "-oneline", "-o", binPath] + objects + ["-lm"]
+            exitCode = Popen(command, stdout=sys.stdout, stderr=err).wait()
+        if exitCode != 0:
+            failTest(driverPath, f"{direction}: linking failed (exit code {exitCode})")
+            printFileIfNotEmpty(errPath)
+            continue
+
+        exitCode = Popen([binPath], stdout=sys.stdout, stderr=sys.stderr).wait()
+        if exitCode != 0:
+            failTest(driverPath, f"{direction}: execution exit code is not 0 ({exitCode})")
+        else:
+            passTest(driverPath + f" ({direction})")
+
+
 def runPPTest(compiler, workingDir, dirname, name):
     testFilePath = dirname + '/' + name + '.c'
     expectFilePath = dirname + '/' + name + '.expect'
@@ -398,6 +481,10 @@ def runTestForData(filePath, compiler, workingDir, testMode):
     if (ext != ".c"):
         return
 
+    # The other half of a crossabi pair, compiled as part of its driver's test.
+    if name.endswith(PARTNER_SUFFIX):
+        return
+
     belongsTo = readOtherConfigurationReason(dirname, name)
     if belongsTo is not None:
         configuration, reason = belongsTo
@@ -423,6 +510,8 @@ def runTestForData(filePath, compiler, workingDir, testMode):
             runCodegenTest(compiler, workingDir, dirname, name)
         elif testMode == 'ir':
             runIrTest(compiler, workingDir, dirname, name)
+        elif testMode == 'crossabi':
+            runCrossAbiTest(compiler, workingDir, dirname, name)
         else:
             raise Exception(f"Unknown test mode {testMode}")
     finally:
@@ -453,7 +542,12 @@ def parseArguments():
     parser.add_argument('-c', '--compiler', type=str, required=True, help="specify path to compiler")
     parser.add_argument('-wd', '--working-dir', type=str, required=True, help="specify working dir for tests")
     parser.add_argument('-p', '--test-path', type=str, required=True, action='append', help='path to test')
-    parser.add_argument('-m', '--mode', choices=['parser', 'preprocessor', 'codegen', 'ir'], default='parser', help='Which substystem to be tested')
+    parser.add_argument('-m', '--mode', choices=['parser', 'preprocessor', 'codegen', 'ir', 'crossabi'],
+                        default='parser',
+                        help="Which substystem to be tested. 'crossabi' is the odd one out: it "
+                             "compiles '<name>.c' and '<name>.partner.c' with different backends, "
+                             "links them and runs the result, both ways round, and ignores "
+                             "--compiler-flag since it names the backends itself")
     parser.add_argument('--ir-phase', choices=['initial', 'ssa', 'scp', 'gvn', 'dce', 'mir', 'isel', 'ra'], default='ssa',
                          help="which pipeline phase 'ir' mode snapshots (selects the -irDump:<phase> flag "
                               "and the <name>.<phase>.txt baseline suffix). 'mir' and 'isel' are the odd "
