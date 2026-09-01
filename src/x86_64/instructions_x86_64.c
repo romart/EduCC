@@ -270,10 +270,12 @@ static void encodeAR(GeneratedFunction *f, Address *from, uint8_t regOp) {
       // [%reg + %reg * scale + disp]
       enum Registers index = from->index;
       enum Registers base = from->base;
-      uint32_t disp = from->imm;
+      int32_t disp = from->imm;
       assert(index != R_ESP);
 
-      if ((uint32_t)(uint8_t)disp == disp) {
+      // Signed, like the no-index branch above: a disp8 is sign-extended, so
+      // 136 encoded as one byte reaches the CPU as -120.
+      if ((int32_t)(int8_t)disp == disp) {
           modrm.bits.mod = 1;
       } else {
           modrm.bits.mod = 2;
