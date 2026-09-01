@@ -164,6 +164,31 @@ Three jobs, each of which is a command that already existed and that somebody ha
 
 The runner has to stay x86_64 — that is the only target either backend generates working code for, and the codegen fixtures link and *run* what they compile. `.deps/` is cached on a key derived from `cmake/Zydis.cmake`, so the pinned Zydis tarball is fetched once rather than on every job, and an upstream outage does not take the workflow with it.
 
+## Benchmarks (`test/bench/`)
+
+The test suite says the code is correct. It says nothing about whether it is any good, which is the entire question a register allocator exists to answer. `test/bench/bench.py` asks it:
+
+```sh
+python3 test/bench/bench.py                                  # everything, ~3 min
+python3 test/bench/bench.py --runs 5 --json before.json      # save a run
+python3 test/bench/bench.py --compare before.json            # and diff against it
+python3 test/bench/bench.py --filter nbody,sort --no-static  # scope it down
+```
+
+`test/bench/programs/*.c` are eight self-contained programs picked for what they do to an allocator, not for coverage: `nbody` and `matmul` keep more doubles live than there are volatile xmm registers, `crc` and `sieve` are tight integer loops, `binarytrees` is recursion over `malloc` so every call site is a place the allocator has to get caller-saved registers out of the way, `interp` is switch dispatch with everything live across every arm, `strings` is byte-at-a-time pointer walks, `sort` is quicksort's recursion and heapsort's sift-down. Each prints a checksum, and each is compiled by every configuration — `-legacy`, `-Xregalloc=trivial`, `-Xregalloc=linear`, plus the host `cc` at `-O0` and `-O2` — so the reference doubles as an oracle: the driver reports any configuration whose output disagrees with the others, which is how `codegen/bugs/narrow_store_result.c` was found.
+
+Three things get measured, because they are three different questions: how fast the *generated* code runs, how fast EduCC itself compiles (over its own front-end and IR sources), and how big `.text` comes out. `--no-static` turns off a fourth — spill slots and machine instructions counted straight out of `-irDump:ra`, which says *what the allocator did* rather than how long it took.
+
+Nothing here is wired into `ctest`: it measures wall-clock time, it takes minutes, and a loaded machine will lie to it. Run it deliberately, before and after a backend change, with `--compare`. As of step 34 — run time and `.text` totalled over the eight programs, fastest of three runs; the spill-slot count over those plus EduCC's own sources:
+
+| | legacy | trivial | linear | cc -O0 | cc -O2 |
+| --- | --- | --- | --- | --- | --- |
+| run time | 3.39 | 6.86 | **2.26** | 3.05 | 1.42 |
+| `.text` | 11.9K | 23.5K | 11.1K | 8.8K | 12.4K |
+| spill slots | — | 14092 | 1844 | — | — |
+
+The linear scan is 3× the trivial allocator and beats the host compiler at `-O0`. The `legacy` column understates itself: `strings` segfaults there (the narrow-store bug above), so its 0.08s is a crash, not a time. It is not free: compiling EduCC's own sources it is the *slowest* of the three configurations (0.41s against `trivial`'s 0.36s and `-legacy`'s 0.21s), which is the allocator doing work the other two do not.
+
 ## Architecture
 
 Pipeline, driven from `src/main.c` → `compileFile()` in `src/parser.c`:
