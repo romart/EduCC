@@ -93,7 +93,7 @@ MBB #5, '< || >', ir #5, <- #2, -> #6
   $r10 = MOP_RELOAD.4 fi#2
   cmp.4 $r10, 0 ; %15
   $r10 = MOP_RELOAD.4 fi#5
-  $r10 = sete.1 $r10 ; %15
+  $r10<partial-def> = sete.1 ; %15
   MOP_SPILL.4 fi#5, $r10
   $r11 = MOP_RELOAD.4 fi#5
   $r10 = MOP_COPY.4 $r11 ; %17
@@ -197,7 +197,7 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
   $r11 = MOP_RELOAD.4 fi#1
   cmp.4 $r10, $r11 ; %12
   $r10 = MOP_RELOAD.4 fi#2
-  $r10 = sete.1 $r10 ; %12
+  $r10<partial-def> = sete.1 ; %12
   MOP_SPILL.4 fi#2, $r10
   $r10 = MOP_RELOAD.4 fi#2
   test.4 $r10, $r10 ; %15
@@ -264,7 +264,7 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
   $r11 = MOP_RELOAD.4 fi#3
   cmp.4 $r10, $r11 ; %15
   $r10 = MOP_RELOAD.4 fi#5
-  $r10 = setg.1 $r10 ; %15
+  $r10<partial-def> = setg.1 ; %15
   MOP_SPILL.4 fi#5, $r10
   $r10 = MOP_RELOAD.4 fi#4
   test.4 $r10, $r10 ; %18
@@ -424,12 +424,12 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
   $xmm9 = MOP_RELOAD.8 fi#3
   ucomis.8 $xmm8, $xmm9 ; %11
   $r10 = MOP_RELOAD.4 fi#4
-  $r10 = sete.1 $r10 ; %11
+  $r10<partial-def> = sete.1 ; %11
   MOP_SPILL.4 fi#4, $r10
   $r10 = mov.4 0 ; %11
   MOP_SPILL.4 fi#5, $r10
   $r10 = MOP_RELOAD.4 fi#5
-  $r10 = setnp.1 $r10 ; %11
+  $r10<partial-def> = setnp.1 ; %11
   MOP_SPILL.4 fi#5, $r10
   $r10 = MOP_RELOAD.4 fi#4
   $r11 = MOP_RELOAD.4 fi#5

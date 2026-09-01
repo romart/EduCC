@@ -169,11 +169,14 @@ static int collectAssignments(const MachineFunction *mf, MachineInstr *mi,
         needed[machineRegisterClass(mf, reg)] += 1;
       }
 
-      // A register inside an addressing mode is read however the operand it
-      // sits in is flagged - see machineOperandRegisters.
-      if (op->flags.isDef && op->kind == MO_REG) {
+      // Not an either/or: a partial def is both, and so gets a reload in front
+      // of the instruction as well as a spill behind it. A register inside an
+      // addressing mode is read however the operand it sits in is flagged -
+      // see machineOperandRegisters.
+      if (machineOperandIsWritten(op)) {
         table[found].isWritten = TRUE;
-      } else {
+      }
+      if (machineOperandIsRead(op)) {
         table[found].isRead = TRUE;
       }
     }

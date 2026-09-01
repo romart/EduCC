@@ -43,7 +43,7 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
   %v12 = add.4 %v12, %v11 ; %23
   %v13 = mov.4 0 ; %27
   test.4 %v9, %v9 ; %27
-  %v13 = sete.1 %v13 ; %27
+  %v13<partial-def> = sete.1 ; %27
   %v14 = MOP_COPY.4 %v13 ; %28
   %v15 = MOP_COPY.4 %v12 ; %29
   %v15 = add.4 %v15, %v14 ; %29

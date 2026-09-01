@@ -623,63 +623,61 @@ static void selectBitwiseNot(MachineBuilder *b, const IrInstruction *i) {
 // alone, so it is harmless there, whereas afterwards it would overwrite the
 // answer the setcc is about to read out of them.
 //
-// Returns whether it emitted anything, because that is exactly the question
-// "does the setcc read its own destination?" - see selectSetcc below.
-static Boolean selectZeroExtendedSetup(MachineBuilder *b, uint32_t dst, uint8_t size) {
+// The width comes from the destination register rather than from the caller,
+// so that this and selectSetcc below decide "is there anything above the low
+// byte?" from the one fact instead of from two that could drift apart.
+static void selectZeroExtendedSetup(MachineBuilder *b, uint32_t dst) {
+  uint8_t size = virtualRegisterInfo(b->mf, dst)->size;
+
   if (size <= 1) {
-    return FALSE;
+    return;
   }
 
   MachineInstr *zero = buildMachineInstr(b, X86_MOV, 1, 1);
   setRegisterOperand(zero, 0, dst);
   setImmediateOperand(zero, 1, 0);
   zero->opSize = size;
-
-  return TRUE;
 }
 
 // A setcc writes the low byte of its destination and leaves the rest as it
-// found it. That makes it a read-modify-write of the whole register whenever
-// the register is wider than a byte, and it is written down as one - operand 0
-// defines it, operand 1 reads it - rather than as a plain def.
+// found it, so whenever the register is wider than a byte the def is partial
+// and says so.
 //
-// Saying so is not decoration. The three upper bytes come from the zeroing
-// move above, and nothing else in the machine function records that the setcc
-// depends on it. A register allocator that believes the def is total will
-// happily put the move's result somewhere the setcc never sees: the trivial
-// allocator spills the zero to the frame and then reloads a *different* value
-// into the scratch register the setcc writes, so the three bytes stored back
-// are whatever the comparison's operand left behind. The dependency has to be
-// in the operand list for the allocator to keep it.
+// Saying so is not decoration. The upper bytes come from the zeroing move
+// above, and nothing else in the machine function records that the setcc
+// depends on it. An allocator that believes the def is total will happily put
+// the move's result somewhere the setcc never sees: stage 2A spills the zero
+// to the frame and then reloads a *different* value into the scratch register
+// the setcc writes, so the bytes stored back are whatever the comparison's
+// operand left behind.
 //
 // When the destination is a single byte there is no zeroing move and the def
-// really is total, so the use is left off - claiming a read of a register
+// really is total, so nothing is marked - claiming a read of a register
 // nothing has written would be a use before def, and liveness would be right
 // to complain about it.
-static void selectSetcc(MachineBuilder *b, uint32_t opcode, uint32_t dst, Boolean readsDst) {
-  MachineInstr *set = buildMachineInstr(b, opcode, 1, readsDst ? 1 : 0);
+static void selectSetcc(MachineBuilder *b, uint32_t opcode, uint32_t dst) {
+  MachineInstr *set = buildMachineInstr(b, opcode, 1, 0);
 
   setRegisterOperand(set, 0, dst);
-  if (readsDst) {
-    setRegisterOperand(set, 1, dst);
-  }
-
   set->opSize = 1;
+
+  if (virtualRegisterInfo(b->mf, dst)->size > 1) {
+    setPartialDefOperand(set, 0);
+  }
 }
 
 static void selectLogicalNot(MachineBuilder *b, const IrInstruction *i) {
-  uint8_t size = valueSize(i);
   uint32_t dst = machineBuilderVreg(b, i);
   const IrInstruction *arg = inputAt(i, 0);
 
-  Boolean zeroed = selectZeroExtendedSetup(b, dst, size);
+  selectZeroExtendedSetup(b, dst);
 
   MachineInstr *test = buildMachineInstr(b, X86_TEST, 0, 2);
   setRegisterOperand(test, 0, machineBuilderVreg(b, arg));
   setRegisterOperand(test, 1, machineBuilderVreg(b, arg));
   test->opSize = valueSize(arg);
 
-  selectSetcc(b, X86_SETE, dst, zeroed);
+  selectSetcc(b, X86_SETE, dst);
 }
 
 // -============================ Compares ============================-
@@ -766,10 +764,10 @@ static uint32_t emitIntegerCompare(MachineBuilder *b, const IrInstruction *i) {
 
 static void selectCompare(MachineBuilder *b, const IrInstruction *i) {
   uint32_t dst = machineBuilderVreg(b, i);
-  Boolean zeroed = selectZeroExtendedSetup(b, dst, valueSize(i));
+  selectZeroExtendedSetup(b, dst);
   uint32_t cc = emitIntegerCompare(b, i);
 
-  selectSetcc(b, cc, dst, zeroed);
+  selectSetcc(b, cc, dst);
 }
 
 // -============================ Floats ============================-
@@ -906,10 +904,10 @@ static void selectFloatCompare(MachineBuilder *b, const IrInstruction *i) {
 
   uint8_t size = valueSize(i);
   uint32_t dst = machineBuilderVreg(b, i);
-  Boolean zeroed = selectZeroExtendedSetup(b, dst, size);
+  selectZeroExtendedSetup(b, dst);
   uint32_t cc = emitFloatCompare(b, i);
 
-  selectSetcc(b, cc, dst, zeroed);
+  selectSetcc(b, cc, dst);
 
   if (!isEquality) {
     return;
@@ -919,8 +917,8 @@ static void selectFloatCompare(MachineBuilder *b, const IrInstruction *i) {
   // did - nothing in between touches them - and combining is 'and' for ==,
   // which wants both, and 'or' for !=, which wants either.
   uint32_t ordered = createVirtualRegister(b->mf, RC_GP, size);
-  Boolean orderedZeroed = selectZeroExtendedSetup(b, ordered, size);
-  selectSetcc(b, i->kind == IR_E_FEQ ? X86_SETNP : X86_SETP, ordered, orderedZeroed);
+  selectZeroExtendedSetup(b, ordered);
+  selectSetcc(b, i->kind == IR_E_FEQ ? X86_SETNP : X86_SETP, ordered);
 
   MachineInstr *mi = buildMachineInstr(b, i->kind == IR_E_FEQ ? X86_AND : X86_OR, 1, 2);
   setRegisterOperand(mi, 0, dst);
@@ -1158,7 +1156,7 @@ static void selectBooleanConversion(MachineBuilder *b, const IrInstruction *i, u
 
     // _Bool is one byte, so there are no upper bytes for the setcc to leave
     // behind and no zeroing move is needed - see selectZeroExtendedSetup.
-    selectSetcc(b, X86_SETNE, dst, FALSE);
+    selectSetcc(b, X86_SETNE, dst);
     return;
   }
 
@@ -1169,13 +1167,13 @@ static void selectBooleanConversion(MachineBuilder *b, const IrInstruction *i, u
   setRegisterOperand(cmp, 1, zero);
   cmp->opSize = size;
 
-  selectSetcc(b, X86_SETNE, dst, FALSE);
+  selectSetcc(b, X86_SETNE, dst);
 
   // A NaN is not equal to zero, so (_Bool)NaN is 1 - but an unordered compare
   // sets the zero flag, which alone would say otherwise. Same shape as the
   // '!=' in selectFloatCompare: not-equal *or* unordered.
   uint32_t unordered = createVirtualRegister(b->mf, RC_GP, 1);
-  selectSetcc(b, X86_SETP, unordered, FALSE);
+  selectSetcc(b, X86_SETP, unordered);
 
   MachineInstr *mi = buildMachineInstr(b, X86_OR, 1, 2);
   setRegisterOperand(mi, 0, dst);
@@ -1195,10 +1193,10 @@ static void selectX87BooleanConversion(MachineBuilder *b, uint32_t dst,
   buildMachineInstr(b, X86_FUCOMIP, 0, 0);
   buildMachineInstr(b, X86_FPOP, 0, 0);
 
-  selectSetcc(b, X86_SETNE, dst, FALSE);
+  selectSetcc(b, X86_SETNE, dst);
 
   uint32_t unordered = createVirtualRegister(b->mf, RC_GP, 1);
-  selectSetcc(b, X86_SETP, unordered, FALSE);
+  selectSetcc(b, X86_SETP, unordered);
 
   MachineInstr *mi = buildMachineInstr(b, X86_OR, 1, 2);
   setRegisterOperand(mi, 0, dst);

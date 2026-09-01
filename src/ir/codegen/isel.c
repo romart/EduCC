@@ -595,4 +595,9 @@ void selectInstructions(MachineFunction *mf) {
   releaseVector(&builder.foldedConstants);
   releaseVector(&builder.absorbed);
   releaseVector(&builder.addressFolds);
+
+  // Here rather than in stage 2, because this is the last stage that invents
+  // defs of virtual registers: what allocation adds is spills and reloads of
+  // physical ones.
+  verifyMachineDefWidths(mf);
 }

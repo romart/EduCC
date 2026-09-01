@@ -56,6 +56,10 @@ def check_dump(path):
         if not m:
             continue
         defs, opcode, size, srcsize, uses = m.groups()
+        # A partial def keeps the bytes it does not write, so what it leaves is
+        # what was there plus its own width - the same as a two-address def,
+        # which says the same thing by naming its register on both sides.
+        partial = set(re.findall(r"\$([a-z0-9]+)<partial-def>", defs or ""))
         size = int(size) if size else 8
         srcsize = int(srcsize) if srcsize else size
 
@@ -76,7 +80,7 @@ def check_dump(path):
         for r in regs_in(defs) + re.findall(r"implicit-def \$([a-z0-9]+)", implicit):
             # A read-modify-write def keeps whatever the previous one put in
             # the bytes it does not touch; any other def leaves them unknown.
-            prev = written.get(r, 8) if r in used else 0
+            prev = written.get(r, 8) if (r in used or r in partial) else 0
             written[r] = max(prev, size)
             definedBy[r] = line.strip()
     return findings

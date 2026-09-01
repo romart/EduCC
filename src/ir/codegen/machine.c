@@ -206,6 +206,15 @@ void setRegisterOperand(MachineInstr *mi, uint16_t idx, uint32_t reg) {
   op->info.reg = reg;
 }
 
+void setPartialDefOperand(MachineInstr *mi, uint16_t idx) {
+  MachineOperand *op = machineOperandAt(mi, idx);
+
+  assert(op->kind == MO_REG && op->flags.isDef && "only a register def can be partial");
+  assert(mi->opSize != 0 && "a partial def has to say how many bytes it writes");
+
+  op->flags.isPartialDef = 1;
+}
+
 void setImmediateOperand(MachineInstr *mi, uint16_t idx, int64_t imm) {
   MachineOperand *op = machineOperandAt(mi, idx);
   op->kind = MO_IMM;
@@ -241,6 +250,18 @@ uint16_t machineOperandRegisters(MachineOperand *op, uint32_t **out) {
 
   assert(count <= MAX_OPERAND_REGS);
   return count;
+}
+
+Boolean machineOperandIsRead(const MachineOperand *op) {
+  if (op->kind != MO_REG) {
+    return TRUE;
+  }
+
+  return !op->flags.isDef || op->flags.isPartialDef;
+}
+
+Boolean machineOperandIsWritten(const MachineOperand *op) {
+  return op->kind == MO_REG && op->flags.isDef;
 }
 
 uint8_t machineInstrSrcSize(const MachineInstr *mi) {
@@ -477,6 +498,37 @@ Boolean isMachineAddressWellFormed(const MachineAddress *addr) {
   }
 
   return addr->base == NO_REG && addr->index == NO_REG && addr->disp == 0;
+}
+
+// Only virtual registers are checked, and that is not a shortcut: a physical
+// register holds whatever the ISA or the ABI put there and nothing records its
+// width, so "narrower than the register" has no meaning to compare against. A
+// vreg carries the width of the value it was made for, which is what makes the
+// question answerable at all.
+//
+// Only narrow defs are the question. A def *wider* than its register is fine
+// and happens - x86's float-to-integer conversion has four- and eight-byte
+// forms and nothing else, so a conversion to char writes four - because the
+// unit of allocation is a whole physical register, and the bytes above the
+// value belong to nobody.
+void verifyMachineDefWidths(const MachineFunction *mf) {
+  for (const MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
+    for (const MachineInstr *mi = mbb->instructions.head; mi != NULL; mi = mi->next) {
+      for (uint16_t idx = 0; idx < mi->numDefs; ++idx) {
+        const MachineOperand *op = &mi->operands[idx];
+
+        if (op->kind != MO_REG || !isVirtualRegister(op->info.reg)) {
+          continue;
+        }
+
+        const VRegInfo *info = virtualRegisterInfo(mf, op->info.reg);
+
+        assert(mi->opSize != 0 && "an instruction defining a register with no width");
+        assert((mi->opSize < info->size) == (op->flags.isPartialDef != 0) &&
+               "a def narrower than its register has to be marked partial");
+      }
+    }
+  }
 }
 
 // The machine block mirroring a given IR block. A walk rather than a map: the

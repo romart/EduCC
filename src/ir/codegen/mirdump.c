@@ -113,6 +113,12 @@ static int32_t dumpMachineOperand(FILE *stream, const MachineFunction *mf,
   switch (op->kind) {
   case MO_REG:
     r += dumpMachineRegister(stream, mf, op->info.reg);
+    // First, because it changes what the rest of the line means: the def is
+    // also a read, and the instruction depends on whatever wrote the bytes it
+    // leaves alone.
+    if (op->flags.isPartialDef) {
+      r += fprintf(stream, "<partial-def>");
+    }
     if (op->flags.isKill) {
       r += fprintf(stream, "<kill>");
     }

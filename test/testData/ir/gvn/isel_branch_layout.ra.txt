@@ -50,7 +50,7 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #5 #11
   $r11 = MOP_RELOAD.4 fi#4
   cmp.4 $r10, $r11 ; %17
   $r10 = MOP_RELOAD.4 fi#5
-  $r10 = setg.1 $r10 ; %17
+  $r10<partial-def> = setg.1 ; %17
   MOP_SPILL.4 fi#5, $r10
   $r10 = MOP_RELOAD.4 fi#5
   test.4 $r10, $r10 ; %18
@@ -69,7 +69,7 @@ MBB #5, '< && >', ir #5, <- #2, -> #6
   $r11 = MOP_RELOAD.4 fi#4
   cmp.4 $r10, $r11 ; %21
   $r10 = MOP_RELOAD.4 fi#7
-  $r10 = setg.1 $r10 ; %21
+  $r10<partial-def> = setg.1 ; %21
   MOP_SPILL.4 fi#7, $r10
   $r11 = MOP_RELOAD.4 fi#7
   $r10 = MOP_COPY.4 $r11 ; %23
@@ -116,7 +116,7 @@ MBB #9, '< || >', ir #9, <- #3, -> #10
   $r11 = MOP_RELOAD.4 fi#4
   cmp.4 $r10, $r11 ; %36
   $r10 = MOP_RELOAD.4 fi#11
-  $r10 = setg.1 $r10 ; %36
+  $r10<partial-def> = setg.1 ; %36
   MOP_SPILL.4 fi#11, $r10
   $r11 = MOP_RELOAD.4 fi#11
   $r10 = MOP_COPY.4 $r11 ; %38

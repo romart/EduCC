@@ -89,7 +89,7 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
   $r10 = MOP_RELOAD.4 fi#4
   test.4 $r10, $r10 ; %27
   $r10 = MOP_RELOAD.4 fi#8
-  $r10 = sete.1 $r10 ; %27
+  $r10<partial-def> = sete.1 ; %27
   MOP_SPILL.4 fi#8, $r10
   $r11 = MOP_RELOAD.4 fi#8
   $r10 = MOP_COPY.4 $r11 ; %28

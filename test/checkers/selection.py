@@ -78,6 +78,9 @@ def parseInstr(line):
     text = line.strip()
     body, _, _origin = text.partition(" ; ")
 
+    # A partial def keeps the bytes it does not write, so it reads its own
+    # register as well - taken before the annotations are stripped.
+    partial = re.findall(r"(%v\d+|\$[a-z0-9]+)<partial-def>", body)
     # A call carries '[implicit ...]' and then '<clobbers ...>'; the annotation
     # is not an operand and the bracket is no longer at the end of the line.
     body = re.sub(r"<[^>]*>", "", body).strip()
@@ -96,7 +99,7 @@ def parseInstr(line):
     operandText = parts[1] if len(parts) > 1 else ""
 
     defs = REG.findall(lhs)
-    uses = REG.findall(operandText)
+    uses = REG.findall(operandText) + partial
     for item in implicit:
         (defs if item.startswith("implicit-def") else uses).extend(REG.findall(item))
 

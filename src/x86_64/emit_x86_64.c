@@ -532,9 +532,9 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
   GeneratedFunction *f = e->gen;
 
   if (isSetcc(mi->opcode)) {
-    // Operand 1, when present, is the destination read back - the dependency
-    // on the zeroing move that defined the upper bytes. It constrains
-    // allocation and encodes to nothing.
+    // The destination may be marked a partial def - the dependency on the
+    // zeroing move that defined the upper bytes. It constrains allocation and
+    // encodes to nothing.
     emitSetccR(f, conditionFor(mi->opcode), regOperand(e, mi, 0));
     return;
   }

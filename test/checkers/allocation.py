@@ -44,6 +44,9 @@ class Instr:
         self.text = text
 
         body, _, _origin = text.partition(" ; ")
+        # A partial def keeps the bytes it does not write, so it reads its own
+        # register as well - taken here, before the annotations are stripped.
+        partial = set(re.findall(r"\$(\w+)<partial-def>", body))
         # A call carries '[implicit ...]' and then a '<clobbers ...>' note; the
         # note is not an operand, and the bracket is not at the end of the line.
         body = re.sub(r"<[^>]*>", "", body)
@@ -65,7 +68,7 @@ class Instr:
         args = parts[1] if len(parts) > 1 else ""
 
         self.defs = set(re.findall(r"\$(\w+)", lhs))
-        self.uses = set(re.findall(r"\$(\w+)", args))
+        self.uses = set(re.findall(r"\$(\w+)", args)) | partial
         for piece in implicit.split(","):
             piece = piece.strip()
             if piece:

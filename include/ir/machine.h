@@ -157,6 +157,16 @@ typedef struct _MachineOperand {
     unsigned isImplicit : 1;     // clobbers and flag registers, not written by selection
     unsigned isKill : 1;         // last use; set by liveness, read by allocation
     unsigned isEarlyClobber : 1; // defined before the uses are read
+
+    // A def that writes fewer bytes than its register holds - x86's 'setcc',
+    // and any narrow operation on a wider value that gets selected in future.
+    // The bytes it does not write survive, so whatever wrote them has to
+    // reach it: a partial def is a read of its own register as well, and
+    // machineOperandIsRead() is where that is said rather than at each
+    // consumer. verifyMachineDefWidths() is what keeps the flag and the widths
+    // agreeing - the ability to reintroduce a narrow def *without* the flag is
+    // the thing being removed here, not the narrow def itself.
+    unsigned isPartialDef : 1;
   } flags;
 
   union {
@@ -406,6 +416,19 @@ MachineOperand *machineOperandAt(MachineInstr *mi, uint16_t idx);
 #define MAX_OPERAND_REGS 2
 uint16_t machineOperandRegisters(MachineOperand *op, uint32_t **out);
 
+// Whether the registers an operand names are read by the instruction, and
+// whether they are written by it. A use reads; a plain def writes and does not
+// read; a *partial* def does both, since the bytes it leaves alone are still
+// the previous value's. An address's registers are read whichever half of the
+// operand list the address sits in - see machineOperandRegisters.
+Boolean machineOperandIsRead(const MachineOperand *op);
+Boolean machineOperandIsWritten(const MachineOperand *op);
+
+// Marks def operand 'idx' as writing only part of its register. The operand
+// has to be a register def already; the width it writes is the instruction's,
+// so 'opSize' must be set before this is asked.
+void setPartialDefOperand(MachineInstr *mi, uint16_t idx);
+
 // The source width of an instruction that names two, and the destination width
 // for the many that name one. See MachineInstr.srcSize.
 uint8_t machineInstrSrcSize(const MachineInstr *mi);
@@ -466,6 +489,14 @@ const MachineJumpTable *machineJumpTableAt(const MachineFunction *mf, uint32_t j
 // register term or a displacement beside one would be silently dropped by
 // every emitter. Stated once, rather than asserted at each of them.
 Boolean isMachineAddressWellFormed(const MachineAddress *addr);
+
+// Asserts that every def of a virtual register either writes all of it or says
+// it does not (MachineOperand.flags.isPartialDef). A narrow def that forgets to
+// say so is a register whose upper bytes nothing wrote, and an allocator
+// keeping a value there has no way to find out; section 6.23 of
+// docs/ir-codegen-design.md is the four times it had already happened. Run over
+// the selected code, which is where the widths are finally decided.
+void verifyMachineDefWidths(const MachineFunction *mf);
 
 // ------------- build phase ------------------------
 MachineFunction *buildMachineFunction(struct _IrFunction *f);
