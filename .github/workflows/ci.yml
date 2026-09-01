@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# A second push to the same branch makes the first one's results uninteresting.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The suite as a developer runs it: the fixture suites, the IR dumps, the
+  # cross-backend link and the structural checkers, twice over - once per host
+  # compiler, since the compiler this project builds is itself C and has been
+  # kept building under both.
+  test:
+    name: test (${{ matrix.cc }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+
+      # Zydis is fetched as a hash-pinned tarball into .deps/, outside the build
+      # tree, so it survives the build directory being thrown away - cache it on
+      # the same key so an upstream outage does not take the whole workflow with
+      # it.
+      - name: Cache third-party sources
+        uses: actions/cache@v4
+        with:
+          path: .deps
+          key: deps-${{ hashFiles('cmake/Zydis.cmake') }}
+
+      - name: Configure
+        run: cmake -B build -S . -DCMAKE_C_COMPILER=${{ matrix.cc }}
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      # The codegen fixtures link with the system ld and run the result, so this
+      # needs a real toolchain on the runner rather than only a compiler - which
+      # ubuntu-latest has, and which is also why the runner has to stay x86_64:
+      # x86_64 is the only target either backend generates working code for.
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --output-junit "$GITHUB_WORKSPACE/results-${{ matrix.cc }}.xml"
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-${{ matrix.cc }}
+          path: results-${{ matrix.cc }}.xml
+          if-no-files-found: ignore
+
+  # The compiler compiling itself, and then the whole suite run by the result.
+  # This is the job that earns its runtime: a self-compiled compiler is the
+  # largest and least forgiving input EduCC has, and seven of this tree's
+  # shipped bugs were found this way and by nothing else.
+  selfhost:
+    name: self-host and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache third-party sources
+        uses: actions/cache@v4
+        with:
+          path: .deps
+          key: deps-${{ hashFiles('cmake/Zydis.cmake') }}
+
+      # Builds stage 0 with gcc, stage 1 and 2 with EduCC, checks the two EduCC
+      # stages are byte-identical, and runs ctest with stage 2.
+      - name: Bootstrap and run the suite with the result
+        run: ./selfhost.sh
+
+  # The compiler is an arena allocator over a memory-mapped source buffer, so
+  # nothing it gets wrong about a lifetime shows up as a crash near the mistake.
+  # Several bugs in this tree were silent until a sanitized binary ran the same
+  # input, which is the whole argument for a job that only recompiles inputs the
+  # jobs above have already compiled.
+  asan:
+    name: AddressSanitizer sweep
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache third-party sources
+        uses: actions/cache@v4
+        with:
+          path: .deps
+          key: deps-${{ hashFiles('cmake/Zydis.cmake') }}
+
+      - name: Configure
+        run: cmake -B build-asan -S . -DEDUCC_SANITIZE=ON
+
+      - name: Build
+        run: cmake --build build-asan -j$(nproc)
+
+      # Every fixture and every one of EduCC's own sources, through both
+      # backends. Needs .deps to have been populated, which the configure step
+      # above has done: the sources include Zydis' header.
+      - name: Sweep
+        run: test/asan_sweep.sh build-asan/bin/main

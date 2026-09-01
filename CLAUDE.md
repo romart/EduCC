@@ -34,16 +34,14 @@ This replaced udis86, which was abandoned upstream in 2013, needed a Python-2 op
 
 `cmake -B build-asan -S . -DEDUCC_SANITIZE=ON && cmake --build build-asan -j$(nproc)` gives a second binary at `build-asan/bin/main` built with `-fsanitize=address`. Keep it working and reach for it early: the compiler is an arena allocator over a memory-mapped source buffer, so nothing it gets wrong about a lifetime shows up as a crash anywhere near the mistake. Several bugs in this tree were completely silent until a sanitized binary ran the same input — a use-after-free in the preprocessor's `#endif` handling that only aborted on one input in the whole corpus, a stale stack pointer kept as a hash-map key in the float constant cache, a dead 31-byte `memcpy` reading past a two-byte allocation.
 
-Two ways to use it, both of which should stay clean:
+`test/asan_sweep.sh` is the sweep, and should stay clean — it compiles every fixture and every one of EduCC's own sources (the deepest input it has) through both backends, about 700 compiles in 13 seconds, and exits nonzero on any sanitizer report:
 
 ```sh
-for f in $(find test/testData -name '*.c'); do
-  ASAN_OPTIONS=detect_leaks=0 build-asan/bin/main -oneline -c -o /tmp/o.o "$f" 2>&1 | grep -q AddressSanitizer && echo "$f"
-done
-# and the same over EduCC's own sources, which is the deepest input it has:
-#   build-asan/bin/main -c -I include -I sdk/include -I .deps/zydis_src-src \
-#       -DZYDIS_STATIC_BUILD -DZYCORE_STATIC_BUILD -o /tmp/o.o src/parser.c
+test/asan_sweep.sh                      # defaults to build-asan/bin/main
+test/asan_sweep.sh path/to/other/main
 ```
+
+It prints a count of rejected inputs alongside the findings, and that count is part of the result: the parser corpus is full of inputs meant to be rejected, so "nothing compiled at all" and "nothing went wrong" would otherwise read the same.
 
 The option refuses to configure unless `CMAKE_C_COMPILER` is a real host compiler; EduCC cannot compile a sanitized version of itself, so a bootstrap needs it off (it is off by default).
 
@@ -52,6 +50,8 @@ The option refuses to configure unless `CMAKE_C_COMPILER` is a real host compile
 Since roadmap step 30 a bootstrap goes through the **IR backend**, that being the compiler's default — the script itself passes no backend flag and did not have to change. The compiler it produces is about 50% larger than a `-legacy`-built one (1.9 MB against 1.3 MB) and about 1.6× slower over the corpus, which is stage 2A spilling every value and is the expected cost until Phase C. Five stages still take under 40 seconds. Use `-DCMAKE_C_FLAGS=-legacy` to bootstrap the other one.
 
 `./bootstrap.sh` performs a multi-stage self-host build: configures+builds `main` with the host compiler, then repeatedly reconfigures with `-DCMAKE_C_COMPILER=<path to the previous stage's binary>` and rebuilds, diffing `sha1sum` of the resulting binaries to verify a fixed point. Use this to sanity-check changes that could affect self-compilation. It reconfigures `build/` with the host compiler again before it exits — CMake caches `CMAKE_C_COMPILER`, so without that a later plain `cmake -B build -S .` silently keeps whichever EduCC stage ran last, and every build and test run after it is self-compiled without saying so.
+
+`./selfhost.sh` asks the other half of the question — not "does it reach a fixed point" but "is the compiler it produces any good". It builds stage 0 with the host compiler, stages 1 and 2 with EduCC, checks the two EduCC stages are byte-identical, and then runs the whole `ctest` suite *with stage 2*, which is the combination that found seven of this tree's shipped bugs and that nothing automated did before roadmap step 31. It builds under `build-selfhost/` and never touches `build/`. `--no-tests` stops after the fixed-point check; `EDUCC_SELFHOST_FLAGS=-legacy` asks the same of the other backend.
 
 Two build-system-level workarounds exist solely to keep this working, both in `CMakeLists.txt`/`cmake/Zydis.cmake`:
 - The vendored Zydis (above) is always built with a real compiler, never with the in-progress EduCC binary — EduCC can't yet parse arbitrary third-party C against real system headers well enough to compile it. (It *can* parse `Zydis.h`, which is what lets `-S` survive a bootstrap; the library's own 55k-line `Zydis.c` is a different question and has never been asked.)
@@ -136,6 +136,18 @@ cmake -B build -S . -DEDUCC_RUN_CHECKERS=OFF   # do not register them at all
 ```
 
 A checker that cannot answer skips rather than fails (`SKIP_RETURN_CODE 2`) — `emission_objdump.py` needs GNU `objdump` as its oracle and exits 2 without it. **They rot.** Every one of them was written against the dumps of its day and had to be repaired when it was checked in — a `<clobbers ...>` annotation moved a bracket, index registers made a load look two-address, `movsx.8/4` gave widths a second number, a sparse switch put a conditional branch mid-block. Read a finding as a question about the checker first.
+
+### CI (`.github/workflows/ci.yml`)
+
+Three jobs, each of which is a command that already existed and that somebody had to remember to type:
+
+| job | what it runs |
+| --- | --- |
+| `test (gcc)`, `test (clang)` | `cmake` + `ctest`, once per host compiler |
+| `selfhost` | `./selfhost.sh` — the compiler builds itself twice, the two stages must be byte-identical, and the whole suite is then run by the self-hosted binary |
+| `asan` | a `-DEDUCC_SANITIZE=ON` build, then `test/asan_sweep.sh` |
+
+The runner has to stay x86_64 — that is the only target either backend generates working code for, and the codegen fixtures link and *run* what they compile. `.deps/` is cached on a key derived from `cmake/Zydis.cmake`, so the pinned Zydis tarball is fetched once rather than on every job, and an upstream outage does not take the workflow with it.
 
 ## Architecture
 

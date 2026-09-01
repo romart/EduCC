@@ -1,5 +1,7 @@
 # EduCC
 
+[![CI](https://github.com/romart/EduCC/actions/workflows/ci.yml/badge.svg)](https://github.com/romart/EduCC/actions/workflows/ci.yml)
+
 An educational, from-scratch C compiler targeting `x86_64` and (in progress) `riscv64`. It has its own preprocessor, lexer, parser, semantic analysis, and native code generator, and drives the system linker (`ld`) directly to produce ELF executables — no LLVM/GCC backend. It can compile itself (see [Bootstrapping](#bootstrapping)).
 
 ## Requirements
@@ -32,7 +34,7 @@ build/bin/main -o hello ./path/to/hello.c
 ./hello
 ```
 
-It accepts a GCC-like subset of flags (`-o`, `-c`, `-I`, `-L`, `-l`, `-D`, `-E`, `-march x86_64|riscv64`, ...). See `src/main.c` for the full list, including EduCC-specific debugging flags like `-astDump`, `-irDump`, and `-experimental`.
+It accepts a GCC-like subset of flags (`-o`, `-c`, `-I`, `-L`, `-l`, `-D`, `-E`, `-march x86_64|riscv64`, ...). See `src/main.c` for the full list, including EduCC-specific debugging flags like `-astDump` and `-irDump`, and `-legacy`, which compiles through the older direct-from-AST code generator instead of the IR pipeline the compiler uses by default.
 
 ## Editor support (clangd)
 
@@ -89,3 +91,13 @@ Then review the result with `git diff` before committing — this only *writes* 
 ```
 
 Builds EduCC with the host compiler, then repeatedly recompiles it with itself and `sha1sum`-compares the results to confirm the build reaches a fixed point. Useful as a sanity check for changes that could affect self-compilation.
+
+```sh
+./selfhost.sh
+```
+
+Asks the other half of the question: not whether the build reaches a fixed point but whether the compiler it produces is any good. Builds one stage with the host compiler and two with EduCC, checks the two EduCC stages are byte-identical, and then runs the whole test suite *with the self-hosted compiler* — which is by far the largest and least forgiving input this compiler has. It builds under `build-selfhost/` and leaves `build/` alone.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs three things on every push: `ctest` under both gcc and clang, `./selfhost.sh`, and an AddressSanitizer build followed by `test/asan_sweep.sh`, which compiles every fixture and every one of EduCC's own sources through both backends and fails on any sanitizer report. All three are runnable locally with exactly the commands the workflow uses.

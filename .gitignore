@@ -2,6 +2,7 @@ bin/*
 obj/*
 build/*
 build-asan/
+build-selfhost/
 bootstrap/*
 .deps/
 src/generated/*
