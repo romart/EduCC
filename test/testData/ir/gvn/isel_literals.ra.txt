@@ -38,18 +38,18 @@ MBB #1, '<exit>', ir #1, <- #2
 --- Phase: ra ---
 MachineFunction 'distinct' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %12
+  %v0 : gp/8 ; %14
   %v1 : gp/8 ; %8
-  %v2 : gp/8 ; %10
+  %v2 : gp/8 ; %11
   %v3 : gp/4 ; %3
 Frame: 32 bytes
-  fi#0 : spill 8/8 @ -8 %v2 ; %10
+  fi#0 : spill 8/8 @ -8 %v2 ; %11
   fi#1 : spill 8/8 @ -16 %v1 ; %8
   fi#2 : spill 4/4 @ -20 %v3 ; %3
-  fi#3 : spill 8/8 @ -32 %v0 ; %12
+  fi#3 : spill 8/8 @ -32 %v0 ; %14
 Physical registers used: $rax $rdi $r10 $r11
 MBB #0, '<entry>', ir #0, -> #2
-  $r10 = lea.8 [cp#0 "second"] ; %10
+  $r10 = lea.8 [cp#0 "second"] ; %11
   MOP_SPILL.8 fi#0, $r10
   $r10 = lea.8 [cp#1 "first"] ; %8
   MOP_SPILL.8 fi#1, $r10
@@ -63,21 +63,21 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #3 #4
 
 MBB #4, '<ifFalse>', ir #4, <- #2, -> #5
   $r11 = MOP_RELOAD.8 fi#0
-  $r10 = MOP_COPY.8 $r11 ; %12
+  $r10 = MOP_COPY.8 $r11 ; %14
   MOP_SPILL.8 fi#3, $r10
-  jmp #5 ; %11
+  jmp #5 ; %13
 
 MBB #3, '<ifTrue>', ir #3, <- #2, -> #5
   $r11 = MOP_RELOAD.8 fi#1
-  $r10 = MOP_COPY.8 $r11 ; %12
+  $r10 = MOP_COPY.8 $r11 ; %14
   MOP_SPILL.8 fi#3, $r10
 
 MBB #5, '<ternary_exit>', ir #5, <- #3 #4, -> #1
 
 MBB #1, '<exit>', ir #1, <- #5
   $r10 = MOP_RELOAD.8 fi#3
-  $rax = MOP_COPY.8 $r10 ; %15
-  ret ; %15
+  $rax = MOP_COPY.8 $r10 ; %17
+  ret ; %17
 
 
 --- Phase: ra ---

@@ -587,18 +587,36 @@ void verifyStructualMembers(ParserContext *ctx, StructualMember *members) {
   }
 }
 
-TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* cond, TypeRef* ifTrue, TypeRef *ifFalse, ExpressionType op) {
+static Boolean isConstZero(AstExpression *expr);
+
+TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* cond, AstExpression *ifTrueExpr, AstExpression *ifFalseExpr, ExpressionType op) {
+  TypeRef *ifTrue = ifTrueExpr->type;
+  TypeRef *ifFalse = ifFalseExpr->type;
+
   if (isErrorType(cond)) return cond;
   if (isErrorType(ifTrue)) return ifTrue;
   if (isErrorType(ifFalse)) return ifFalse;
 
-  if (isStructualType(ifTrue) || isStructualType(ifFalse)) {
+  // C99 6.5.15p3: two void operands give a void result. Without this the checks
+  // below - none of which count 'void' as primitive - fall through to the error
+  // type at the end, which the IR backend meets as an abort rather than as a
+  // diagnostic.
+  if (isVoidType(ifTrue) && isVoidType(ifFalse)) {
+      return makePrimitiveType(ctx, T_VOID, 0);
+  }
+
+  if (isCompositeType(ifTrue) || isCompositeType(ifFalse)) {
       if (typesEquals(ifTrue, ifFalse)) {
           return ifTrue;
       } else {
           reportDiagnostic(ctx, DIAG_INCOMPATIBLE_OPERANDS, coords, ifTrue, ifFalse);
           return makeErrorRef(ctx);
       }
+  }
+
+  if (isVoidType(ifTrue) || isVoidType(ifFalse)) {
+      reportDiagnostic(ctx, DIAG_INCOMPATIBLE_OPERANDS, coords, ifTrue, ifFalse);
+      return makeErrorRef(ctx);
   }
 
   TypeRefKind tKind = ifTrue->kind;
@@ -619,7 +637,12 @@ TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* co
           }
           return makePointedType(ctx, ifTrue->flags.storage, pointedT);
       } else if (isIntegerType(ifFalse)) {
-          reportDiagnostic(ctx, DIAG_POINTER_INT_MISMATCH_IN_COND, coords, ifTrue, ifFalse);
+          // C99 6.5.15p6: a pointer against a null pointer constant is the one
+          // pointer/integer pairing the standard allows, and the result is the
+          // pointer's type. Only the rest is worth a diagnostic.
+          if (!isConstZero(ifFalseExpr)) {
+            reportDiagnostic(ctx, DIAG_POINTER_INT_MISMATCH_IN_COND, coords, ifTrue, ifFalse);
+          }
           return makePointedType(ctx, ifTrue->flags.storage, pointedT);
       } else {
           reportDiagnostic(ctx, DIAG_INCOMPATIBLE_OPERANDS, coords, ifTrue, ifFalse);
@@ -630,7 +653,9 @@ TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* co
   if (isPointerLikeType(ifFalse)) {
       TypeRef *pointedF = ifFalse->kind == TR_POINTED ? ifFalse->pointed : ifFalse->arrayTypeDesc.elementType;
       if (isIntegerType(ifTrue)) {
-          reportDiagnostic(ctx, DIAG_POINTER_INT_MISMATCH_IN_COND, coords, ifTrue, ifFalse);
+          if (!isConstZero(ifTrueExpr)) {
+            reportDiagnostic(ctx, DIAG_POINTER_INT_MISMATCH_IN_COND, coords, ifTrue, ifFalse);
+          }
           return makePointedType(ctx, ifFalse->flags.storage, pointedF);
       } else {
           reportDiagnostic(ctx, DIAG_INCOMPATIBLE_OPERANDS, coords, ifTrue, ifFalse);
@@ -2290,11 +2315,15 @@ AstExpression *transformTernaryExpression(ParserContext *ctx, AstExpression *exp
   AstExpression *ifTrue = expr->ternaryExpr.ifTrue;
   AstExpression *ifFalse = expr->ternaryExpr.ifFalse;
 
-  if (!typeEquality(expr->type, ifTrue->type)) {
+  // typesEquals, not typeEquality: the latter answers with a TypeEqualityKind
+  // whose TEK_EQUAL is 1 and whose 0 is TEK_UNKNOWN, so '!typeEquality(...)'
+  // asked for the one answer this function never returns and no cast was ever
+  // inserted. The arms then reached the IR backend at their own widths.
+  if (!typesEquals(expr->type, ifTrue->type)) {
       expr->ternaryExpr.ifTrue = createCastExpression(ctx, &ifTrue->coordinates, expr->type, parenIfNeeded(ctx, ifTrue));
   }
 
-  if (!typeEquality(expr->type, ifFalse->type)) {
+  if (!typesEquals(expr->type, ifFalse->type)) {
       expr->ternaryExpr.ifFalse = createCastExpression(ctx, &ifFalse->coordinates, expr->type, parenIfNeeded(ctx, ifFalse));
   }
 

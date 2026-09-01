@@ -1177,7 +1177,7 @@ AstExpression* parseConditionalExpression(ParserContext *ctx) {
         consume(ctx, ':');
         AstExpression* ifFalse = parseConditionalExpression(ctx);
         coords.right = ifFalse->coordinates.right;
-        TypeRef *resultType = computeTernaryType(ctx, &coords, left->type, ifTrue->type, ifFalse->type, E_TERNARY);
+        TypeRef *resultType = computeTernaryType(ctx, &coords, left->type, ifTrue, ifFalse, E_TERNARY);
         AstExpression *result = transformTernaryExpression(ctx, createTernaryExpression(ctx, resultType, left, ifTrue, ifFalse));
         return result;
     }

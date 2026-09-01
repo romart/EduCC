@@ -733,6 +733,13 @@ static IrInstruction *translateTernary(AstExpression *expr) {
   gotoToBlock(exit);
 
   ctx->currentBB = exit;
+
+  // 'c ? g() : h()' with void arms has no value to merge, so there is no phi to
+  // build. Both arms have run; what comes back is only what the caller passes
+  // upwards and discards, exactly as for a call to a void function.
+  if (isVoidType(expr->type))
+    return ifFalseOp;
+
   // Both arms of a composite ternary hand back an *address* - that is what a
   // composite value is here - but not the same kind of one: a call's result is
   // IR_P_AGG and a local's is IR_PTR. The phi is over addresses either way, so

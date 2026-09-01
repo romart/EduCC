@@ -23,9 +23,9 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #1
 --- Phase: mir ---
 MachineFunction 'distinct' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %12
+  %v0 : gp/8 ; %14
   %v1 : gp/8 ; %8
-  %v2 : gp/8 ; %10
+  %v2 : gp/8 ; %11
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
 
@@ -34,10 +34,10 @@ MBB #1, '<exit>', ir #1, <- #5
 MBB #2, '<FIRST>', ir #2, <- #0, -> #3 #4
 
 MBB #3, '<ifTrue>', ir #3, <- #2, -> #5
-  %v0 = MOP_COPY.8 %v1 ; %12
+  %v0 = MOP_COPY.8 %v1 ; %14
 
 MBB #4, '<ifFalse>', ir #4, <- #2, -> #5
-  %v0 = MOP_COPY.8 %v2 ; %12
+  %v0 = MOP_COPY.8 %v2 ; %14
 
 MBB #5, '<ternary_exit>', ir #5, <- #3 #4, -> #1
 

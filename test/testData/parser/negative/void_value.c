@@ -51,3 +51,12 @@ int returnIt(void) {
 void statementIsFine(void) {
   nothing();
 }
+
+// Two void arms of a conditional are fine and give it void type (C99
+// 6.5.15p3); one of each is a mixture the standard has no case for, and used
+// to reach the backend as an error type with no diagnostic to explain it.
+void conditionalArms(int c) {
+  c ? nothing() : (void)0;
+  c ? nothing() : g;
+  c ? g : nothing();
+}

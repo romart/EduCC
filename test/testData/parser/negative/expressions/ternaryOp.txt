@@ -19,40 +19,40 @@ FILE test/testData/parser/negative/expressions/ternaryOp.c
     #0: signed int cond
   BEGIN
     *cond ? *i : *i
-    *cond ? *i : *f
-    *cond ? *i : *pi
-    *cond ? *i : *pf
-    *cond ? *i : *arr
+    *cond ? (float)(*i) : *f
+    *cond ? (*signed int)(*i) : *pi
+    *cond ? (*float)(*i) : *pf
+    *cond ? (*signed int)(*i) : (*signed int)(*arr)
     *cond ? *i : *s
-    *cond ? *i : *ps
-    *cond ? *f : *i
+    *cond ? (*STRUCT S)(*i) : *ps
+    *cond ? *f : (float)(*i)
     *cond ? *f : *f
     *cond ? *f : *pi
     *cond ? *f : *pf
     *cond ? *f : *arr
     *cond ? *f : *s
     *cond ? *f : *ps
-    *cond ? *pi : *i
+    *cond ? *pi : (*signed int)(*i)
     *cond ? *pi : *f
     *cond ? *pi : *pi
-    *cond ? *pi : *pf
-    *cond ? *pi : *arr
+    *cond ? *pi : (*signed int)(*pf)
+    *cond ? *pi : (*signed int)(*arr)
     *cond ? *pi : *s
-    *cond ? *pi : *ps
-    *cond ? *pf : *i
+    *cond ? *pi : (*signed int)(*ps)
+    *cond ? *pf : (*float)(*i)
     *cond ? *pf : *f
-    *cond ? *pf : *pi
+    *cond ? *pf : (*float)(*pi)
     *cond ? *pf : *pf
-    *cond ? *pf : *arr
+    *cond ? *pf : (*float)(*arr)
     *cond ? *pf : *s
-    *cond ? *pf : *ps
-    *cond ? *arr : *i
+    *cond ? *pf : (*float)(*ps)
+    *cond ? (*signed int)(*arr) : (*signed int)(*i)
     *cond ? *arr : *f
-    *cond ? *arr : *pi
-    *cond ? *arr : *pf
-    *cond ? *arr : *arr
+    *cond ? (*signed int)(*arr) : *pi
+    *cond ? (*signed int)(*arr) : (*signed int)(*pf)
+    *cond ? (*signed int)(*arr) : (*signed int)(*arr)
     *cond ? *arr : *s
-    *cond ? *arr : *ps
+    *cond ? (*signed int)(*arr) : (*signed int)(*ps)
     *cond ? *s : *i
     *cond ? *s : *f
     *cond ? *s : *pi
@@ -60,11 +60,11 @@ FILE test/testData/parser/negative/expressions/ternaryOp.c
     *cond ? *s : *arr
     *cond ? *s : *s
     *cond ? *s : *ps
-    *cond ? *ps : *i
+    *cond ? *ps : (*STRUCT S)(*i)
     *cond ? *ps : *f
-    *cond ? *ps : *pi
-    *cond ? *ps : *pf
-    *cond ? *ps : *arr
+    *cond ? *ps : (*STRUCT S)(*pi)
+    *cond ? *ps : (*STRUCT S)(*pf)
+    *cond ? *ps : (*STRUCT S)(*arr)
     *cond ? *ps : *s
     *cond ? *ps : *ps    
   END

@@ -46,3 +46,11 @@ FILE test/testData/parser/negative/void_value.c
   BEGIN
     nothing()    
   END
+----
+  FUN void conditionalArms 
+    #0: signed int c
+  BEGIN
+    *c ? nothing() : (void)0
+    *c ? nothing() : *g
+    *c ? *g : nothing()    
+  END
