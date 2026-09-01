@@ -17,6 +17,8 @@ this block is assumed whole (it is an incoming ABI register or a reload).
 """
 import os, re, subprocess, sys, tempfile
 
+import corpus
+
 FUNC = re.compile(r"^MachineFunction '([^']+)'")
 BLOCK = re.compile(r"^MBB #")
 INSTR = re.compile(
@@ -87,8 +89,7 @@ def check_dump(path):
 
 
 def main():
-    compiler = sys.argv[1]
-    roots = sys.argv[2:]
+    compiler, roots = corpus.parseArgs(__doc__)
     files = []
     for root in roots:
         if os.path.isfile(root):
@@ -107,7 +108,7 @@ def main():
         for f in files:
             if os.path.exists(f[:-2] + ".legacy"):
                 continue
-            r = subprocess.run([compiler, "-oneline", "-c",
+            r = subprocess.run([compiler] + corpus.flags + ["-oneline", "-c",
                                 "-irDump:ra", dump, "-o", obj, f], capture_output=True)
             if r.returncode != 0 or not os.path.exists(dump):
                 failed.append(f)

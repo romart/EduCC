@@ -30,7 +30,8 @@ import corpus
 
 
 def disassemble(compiler, flags, source, obj, prefix):
-    r = subprocess.run(prefix + [compiler] + flags + ["-S", "-oneline", "-c", "-o", obj, source],
+    r = subprocess.run(prefix + [compiler] + corpus.flags + flags
+                       + ["-S", "-oneline", "-c", "-o", obj, source],
                        capture_output=True)
     return r.returncode, r.stdout
 

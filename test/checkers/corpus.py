@@ -6,6 +6,13 @@ take the same two arguments so that none of them needs its own instructions:
 
     python3 test/checkers/<checker>.py build/bin/main test/testData/codegen
 
+Anything beginning with '-' is passed through to the compiler on every
+invocation, which is how one checker covers a second configuration rather than
+being copied:
+
+    python3 test/checkers/allocation.py build/bin/main -Xregalloc=trivial \
+            test/testData/codegen
+
 A checker reports findings on stdout and exits nonzero if it has any. A file
 the compiler refuses outright is counted as uncompilable rather than as a
 finding: a checker has nothing to say about a file that never reached the
@@ -16,11 +23,26 @@ import subprocess
 import sys
 
 
+# Flags '--' passed through to every compiler invocation, filled in by
+# parseArgs. A module global rather than a parameter threaded through each
+# checker: every one of them invokes the compiler from two or three places,
+# and none of them has any business inspecting the flags.
+flags = []
+
+
 def parseArgs(doc):
-    if len(sys.argv) < 3:
+    global flags
+    args = sys.argv[1:]
+    if len(args) < 2:
         print(doc)
         sys.exit(2)
-    return sys.argv[1], sys.argv[2:]
+    compiler = args[0]
+    flags = [a for a in args[1:] if a.startswith("-")]
+    roots = [a for a in args[1:] if not a.startswith("-")]
+    if not roots:
+        print(doc)
+        sys.exit(2)
+    return compiler, roots
 
 
 def sources(roots, backend="ir"):
@@ -44,7 +66,7 @@ def sources(roots, backend="ir"):
 
 def dump(compiler, source, phase, out, obj):
     """Compile `source`, snapshotting the given pass into `out`. False if it did not compile."""
-    r = subprocess.run([compiler, "-oneline", "-c",
+    r = subprocess.run([compiler] + flags + ["-oneline", "-c",
                         "-irDump:" + phase, out, "-o", obj, source],
                        capture_output=True)
     return r.returncode == 0 and os.path.exists(out)

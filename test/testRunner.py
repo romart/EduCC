@@ -23,6 +23,13 @@ failedTests = []
 updateBaselines = False
 irPhase = 'ssa'
 
+# Extra qualifier on an 'ir'-mode baseline's name ('--baseline-tag'), giving
+# '<name>.<phase>.<tag>.txt' instead of '<name>.<phase>.txt'. This is how one
+# set of fixtures keeps a separate golden dump per compiler configuration
+# rather than per pass: the 'ra' phase is whatever allocator ran, so ir_ra
+# runs once per allocator, each against its own baselines.
+baselineTag = None
+
 # Extra flags put in front of every compiler invocation ('--compiler-flag').
 # This is how one set of fixtures is run against a second configuration of the
 # compiler rather than being copied: today '-legacy', which routes codegen
@@ -433,7 +440,8 @@ def runIrTest(compiler, workingDir, dirname, name):
     # later passes do to the IR afterwards - e.g. the ir/ssa suite runs with
     # 'ssa' (right after buildSSA), the ir/gvn suite with 'gvn'.
     testFilePath = dirname + '/' + name + '.c'
-    expectedIrFilePath = dirname + '/' + name + '.' + irPhase + '.txt'
+    phaseSuffix = irPhase + ('.' + baselineTag if baselineTag else '')
+    expectedIrFilePath = dirname + '/' + name + '.' + phaseSuffix + '.txt'
     expectedErrFilePath = dirname + '/' + name + '.err'
 
     outputDir = workingDir + '/' + dirname
@@ -446,7 +454,8 @@ def runIrTest(compiler, workingDir, dirname, name):
 
     err = open(actualErrFilePath, 'w+')
 
-    compilationCommand = [compiler, "-skipCodegen", "-oneline", "-irDump:" + irPhase, actualIrFilePath, testFilePath]
+    compilationCommand = [compiler] + compilerFlags \
+                       + ["-skipCodegen", "-oneline", "-irDump:" + irPhase, actualIrFilePath, testFilePath]
     process = Popen(compilationCommand, stdout=subprocess.DEVNULL, stderr=err)
     exit_code = process.wait()
     err.close()
@@ -466,7 +475,7 @@ def runIrTest(compiler, workingDir, dirname, name):
             print(f"  warning: compiler produced diagnostics on a successful translation:")
             print(f.read())
 
-    testOk = checkOrUpdateBaseline("IrDump:" + irPhase, testFilePath, actualIrFilePath, expectedIrFilePath)
+    testOk = checkOrUpdateBaseline("IrDump:" + phaseSuffix, testFilePath, actualIrFilePath, expectedIrFilePath)
 
     if testOk:
         passTest(testFilePath)
@@ -553,6 +562,12 @@ def parseArguments():
                               "and the <name>.<phase>.txt baseline suffix). 'mir' and 'isel' are the odd "
                               "ones out: they dump the MachineFunction rather than the IR - 'mir' as stage 0 "
                               "leaves it, 'isel' once instruction selection has filled the blocks in")
+    parser.add_argument('--baseline-tag', type=str, default=None,
+                         help="extra qualifier on the 'ir' mode baseline name, giving "
+                              "'<name>.<phase>.<tag>.txt'. Use it whenever the same fixtures are "
+                              "run through a second compiler configuration whose dump legitimately "
+                              "differs - the 'ra' phase under each register allocator, say - so the "
+                              "configurations do not overwrite each other's golden files")
     parser.add_argument('--compiler-flag', type=str, action='append', default=[],
                          help='extra flag passed to the compiler on every invocation, repeatable '
                               '(e.g. --compiler-flag=-legacy to compile the fixtures through '
@@ -568,6 +583,7 @@ def main():
     global updateBaselines
     global irPhase
     global compilerFlags
+    global baselineTag
 
     args = parseArguments()
     compilerFlags = args.compiler_flag
@@ -577,6 +593,7 @@ def main():
     compiler = args.compiler
     updateBaselines = args.update_baselines
     irPhase = args.ir_phase
+    baselineTag = args.baseline_tag
 
     for testPath in testPaths:
         p = Path(testPath)

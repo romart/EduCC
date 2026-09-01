@@ -1,0 +1,153 @@
+--- Phase: ra ---
+MachineFunction 'if_cascade' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %67
+  %v1 : gp/4 ; %21
+  %v2 : gp/4 ; %59
+  %v3 : gp/4 ; %68
+  %v4 : gp/4 ; %57
+  %v5 : gp/4 ; %31
+  %v6 : gp/4 ; %55
+  %v7 : gp/4 ; %13
+  %v8 : gp/4 ; %40
+  %v9 : gp/4 ; %25
+  %v10 : gp/4 ; %3
+  %v11 : gp/4 ; %6
+  %v12 : gp/4 ; %9
+  %v13 : gp/4 ; %30
+  %v14 : gp/4 ; %49
+Frame: 64 bytes
+  fi#0 : spill 4/4 @ -4 %v9 ; %25
+  fi#1 : spill 4/4 @ -8 %v7 ; %13
+  fi#2 : spill 4/4 @ -12 %v10 ; %3
+  fi#3 : spill 4/4 @ -16 %v11 ; %6
+  fi#4 : spill 4/4 @ -20 %v12 ; %9
+  fi#5 : spill 4/4 @ -24 %v6 ; %55
+  fi#6 : spill 4/4 @ -28 %v8 ; %40
+  fi#7 : spill 4/4 @ -32 %v4 ; %57
+  fi#8 : spill 4/4 @ -36 %v13 ; %30
+  fi#9 : spill 4/4 @ -40 %v5 ; %31
+  fi#10 : spill 4/4 @ -44 %v3 ; %68
+  fi#11 : spill 4/4 @ -48 %v0 ; %67
+  fi#12 : spill 4/4 @ -52 %v2 ; %59
+  fi#13 : spill 4/4 @ -56 %v1 ; %21
+  fi#14 : spill 4/4 @ -60 %v14 ; %49
+Allocator: trivial
+Physical registers used: $rax $rdx $rsi $rdi $r10 $r11
+MBB #0, '<entry>', ir #0, -> #2
+  $r10 = mov.4 2 ; %25
+  MOP_SPILL.4 fi#0, $r10
+  $r10 = mov.4 0 ; %13
+  MOP_SPILL.4 fi#1, $r10
+  $r10 = MOP_COPY.4 $rdi ; %3
+  MOP_SPILL.4 fi#2, $r10
+  $r10 = MOP_COPY.4 $rsi ; %6
+  MOP_SPILL.4 fi#3, $r10
+  $r10 = MOP_COPY.4 $rdx ; %9
+  MOP_SPILL.4 fi#4, $r10
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
+  $r10 = MOP_RELOAD.4 fi#4
+  cmp.4 $r10, 1 ; %17
+  je #4 ; %18
+
+MBB #5, '<if_else>', ir #5, <- #2, -> #7 #8
+  $r10 = MOP_RELOAD.4 fi#4
+  $r11 = MOP_RELOAD.4 fi#0
+  cmp.4 $r10, $r11 ; %26
+  je #7 ; %27
+
+MBB #8, '<if_else>', ir #8, <- #5, -> #10 #11
+  $r10 = MOP_RELOAD.4 fi#4
+  cmp.4 $r10, 3 ; %36
+  je #10 ; %37
+
+MBB #11, '<crit_splitter>', ir #11, <- #8, -> #9
+  $r11 = MOP_RELOAD.4 fi#1
+  $r10 = MOP_COPY.4 $r11 ; %55
+  MOP_SPILL.4 fi#5, $r10
+  jmp #9 ; %66
+
+MBB #10, '<if_then>', ir #10, <- #8, -> #9
+  $r11 = MOP_RELOAD.4 fi#3
+  $r10 = MOP_COPY.4 $r11 ; %40
+  MOP_SPILL.4 fi#6, $r10
+  $r10 = MOP_RELOAD.4 fi#6
+  $r11 = MOP_RELOAD.4 fi#2
+  $r10 = add.4 $r10, $r11 ; %40
+  MOP_SPILL.4 fi#6, $r10
+  $r11 = MOP_RELOAD.4 fi#6
+  $r10 = MOP_COPY.4 $r11 ; %55
+  MOP_SPILL.4 fi#5, $r10
+
+MBB #9, '<if_exit>', ir #9, <- #11 #10, -> #6
+  $r11 = MOP_RELOAD.4 fi#5
+  $r10 = MOP_COPY.4 $r11 ; %57
+  MOP_SPILL.4 fi#7, $r10
+  jmp #6 ; %43
+
+MBB #7, '<if_then>', ir #7, <- #5, -> #6
+  $r11 = MOP_RELOAD.4 fi#2
+  $r10 = MOP_COPY.4 $r11 ; %30
+  MOP_SPILL.4 fi#8, $r10
+  $r10 = MOP_RELOAD.4 fi#8
+  $r11 = MOP_RELOAD.4 fi#3
+  $r10 = add.4 $r10, $r11 ; %30
+  MOP_SPILL.4 fi#8, $r10
+  $r11 = MOP_RELOAD.4 fi#8
+  $r10 = MOP_COPY.4 $r11 ; %31
+  MOP_SPILL.4 fi#9, $r10
+  $r10 = MOP_RELOAD.4 fi#9
+  $r11 = MOP_RELOAD.4 fi#0
+  $r10 = imul.4 $r10, $r11 ; %31
+  MOP_SPILL.4 fi#9, $r10
+  $r11 = MOP_RELOAD.4 fi#9
+  $r10 = MOP_COPY.4 $r11 ; %57
+  MOP_SPILL.4 fi#7, $r10
+
+MBB #6, '<if_exit>', ir #6, <- #7 #9, -> #3
+  $r11 = MOP_RELOAD.4 fi#2
+  $r10 = MOP_COPY.4 $r11 ; %68
+  MOP_SPILL.4 fi#10, $r10
+  $r10 = MOP_RELOAD.4 fi#10
+  $r11 = MOP_RELOAD.4 fi#3
+  $r10 = add.4 $r10, $r11 ; %68
+  MOP_SPILL.4 fi#10, $r10
+  $r11 = MOP_RELOAD.4 fi#10
+  $r10 = MOP_COPY.4 $r11 ; %67
+  MOP_SPILL.4 fi#11, $r10
+  $r11 = MOP_RELOAD.4 fi#7
+  $r10 = MOP_COPY.4 $r11 ; %59
+  MOP_SPILL.4 fi#12, $r10
+  jmp #3 ; %44
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  $r11 = MOP_RELOAD.4 fi#2
+  $r10 = MOP_COPY.4 $r11 ; %21
+  MOP_SPILL.4 fi#13, $r10
+  $r10 = MOP_RELOAD.4 fi#13
+  $r11 = MOP_RELOAD.4 fi#3
+  $r10 = add.4 $r10, $r11 ; %21
+  MOP_SPILL.4 fi#13, $r10
+  $r11 = MOP_RELOAD.4 fi#13
+  $r10 = MOP_COPY.4 $r11 ; %67
+  MOP_SPILL.4 fi#11, $r10
+  $r11 = MOP_RELOAD.4 fi#13
+  $r10 = MOP_COPY.4 $r11 ; %59
+  MOP_SPILL.4 fi#12, $r10
+
+MBB #3, '<if_exit>', ir #3, <- #4 #6, -> #1
+  $r11 = MOP_RELOAD.4 fi#12
+  $r10 = MOP_COPY.4 $r11 ; %49
+  MOP_SPILL.4 fi#14, $r10
+  $r10 = MOP_RELOAD.4 fi#14
+  $r11 = MOP_RELOAD.4 fi#11
+  $r10 = add.4 $r10, $r11 ; %49
+  MOP_SPILL.4 fi#14, $r10
+
+MBB #1, '<exit>', ir #1, <- #3
+  $r10 = MOP_RELOAD.4 fi#14
+  $rax = MOP_COPY.4 $r10 ; %52
+  ret ; %52
+
+

@@ -212,7 +212,18 @@ if(BUILD_TESTING)
   # handed. Same reason for the split - stage 2 rewrites operands throughout,
   # so folding it into ir_isel would let an allocation change quietly rewrite
   # the baselines that pin down selection.
-  educc_add_test(ir_ra ir/gvn ir 60 ra)
+  #
+  # One entry per register allocator, each against its own '.ra.<alloc>.txt'
+  # baselines (--baseline-tag). Two allocators over one set of fixtures do not
+  # produce the same dump and are not meant to, so a shared baseline could only
+  # ever record whichever one happened to be the default - and a change of
+  # default would silently rewrite the file rather than fail. Every allocator
+  # names itself on both sides: '-Xregalloc=' on the command line and the
+  # 'Allocator:' line in the dump. Stage 2C gets a third line here.
+  educc_add_test(ir_ra_linear ir/gvn ir 60 ra
+                 --compiler-flag=-Xregalloc=linear --baseline-tag linear)
+  educc_add_test(ir_ra_trivial ir/gvn ir 60 ra
+                 --compiler-flag=-Xregalloc=trivial --baseline-tag trivial)
 
   # The structural checkers (test/checkers/, docs/ir-codegen-design.md section
   # 9). A golden baseline says the output has not changed; these say it is
@@ -229,20 +240,29 @@ if(BUILD_TESTING)
   # SKIP_RETURN_CODE catches a checker that cannot answer rather than one that
   # found something: emission_objdump needs GNU objdump as its oracle and exits
   # 2 without it, which is a skip, not a failure.
+  #
+  # Registered once per register allocator: a checker takes the compiler's
+  # flags after the compiler path, and what stage 2 produces is exactly what
+  # these invariants are about. Without the second round the allocator that is
+  # not the default is checked by nothing structural - and allocation.py's
+  # scratch-register invariants, which belong to stage 2A alone, would never
+  # run at all.
   option(EDUCC_RUN_CHECKERS "Register test/checkers/ as CTest tests" ON)
   if(EDUCC_RUN_CHECKERS)
-    foreach(checker
-        phi_destruction frame_layout selection allocation allocation_widths
-        call_alignment emission_objdump disasm_stable)
-      add_test(NAME checker_${checker}
-        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/test/checkers/${checker}.py"
-                "$<TARGET_FILE:main>" "test/testData/codegen"
-        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-      )
-      set_tests_properties(checker_${checker} PROPERTIES
-        TIMEOUT 300
-        LABELS checkers
-        SKIP_RETURN_CODE 2)
+    foreach(alloc linear trivial)
+      foreach(checker
+          phi_destruction frame_layout selection allocation allocation_widths
+          call_alignment emission_objdump disasm_stable)
+        add_test(NAME checker_${checker}_${alloc}
+          COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/test/checkers/${checker}.py"
+                  "$<TARGET_FILE:main>" "-Xregalloc=${alloc}" "test/testData/codegen"
+          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        )
+        set_tests_properties(checker_${checker}_${alloc} PROPERTIES
+          TIMEOUT 300
+          LABELS checkers
+          SKIP_RETURN_CODE 2)
+      endforeach()
     endforeach()
   endif()
 endif()

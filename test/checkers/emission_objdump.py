@@ -150,7 +150,7 @@ def objdumpFunctions(path):
 
 
 def checkSource(compiler, source, obj, dump, stats):
-    r = subprocess.run([compiler, "-oneline", "-c", "-o", obj,
+    r = subprocess.run([compiler] + corpus.flags + ["-oneline", "-c", "-o", obj,
                         "-irDump:ra", dump, source], capture_output=True)
     if r.returncode != 0 or not os.path.exists(obj):
         return None

@@ -1,0 +1,41 @@
+--- Phase: ra ---
+MachineFunction 'scp_const_switch' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %11
+  %v1 : gp/4 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/4 ; %30
+Frame: 16 bytes
+  fi#0 : spill 4/4 @ -4 %v0 ; %11
+  fi#1 : spill 4/4 @ -8 %v1 ; %3
+  fi#2 : spill 4/4 @ -12 %v2 ; %6
+  fi#3 : spill 4/4 @ -16 %v3 ; %30
+Allocator: trivial
+Physical registers used: $rax $rsi $rdi $r10 $r11
+MBB #0, '<entry>', ir #0, -> #2
+  $r10 = mov.4 2 ; %11
+  MOP_SPILL.4 fi#0, $r10
+  $r10 = MOP_COPY.4 $rdi ; %3
+  MOP_SPILL.4 fi#1, $r10
+  $r10 = MOP_COPY.4 $rsi ; %6
+  MOP_SPILL.4 fi#2, $r10
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4
+
+MBB #4, '<case_block>', ir #7, <- #2, -> #3
+  $r11 = MOP_RELOAD.4 fi#1
+  $r10 = MOP_COPY.4 $r11 ; %30
+  MOP_SPILL.4 fi#3, $r10
+  $r10 = MOP_RELOAD.4 fi#3
+  $r11 = MOP_RELOAD.4 fi#2
+  $r10 = imul.4 $r10, $r11 ; %30
+  MOP_SPILL.4 fi#3, $r10
+
+MBB #3, '<switch_exit>', ir #3, <- #4, -> #1
+
+MBB #1, '<exit>', ir #1, <- #3
+  $r10 = MOP_RELOAD.4 fi#3
+  $rax = MOP_COPY.4 $r10 ; %38
+  ret ; %38
+
+

@@ -1,0 +1,57 @@
+--- Phase: ra ---
+MachineFunction 'param_ptr_vs_stack' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %0
+  %v1 : gp/8 ; %12
+  %v2 : gp/4 ; %26
+  %v3 : gp/4 ; %27
+  %v4 : gp/4 ; %28
+  %v5 : gp/4 ; %29
+  %v6 : gp/4 ; %30
+Frame: 48 bytes
+  fi#0 : param 4/4 @ 16 'a6' ; %21
+  fi#1 : param 4/4 @ 24 'a7' ; %23
+  fi#2 : spill 8/8 @ -8 %v0 ; %0
+  fi#3 : spill 8/8 @ -16 %v1 ; %12
+  fi#4 : spill 4/4 @ -20 %v2 ; %26
+  fi#5 : spill 4/4 @ -24 %v3 ; %27
+  fi#6 : spill 4/4 @ -28 %v4 ; %28
+  fi#7 : spill 4/4 @ -32 %v5 ; %29
+  fi#8 : spill 4/4 @ -36 %v6 ; %30
+Allocator: trivial
+Physical registers used: $rax $rcx $rsp $r10 $r11
+MBB #0, '<entry>', ir #0, -> #2
+  $r10 = MOP_COPY.8 $rsp ; %0
+  MOP_SPILL.8 fi#2, $r10
+  $r10 = MOP_COPY.8 $rcx ; %12
+  MOP_SPILL.8 fi#3, $r10
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $r11 = MOP_RELOAD.8 fi#3
+  $r10 = mov.4 [$r11] ; %26
+  MOP_SPILL.4 fi#4, $r10
+  $r10 = mov.4 [fi#0] ; %27
+  MOP_SPILL.4 fi#5, $r10
+  $r11 = MOP_RELOAD.4 fi#4
+  $r10 = MOP_COPY.4 $r11 ; %28
+  MOP_SPILL.4 fi#6, $r10
+  $r10 = MOP_RELOAD.4 fi#6
+  $r11 = MOP_RELOAD.4 fi#5
+  $r10 = add.4 $r10, $r11 ; %28
+  MOP_SPILL.4 fi#6, $r10
+  $r10 = mov.4 [fi#1] ; %29
+  MOP_SPILL.4 fi#7, $r10
+  $r11 = MOP_RELOAD.4 fi#6
+  $r10 = MOP_COPY.4 $r11 ; %30
+  MOP_SPILL.4 fi#8, $r10
+  $r10 = MOP_RELOAD.4 fi#8
+  $r11 = MOP_RELOAD.4 fi#7
+  $r10 = add.4 $r10, $r11 ; %30
+  MOP_SPILL.4 fi#8, $r10
+
+MBB #1, '<exit>', ir #1, <- #2
+  $r10 = MOP_RELOAD.4 fi#8
+  $rax = MOP_COPY.4 $r10 ; %33
+  ret ; %33
+
+

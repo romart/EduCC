@@ -1,0 +1,180 @@
+--- Phase: ra ---
+MachineFunction 'pass' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %7
+  %v1 : gp/8 ; %0
+  %v2 : gp/8 ; %8
+  %v3 : gp/8
+  %v4 : gp/8
+  %v5 : gp/4 ; %6
+Frame: 80 bytes
+  fi#0 : param 24/8 @ 16 's' ; %2
+  fi#1 : local 24/8 @ -24 ; %8
+  fi#2 : spill 8/8 @ -40 %v0 ; %7
+  fi#3 : spill 8/8 @ -48 %v1 ; %0
+  fi#4 : spill 8/8 @ -56 %v2 ; %8
+  fi#5 : spill 8/8 @ -64 %v3
+  fi#6 : spill 8/8 @ -72 %v4
+  fi#7 : spill 4/4 @ -76 %v5 ; %6
+Allocator: trivial
+Physical registers used: $rax $rsp $r10
+MBB #0, '<entry>', ir #0, -> #2
+  $r10 = mov.8 24 ; %7
+  MOP_SPILL.8 fi#2, $r10
+  $r10 = MOP_COPY.8 $rsp ; %0
+  MOP_SPILL.8 fi#3, $r10
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $r10 = lea.8 [fi#1] ; %8
+  MOP_SPILL.8 fi#4, $r10
+  $r10 = mov.8 [fi#0] ; %9
+  MOP_SPILL.8 fi#5, $r10
+  $r10 = MOP_RELOAD.8 fi#5
+  mov.8 [fi#1], $r10 ; %9
+  $r10 = mov.8 [fi#0 + 8] ; %9
+  MOP_SPILL.8 fi#5, $r10
+  $r10 = MOP_RELOAD.8 fi#5
+  mov.8 [fi#1 + 8], $r10 ; %9
+  $r10 = mov.8 [fi#0 + 16] ; %9
+  MOP_SPILL.8 fi#5, $r10
+  $r10 = MOP_RELOAD.8 fi#5
+  mov.8 [fi#1 + 16], $r10 ; %9
+  $rsp = sub.8 $rsp, 8 ; %6
+  $r10 = mov.8 [fi#1 + 16] ; %6
+  MOP_SPILL.8 fi#6, $r10
+  $r10 = MOP_RELOAD.8 fi#6
+  push.8 $r10 ; %6
+  $r10 = mov.8 [fi#1 + 8] ; %6
+  MOP_SPILL.8 fi#6, $r10
+  $r10 = MOP_RELOAD.8 fi#6
+  push.8 $r10 ; %6
+  $r10 = mov.8 [fi#1] ; %6
+  MOP_SPILL.8 fi#6, $r10
+  $r10 = MOP_RELOAD.8 fi#6
+  push.8 $r10 ; %6
+  call takeBig [implicit-def $rax] <clobbers caller-saved> ; %6
+  $rsp = add.8 $rsp, 32 ; %6
+  $r10 = MOP_COPY.4 $rax ; %6
+  MOP_SPILL.4 fi#7, $r10
+
+MBB #1, '<exit>', ir #1, <- #2
+  $r10 = MOP_RELOAD.4 fi#7
+  $rax = MOP_COPY.4 $r10 ; %12
+  ret ; %12
+
+
+--- Phase: ra ---
+MachineFunction 'scalars' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %14
+  %v1 : gp/8 ; %0
+  %v2 : gp/4 ; %3
+  %v3 : gp/4 ; %8
+  %v4 : gp/8 ; %15
+  %v5 : gp/8
+  %v6 : gp/8
+  %v7 : gp/4 ; %12
+Frame: 96 bytes
+  fi#0 : param 24/8 @ 16 's' ; %6
+  fi#1 : local 24/8 @ -24 ; %15
+  fi#2 : spill 8/8 @ -40 %v0 ; %14
+  fi#3 : spill 8/8 @ -48 %v1 ; %0
+  fi#4 : spill 4/4 @ -52 %v2 ; %3
+  fi#5 : spill 4/4 @ -56 %v3 ; %8
+  fi#6 : spill 8/8 @ -64 %v4 ; %15
+  fi#7 : spill 8/8 @ -72 %v5
+  fi#8 : spill 8/8 @ -80 %v6
+  fi#9 : spill 4/4 @ -84 %v7 ; %12
+Allocator: trivial
+Physical registers used: $rax $rsp $rsi $rdi $r10
+MBB #0, '<entry>', ir #0, -> #2
+  $r10 = mov.8 24 ; %14
+  MOP_SPILL.8 fi#2, $r10
+  $r10 = MOP_COPY.8 $rsp ; %0
+  MOP_SPILL.8 fi#3, $r10
+  $r10 = MOP_COPY.4 $rdi ; %3
+  MOP_SPILL.4 fi#4, $r10
+  $r10 = MOP_COPY.4 $rsi ; %8
+  MOP_SPILL.4 fi#5, $r10
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $r10 = lea.8 [fi#1] ; %15
+  MOP_SPILL.8 fi#6, $r10
+  $r10 = mov.8 [fi#0] ; %16
+  MOP_SPILL.8 fi#7, $r10
+  $r10 = MOP_RELOAD.8 fi#7
+  mov.8 [fi#1], $r10 ; %16
+  $r10 = mov.8 [fi#0 + 8] ; %16
+  MOP_SPILL.8 fi#7, $r10
+  $r10 = MOP_RELOAD.8 fi#7
+  mov.8 [fi#1 + 8], $r10 ; %16
+  $r10 = mov.8 [fi#0 + 16] ; %16
+  MOP_SPILL.8 fi#7, $r10
+  $r10 = MOP_RELOAD.8 fi#7
+  mov.8 [fi#1 + 16], $r10 ; %16
+  $rsp = sub.8 $rsp, 8 ; %12
+  $r10 = mov.8 [fi#1 + 16] ; %12
+  MOP_SPILL.8 fi#8, $r10
+  $r10 = MOP_RELOAD.8 fi#8
+  push.8 $r10 ; %12
+  $r10 = mov.8 [fi#1 + 8] ; %12
+  MOP_SPILL.8 fi#8, $r10
+  $r10 = MOP_RELOAD.8 fi#8
+  push.8 $r10 ; %12
+  $r10 = mov.8 [fi#1] ; %12
+  MOP_SPILL.8 fi#8, $r10
+  $r10 = MOP_RELOAD.8 fi#8
+  push.8 $r10 ; %12
+  $r10 = MOP_RELOAD.4 fi#4
+  $rdi = MOP_COPY.4 $r10 ; %12
+  $r10 = MOP_RELOAD.4 fi#5
+  $rsi = MOP_COPY.4 $r10 ; %12
+  call mixed [implicit-def $rax, implicit $rdi, implicit $rsi] <clobbers caller-saved> ; %12
+  $rsp = add.8 $rsp, 32 ; %12
+  $r10 = MOP_COPY.4 $rax ; %12
+  MOP_SPILL.4 fi#9, $r10
+
+MBB #1, '<exit>', ir #1, <- #2
+  $r10 = MOP_RELOAD.4 fi#9
+  $rax = MOP_COPY.4 $r10 ; %20
+  ret ; %20
+
+
+--- Phase: ra ---
+MachineFunction 'small' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %1
+  %v1 : gp/8 ; %3
+  %v2 : gp/8 ; %10
+  %v3 : gp/4 ; %7
+Frame: 48 bytes
+  fi#0 : local 8/4 @ -8 's' ; %2
+  fi#1 : spill 8/8 @ -24 %v0 ; %1
+  fi#2 : spill 8/8 @ -32 %v1 ; %3
+  fi#3 : spill 8/8 @ -40 %v2 ; %10
+  fi#4 : spill 4/4 @ -44 %v3 ; %7
+Allocator: trivial
+Physical registers used: $rax $rdi $r10
+MBB #0, '<entry>', ir #0, -> #2
+  $r10 = mov.8 8 ; %1
+  MOP_SPILL.8 fi#1, $r10
+  $r10 = MOP_COPY.8 $rdi ; %3
+  MOP_SPILL.8 fi#2, $r10
+  $r10 = MOP_RELOAD.8 fi#2
+  mov.8 [fi#0], $r10 ; %4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $r10 = mov.8 [fi#0] ; %10
+  MOP_SPILL.8 fi#3, $r10
+  $r10 = MOP_RELOAD.8 fi#3
+  $rdi = MOP_COPY.8 $r10 ; %7
+  call takeSmall [implicit-def $rax, implicit $rdi] <clobbers caller-saved> ; %7
+  $r10 = MOP_COPY.4 $rax ; %7
+  MOP_SPILL.4 fi#4, $r10
+
+MBB #1, '<exit>', ir #1, <- #2
+  $r10 = MOP_RELOAD.4 fi#4
+  $rax = MOP_COPY.4 $r10 ; %13
+  ret ; %13
+
+

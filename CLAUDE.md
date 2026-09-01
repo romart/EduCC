@@ -66,7 +66,7 @@ The CLI intentionally mimics a subset of GCC flags (`-o`, `-c`, `-I`, `-L`, `-l`
 - `-march x86_64|riscv64` — select target (default `x86_64`). x86_64 is the only one either backend generates working code for: the legacy backend's riscv64 half is unfinished and is not going to be finished, a second target being the IR backend's job. `-march riscv64` still reaches that unfinished code so it stays exercisable, and asserts on anything real.
 - `-astDump <file>` / `-astCanonDump <file>` — dump the AST before/after canonicalization.
 - `-irDump <file>` — dump the IR; also emits `cfg.dot` for the CFG. Optionally `-irDump:phase[,phase...] <file>` (phases: `initial`, `ssa`, `scp`, `gvn`, `dce`, `mir`, `isel`, `ra`) snapshots the IR immediately after each named pass in `translateFunction()` (`src/ir/ast2ir.c`) instead of only the fully-processed result — e.g. `-irDump:ssa` captures IR right after `buildSSA`, unaffected by whatever `scp`/`gvn`/`dce` do afterwards. The last three are the odd ones out: they dump the `MachineFunction` rather than the IR, in machine-IR form — `mir` as stage 0 leaves it (CFG, frame, phi copies), `isel` once instruction selection has filled the blocks in, `ra` once register allocation has replaced every virtual register.
-- `-Xregalloc=linear|trivial` — which register allocator stage 2 runs. `linear` is the default (stage 2B, `src/ir/codegen/regalloc_linear.c`); `trivial` is the original spill-everything allocator (stage 2A, `src/ir/codegen/regalloc.c`), kept as a differential oracle — two allocators over one corpus have to produce programs with identical observable behaviour, which is what the `codegen_regalloc_trivial` CTest entry checks. The `-irDump:ra` dump names which one ran on an `Allocator:` line, because a checker reading it cannot otherwise tell.
+- `-Xregalloc=linear|trivial` — which register allocator stage 2 runs. `linear` is the default (stage 2B, `src/ir/codegen/regalloc_linear.c`); `trivial` is the original spill-everything allocator (stage 2A, `src/ir/codegen/regalloc.c`), kept as a differential oracle — two allocators over one corpus have to produce programs with identical observable behaviour, which is what the `codegen_regalloc_trivial` CTest entry checks. The `-irDump:ra` dump names which one ran on an `Allocator:` line, because a checker reading it cannot otherwise tell. Every allocator also gets its own golden `ra` baselines and its own run of the structural checkers — see Tests.
 - `-skipCodegen` — stop after parsing/sema (used heavily by parser tests).
 - `-oneline` — non-verbose output (used by the test runner).
 - `-logtokens`, `-memstat` — debug tracing / arena memory statistics.
@@ -96,6 +96,13 @@ python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/cod
 
 # Cross-backend ABI tests (each fixture is two files, one compiled per backend, linked and run)
 python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/crossabi -m crossabi
+
+# IR-dump tests: one pass, against <name>.<phase>.txt. The 'ra' phase is the
+# one that differs per register allocator, so it names the allocator on both
+# sides - the flag it compiles with, and the baseline suffix it compares to.
+python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/ir/gvn -m ir --ir-phase gvn
+python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/ir/gvn -m ir --ir-phase ra \
+        --compiler-flag=-Xregalloc=trivial --baseline-tag trivial
 ```
 
 Notes on the runner's behavior:
@@ -104,6 +111,7 @@ Notes on the runner's behavior:
 - Codegen tests actually execute the compiled binary and check its exit code; a `<name>.args` file (one arg-string per line) runs the binary once per line. A nonzero compiler exit code fails the test; a zero exit with warnings on stderr does not (see the exit-code contract note in Architecture below).
 - Nonzero process exit at the runner level is the failed-test count; on failure it also lists every failed test's path. Directory walks are sorted, so run order (and failure order) is deterministic across machines.
 - `--compiler-flag` (repeatable) prepends a flag to every compiler invocation, which is how one set of fixtures is run against a second configuration rather than being copied. The `codegen_legacy` CTest entry uses it for `-legacy`. It has to be spelled with `=` (`--compiler-flag=-legacy`), since argparse will not take a value beginning with `-` as a separate word.
+- `--baseline-tag <tag>` qualifies an `ir`-mode baseline's name, giving `<name>.<phase>.<tag>.txt`. Use it whenever the same fixtures go through a second configuration whose dump legitimately differs — which today means the `ra` phase, since two register allocators do not produce the same code and are not meant to. `ir_ra_linear` and `ir_ra_trivial` are the same 55 fixtures against `*.ra.linear.txt` and `*.ra.trivial.txt`; stage 2C adds a third. A single shared baseline could only ever record whichever allocator happened to be the default, and a change of default would silently rewrite the file rather than fail.
 - A test can be **muted** by placing a `<name>.muted` file next to its `<name>.c`, with the reason as the file's contents (printed whenever the test runs). This is for known-broken fixtures kept in the repo so a bug stays reproducible: the test still runs and reports, but its failures don't count towards the exit code. If a muted test passes every check, the summary flags it under `MUTED TESTS THAT NOW PASS` so the stale marker gets deleted — loudly, but without failing the run. `--update-baselines` deliberately skips muted tests rather than baking their known-wrong output into a golden file. A `<name>.muted.legacy` / `<name>.muted.ir` sibling mutes in that one configuration only, for a bug that belongs to one backend and not the other (`codegen/bugs/float_to_bool.c`) — without it the fixture is reported as a muted test that now passes on every run of the configuration that gets it right.
 - `crossabi` mode is the odd one out: a fixture there is a **pair**, `<name>.c` and `<name>.partner.c`, compiled with a *different* backend each, linked into one binary and run — then swapped over and run again. The partner half is skipped by the directory walk rather than run as a fixture of its own, and `--compiler-flag` is deliberately ignored in this mode, since it names both backends itself. Every other suite runs one backend at a time, so this is the only place their ABI agreement is tested rather than assumed; it was tested by accident until roadmap step 18 removed the per-function fallback that arranged it.
 - A `<name>.ir` or `<name>.legacy` sibling (reason as its contents) marks a fixture that belongs to that backend alone, the other one not being going to be taught to agree — a VLA in a loop, whose storage the legacy backend never gives back (`codegen/experimental/vla_in_loop.c`, whose directory keeps its historical name), or a fixture reading one local through a pointer to the next, which the IR backend is right to disagree with and which gcc fails too (`codegen/my/adjacent_locals.c`). Such a test is **skipped** in every other configuration and listed under `Skipped (belong to the other backend)`; it is not muted, because muting is for a bug someone intends to fix and a muted test is flagged the day it starts passing.
@@ -114,6 +122,12 @@ A golden baseline says the output has not changed, not that it was ever right. T
 
 ```sh
 python3 test/checkers/<checker>.py build/bin/main test/testData/codegen
+```
+
+Anything beginning with `-` in between is passed through to the compiler on every invocation, which is how one checker covers a second configuration rather than being copied — and which is how these run once per register allocator:
+
+```sh
+python3 test/checkers/allocation.py build/bin/main -Xregalloc=trivial test/testData/codegen
 ```
 
 | checker | what it asserts |
@@ -127,12 +141,12 @@ python3 test/checkers/<checker>.py build/bin/main test/testData/codegen
 | `emission_objdump.py` | differential: compare the machine IR against GNU `objdump` as multisets of (mnemonic, register set). The only check that can see stage 3 at all |
 | `disasm_stable.py` | `-S` output is byte-identical across runs of the same command, under both backends, with and without ASLR |
 
-They share `test/checkers/corpus.py` (argument parsing, the corpus walk, the dump invocation, the report), and each is also a CTest entry labelled `checkers`:
+They share `test/checkers/corpus.py` (argument parsing, the corpus walk, the dump invocation, the report), and each is a CTest entry per register allocator — `checker_allocation_linear`, `checker_allocation_trivial` — labelled `checkers`. Without that second round the allocator that is not the default is checked by nothing structural, and `allocation.py`'s scratch-register invariants, which belong to stage 2A alone, would never run at all:
 
 ```sh
 ctest --test-dir build                # the five suites, the IR dumps, and the checkers
-ctest --test-dir build -L checkers    # just the checkers (~11s)
-ctest --test-dir build -LE checkers   # everything but (~6s)
+ctest --test-dir build -L checkers    # just the checkers, once per allocator (~22s)
+ctest --test-dir build -LE checkers   # everything but (~9s)
 cmake -B build -S . -DEDUCC_RUN_CHECKERS=OFF   # do not register them at all
 ```
 
