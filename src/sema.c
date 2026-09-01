@@ -2499,7 +2499,16 @@ void verifyAndTransformCallAruments(ParserContext *ctx, Coordinates *coords, Typ
       TypeRef *aType = arg->type;
       TypeRef *pType = param->type;
       if (checkArgumentType(ctx, &arg->coordinates, pType, arg)) {
-          if (!typesEquals(pType, aType)) {
+          // typeEquality lets an enum stand for any integer type, which is
+          // right for compatibility and wrong for width: an 'unsigned char'
+          // handed to an 'enum' parameter still needs the conversion, or the
+          // callee reads four bytes of a register the caller wrote one of.
+          TypeRef *effective = aType->kind == TR_BITFIELD
+              ? aType->bitFieldDesc.storageType : aType;
+          Boolean widthDiffers = isIntegerType(pType) && isIntegerType(effective)
+              && computeTypeSize(pType) != computeTypeSize(effective);
+
+          if (!typesEquals(pType, aType) || widthDiffers) {
               argument->expression = createCastExpression(ctx, coords, pType, parenIfNeeded(ctx, arg));
           }
           argument = argument->next;
@@ -2525,6 +2534,13 @@ void verifyAndTransformCallAruments(ParserContext *ctx, Coordinates *coords, Typ
           while(argument) {
               AstExpression *arg = argument->expression;
               TypeRef *argType = arg->type;
+
+              // A bit field promotes as its storage unit does. Without this it
+              // is not scalar, no cast is made, and the value reaches the
+              // callee at the storage unit's width - one byte of a register
+              // whose other seven hold whatever was there.
+              if (argType->kind == TR_BITFIELD)
+                argType = argType->bitFieldDesc.storageType;
 
               // Nothing below promotes a void expression, and no parameter
               // type catches it here - a trailing argument has none.

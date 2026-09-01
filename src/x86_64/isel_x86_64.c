@@ -1818,6 +1818,8 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
     if (reg != NO_REG) {
       // At the argument's own width, not widened: SysV leaves the bytes above
       // a narrow argument unspecified, and the callee knows its own prototype.
+      // Which rests on sema having converted the argument to the parameter's
+      // type - where it does not, the callee reads bytes nothing wrote.
       const IrInstruction *arg = inputAt(i, idx);
       selectLoadInto(b, reg, arg, valueSize(arg));
     }
