@@ -27,11 +27,11 @@
 // wildly wrong total rather than as a near miss.
 //
 // The sum is accumulated one statement at a time rather than written as one
-// long '+' chain on purpose. Sema is exponential in the number of operands of
-// a single additive expression - twenty terms take a third of a second and
-// twenty-four take sixteen - so the natural way to write this callee does not
-// compile in any reasonable time. That is a frontend bug of its own, unrelated
-// to anything here; see section 10.
+// long '+' chain. That used to be forced: canonicalization walked an additive
+// chain 2^depth times, so twenty-four terms took sixteen seconds and the
+// natural way to write this callee did not compile in any reasonable time.
+// Fixed since (see long_expression_chains.c); the shape is left as it is
+// because it is not what this fixture is about.
 
 struct S { long lo, hi; };
 

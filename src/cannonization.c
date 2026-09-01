@@ -9,6 +9,31 @@ static AstExpression *transformExpression(ParserContext *ctx, AstExpression *exp
 static AstStatement *transformStatement(ParserContext *ctx, AstStatement *stmt);
 static AstInitializer *transformInitializer(ParserContext *ctx, AstInitializer *init);
 
+// Every cannonize* below is a pair: the rewrite* half assumes both children are
+// already canonical and only reshapes this node, the cannonize* half descends
+// first and then calls it. They used to be one function each, so a rule that
+// finished by handing the node to another rule descended a second time and the
+// tree was walked 2^depth times - 'a[0] + ... + a[24]' took sixteen seconds.
+static AstExpression *rewriteBinaryExpression(ParserContext *ctx, AstExpression *expr);
+static AstExpression *rewriteAddExpression(ParserContext *ctx, AstExpression *expr);
+static AstExpression *rewriteSubExpression(ParserContext *ctx, AstExpression *expr);
+
+// A reassociation rule rebuilds one child out of operands that were canonical
+// already - '(p + 8) + 8' becomes 'p + (8 + 8)' - and that new node still has to
+// be folded. Its children are canonical, so this is the whole of the work; it is
+// what the second descent used to do incidentally.
+// It recurses only into nodes it has just built out of its argument's
+// grandchildren, which are strictly smaller, so it terminates and stays linear.
+static AstExpression *foldReassociated(ParserContext *ctx, AstExpression *expr) {
+  AstConst *evaluated = eval(ctx, expr);
+  if (evaluated)
+    return createAstConst2(ctx, &expr->coordinates, expr->type, evaluated);
+
+  if (expr->op == EB_ADD) return rewriteAddExpression(ctx, expr);
+  if (expr->op == EB_SUB) return rewriteSubExpression(ctx, expr);
+  return rewriteBinaryExpression(ctx, expr);
+}
+
 static TypeRef *voidPtrType(ParserContext *ctx) {
   return makePointedType(ctx, 0U, makePrimitiveType(ctx, T_VOID, 0));
 }
@@ -57,7 +82,6 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
   if (elementType->kind == TR_VLA) {
       AstExpression *vlaSize = computeVLASize(ctx, &expr->coordinates, elementType);
       indexValue = createBinaryExpression(ctx, EB_MUL, indexType, vlaSize, index);
-      indexValue = transformExpression(ctx, indexValue);
   } else {
       size_t elementSize = computeTypeSize(elementType);
       AstExpression *elemSizeConst = createAstConst(ctx, &expr->coordinates, CK_INT_CONST, &elementSize, 0);
@@ -68,14 +92,18 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
       }
 
       indexValue = createBinaryExpression(ctx, EB_MUL, indexType, index, elemSizeConst);
-      AstConst *evaluated = eval(ctx, indexValue);
-      if (evaluated) {
-          indexValue = createAstConst2(ctx, &indexValue->coordinates, indexType, evaluated);
-      }
   }
 
+  indexValue = transformExpression(ctx, indexValue);
+
+  // 'base' was canonicalized above and 'indexValue' just now, so only the sum
+  // itself is left to fold and reshape. Descending again from here is what made
+  // a[i][j][k] cost 3^depth.
   AstExpression *summed = createBinaryExpression(ctx, EB_ADD, pointerType, base, indexValue);
-  AstExpression *transformed = transformExpression(ctx, summed);
+  AstConst *summedConst = eval(ctx, summed);
+  AstExpression *transformed = summedConst
+      ? createAstConst2(ctx, &summed->coordinates, summed->type, summedConst)
+      : rewriteAddExpression(ctx, summed);
   if (elementType->kind != TR_VLA) {
     AstExpression *derefered = createUnaryExpression(ctx, &expr->coordinates, EU_DEREF, transformed);
     derefered->type = elementType;
@@ -88,11 +116,17 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
 static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpression *expr) {
   if (!isBinary(expr->op)) return expr;
 
-  AstExpression *left = transformExpression(ctx, expr->binaryExpr.left);
-  AstExpression *right = transformExpression(ctx, expr->binaryExpr.right);
+  expr->binaryExpr.left = transformExpression(ctx, expr->binaryExpr.left);
+  expr->binaryExpr.right = transformExpression(ctx, expr->binaryExpr.right);
 
-  expr->binaryExpr.left = left;
-  expr->binaryExpr.right = right;
+  return rewriteBinaryExpression(ctx, expr);
+}
+
+static AstExpression *rewriteBinaryExpression(ParserContext *ctx, AstExpression *expr) {
+  if (!isBinary(expr->op)) return expr;
+
+  AstExpression *left = expr->binaryExpr.left;
+  AstExpression *right = expr->binaryExpr.right;
 
   Boolean isReal = isRealType(expr->type);
   if (isReal) return expr;
@@ -294,16 +328,20 @@ static AstExpression *cannonizeBinaryExpression(ParserContext *ctx, AstExpressio
   return expr;
 }
 
-static AstExpression *cannonizeSubExpression(ParserContext *ctx, AstExpression *expr);
-
 static AstExpression *cannonizeAddExpression(ParserContext *ctx, AstExpression *expr) {
   if (expr->op != EB_ADD) return expr;
 
-  AstExpression *left = transformExpression(ctx, expr->binaryExpr.left);
-  AstExpression *right = transformExpression(ctx, expr->binaryExpr.right);
+  expr->binaryExpr.left = transformExpression(ctx, expr->binaryExpr.left);
+  expr->binaryExpr.right = transformExpression(ctx, expr->binaryExpr.right);
 
-  expr->binaryExpr.left = left;
-  expr->binaryExpr.right = right;
+  return rewriteAddExpression(ctx, expr);
+}
+
+static AstExpression *rewriteAddExpression(ParserContext *ctx, AstExpression *expr) {
+  if (expr->op != EB_ADD) return expr;
+
+  AstExpression *left = expr->binaryExpr.left;
+  AstExpression *right = expr->binaryExpr.right;
 
   // x + ptr -> ptr + x
   if (isPointerLikeType(right->type)) {
@@ -324,7 +362,7 @@ static AstExpression *cannonizeAddExpression(ParserContext *ctx, AstExpression *
         left->coordinates.left = l_right->coordinates.left;
         left->coordinates.right = right->coordinates.right;
         expr->binaryExpr.left = l_left;
-        expr->binaryExpr.right = left;
+        expr->binaryExpr.right = foldReassociated(ctx, left);
         left = expr->binaryExpr.left;
         right = expr->binaryExpr.right;
     }
@@ -343,7 +381,7 @@ static AstExpression *cannonizeAddExpression(ParserContext *ctx, AstExpression *
         left->coordinates.left = l_right->coordinates.left;
         left->coordinates.right = right->coordinates.right;
         expr->binaryExpr.left = l_left;
-        expr->binaryExpr.right = left;
+        expr->binaryExpr.right = foldReassociated(ctx, left);
         left = expr->binaryExpr.left;
         right = expr->binaryExpr.right;
     }
@@ -358,6 +396,7 @@ static AstExpression *cannonizeAddExpression(ParserContext *ctx, AstExpression *
           right->type = left->type;
           right->coordinates.left = left->coordinates.left;
           expr->binaryExpr.left = r_left;
+          expr->binaryExpr.right = foldReassociated(ctx, right);
           left = expr->binaryExpr.left;
           right = expr->binaryExpr.right;
       }
@@ -374,31 +413,38 @@ static AstExpression *cannonizeAddExpression(ParserContext *ctx, AstExpression *
           right->type = l_type;
           right->coordinates.left = left->coordinates.left;
           expr->binaryExpr.left = r_left;
+          expr->binaryExpr.right = foldReassociated(ctx, right);
           left = expr->binaryExpr.left;
           right = expr->binaryExpr.right;
       }
   }
 
   if (expr->op == EB_SUB)
-    expr = cannonizeSubExpression(ctx, expr);
+    expr = rewriteSubExpression(ctx, expr);
 
-  return cannonizeBinaryExpression(ctx, expr);
+  return rewriteBinaryExpression(ctx, expr);
 }
 
 static AstExpression *cannonizeSubExpression(ParserContext *ctx, AstExpression *expr) {
   if (expr->op != EB_SUB) return expr;
 
-  AstExpression *left = transformExpression(ctx, expr->binaryExpr.left);
-  AstExpression *right = transformExpression(ctx, expr->binaryExpr.right);
+  expr->binaryExpr.left = transformExpression(ctx, expr->binaryExpr.left);
+  expr->binaryExpr.right = transformExpression(ctx, expr->binaryExpr.right);
 
-  expr->binaryExpr.left = left;
-  expr->binaryExpr.right = right;
+  return rewriteSubExpression(ctx, expr);
+}
+
+static AstExpression *rewriteSubExpression(ParserContext *ctx, AstExpression *expr) {
+  if (expr->op != EB_SUB) return expr;
+
+  AstExpression *left = expr->binaryExpr.left;
+  AstExpression *right = expr->binaryExpr.right;
 
   // x - -y -> x + y
   if (right->op == EU_MINUS) {
       expr->op = EB_ADD;
       expr->binaryExpr.right = right->unaryExpr.argument;
-      return cannonizeAddExpression(ctx, expr);
+      return rewriteAddExpression(ctx, expr);
   }
 
   // (ptr + x) - y -> ptr + (x - y)
@@ -414,7 +460,7 @@ static AstExpression *cannonizeSubExpression(ParserContext *ctx, AstExpression *
         left->coordinates.right = right->coordinates.right;
 
         expr->binaryExpr.left = l_left;
-        expr->binaryExpr.right = left;
+        expr->binaryExpr.right = foldReassociated(ctx, left);
         expr->op = EB_ADD;
 
         left = expr->binaryExpr.left;
@@ -436,7 +482,7 @@ static AstExpression *cannonizeSubExpression(ParserContext *ctx, AstExpression *
         left->coordinates.right = right->coordinates.right;
 
         expr->binaryExpr.left = l_left;
-        expr->binaryExpr.right = left;
+        expr->binaryExpr.right = foldReassociated(ctx, left);
 
         left = expr->binaryExpr.left;
         right = expr->binaryExpr.right;
@@ -444,9 +490,9 @@ static AstExpression *cannonizeSubExpression(ParserContext *ctx, AstExpression *
   }
 
   if (expr->op == EB_ADD)
-    expr = cannonizeAddExpression(ctx, expr);
+    expr = rewriteAddExpression(ctx, expr);
 
-  return cannonizeBinaryExpression(ctx, expr);
+  return rewriteBinaryExpression(ctx, expr);
 }
 
 static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression *receiver, StructualMember *member, AstExpression *orig, Boolean deBit) {
@@ -468,7 +514,8 @@ static AstExpression *cannonizeFieldExpression(ParserContext *ctx, AstExpression
   }
 
   offsetedPtr->type = ptrType;
-  offsetedPtr = cannonizeAddExpression(ctx, offsetedPtr);
+  // the receiver came in canonical and the offset is a fresh constant
+  offsetedPtr = rewriteAddExpression(ctx, offsetedPtr);
 
   AstExpression *derefered = createUnaryExpression(ctx, &orig->coordinates, EU_DEREF, offsetedPtr);
   derefered->type = ptrType->pointed;
@@ -615,7 +662,8 @@ static AstExpression *cannonizeShiftExpression(ParserContext *ctx, AstExpression
     left->op = EB_ADD;
     left->type = right->type;
 
-    left = cannonizeAddExpression(ctx, left);
+    // both halves of the rebuilt add are canonical already
+    left = rewriteAddExpression(ctx, left);
 
     AstConst *evaluated = eval(ctx, left);
 
