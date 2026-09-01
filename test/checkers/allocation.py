@@ -5,11 +5,16 @@
 
 Eight invariants over '-irDump:ra'. The one that does the work is the last: a
 backward liveness fixpoint over physical registers and spill slots together,
-asserting nothing is read before it is written and that no scratch register is
-live across a block boundary - which is the property that makes allocating
-everything to a spill slot sound without any liveness analysis in the
-allocator itself. Dropped reloads, dropped spills and spills placed before
-their definition instead of after all surface there.
+asserting nothing is read before it is written. Dropped reloads, dropped
+spills and spills placed before their definition instead of after all surface
+there.
+
+Half of that one is asked only of stage 2A, which the dump's 'Allocator:' line
+names: that no scratch register is live across a block boundary is the property
+making "allocate everything to a spill slot" sound without any liveness
+analysis in the allocator itself, and it is false of stage 2B by design - a
+linear scan keeps values in registers across blocks, which is the whole point
+of it. Everything else here is asked of both.
 
 Its companion, the forward width walk that catches a spill storing more bytes
 than were ever written, is test/checkers/allocation_widths.py.
@@ -109,10 +114,13 @@ def parseFunctions(path):
         line = line.rstrip("\n")
         if line.startswith("MachineFunction"):
             cur = {"name": re.search(r"'([^']*)'", line).group(1), "blocks": [],
-                   "frame": [], "unalloc": False, "used": set(), "vregs": {}}
+                   "frame": [], "unalloc": False, "used": set(), "vregs": {},
+                   "allocator": ""}
             funcs.append(cur)
         elif cur is None:
             continue
+        elif line.startswith("Allocator:"):
+            cur["allocator"] = line.split(":", 1)[1].strip()
         elif line.startswith("Registers: not allocated"):
             cur["unalloc"] = True
         elif line.startswith("Physical registers used:"):
@@ -192,18 +200,21 @@ def checkFunction(where, f, stats):
                 liveIn[bid] = live
                 changed = True
 
+    trivial = f["allocator"] == "trivial"
+
     for loc in sorted(liveIn[order[0]]):
         if loc.startswith("fi#"):
             bad(f"spill slot {loc} is read before it is written")
-        elif loc in SCRATCH:
+        elif trivial and loc in SCRATCH:
             bad(f"scratch register ${loc} is read before it is written")
         elif loc not in ABI_IN:
             bad(f"${loc} is live into the entry block")
 
-    for bid in order:
-        for loc in liveIn[bid]:
-            if loc in SCRATCH:
-                bad(f"scratch ${loc} is live into MBB #{bid}")
+    if trivial:
+        for bid in order:
+            for loc in liveIn[bid]:
+                if loc in SCRATCH:
+                    bad(f"scratch ${loc} is live into MBB #{bid}")
 
     # (7) two-address form survived allocation
     for b in f["blocks"]:

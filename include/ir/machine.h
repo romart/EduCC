@@ -368,6 +368,12 @@ typedef struct _MachineFunction {
   // prologue has to preserve.
   uint64_t usedPhysRegs;
 
+  // Which allocator produced the code, or NULL while none has run. In the
+  // dump because a checker reading one cannot otherwise tell stage 2A's output
+  // from stage 2B's, and one invariant - that no scratch register is live
+  // across a block boundary - belongs to 2A alone.
+  const char *allocator;
+
   // Which frame object holds each IR value, indexed by IrInstruction.id and
   // biased the same way as irToVreg. Only IR_ALLOCA values are ever in here;
   // it is how selection turns one into an MO_FRAME_IDX operand.

@@ -1,4 +1,3 @@
-
 #include <assert.h>
 
 #include "ir/ir.h"
@@ -7,7 +6,8 @@
 
 // -============================ Stage 2A: trivial allocation ==============-
 //
-// See include/ir/regalloc.h for what this is and why it is worth keeping.
+// See include/ir/regalloc.h for what this is and why it is worth keeping now
+// that stage 2B exists and is the default.
 //
 // The whole algorithm is one rule applied per instruction: every virtual
 // register it names gets a scratch register for the duration of that
@@ -31,8 +31,13 @@
 //                         makes it safe to drop a reload between a compare and
 //                         the setcc reading its result, which this does - see
 //                         the EFLAGS note in docs/ir-codegen-design.md section
-//                         10, which is about *reordering*, not about
+//                         6.4, which is about *reordering*, not about
 //                         interposing.
+//
+// The scratch registers are this allocator's alone. Stage 2B needs none: a
+// spilled value's reload gets an ordinary register from the ordinary pool,
+// because the spiller gives it a virtual register and the allocator runs
+// again (see the shared spiller in include/ir/regalloc.h).
 
 // The most scratch registers of one class any instruction can ask for. Sized
 // by what a target may reserve rather than by what an instruction may want,
@@ -43,14 +48,7 @@ typedef struct _RegAllocContext {
   MachineFunction *mf;
   const TargetDescriptor *target;
 
-  // The frame slot holding each virtual register, indexed by (id - FIRST_VREG)
-  // and biased by one so an unwritten entry reads as "no slot yet" rather than
-  // as frame index 0. Slots are handed out on first sight, in layout order.
-  Vector vregToSlot;
-
-  // How far below the frame pointer the frame reaches so far. Starts at what
-  // stage 0 laid out, so spill slots sit underneath the locals.
-  int32_t frameOffset;
+  SpillState spill;
 } RegAllocContext;
 
 // One virtual register's business with one instruction.
@@ -60,61 +58,6 @@ typedef struct _ScratchAssignment {
   Boolean isRead;    // the instruction has it as a use, so it needs a reload
   Boolean isWritten; // ... as a def, so what it leaves has to be stored back
 } ScratchAssignment;
-
-// -============================ Spill slots ============================-
-
-static int32_t slotForVreg(RegAllocContext *ra, uint32_t vreg) {
-  size_t idx = vreg - FIRST_VREG;
-
-  if (idx < ra->vregToSlot.size) {
-    intptr_t stored = getFromVector(&ra->vregToSlot, idx);
-    if (stored != 0) {
-      return (int32_t)stored - 1;
-    }
-  }
-
-  const VRegInfo *info = virtualRegisterInfo(ra->mf, vreg);
-
-  // Aligned to its own size, which for every width a register can hold is the
-  // natural alignment as well.
-  int32_t frameIdx = addMachineFrameObject(ra->mf, MFO_SPILL, info->size, info->size);
-  MachineFrameObject *obj = machineFrameObjectAt(ra->mf, frameIdx);
-  obj->vreg = vreg;
-  // The IR value this register was holding, when there is one, so the frame
-  // and the vreg table in a dump can be read against each other.
-  obj->origin = info->origin;
-
-  ra->frameOffset = placeMachineFrameObject(ra->mf, ra->frameOffset, frameIdx);
-  putAtVector(&ra->vregToSlot, idx, (intptr_t)frameIdx + 1);
-
-  return frameIdx;
-}
-
-// -============================ Reloads and spills ============================-
-
-static MachineInstr *buildReload(RegAllocContext *ra, uint32_t phys, int32_t frameIdx,
-                                 uint8_t size) {
-  MachineInstr *mi = createMachineInstr(ra->mf, MOP_RELOAD, 1, 1);
-
-  setRegisterOperand(mi, 0, phys);
-  setFrameIndexOperand(mi, 1, frameIdx);
-  mi->opSize = size;
-  // Left without an origin on purpose: a reload stands for no IR instruction,
-  // it stands for this pass having nowhere else to keep the value.
-
-  return mi;
-}
-
-static MachineInstr *buildSpill(RegAllocContext *ra, int32_t frameIdx, uint32_t phys,
-                                uint8_t size) {
-  MachineInstr *mi = createMachineInstr(ra->mf, MOP_SPILL, 0, 2);
-
-  setFrameIndexOperand(mi, 0, frameIdx);
-  setRegisterOperand(mi, 1, phys);
-  mi->opSize = size;
-
-  return mi;
-}
 
 // -============================ The scratch budget ============================-
 
@@ -258,8 +201,8 @@ static void allocateInstruction(RegAllocContext *ra, MachineInstr *mi) {
     }
 
     const VRegInfo *info = virtualRegisterInfo(ra->mf, table[idx].vreg);
-    int32_t slot = slotForVreg(ra, table[idx].vreg);
-    addMachineInstrBefore(mi, buildReload(ra, table[idx].phys, slot, info->size));
+    int32_t slot = spillSlotForVreg(&ra->spill, table[idx].vreg);
+    addMachineInstrBefore(mi, buildReloadInstr(ra->mf, table[idx].phys, slot, info->size));
   }
 
   for (uint16_t idx = 0; idx < mi->numOperands; ++idx) {
@@ -286,49 +229,16 @@ static void allocateInstruction(RegAllocContext *ra, MachineInstr *mi) {
     }
 
     const VRegInfo *info = virtualRegisterInfo(ra->mf, table[idx].vreg);
-    int32_t slot = slotForVreg(ra, table[idx].vreg);
-    MachineInstr *spill = buildSpill(ra, slot, table[idx].phys, info->size);
+    int32_t slot = spillSlotForVreg(&ra->spill, table[idx].vreg);
+    MachineInstr *spill = buildSpillInstr(ra->mf, slot, table[idx].phys, info->size);
 
     addMachineInstrAfter(at, spill);
     at = spill;
   }
 }
 
-// Every physical register the finished function names, which is what stage 3
-// needs to know which callee-saved registers its prologue has to preserve.
-// Computed here, over the final code, rather than accumulated as registers are
-// handed out: selection's own fixed registers count too, and reading them off
-// the result cannot get out of step with it.
-static void recordUsedPhysRegs(MachineFunction *mf) {
-  for (MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
-    for (MachineInstr *mi = mbb->instructions.head; mi != NULL; mi = mi->next) {
-      for (uint16_t idx = 0; idx < mi->numOperands; ++idx) {
-        uint32_t *regs[MAX_OPERAND_REGS];
-        uint16_t numRegs = machineOperandRegisters(&mi->operands[idx], regs);
-
-        for (uint16_t r = 0; r < numRegs; ++r) {
-          uint32_t reg = *regs[r];
-
-          if (reg == NO_REG) {
-            continue;
-          }
-
-          assert(isPhysicalRegister(reg) && "a virtual register survived allocation");
-          assert(reg < IR_PHYS_REG_MAX);
-          mf->usedPhysRegs |= (uint64_t)1 << reg;
-        }
-      }
-    }
-  }
-}
-
-void allocateRegisters(MachineFunction *mf) {
+static void allocateRegistersTrivial(MachineFunction *mf) {
   const TargetDescriptor *target = mf->target;
-
-  // Only x86_64 reaches this - '-experimental' with any other '-march' is
-  // refused where the options are read, riscv64 having neither a selector nor
-  // scratch registers to hand out.
-  assert(target->scratchRegCount[RC_GP] != 0 && "this target has no IR backend");
 
   for (size_t rc = 0; rc < RC_CLASS_COUNT; ++rc) {
     assert(target->scratchRegCount[rc] <= MAX_SCRATCH_REGS);
@@ -341,11 +251,7 @@ void allocateRegisters(MachineFunction *mf) {
   RegAllocContext ra = {0};
   ra.mf = mf;
   ra.target = target;
-  // Stage 0 rounded the frame it laid out; starting from there rather than
-  // from its unrounded depth costs a few bytes of padding and keeps the two
-  // areas from having to know anything about each other.
-  ra.frameOffset = (int32_t)mf->frame.size;
-  initVector(&ra.vregToSlot, INITIAL_VECTOR_CAPACITY);
+  initSpillState(&ra.spill, mf);
 
   for (MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
     MachineInstr *mi = mbb->instructions.head;
@@ -360,11 +266,29 @@ void allocateRegisters(MachineFunction *mf) {
     }
   }
 
-  // The ABI wants the stack pointer 16-byte aligned at a call, and stage 3
-  // takes the frame size as it stands here.
-  mf->frame.size = ALIGN_SIZE(ra.frameOffset, 2 * sizeof(intptr_t));
+  finishSpillFrame(&ra.spill);
+  releaseSpillState(&ra.spill);
 
-  releaseVector(&ra.vregToSlot);
+  mf->allocator = "trivial";
+}
+
+void allocateRegisters(MachineFunction *mf, Boolean trivial) {
+  // Only x86_64 reaches this - the IR backend with any other '-march' is
+  // refused where the options are read, riscv64 having neither a selector nor
+  // a register file to hand out.
+  assert(mf->target->scratchRegCount[RC_GP] != 0 && "this target has no IR backend");
+
+  if (trivial) {
+    allocateRegistersTrivial(mf);
+  } else {
+    allocateRegistersLinear(mf);
+  }
 
   recordUsedPhysRegs(mf);
+
+  // Spill code placed by liveness is exactly the case the flags model was
+  // built for (section 6.4), so the question is asked again here and not only
+  // after selection: what stage 2B inserts between a compare and its reader
+  // has to be as inert as what stage 2A does.
+  verifyFlagsDependencies(mf);
 }

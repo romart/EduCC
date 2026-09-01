@@ -61,11 +61,17 @@ MNEMONIC = {
     "fstp": {"fstp", "fstps", "fstpl", "fstpt"},
     "fild": {"fild", "filds", "fildl", "fildll"},
     "fistp": {"fistp", "fistps", "fistpl", "fistpll"},
-    "fadd": {"fadd", "fadds", "faddl"}, "faddp": {"faddp"},
-    "fsub": {"fsub", "fsubs", "fsubl", "fsubr", "fsubrs", "fsubrl"},
+    # Both files' worth: the x87 memory forms and the SSE register forms share
+    # one MIR opcode each. Only the x87 half was here, which went unnoticed
+    # while every SSE arithmetic instruction had a move of the same two
+    # registers beside it for the count to be satisfied by.
+    "fadd": {"fadd", "fadds", "faddl", "addss", "addsd"}, "faddp": {"faddp"},
+    "fsub": {"fsub", "fsubs", "fsubl", "fsubr", "fsubrs", "fsubrl",
+             "subss", "subsd"},
     "fsubp": {"fsubp", "fsubrp"},
-    "fmul": {"fmul", "fmuls", "fmull"}, "fmulp": {"fmulp"},
-    "fdiv": {"fdiv", "fdivs", "fdivl", "fdivr", "fdivrs", "fdivrl"},
+    "fmul": {"fmul", "fmuls", "fmull", "mulss", "mulsd"}, "fmulp": {"fmulp"},
+    "fdiv": {"fdiv", "fdivs", "fdivl", "fdivr", "fdivrs", "fdivrl",
+             "divss", "divsd"},
     "fdivp": {"fdivp", "fdivrp"},
     "fldcw": {"fldcw"}, "fnstcw": {"fnstcw"},
     "fcomip": {"fcomip"}, "fucomip": {"fucomip"},

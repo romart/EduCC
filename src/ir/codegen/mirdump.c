@@ -374,6 +374,10 @@ int32_t dumpMachineFunction(FILE *stream, const MachineFunction *mf) {
   // Both of these are empty until register allocation has run, and are printed
   // only when they are not, so that a dump taken before it looks exactly as it
   // did before there was an allocator.
+  if (mf->allocator != NULL) {
+    r += fprintf(stream, "Allocator: %s\n", mf->allocator);
+  }
+
   if (mf->usedPhysRegs != 0) {
     r += fprintf(stream, "Physical registers used:");
     for (uint32_t reg = 0; reg < IR_PHYS_REG_MAX; ++reg) {

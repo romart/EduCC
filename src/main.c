@@ -395,6 +395,18 @@ int main(int argc, char** argv) {
       config.asmDump = 1;
     } else if (strcmp("-legacy", arg) == 0) {
       config.irBackend = 0;
+    } else if (strncmp("-Xregalloc=", arg, 11) == 0) {
+      // Which stage 2 runs. 'trivial' is the spill-everything allocator, kept
+      // as the differential oracle of docs/ir-codegen-design.md section 7.
+      const char *which = &arg[11];
+      if (strcmp(which, "trivial") == 0) {
+        config.trivialRegAlloc = 1;
+      } else if (strcmp(which, "linear") == 0) {
+        config.trivialRegAlloc = 0;
+      } else {
+        fprintf(stderr, "unknown register allocator '%s', expected 'linear' or 'trivial'\n", which);
+        return 2;
+      }
     } else if (strcmp("-experimental", arg) == 0) {
       // What it selected is the default now. Kept as a no-op rather than
       // removed: it is in every script, launch configuration and shell history

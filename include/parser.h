@@ -76,6 +76,11 @@ typedef struct _Configuration {
   // any '-march' without a selector.
   unsigned irBackend : 1;
 
+  // '-Xregalloc=trivial' asks for stage 2A, the spill-everything allocator,
+  // instead of the linear scan that is the default. It is kept reachable as a
+  // differential oracle - see include/ir/regalloc.h.
+  unsigned trivialRegAlloc : 1;
+
   unsigned hadError : 1;
 } Configuration;
 

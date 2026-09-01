@@ -3,23 +3,16 @@ MachineFunction 'stores_not_merged' [target = x86_64]
 VRegs:
   %v0 : gp/8 ; %3
   %v1 : gp/4 ; %6
-Frame: 16 bytes
-  fi#0 : spill 8/8 @ -8 %v0 ; %3
-  fi#1 : spill 4/4 @ -12 %v1 ; %6
-Physical registers used: $rsi $rdi $r10 $r11
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $rax $rcx $rsi $rdi
 MBB #0, '<entry>', ir #0, -> #2
-  $r10 = MOP_COPY.8 $rdi ; %3
-  MOP_SPILL.8 fi#0, $r10
-  $r10 = MOP_COPY.4 $rsi ; %6
-  MOP_SPILL.4 fi#1, $r10
+  $rax = MOP_COPY.8 $rdi ; %3
+  $rcx = MOP_COPY.4 $rsi ; %6
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  $r10 = MOP_RELOAD.8 fi#0
-  $r11 = MOP_RELOAD.4 fi#1
-  mov.4 [$r10], $r11 ; %10
-  $r10 = MOP_RELOAD.8 fi#0
-  $r11 = MOP_RELOAD.4 fi#1
-  mov.4 [$r10], $r11 ; %13
+  mov.4 [$rax], $rcx ; %10
+  mov.4 [$rax], $rcx ; %13
 
 MBB #1, '<exit>', ir #1, <- #2
   ret ; %15

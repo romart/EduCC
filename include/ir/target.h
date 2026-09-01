@@ -151,6 +151,19 @@ typedef struct _TargetDescriptor {
   const uint32_t *scratchRegs[RC_CLASS_COUNT];
   uint32_t scratchRegCount[RC_CLASS_COUNT];
 
+  // Every register stage 2B and later may hand out, per class, in the order it
+  // should prefer them - which is the whole of this target's allocation
+  // policy. Caller-saved first, so that a value only lands somewhere the
+  // prologue has to preserve once the caller-saved half is full.
+  //
+  // Unlike scratchRegs this may name registers selection uses itself: an
+  // interval asks liveness whether a register is busy over its own range
+  // rather than assuming it is free, so rax being the divide's quotient does
+  // not disqualify it everywhere else. What it may not name is the stack or
+  // frame pointer, or anything of a class with no values in it.
+  const uint32_t *allocatableRegs[RC_CLASS_COUNT];
+  uint32_t allocatableRegCount[RC_CLASS_COUNT];
+
   // Both targets currently point this at classifyParametersGeneric(): they
   // differ only in which registers they use and how many, and that is data,
   // not code. The hook exists because the aggregate-passing rules they both

@@ -6,45 +6,23 @@ VRegs:
   %v2 : gp/4 ; %11
   %v3 : gp/4 ; %15
   %v4 : gp/4 ; %23
-Frame: 32 bytes
-  fi#0 : spill 4/4 @ -4 %v0 ; %3
-  fi#1 : spill 4/4 @ -8 %v1 ; %6
-  fi#2 : spill 4/4 @ -12 %v2 ; %11
-  fi#3 : spill 4/4 @ -16 %v3 ; %15
-  fi#4 : spill 4/4 @ -20 %v4 ; %23
-Physical registers used: $rax $rsi $rdi $r10 $r11
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $rax $rcx $rdx $rsi $rdi
 MBB #0, '<entry>', ir #0, -> #2
-  $r10 = MOP_COPY.4 $rdi ; %3
-  MOP_SPILL.4 fi#0, $r10
-  $r10 = MOP_COPY.4 $rsi ; %6
-  MOP_SPILL.4 fi#1, $r10
+  $rax = MOP_COPY.4 $rdi ; %3
+  $rcx = MOP_COPY.4 $rsi ; %6
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  $r11 = MOP_RELOAD.4 fi#0
-  $r10 = MOP_COPY.4 $r11 ; %11
-  MOP_SPILL.4 fi#2, $r10
-  $r10 = MOP_RELOAD.4 fi#2
-  $r11 = MOP_RELOAD.4 fi#1
-  $r10 = add.4 $r10, $r11 ; %11
-  MOP_SPILL.4 fi#2, $r10
-  $r11 = MOP_RELOAD.4 fi#2
-  $r10 = MOP_COPY.4 $r11 ; %15
-  MOP_SPILL.4 fi#3, $r10
-  $r10 = MOP_RELOAD.4 fi#3
-  $r11 = MOP_RELOAD.4 fi#2
-  $r10 = imul.4 $r10, $r11 ; %15
-  MOP_SPILL.4 fi#3, $r10
-  $r11 = MOP_RELOAD.4 fi#3
-  $r10 = MOP_COPY.4 $r11 ; %23
-  MOP_SPILL.4 fi#4, $r10
-  $r10 = MOP_RELOAD.4 fi#4
-  $r11 = MOP_RELOAD.4 fi#3
-  $r10 = add.4 $r10, $r11 ; %23
-  MOP_SPILL.4 fi#4, $r10
+  $rdx = MOP_COPY.4 $rax ; %11
+  $rdx = add.4 $rdx, $rcx ; %11
+  $rax = MOP_COPY.4 $rdx ; %15
+  $rax = imul.4 $rax, $rdx ; %15
+  $rcx = MOP_COPY.4 $rax ; %23
+  $rcx = add.4 $rcx, $rax ; %23
 
 MBB #1, '<exit>', ir #1, <- #2
-  $r10 = MOP_RELOAD.4 fi#4
-  $rax = MOP_COPY.4 $r10 ; %26
+  $rax = MOP_COPY.4 $rcx ; %26
   ret ; %26
 
 

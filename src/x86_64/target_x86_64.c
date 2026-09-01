@@ -196,6 +196,22 @@ static const uint32_t x86FpScratchRegs[] = {
   FP(8), FP(9), FP(10)
 };
 
+// What stage 2B hands out - everything but rsp and rbp, caller-saved first.
+// The scratch registers above are in here too: 2B reserves nothing, because a
+// spilled value's reload is an ordinary virtual register allocated by this
+// same pool (see include/ir/regalloc.h).
+static const uint32_t x86GpAllocatableRegs[] = {
+  R_EAX, R_ECX, R_EDX, R_ESI, R_EDI, R_R8, R_R9, R_R10, R_R11,
+  R_EBX, R_R12, R_R13, R_R14, R_R15
+};
+
+// All sixteen, and all of them caller-saved, so the order here is only about
+// keeping the argument registers free a little longer.
+static const uint32_t x86FpAllocatableRegs[] = {
+  FP(8),  FP(9),  FP(10), FP(11), FP(12), FP(13), FP(14), FP(15),
+  FP(0),  FP(1),  FP(2),  FP(3),  FP(4),  FP(5),  FP(6),  FP(7)
+};
+
 const TargetDescriptor targetX86_64 = {
   .name = "x86_64",
 
@@ -226,6 +242,12 @@ const TargetDescriptor targetX86_64 = {
   .scratchRegCount = {
     [RC_GP] = sizeof(x86GpScratchRegs) / sizeof(x86GpScratchRegs[0]),
     [RC_FP] = sizeof(x86FpScratchRegs) / sizeof(x86FpScratchRegs[0])
+  },
+
+  .allocatableRegs = { [RC_GP] = x86GpAllocatableRegs, [RC_FP] = x86FpAllocatableRegs },
+  .allocatableRegCount = {
+    [RC_GP] = sizeof(x86GpAllocatableRegs) / sizeof(x86GpAllocatableRegs[0]),
+    [RC_FP] = sizeof(x86FpAllocatableRegs) / sizeof(x86FpAllocatableRegs[0])
   },
 
   .classifyParameters = &classifyParametersGeneric

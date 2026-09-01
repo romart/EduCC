@@ -2,16 +2,14 @@
 MachineFunction 'scp_phi_same_const' [target = x86_64]
 VRegs:
   %v0 : gp/4 ; %3
-Frame: 16 bytes
-  fi#0 : spill 4/4 @ -4 %v0 ; %3
-Physical registers used: $rax $rdi $r10
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $rax $rdi
 MBB #0, '<entry>', ir #0, -> #2
-  $r10 = MOP_COPY.4 $rdi ; %3
-  MOP_SPILL.4 fi#0, $r10
+  $rax = MOP_COPY.4 $rdi ; %3
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
-  $r10 = MOP_RELOAD.4 fi#0
-  cmp.4 $r10, 0 ; %9
+  cmp.4 $rax, 0 ; %9
   jg #4 ; %10
 
 MBB #5, '<if_else>', ir #5, <- #2, -> #3

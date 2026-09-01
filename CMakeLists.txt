@@ -71,7 +71,10 @@ set(SOURCES
   src/ir/codegen/mirdump.c
   src/ir/codegen/prepare.c
   src/ir/codegen/isel.c
+  src/ir/codegen/liveness.c
+  src/ir/codegen/spill.c
   src/ir/codegen/regalloc.c
+  src/ir/codegen/regalloc_linear.c
   src/x86_64/emit_x86_64.c
 )
 
@@ -165,6 +168,13 @@ if(BUILD_TESTING)
   # ignores it. --compiler-flag is spelled with '=' because argparse will not
   # take a value beginning with '-' as a separate word.
   educc_add_test(codegen_legacy codegen codegen 300 ssa --compiler-flag=-legacy)
+  # And a third time through stage 2A, the spill-everything allocator that the
+  # linear scan of step 34 replaced as the default. This is what makes it the
+  # differential oracle section 7 keeps it for rather than dead code behind a
+  # flag: two allocators over one set of fixtures have to produce programs with
+  # identical observable behaviour, so the whole suite becomes a test of
+  # whichever one is being changed.
+  educc_add_test(codegen_regalloc_trivial codegen codegen 300 ssa --compiler-flag=-Xregalloc=trivial)
   # The two backends inside one link: each fixture is a pair of files compiled
   # with a different backend each, linked and run, then swapped over. Every
   # other suite runs one backend at a time, so their ABI agreement is otherwise
