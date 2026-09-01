@@ -83,14 +83,23 @@ static Boolean needsRexForByteRegister(enum Registers reg) {
   return reg >= R_ESP && reg <= R_EDI;
 }
 
-static void emitRexSized(GeneratedFunction *f, enum Registers rReg, enum Registers bReg,
-                         enum Registers xReg, Boolean isWide, size_t opSize) {
+// The two flags say which fields hold a *byte register operand*, which is the
+// only thing the rule above is about. An instruction's width does not answer
+// it on its own: the base of an address is an address whatever the operand
+// width is, and a widening move's source is a byte while its destination is
+// not. Forcing the prefix where it is not needed is harmless to the machine
+// and not to the reader - objdump prints a bare 'rex' in front of the
+// instruction, and a differential checker reads that as the mnemonic.
+static void emitRexRm(GeneratedFunction *f, enum Registers rReg, enum Registers bReg,
+                      enum Registers xReg, Boolean isWide, Boolean regIsByte,
+                      Boolean rmIsByte) {
   Rex rex = { 0 };
   rex.bits.fixed = REX_BYTE;
 
   int needRex = 0;
 
-  if (opSize == 1 && (needsRexForByteRegister(rReg) || needsRexForByteRegister(bReg))) {
+  if ((regIsByte && needsRexForByteRegister(rReg)) ||
+      (rmIsByte && needsRexForByteRegister(bReg))) {
       // No bit of it is set: the prefix is there for its own sake, which is
       // what selects the low byte of these four registers rather than the high
       // byte of another.
@@ -123,10 +132,23 @@ static void emitRexSized(GeneratedFunction *f, enum Registers rReg, enum Registe
 
 }
 
+// Both fields are register operands of the instruction's own width.
+static void emitRexSized(GeneratedFunction *f, enum Registers rReg, enum Registers bReg,
+                         enum Registers xReg, Boolean isWide, size_t opSize) {
+  const Boolean isByte = opSize == 1 ? TRUE : FALSE;
+  emitRexRm(f, rReg, bReg, xReg, isWide, isByte, isByte);
+}
+
+// The r/m field is an address, so only the reg field can be a byte operand.
+static void emitRexSizedMem(GeneratedFunction *f, enum Registers rReg, enum Registers bReg,
+                            enum Registers xReg, Boolean isWide, size_t opSize) {
+  emitRexRm(f, rReg, bReg, xReg, isWide, opSize == 1 ? TRUE : FALSE, FALSE);
+}
+
 // For the callers whose operands can never be a single byte - addresses,
 // jumps, and every SSE form.
 static void emitRex(GeneratedFunction *f, enum Registers rReg, enum Registers bReg, enum Registers xReg, Boolean isWide) {
-  emitRexSized(f, rReg, bReg, xReg, isWide, 0);
+  emitRexRm(f, rReg, bReg, xReg, isWide, FALSE, FALSE);
 }
 
 void emitPushReg(GeneratedFunction *f, enum Registers reg) {
@@ -235,7 +257,12 @@ static void encodeAR(GeneratedFunction *f, Address *from, uint8_t regOp) {
       } else {
           modrm.bits.mod = 2;
       }
-      if (reg == R_ESP) {
+      // The r/m encoding and not the register: 0b100 means "a SIB byte
+      // follows" whichever register wears it, so r12 needs the same escape rsp
+      // does. Comparing against R_ESP alone was invisible while nothing but
+      // the scratch registers reached here, and r12 became addressable the day
+      // stage 2B started handing it out.
+      if (register_encodings[reg] == 0b100) {
           modrm.bits.rm = 0b100;
           emitByte(f, modrm.v);
           SIB sib = { 0 };
@@ -258,6 +285,14 @@ static void encodeAR(GeneratedFunction *f, Address *from, uint8_t regOp) {
       enum Registers base = from->base;
       assert(index != R_ESP);
 
+      // A SIB base of 0b101 - rbp or r13 - means "no base register" when mod
+      // is zero, so those two are addressed with an explicit zero
+      // displacement instead. Same shape of trap as the r12 one above, at the
+      // other end of the table.
+      if (register_encodings[base] == 0b101) {
+          modrm.bits.mod = 1;
+      }
+
       modrm.bits.rm = 0b100;
       emitByte(f, modrm.v);
 
@@ -266,6 +301,10 @@ static void encodeAR(GeneratedFunction *f, Address *from, uint8_t regOp) {
       sib.bits.base = register_encodings[base];
       sib.bits.index = register_encodings[index];
       emitByte(f, sib.v);
+
+      if (modrm.bits.mod == 1) {
+          emitByte(f, 0);
+      }
   } else {
       // [%reg + %reg * scale + disp]
       enum Registers index = from->index;
@@ -310,7 +349,7 @@ void emitMoveAR(GeneratedFunction *f, Address* addr, enum Registers to, size_t s
 
   if (size == 2) emitByte(f, 0x66);
 
-  emitRexSized(f, to, addr->base, addr->index, size > 4, size);
+  emitRexSizedMem(f, to, addr->base, addr->index, size > 4, size);
 
   uint8_t code = size == 1 ? 0x8A : 0x8B;
   emitByte(f, code);
@@ -321,7 +360,7 @@ void emitMoveAR(GeneratedFunction *f, Address* addr, enum Registers to, size_t s
 void emitMoveRA(GeneratedFunction *f, enum Registers from, Address* addr, size_t size) {
   if (size == 2) emitByte(f, 0x66);
 
-  emitRexSized(f, from, addr->base, addr->index, size > 4, size);
+  emitRexSizedMem(f, from, addr->base, addr->index, size > 4, size);
 
   uint8_t code = size == 1 ? 0x88 : 0x89;
   emitByte(f, code);
@@ -401,7 +440,11 @@ void emitCmovRR(GeneratedFunction *f, enum JumpCondition cc, enum Registers from
 void emitSetccR(GeneratedFunction *f, enum JumpCondition cc, enum Registers reg) {
   // The destination is the r/m field, so an r8..r15 byte register needs REX.B
   // to be reachable at all - without it 'setcc r10b' encodes as 'setcc dl'.
-  emitRex(f, R_BAD, reg, R_BAD, FALSE);
+  // And the operand is a byte by construction, so sil/dil/spl/bpl need the
+  // prefix for their own sake: 'setcc sil' without one is 'setcc dh', which is
+  // a different register and was a live miscompile the moment stage 2B started
+  // handing out rsi.
+  emitRexSized(f, R_BAD, reg, R_BAD, FALSE, 1);
 
   emitByte(f, 0x0F);
   emitByte(f, 0x90 + cc);
@@ -475,7 +518,7 @@ void emitSimpleArithR(GeneratedFunction *f, uint8_t code, uint8_t digit, enum Re
 void emitSimpleArithA(GeneratedFunction *f, uint8_t code, uint8_t digit, Address *addr, size_t size) {
   if (size == 2) emitByte(f, 0x66);
 
-  emitRexSized(f, R_BAD, addr->base, addr->index, size == 8, size);
+  emitRexSizedMem(f, R_BAD, addr->base, addr->index, size == 8, size);
 
   emitByte(f, size == 1 ? code - 1 : code);
 
@@ -505,7 +548,9 @@ void emitSMulR(GeneratedFunction *f, enum Registers l, enum Registers r, size_t 
 void emitSMulAR(GeneratedFunction *f, Address *addr, enum Registers r, size_t size) {
   if (size == 2) emitByte(f, 0x66);
 
-  emitRexSized(f, R_BAD, r, R_BAD, size == 8, size);
+  // 'r' is the reg field that encodeAR writes below and the address is the
+  // r/m, so REX.R is 'r' and REX.B/X belong to the address.
+  emitRexSizedMem(f, r, addr->base, addr->index, size == 8, size);
 
   emitByte(f, 0x0F);
   emitByte(f, 0xAF);
@@ -594,7 +639,10 @@ static void emitSimpleArithAR(GeneratedFunction *f, uint8_t code, int16_t code2,
 
   if (size == 2) emitByte(f, 0x66);
 
-  emitRex(f, r, addr->base, addr->scale, size == 8);
+  // addr->index, not addr->scale: the scale is 1/2/4/8 and R_R8 is 8, so
+  // passing it here asked for REX.X on every eight-byte-strided address and
+  // never for the one thing REX.X is - an index register in r8..r15.
+  emitRexSizedMem(f, r, addr->base, addr->index, size == 8, size);
 
   emitByte(f, size == 1 ? code - 1 : code);
 
@@ -836,7 +884,7 @@ void emitTestRR(GeneratedFunction *f, enum Registers l, enum Registers r, size_t
 
   if (s == 2) emitByte(f, 0x66);
 
-  emitRex(f, r, l, R_BAD, s > sizeof(int32_t));
+  emitRexSized(f, r, l, R_BAD, s > sizeof(int32_t), s);
 
   emitByte(f, s == 1 ? 0x84 : 0x85);
 
@@ -884,7 +932,11 @@ void emitMovfpAR(GeneratedFunction *f, Address *from, enum Registers to, size_t 
 void emitMovsxdRR(struct _GeneratedFunction *f, enum Registers from, enum Registers to, size_t s) {
   if (s == 2) emitByte(f, 0x66);
 
-  emitRex(f, from, to, R_BAD, s == 8);
+  // 'from' is the r/m field below and 'to' the reg field, so the two halves of
+  // REX go the other way round from the argument order. Naming them the wrong
+  // way was invisible while the only registers reaching here were a pair of
+  // r8..r15 scratch registers, which set both bits between them.
+  emitRex(f, to, from, R_BAD, s == 8);
 
   emitByte(f, 0x63);
 
@@ -900,8 +952,12 @@ void emitMovsxdRR(struct _GeneratedFunction *f, enum Registers from, enum Regist
 static void emitMovxxRRSized(GeneratedFunction *f, uint8_t opcode, enum Registers from,
                              enum Registers to, Boolean isW) {
   // 'from' is the byte or word source and 'to' the wide destination, so only
-  // the source can need the prefix forced; for a word source it is a no-op.
-  emitRexSized(f, to, from, R_BAD, isW, 1);
+  // the source can need the prefix forced - and only when it really is a byte,
+  // which is what the low bit of the opcode says (0xB6/0xBE against
+  // 0xB7/0xBF). Forcing it regardless put a bare 'rex' in front of every
+  // widening move out of rsi or rdi.
+  const Boolean byteSource = (opcode == 0xB6 || opcode == 0xBE) ? TRUE : FALSE;
+  emitRexRm(f, to, from, R_BAD, isW, FALSE, byteSource);
 
   emitByte(f, 0x0F);
 
@@ -941,7 +997,9 @@ void emitMovxxAR(GeneratedFunction *f, uint8_t opcode, Address *from, enum Regis
 void emitMovdq(GeneratedFunction *f, uint8_t prefix, uint8_t opcode, uint8_t opcode2, enum Registers r1, enum Registers r2, Boolean isW) {
   emitByte(f, prefix);
 
-  emitRex(f, r1, r2, R_BAD, isW);
+  // r2 is the reg field and r1 the r/m, so REX takes them the other way round
+  // from the argument order.
+  emitRex(f, r2, r1, R_BAD, isW);
 
   emitByte(f, opcode);
   emitByte(f, opcode2);
@@ -973,7 +1031,9 @@ void emitConvertFP(GeneratedFunction *f, uint8_t prefix, uint8_t opcode, enum Re
 
   emitByte(f, prefix);
 
-  emitRex(f, from, to, R_BAD, isW);
+  // 'to' is the reg field and 'from' the r/m, as in every other two-register
+  // form here.
+  emitRex(f, to, from, R_BAD, isW);
 
   emitByte(f, 0x0F);
   emitByte(f, opcode);
