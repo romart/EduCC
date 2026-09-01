@@ -1,0 +1,15 @@
+The legacy backend gives an assignment through a pointer to a char or short
+the wrong value: it reuses the register holding the destination address and
+overwrites only the bytes the store wrote, so '(*d = 0)' is the address with
+its low byte cleared rather than 0. The store itself is correct - only the
+value the expression yields is not.
+
+That makes 'while ((*d++ = *s++) != 0)' - a strcpy, and what
+test/bench/programs/strings.c is built out of - loop forever under -legacy.
+
+The IR backend gets every case here right, so this is '.muted.legacy' rather
+than '.muted': an unqualified mute would report it as a muted test that now
+passes on every default-backend run.
+
+Unmute - by deleting this file - once the legacy backend narrows an
+assignment's result to the assigned type.
