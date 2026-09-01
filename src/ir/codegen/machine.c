@@ -531,6 +531,59 @@ void verifyMachineDefWidths(const MachineFunction *mf) {
   }
 }
 
+// A generic opcode answers MFE_NONE without a table - see the note on
+// MACHINE_GENERIC_OPCODES - so the allocator's own spills and reloads cost
+// these two nothing to answer for.
+Boolean machineInstrDefsFlags(const MachineFunction *mf, const MachineInstr *mi) {
+  return (targetOpcodeFlagsEffect(mf->target, mi->opcode) & MFE_WRITE) != 0;
+}
+
+Boolean machineInstrUsesFlags(const MachineFunction *mf, const MachineInstr *mi) {
+  return (targetOpcodeFlagsEffect(mf->target, mi->opcode) & MFE_READ) != 0;
+}
+
+// The flags never live across a block boundary here, which is why this looks
+// no further back than the block: every rule that reads them emits the compare
+// that sets them itself, and a folded compare is emitted at the branch rather
+// than left where the comparison was (section 6.4).
+//
+// Two things are asserted, and between them they say "the compare and its
+// readers are adjacent" without needing to know which reader belongs to which
+// compare. A reader's nearest preceding write has to be a compare - so a
+// clobber that has landed in between is caught, since an 'add' is not what any
+// setcc meant to read - and a compare's answer has to be read before the next
+// write takes the flags away, so a compare that its reader has moved out from
+// under is caught too. Either failure is what reordering instructions without
+// consulting this model does, which is the whole reason the model is here.
+void verifyFlagsDependencies(const MachineFunction *mf) {
+  assert(mf->target->flagsReg != IR_NO_PHYS_REG &&
+         "a target whose selector emits instructions has to say where its flags are");
+
+  for (const MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
+    const MachineInstr *producer = NULL;
+    Boolean read = FALSE;
+
+    for (const MachineInstr *mi = mbb->instructions.head; mi != NULL; mi = mi->next) {
+      enum MachineFlagsEffect effect = targetOpcodeFlagsEffect(mf->target, mi->opcode);
+
+      assert(effect != MFE_UNKNOWN && "an opcode nobody has said what it does to the flags");
+
+      if (effect & MFE_READ) {
+        assert(producer != NULL && "reads flags no compare in this block left");
+        read = TRUE;
+      }
+
+      if (effect & MFE_WRITE) {
+        assert((producer == NULL || read) && "a compare whose flags nothing got to read");
+        producer = (effect & MFE_PRODUCE) ? mi : NULL;
+        read = FALSE;
+      }
+    }
+
+    assert(producer == NULL || read);
+  }
+}
+
 // The machine block mirroring a given IR block. A walk rather than a map: the
 // callers - phi destruction, then selection resolving a branch target - touch
 // each edge once, and carrying the build's id->block table forward is more

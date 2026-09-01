@@ -600,4 +600,9 @@ void selectInstructions(MachineFunction *mf) {
   // defs of virtual registers: what allocation adds is spills and reloads of
   // physical ones.
   verifyMachineDefWidths(mf);
+
+  // The flags are selection's business alone for the same reason: nothing
+  // after this emits an instruction that touches them, spills and reloads
+  // being moves.
+  verifyFlagsDependencies(mf);
 }

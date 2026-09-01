@@ -22,8 +22,9 @@ struct _MachineFunction;
 // targets that grow their register file.
 #define FIRST_VREG 256
 
-// An absent register - an addressing mode with no index, mostly.
-#define NO_REG ((uint32_t)-1)
+// An absent register - an addressing mode with no index, mostly. The same
+// value as IR_NO_PHYS_REG, which is the one a TargetDescriptor field uses.
+#define NO_REG IR_NO_PHYS_REG
 
 #define isVirtualRegister(r) ((r) >= FIRST_VREG && (r) != NO_REG)
 #define isPhysicalRegister(r) ((r) < FIRST_VREG)
@@ -41,6 +42,11 @@ struct _MachineFunction;
 // one store and one load - stage 3 expands each into a single emit* call. The
 // frame index is operand 0 in both, so the def-before-use operand order still
 // holds: a reload defines a register, a spill defines nothing.
+//
+// None of the four touches the condition flags - a copy, a store and a load are
+// moves on every target worth targeting - which is what lets the allocator put
+// a spill and a reload between a compare and the setcc that reads it, as stage
+// 2A does on every comparison it selects.
 #define MACHINE_GENERIC_OPCODES                                             \
   MOP_DEF(PHI, "phi node, destroyed by stage 0 - never reaches allocation"), \
   MOP_DEF(COPY, "register to register move, either register class"),        \
@@ -432,6 +438,12 @@ void setPartialDefOperand(MachineInstr *mi, uint16_t idx);
 // The source width of an instruction that names two, and the destination width
 // for the many that name one. See MachineInstr.srcSize.
 uint8_t machineInstrSrcSize(const MachineInstr *mi);
+
+// Whether this instruction leaves the condition flags holding something new,
+// and whether it reads them. Both answer from the opcode - see
+// enum MachineFlagsEffect for why that is not stored per instruction.
+Boolean machineInstrDefsFlags(const MachineFunction *mf, const MachineInstr *mi);
+Boolean machineInstrUsesFlags(const MachineFunction *mf, const MachineInstr *mi);
 void setRegisterOperand(MachineInstr *mi, uint16_t idx, uint32_t reg);
 void setImmediateOperand(MachineInstr *mi, uint16_t idx, int64_t imm);
 void setMemoryOperand(MachineInstr *mi, uint16_t idx, const MachineAddress *addr);
@@ -497,6 +509,14 @@ Boolean isMachineAddressWellFormed(const MachineAddress *addr);
 // docs/ir-codegen-design.md is the four times it had already happened. Run over
 // the selected code, which is where the widths are finally decided.
 void verifyMachineDefWidths(const MachineFunction *mf);
+
+// Asserts that every instruction reading the condition flags has one writing
+// them earlier in the same block. That is the whole of what the flags model
+// buys a checker: which of the writers before it was meant is a question about
+// intent, and the answer selection relies on - the nearest one - is only sound
+// while nothing reorders. What this catches is a rule that emits a setcc or a
+// jcc with no compare in front of it at all.
+void verifyFlagsDependencies(const MachineFunction *mf);
 
 // ------------- build phase ------------------------
 MachineFunction *buildMachineFunction(struct _IrFunction *f);

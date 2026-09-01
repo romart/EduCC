@@ -15,6 +15,7 @@ static const char *regClassName(enum RegClass rc) {
   switch (rc) {
   case RC_GP: return "gp";
   case RC_FP: return "fp";
+  case RC_FLAGS: return "flags";
   default: return "none";
   }
 }

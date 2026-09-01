@@ -10,7 +10,11 @@
 //   16..31  xmm0..xmm15. enum Registers spells these 0..15 as well, which is
 //           exactly the ambiguity this namespace exists to remove; subtract
 //           X86_FP_BASE (machine_x86_64.h) to get back to the encoding.
-#define X86_PHYS_REG_COUNT 32
+//   32      the condition flags, which are a register here for the reason
+//           enum RegClass gives: it is what a compare writes and a setcc or a
+//           jcc reads, and the dependency has to be sayable.
+#define X86_EFLAGS 32
+#define X86_PHYS_REG_COUNT 33
 
 #define FP(n) (X86_FP_BASE + (n))
 
@@ -23,7 +27,9 @@ static const enum RegClass x86RegClass[IR_PHYS_REG_MAX] = {
   [FP(0)]  = RC_FP, [FP(1)]  = RC_FP, [FP(2)]  = RC_FP, [FP(3)]  = RC_FP,
   [FP(4)]  = RC_FP, [FP(5)]  = RC_FP, [FP(6)]  = RC_FP, [FP(7)]  = RC_FP,
   [FP(8)]  = RC_FP, [FP(9)]  = RC_FP, [FP(10)] = RC_FP, [FP(11)] = RC_FP,
-  [FP(12)] = RC_FP, [FP(13)] = RC_FP, [FP(14)] = RC_FP, [FP(15)] = RC_FP
+  [FP(12)] = RC_FP, [FP(13)] = RC_FP, [FP(14)] = RC_FP, [FP(15)] = RC_FP,
+
+  [X86_EFLAGS] = RC_FLAGS
 };
 
 static const char *const x86RegName[IR_PHYS_REG_MAX] = {
@@ -35,7 +41,9 @@ static const char *const x86RegName[IR_PHYS_REG_MAX] = {
   [FP(0)]  = "xmm0",  [FP(1)]  = "xmm1",  [FP(2)]  = "xmm2",  [FP(3)]  = "xmm3",
   [FP(4)]  = "xmm4",  [FP(5)]  = "xmm5",  [FP(6)]  = "xmm6",  [FP(7)]  = "xmm7",
   [FP(8)]  = "xmm8",  [FP(9)]  = "xmm9",  [FP(10)] = "xmm10", [FP(11)] = "xmm11",
-  [FP(12)] = "xmm12", [FP(13)] = "xmm13", [FP(14)] = "xmm14", [FP(15)] = "xmm15"
+  [FP(12)] = "xmm12", [FP(13)] = "xmm13", [FP(14)] = "xmm14", [FP(15)] = "xmm15",
+
+  [X86_EFLAGS] = "eflags"
 };
 
 // Indexed by (opcode - MOP_TARGET_FIRST). Built from the same X-macros as
@@ -50,6 +58,94 @@ const char *const x86OpcodeName[X86_OPCODE_NUM] = {
 #undef X86_CC_DEF
 
 #define X86_CC_DEF(m, n) "j" n
+  X86_CONDITIONS
+#undef X86_CC_DEF
+};
+
+// What each opcode does to EFLAGS, indexed the way the names above are.
+// Sparse on purpose: MFE_UNKNOWN is what an opcode nobody has answered for
+// reads back as, and verifyFlagsDependencies() refuses to see one, so adding
+// an instruction to X86_OPCODES without deciding this is a failed test rather
+// than a silent claim that it leaves the flags alone.
+//
+// Three of these are worth spelling out because the obvious guess is wrong:
+// 'not' is the one bitwise operation that leaves the flags untouched, 'lea'
+// computes an address and sets nothing, and a divide leaves them undefined -
+// which is a clobber, since undefined is not what the compare before it left.
+static const uint8_t x86OpcodeFlags[X86_OPCODE_NUM] = {
+  [X86_MOV - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_LEA - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_LOAD - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_STORE - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_MOVSX - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_MOVZX - MOP_TARGET_FIRST] = MFE_NONE,
+
+  [X86_ADD - MOP_TARGET_FIRST] = MFE_CLOBBER,
+  [X86_SUB - MOP_TARGET_FIRST] = MFE_CLOBBER,
+  [X86_IMUL - MOP_TARGET_FIRST] = MFE_CLOBBER,
+  [X86_AND - MOP_TARGET_FIRST] = MFE_CLOBBER,
+  [X86_OR - MOP_TARGET_FIRST] = MFE_CLOBBER,
+  [X86_XOR - MOP_TARGET_FIRST] = MFE_CLOBBER,
+  [X86_SHL - MOP_TARGET_FIRST] = MFE_CLOBBER,
+  [X86_SHR - MOP_TARGET_FIRST] = MFE_CLOBBER,
+  [X86_SAR - MOP_TARGET_FIRST] = MFE_CLOBBER,
+  [X86_NEG - MOP_TARGET_FIRST] = MFE_CLOBBER,
+  [X86_NOT - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_CMP - MOP_TARGET_FIRST] = MFE_PRODUCE,
+  [X86_TEST - MOP_TARGET_FIRST] = MFE_PRODUCE,
+
+  // SSE arithmetic reports in MXCSR, not here; only the two comparisons put
+  // their answer in the ordinary flags, which is what lets them share every
+  // setcc and jcc with the integer compares.
+  [X86_FADD - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_FSUB - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_FMUL - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_FDIV - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_FCMP - MOP_TARGET_FIRST] = MFE_PRODUCE,
+  [X86_FUCMP - MOP_TARGET_FIRST] = MFE_PRODUCE,
+  [X86_MOVD - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_MOVDR - MOP_TARGET_FIRST] = MFE_NONE,
+
+  // x87 reports in its own status word, and 'fcomip'/'fucomip' are the two
+  // forms that copy the answer out into EFLAGS - which is the whole reason
+  // they are the ones selected.
+  [X86_FLD - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_FSTP - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_FILD - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_FISTP - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_FADDP - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_FSUBP - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_FMULP - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_FDIVP - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_FCOMIP - MOP_TARGET_FIRST] = MFE_PRODUCE,
+  [X86_FUCOMIP - MOP_TARGET_FIRST] = MFE_PRODUCE,
+  [X86_FLDZ - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_FPOP - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_FNSTCW - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_FLDCW - MOP_TARGET_FIRST] = MFE_NONE,
+
+  [X86_CVTF2F - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_CVTSI2F - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_CVTF2SI - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_CDQ - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_IDIV - MOP_TARGET_FIRST] = MFE_CLOBBER,
+  [X86_DIV - MOP_TARGET_FIRST] = MFE_CLOBBER,
+
+  [X86_JMP - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_IJMP - MOP_TARGET_FIRST] = MFE_NONE,
+  [X86_PUSH - MOP_TARGET_FIRST] = MFE_NONE,
+  // Whatever the callee left, which is not what the caller had.
+  [X86_CALL - MOP_TARGET_FIRST] = MFE_CLOBBER,
+  [X86_RET - MOP_TARGET_FIRST] = MFE_NONE,
+
+  // The two condition lists, from the same X-macro the mnemonics come from -
+  // every setcc and every jcc reads the flags and writes none, so neither
+  // needs naming one at a time.
+#define X86_CC_DEF(m, _) [X86_SET##m - MOP_TARGET_FIRST] = MFE_READ
+  X86_CONDITIONS,
+#undef X86_CC_DEF
+
+#define X86_CC_DEF(m, _) [X86_J##m - MOP_TARGET_FIRST] = MFE_READ
   X86_CONDITIONS
 #undef X86_CC_DEF
 };
@@ -109,9 +205,11 @@ const TargetDescriptor targetX86_64 = {
 
   .opcodeName = x86OpcodeName,
   .numOpcodes = X86_OPCODE_NUM,
+  .opcodeFlagsEffect = x86OpcodeFlags,
 
   .sp = R_ESP,
   .fp = R_EBP,
+  .flagsReg = X86_EFLAGS,
 
   .intArgRegs = x86IntArgRegs,
   .intArgRegCount = sizeof(x86IntArgRegs) / sizeof(x86IntArgRegs[0]),

@@ -34,6 +34,20 @@ const char *targetOpcodeName(const TargetDescriptor *target, uint32_t opcode) {
   return idx < target->numOpcodes ? target->opcodeName[idx] : NULL;
 }
 
+enum MachineFlagsEffect targetOpcodeFlagsEffect(const TargetDescriptor *target, uint32_t opcode) {
+  if (opcode < MOP_TARGET_FIRST) {
+    return MFE_NONE;
+  }
+
+  if (target == NULL || target->opcodeFlagsEffect == NULL) {
+    return MFE_UNKNOWN;
+  }
+
+  uint32_t idx = opcode - MOP_TARGET_FIRST;
+  return idx < target->numOpcodes ? (enum MachineFlagsEffect)target->opcodeFlagsEffect[idx]
+                                  : MFE_UNKNOWN;
+}
+
 Boolean returnsThroughHiddenPointer(const TypeRef *returnType) {
   return isCompositeType(returnType) &&
          computeTypeSize(returnType) > sizeof(intptr_t);

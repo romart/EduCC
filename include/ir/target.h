@@ -21,6 +21,12 @@
 // 32..63.
 #define IR_PHYS_REG_MAX 64
 
+// No register. Spelled here rather than in ir/machine.h, which is where
+// MachineOperand's NO_REG comes from, because a TargetDescriptor field can
+// need it too and target.h is the header machine.h includes and not the other
+// way round; the two are the same value on purpose.
+#define IR_NO_PHYS_REG ((uint32_t)-1)
+
 enum RegClass {
   // Zero on purpose: a target's regClass table is a sparse designated
   // initializer, so every id it does not mention has to come out as "not a
@@ -29,7 +35,43 @@ enum RegClass {
   RC_GP,  // general purpose / integer
   RC_FP,  // floating point
 
+  // The condition flags, as one register. Its own class because it is nothing
+  // like the other two: there is exactly one of it, no value has this type, and
+  // an allocator has nothing to hand out - which is what scratchRegCount of
+  // zero for this class says. It exists so that "cmp writes it and setcc reads
+  // it" is a fact about registers like any other rather than a fact about the
+  // order the two happened to be emitted in.
+  RC_FLAGS,
+
   RC_CLASS_COUNT
+};
+
+// What an instruction does to the condition flags. Derived from the opcode and
+// not stored per instruction: unlike MachineInstr.flags.isCall, which is a
+// claim about this machine function, "add writes the flags" is a fact about the
+// ISA that every add shares, and a second copy of it is a second thing that can
+// disagree.
+//
+// The two kinds of write are the reason this is not one bit. An 'add' leaves
+// the flags holding something new that nothing is entitled to read; a 'cmp'
+// leaves them holding its answer, and something has to. Both are writes to
+// whoever asks "may this move past that one", and telling them apart is what
+// lets verifyFlagsDependencies() notice a clobber that has landed between a
+// compare and its reader - the exact damage this model exists to make
+// impossible to do silently.
+enum MachineFlagsEffect {
+  // Zero on purpose, and not "touches nothing": a target's table is a sparse
+  // designated initializer, so an opcode added without an entry has to come
+  // out as "nobody has answered for this one" rather than as a claim that it
+  // leaves the flags alone. verifyFlagsDependencies() is what refuses it.
+  MFE_UNKNOWN = 0,
+
+  MFE_NONE = 1u << 0,     // answered: does not touch them
+  MFE_CLOBBER = 1u << 1,  // writes them incidentally; the result is nobody's
+  MFE_PRODUCE = 1u << 2,  // writes them as its answer, for something to read
+  MFE_READ = 1u << 3,
+
+  MFE_WRITE = MFE_CLOBBER | MFE_PRODUCE
 };
 
 // Where one parameter arrives, as decided by the target's ABI.
@@ -69,8 +111,17 @@ typedef struct _TargetDescriptor {
   const char *const *opcodeName;
   uint32_t numOpcodes;
 
+  // What each of them does to flagsReg, indexed the same way; NULL for a
+  // target with no selector yet. Read it through targetOpcodeFlagsEffect().
+  const uint8_t *opcodeFlagsEffect;
+
   uint32_t sp;  // stack pointer
   uint32_t fp;  // frame pointer
+
+  // The condition-flags register, or IR_NO_PHYS_REG for a target that has
+  // none - riscv64 compares and branches in one instruction and keeps no
+  // flags at all, which is why this is a target's answer and not a constant.
+  uint32_t flagsReg;
 
   const uint32_t *intArgRegs;
   uint32_t intArgRegCount;
@@ -143,5 +194,10 @@ const char *physRegName(const TargetDescriptor *target, uint32_t reg);
 // does not name it. Generic opcodes are not this function's business - see
 // MACHINE_GENERIC_OPCODES.
 const char *targetOpcodeName(const TargetDescriptor *target, uint32_t opcode);
+
+// What one of this target's machine opcodes does to the condition flags.
+// MFE_NONE for a generic opcode - see the note on MACHINE_GENERIC_OPCODES -
+// and MFE_UNKNOWN for a target that names no effects at all.
+enum MachineFlagsEffect targetOpcodeFlagsEffect(const TargetDescriptor *target, uint32_t opcode);
 
 #endif  // __IR_TARGET_H__

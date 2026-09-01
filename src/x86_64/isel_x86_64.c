@@ -21,11 +21,11 @@
 // therefore a crash rather than quieter code, which is the point - see section
 // 6.21 of the design document.
 //
-// Flags are not modelled. x86's compare writes EFLAGS and the setcc or jcc
-// after it reads them, and nothing here says so: the two are simply emitted
-// adjacent. That holds only because nothing between selection and emission
-// reorders instructions, which is true today and is written down in section 10
-// as the precondition it is.
+// The flags are modelled, but only as far as an opcode: x86OpcodeFlags in
+// target_x86_64.c says what each instruction does to $eflags, and the rules
+// below still place a compare and the setcc or jcc that reads it adjacent by
+// hand. verifyFlagsDependencies() is what checks they did - see section 6.4 of
+// the design document for what it can and cannot notice.
 
 static uint8_t valueSize(const IrInstruction *i) {
   return irTypeMachineSize(i->type);
@@ -619,9 +619,11 @@ static void selectBitwiseNot(MachineBuilder *b, const IrInstruction *i) {
 // register happened to hold. Zeroing the destination first is what makes the
 // whole width defined.
 //
-// It has to happen before the compare, not after: a move leaves the flags
-// alone, so it is harmless there, whereas afterwards it would overwrite the
-// answer the setcc is about to read out of them.
+// It goes in front of the compare rather than between the compare and the
+// setcc. A move of an immediate leaves the flags alone - X86_MOV is MFE_NONE -
+// so either place would work as this is written; in front is where it goes so
+// that the zeroing idiom stays a free choice, 'xor dst, dst' being the obvious
+// alternative and one that does clobber them.
 //
 // The width comes from the destination register rather than from the caller,
 // so that this and selectSetcc below decide "is there anything above the low

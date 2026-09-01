@@ -85,6 +85,11 @@ const TargetDescriptor targetRiscv64 = {
   .sp = X_SP,
   .fp = X_S0,  // s0/fp is the frame pointer in the standard ABI
 
+  // riscv64 has no condition flags at all - a compare and a branch are one
+  // instruction, and a materialized boolean comes out of 'slt' into an
+  // ordinary register - so there is nothing here to name.
+  .flagsReg = IR_NO_PHYS_REG,
+
   .intArgRegs = riscvIntArgRegs,
   .intArgRegCount = sizeof(riscvIntArgRegs) / sizeof(riscvIntArgRegs[0]),
   .fpArgRegs = riscvFpArgRegs,
