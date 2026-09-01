@@ -427,12 +427,15 @@ static void addInstructionToBlock(IrInstruction *instr, IrBasicBlock *block) {
 // narrower than that is a register whose upper bytes nothing wrote. A compare
 // answers IR_BOOL and says nothing about its operands' width, so it is checked
 // against them rather than against itself; a shift's count is not a value of
-// the shifted type at all.
+// the shifted type at all. IR_U_NOT is a compare of the same kind - '!p' on a
+// pointer answers 'int' - and selectLogicalNot already tests at the operand's
+// own width; only IR_U_BNOT, which really does return what it was given, is
+// uniform.
 static Boolean isWidthUniformOperation(enum IrIntructionKind k) {
   switch (k) {
   case IR_E_ADD: case IR_E_SUB: case IR_E_MUL: case IR_E_DIV: case IR_E_MOD:
   case IR_E_AND: case IR_E_OR: case IR_E_XOR:
-  case IR_U_NOT: case IR_U_BNOT:
+  case IR_U_BNOT:
     return TRUE;
   default:
     return FALSE;
