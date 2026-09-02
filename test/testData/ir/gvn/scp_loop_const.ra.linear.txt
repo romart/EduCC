@@ -20,13 +20,7 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #3
 
 MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
   cmp.4 $rsi, $rcx ; %14
-  jl #4 ; %15
-
-MBB #5, '<while_exit>', ir #5, <- #3, -> #1
-
-MBB #1, '<exit>', ir #1, <- #5
-  $rax = MOP_COPY.4 $rdx ; %30
-  ret ; %30
+  jge #5 ; %15
 
 MBB #4, '<while_body>', ir #4, <- #3, -> #3
   $rax = MOP_COPY.4 $rdx ; %20
@@ -36,5 +30,11 @@ MBB #4, '<while_body>', ir #4, <- #3, -> #3
   $rdx = MOP_COPY.4 $rax ; %35
   $rsi = MOP_COPY.4 $rdi ; %33
   jmp #3 ; %26
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+
+MBB #1, '<exit>', ir #1, <- #5
+  $rax = MOP_COPY.4 $rdx ; %30
+  ret ; %30
 
 

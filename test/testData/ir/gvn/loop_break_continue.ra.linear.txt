@@ -27,44 +27,44 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #3
 
 MBB #3, '<while_head>', ir #3, <- #2 #7 #8, -> #4 #10
   cmp.4 $r8, $rsi ; %20
-  jl #4 ; %21
-
-MBB #10, '<crit_splitter>', ir #10, <- #3, -> #5
-  jmp #5 ; %65
+  jge #10 ; %21
 
 MBB #4, '<while_body>', ir #4, <- #3, -> #7 #6
-  $r9 = MOP_COPY.4 $r8 ; %24
-  $r9 = add.4 $r9, 1 ; %24
-  cmp.4 $r9, 3 ; %28
+  $rax = MOP_COPY.4 $r8 ; %24
+  $rax = add.4 $rax, 1 ; %24
+  cmp.4 $rax, 3 ; %28
   je #7 ; %29
 
 MBB #6, '<if_exit>', ir #6, <- #4, -> #9 #8
-  cmp.4 $r9, 7 ; %33
+  cmp.4 $rax, 7 ; %33
   je #9 ; %34
 
 MBB #8, '<if_exit>', ir #8, <- #6, -> #3
-  $rax = MOP_COPY.4 $rcx ; %39
-  $rax = add.4 $rax, $rdi ; %39
+  $r9 = MOP_COPY.4 $rcx ; %39
+  $r9 = add.4 $r9, $rdi ; %39
   $r10 = MOP_COPY.4 $rdx ; %40
-  $r10 = add.4 $r10, $rax ; %40
+  $r10 = add.4 $r10, $r9 ; %40
   $rdx = MOP_COPY.4 $r10 ; %57
-  $r8 = MOP_COPY.4 $r9 ; %53
+  $r8 = MOP_COPY.4 $rax ; %53
   jmp #3 ; %42
 
 MBB #9, '<if_then>', ir #9, <- #6, -> #5
+  jmp #5 ; %35
+
+MBB #7, '<if_then>', ir #7, <- #4, -> #3
+  $r8 = MOP_COPY.4 $rax ; %53
+  jmp #3 ; %30
+
+MBB #10, '<crit_splitter>', ir #10, <- #3, -> #5
 
 MBB #5, '<while_exit>', ir #5, <- #10 #9, -> #1
   $rax = MOP_COPY.4 $rcx ; %46
   $rax = add.4 $rax, $rdi ; %46
-  $r10 = MOP_COPY.4 $rdx ; %47
-  $r10 = add.4 $r10, $rax ; %47
+  $rcx = MOP_COPY.4 $rdx ; %47
+  $rcx = add.4 $rcx, $rax ; %47
 
 MBB #1, '<exit>', ir #1, <- #5
-  $rax = MOP_COPY.4 $r10 ; %50
+  $rax = MOP_COPY.4 $rcx ; %50
   ret ; %50
-
-MBB #7, '<if_then>', ir #7, <- #4, -> #3
-  $r8 = MOP_COPY.4 $r9 ; %53
-  jmp #3 ; %30
 
 

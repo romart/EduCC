@@ -14,66 +14,66 @@ VRegs:
   %v10 : gp/4 ; %6
   %v11 : gp/4 ; %9
   %v12 : gp/4 ; %12
-  %v13 : gp/4 ; %56
-  %v14 : gp/4 ; %57
-  %v15 : gp/4 ; %46
-  %v16 : gp/4 ; %35
+  %v13 : gp/4 ; %35
+  %v14 : gp/4 ; %46
+  %v15 : gp/4 ; %56
+  %v16 : gp/4 ; %57
 Frame: <empty>
 Allocator: linear scan
 Physical registers used: $rax $rcx $rdx $rbx $rsi $rdi $r8 $r9 $r10 $r11 $r12
 MBB #0, '<entry>', ir #0, -> #2
-  $r8 = mov.4 0 ; %18
-  $r9 = MOP_COPY.4 $rdi ; %3
+  $rax = mov.4 0 ; %18
+  $r8 = MOP_COPY.4 $rdi ; %3
   $rdi = MOP_COPY.4 $rsi ; %6
   $rsi = MOP_COPY.4 $rdx ; %9
   $rdx = MOP_COPY.4 $rcx ; %12
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #3
-  $rcx = MOP_COPY.4 $r8 ; %69
-  $r10 = MOP_COPY.4 $r8 ; %67
+  $rcx = MOP_COPY.4 $rax ; %69
+  $r9 = MOP_COPY.4 $rax ; %67
 
 MBB #3, '<while_head>', ir #3, <- #2 #8, -> #4 #5
-  cmp.4 $r10, $rsi ; %24
-  jl #4 ; %25
-
-MBB #5, '<while_exit>', ir #5, <- #3, -> #1
-  $rax = MOP_COPY.4 $r9 ; %56
-  $rax = imul.4 $rax, $rdi ; %56
-  $r11 = MOP_COPY.4 $rcx ; %57
-  $r11 = add.4 $r11, $rax ; %57
-
-MBB #1, '<exit>', ir #1, <- #5
-  $rax = MOP_COPY.4 $r11 ; %60
-  ret ; %60
+  cmp.4 $r9, $rsi ; %24
+  jge #5 ; %25
 
 MBB #4, '<while_body>', ir #4, <- #3, -> #6
-  $rax = MOP_COPY.4 $rcx ; %71
-  $r11 = MOP_COPY.4 $r8 ; %63
+  $r10 = MOP_COPY.4 $rcx ; %71
+  $r11 = MOP_COPY.4 $rax ; %63
 
 MBB #6, '<while_head>', ir #6, <- #4 #7, -> #7 #8
   cmp.4 $r11, $rdx ; %30
-  jl #7 ; %31
-
-MBB #8, '<while_exit>', ir #8, <- #6, -> #3
-  $rbx = MOP_COPY.4 $r9 ; %46
-  $rbx = imul.4 $rbx, $rdi ; %46
-  $r12 = MOP_COPY.4 $rax ; %47
-  $r12 = add.4 $r12, $rbx ; %47
-  $rbx = MOP_COPY.4 $r10 ; %50
-  $rbx = add.4 $rbx, 1 ; %50
-  $rcx = MOP_COPY.4 $r12 ; %69
-  $r10 = MOP_COPY.4 $rbx ; %67
-  jmp #3 ; %52
+  jge #8 ; %31
 
 MBB #7, '<while_body>', ir #7, <- #6, -> #6
-  $rcx = MOP_COPY.4 $r9 ; %35
-  $rcx = imul.4 $rcx, $rdi ; %35
-  $rbx = MOP_COPY.4 $rax ; %36
-  $rbx = add.4 $rbx, $rcx ; %36
-  $rcx = MOP_COPY.4 $r11 ; %40
-  $rcx = add.4 $rcx, 1 ; %40
-  $rax = MOP_COPY.4 $rbx ; %71
-  $r11 = MOP_COPY.4 $rcx ; %63
+  $rbx = MOP_COPY.4 $r8 ; %35
+  $rbx = imul.4 $rbx, $rdi ; %35
+  $r12 = MOP_COPY.4 $r10 ; %36
+  $r12 = add.4 $r12, $rbx ; %36
+  $rbx = MOP_COPY.4 $r11 ; %40
+  $rbx = add.4 $rbx, 1 ; %40
+  $r10 = MOP_COPY.4 $r12 ; %71
+  $r11 = MOP_COPY.4 $rbx ; %63
   jmp #6 ; %42
+
+MBB #8, '<while_exit>', ir #8, <- #6, -> #3
+  $r11 = MOP_COPY.4 $r8 ; %46
+  $r11 = imul.4 $r11, $rdi ; %46
+  $rbx = MOP_COPY.4 $r10 ; %47
+  $rbx = add.4 $rbx, $r11 ; %47
+  $r10 = MOP_COPY.4 $r9 ; %50
+  $r10 = add.4 $r10, 1 ; %50
+  $rcx = MOP_COPY.4 $rbx ; %69
+  $r9 = MOP_COPY.4 $r10 ; %67
+  jmp #3 ; %52
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+  $rax = MOP_COPY.4 $r8 ; %56
+  $rax = imul.4 $rax, $rdi ; %56
+  $rdx = MOP_COPY.4 $rcx ; %57
+  $rdx = add.4 $rdx, $rax ; %57
+
+MBB #1, '<exit>', ir #1, <- #5
+  $rax = MOP_COPY.4 $rdx ; %60
+  ret ; %60
 
 

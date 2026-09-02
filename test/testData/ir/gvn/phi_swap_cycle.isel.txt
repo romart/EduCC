@@ -38,7 +38,16 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #3
 
 MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
   cmp.4 %v0, 0 ; %20
-  jg #4 ; %21
+  jle #5 ; %21
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #3
+  %v6 = MOP_COPY.4 %v0 ; %30
+  %v6 = sub.4 %v6, 1 ; %30
+  %v0 = MOP_COPY.4 %v6 ; %75
+  %v7 = MOP_COPY.4 %v2
+  %v2 = MOP_COPY.4 %v4 ; %69
+  %v4 = MOP_COPY.4 %v7 ; %65
+  jmp #3 ; %32
 
 MBB #5, '<while_exit>', ir #5, <- #3, -> #6
   %v8 = MOP_COPY.4 %v0 ; %73
@@ -48,7 +57,17 @@ MBB #5, '<while_exit>', ir #5, <- #3, -> #6
 
 MBB #6, '<while_head>', ir #6, <- #5 #7, -> #7 #8
   cmp.4 %v8, 0 ; %35
-  jl #7 ; %36
+  jge #8 ; %36
+
+MBB #7, '<while_body>', ir #7, <- #6, -> #6
+  %v13 = MOP_COPY.4 %v8 ; %46
+  %v13 = add.4 %v13, 1 ; %46
+  %v8 = MOP_COPY.4 %v13 ; %73
+  %v14 = MOP_COPY.4 %v9
+  %v9 = MOP_COPY.4 %v12 ; %71
+  %v12 = MOP_COPY.4 %v11 ; %63
+  %v11 = MOP_COPY.4 %v14 ; %67
+  jmp #6 ; %48
 
 MBB #8, '<while_exit>', ir #8, <- #6, -> #1
   %v17 = MOP_COPY.4 %v12 ; %51
@@ -63,24 +82,5 @@ MBB #8, '<while_exit>', ir #8, <- #6, -> #1
 MBB #1, '<exit>', ir #1, <- #8
   $rax = MOP_COPY.4 %v20 ; %60
   ret ; %60
-
-MBB #7, '<while_body>', ir #7, <- #6, -> #6
-  %v13 = MOP_COPY.4 %v8 ; %46
-  %v13 = add.4 %v13, 1 ; %46
-  %v8 = MOP_COPY.4 %v13 ; %73
-  %v14 = MOP_COPY.4 %v9
-  %v9 = MOP_COPY.4 %v12 ; %71
-  %v12 = MOP_COPY.4 %v11 ; %63
-  %v11 = MOP_COPY.4 %v14 ; %67
-  jmp #6 ; %48
-
-MBB #4, '<while_body>', ir #4, <- #3, -> #3
-  %v6 = MOP_COPY.4 %v0 ; %30
-  %v6 = sub.4 %v6, 1 ; %30
-  %v0 = MOP_COPY.4 %v6 ; %75
-  %v7 = MOP_COPY.4 %v2
-  %v2 = MOP_COPY.4 %v4 ; %69
-  %v4 = MOP_COPY.4 %v7 ; %65
-  jmp #3 ; %32
 
 

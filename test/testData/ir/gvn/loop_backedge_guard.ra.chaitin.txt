@@ -9,34 +9,35 @@ VRegs:
   %v5 : gp/4 ; %3
   %v6 : gp/4 ; %6
   %v7 : gp/4 ; %9
-  %v8 : gp/4 ; %36
-  %v9 : gp/4 ; %37
-  %v10 : gp/4 ; %25
+  %v8 : gp/4 ; %25
+  %v9 : gp/4 ; %36
+  %v10 : gp/4 ; %37
 Frame: <empty>
 Allocator: graph colouring
 Physical registers used: $rax $rcx $rdx $rsi $rdi $r8
 MBB #0, '<entry>', ir #0, -> #2
-  $rax = mov.4 0 ; %14
+  $r8 = mov.4 0 ; %14
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #3
-  $rcx = MOP_COPY.4 $rax ; %43
+  $rax = MOP_COPY.4 $r8 ; %43
 
 MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
-  cmp.4 $rcx, $rdx ; %20
-  jl #4 ; %21
+  cmp.4 $rax, $rdx ; %20
+  jge #5 ; %21
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #3
+  $rcx = MOP_COPY.4 $rdi ; %25
+  $rcx = add.4 $rcx, $rsi ; %25
+  $r8 = add.4 $r8, $rcx ; %26
+  $rax = add.4 $rax, 1 ; %30
+  jmp #3 ; %32
 
 MBB #5, '<while_exit>', ir #5, <- #3, -> #1
   $rdi = add.4 $rdi, $rsi ; %36
-  $rax = add.4 $rax, $rdi ; %37
+  $r8 = add.4 $r8, $rdi ; %37
 
 MBB #1, '<exit>', ir #1, <- #5
+  $rax = MOP_COPY.4 $r8 ; %40
   ret ; %40
-
-MBB #4, '<while_body>', ir #4, <- #3, -> #3
-  $r8 = MOP_COPY.4 $rdi ; %25
-  $r8 = add.4 $r8, $rsi ; %25
-  $rax = add.4 $rax, $r8 ; %26
-  $rcx = add.4 $rcx, 1 ; %30
-  jmp #3 ; %32
 
 

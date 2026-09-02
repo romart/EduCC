@@ -9,9 +9,9 @@ VRegs:
   %v5 : gp/4 ; %3
   %v6 : gp/4 ; %6
   %v7 : gp/4 ; %9
-  %v8 : gp/4 ; %36
-  %v9 : gp/4 ; %37
-  %v10 : gp/4 ; %25
+  %v8 : gp/4 ; %25
+  %v9 : gp/4 ; %36
+  %v10 : gp/4 ; %37
 Frame: <empty>
 Allocator: linear scan
 Physical registers used: $rax $rcx $rdx $rsi $rdi $r8 $r9
@@ -27,17 +27,7 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #3
 
 MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
   cmp.4 $r8, $rsi ; %20
-  jl #4 ; %21
-
-MBB #5, '<while_exit>', ir #5, <- #3, -> #1
-  $rax = MOP_COPY.4 $rcx ; %36
-  $rax = add.4 $rax, $rdi ; %36
-  $r9 = MOP_COPY.4 $rdx ; %37
-  $r9 = add.4 $r9, $rax ; %37
-
-MBB #1, '<exit>', ir #1, <- #5
-  $rax = MOP_COPY.4 $r9 ; %40
-  ret ; %40
+  jge #5 ; %21
 
 MBB #4, '<while_body>', ir #4, <- #3, -> #3
   $rax = MOP_COPY.4 $rcx ; %25
@@ -49,5 +39,15 @@ MBB #4, '<while_body>', ir #4, <- #3, -> #3
   $rdx = MOP_COPY.4 $r9 ; %45
   $r8 = MOP_COPY.4 $rax ; %43
   jmp #3 ; %32
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+  $rax = MOP_COPY.4 $rcx ; %36
+  $rax = add.4 $rax, $rdi ; %36
+  $rcx = MOP_COPY.4 $rdx ; %37
+  $rcx = add.4 $rcx, $rax ; %37
+
+MBB #1, '<exit>', ir #1, <- #5
+  $rax = MOP_COPY.4 $rcx ; %40
+  ret ; %40
 
 

@@ -18,16 +18,16 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #3
 
 MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
   cmp.4 $rcx, $rdi ; %14
-  jl #4 ; %15
-
-MBB #5, '<while_exit>', ir #5, <- #3, -> #1
-
-MBB #1, '<exit>', ir #1, <- #5
-  ret ; %30
+  jge #5 ; %15
 
 MBB #4, '<while_body>', ir #4, <- #3, -> #3
   $rax = add.4 $rax, 6 ; %20
   $rcx = add.4 $rcx, 1 ; %24
   jmp #3 ; %26
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+
+MBB #1, '<exit>', ir #1, <- #5
+  ret ; %30
 
 

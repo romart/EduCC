@@ -197,9 +197,14 @@ static uint32_t availableCount(const GraphColour *gc, uint32_t n) {
 
 // Blocks the layout puts inside a loop, approximately: an edge back to a block
 // at or before this one in layout order is a back edge, and everything between
-// its two ends is the body. Approximate on purpose - the machine CFG carries
-// no loop forest, and the answer is only ever divided by a degree to rank
-// spill candidates against each other.
+// its two ends is the body. Approximate on purpose - the answer is only ever
+// divided by a degree to rank spill candidates against each other.
+//
+// Since step 39 the machine CFG does have a real loop forest
+// (src/ir/codegen/loops.c), which stage 1 computes to decide layout. Reading it
+// here instead would be strictly better and is deliberately not done yet: it
+// changes which values get spilled, so it is a change to the allocator that
+// wants measuring on its own rather than a tidy-up. See section 6.27.
 static void computeBlockWeights(GraphColour *gc) {
   MachineLiveness *lv = gc->lv;
   const size_t numBlocks = lv->numBlocks;

@@ -14,10 +14,10 @@ VRegs:
   %v10 : gp/4 ; %6
   %v11 : gp/4 ; %9
   %v12 : gp/4 ; %12
-  %v13 : gp/4 ; %56
-  %v14 : gp/4 ; %57
-  %v15 : gp/4 ; %46
-  %v16 : gp/4 ; %35
+  %v13 : gp/4 ; %35
+  %v14 : gp/4 ; %46
+  %v15 : gp/4 ; %56
+  %v16 : gp/4 ; %57
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
   %v1 = mov.4 0 ; %18
@@ -32,17 +32,7 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #3
 
 MBB #3, '<while_head>', ir #3, <- #2 #8, -> #4 #5
   cmp.4 %v2, %v11 ; %24
-  jl #4 ; %25
-
-MBB #5, '<while_exit>', ir #5, <- #3, -> #1
-  %v13 = MOP_COPY.4 %v9 ; %56
-  %v13 = imul.4 %v13, %v10 ; %56
-  %v14 = MOP_COPY.4 %v0 ; %57
-  %v14 = add.4 %v14, %v13 ; %57
-
-MBB #1, '<exit>', ir #1, <- #5
-  $rax = MOP_COPY.4 %v14 ; %60
-  ret ; %60
+  jge #5 ; %25
 
 MBB #4, '<while_body>', ir #4, <- #3, -> #6
   %v5 = MOP_COPY.4 %v0 ; %71
@@ -50,28 +40,38 @@ MBB #4, '<while_body>', ir #4, <- #3, -> #6
 
 MBB #6, '<while_head>', ir #6, <- #4 #7, -> #7 #8
   cmp.4 %v6, %v12 ; %30
-  jl #7 ; %31
+  jge #8 ; %31
+
+MBB #7, '<while_body>', ir #7, <- #6, -> #6
+  %v13 = MOP_COPY.4 %v9 ; %35
+  %v13 = imul.4 %v13, %v10 ; %35
+  %v7 = MOP_COPY.4 %v5 ; %36
+  %v7 = add.4 %v7, %v13 ; %36
+  %v8 = MOP_COPY.4 %v6 ; %40
+  %v8 = add.4 %v8, 1 ; %40
+  %v5 = MOP_COPY.4 %v7 ; %71
+  %v6 = MOP_COPY.4 %v8 ; %63
+  jmp #6 ; %42
 
 MBB #8, '<while_exit>', ir #8, <- #6, -> #3
-  %v15 = MOP_COPY.4 %v9 ; %46
-  %v15 = imul.4 %v15, %v10 ; %46
+  %v14 = MOP_COPY.4 %v9 ; %46
+  %v14 = imul.4 %v14, %v10 ; %46
   %v3 = MOP_COPY.4 %v5 ; %47
-  %v3 = add.4 %v3, %v15 ; %47
+  %v3 = add.4 %v3, %v14 ; %47
   %v4 = MOP_COPY.4 %v2 ; %50
   %v4 = add.4 %v4, 1 ; %50
   %v0 = MOP_COPY.4 %v3 ; %69
   %v2 = MOP_COPY.4 %v4 ; %67
   jmp #3 ; %52
 
-MBB #7, '<while_body>', ir #7, <- #6, -> #6
-  %v16 = MOP_COPY.4 %v9 ; %35
-  %v16 = imul.4 %v16, %v10 ; %35
-  %v7 = MOP_COPY.4 %v5 ; %36
-  %v7 = add.4 %v7, %v16 ; %36
-  %v8 = MOP_COPY.4 %v6 ; %40
-  %v8 = add.4 %v8, 1 ; %40
-  %v5 = MOP_COPY.4 %v7 ; %71
-  %v6 = MOP_COPY.4 %v8 ; %63
-  jmp #6 ; %42
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+  %v15 = MOP_COPY.4 %v9 ; %56
+  %v15 = imul.4 %v15, %v10 ; %56
+  %v16 = MOP_COPY.4 %v0 ; %57
+  %v16 = add.4 %v16, %v15 ; %57
+
+MBB #1, '<exit>', ir #1, <- #5
+  $rax = MOP_COPY.4 %v16 ; %60
+  ret ; %60
 
 

@@ -15,38 +15,38 @@ VRegs:
   %v11 : gp/4 ; %37
 Frame: <empty>
 Allocator: graph colouring
-Physical registers used: $rax $rcx $rdx $rsi $rdi $r8
+Physical registers used: $rax $rcx $rdx $rsi $rdi
 MBB #0, '<entry>', ir #0, -> #2
   $rax = mov.4 1 ; %16
-  $r8 = mov.4 0 ; %14
+  $rcx = mov.4 0 ; %14
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
   test.4 $rdi, $rdi ; %19
   jne #4 ; %19
 
 MBB #3, '<if_exit>', ir #3, <- #2, -> #6
-  $rcx = MOP_COPY.4 $rax ; %45
+  $rdi = MOP_COPY.4 $rax ; %45
   jmp #6 ; %21
 
 MBB #4, '<if_then>', ir #4, <- #2, -> #5
-  $rcx = MOP_COPY.4 $rax ; %43
+  $rdi = MOP_COPY.4 $rax ; %43
 
 MBB #5, 'again', ir #5, <- #4 #7, -> #6
-  $r8 = add.4 $r8, $rax ; %32
+  $rcx = add.4 $rcx, $rax ; %32
 
 MBB #6, '<while_head>', ir #6, <- #3 #5, -> #7 #8
-  cmp.4 $r8, $rsi ; %24
-  jl #7 ; %25
-
-MBB #8, '<while_exit>', ir #8, <- #6, -> #1
-  $rcx = add.4 $rcx, $r8 ; %37
-
-MBB #1, '<exit>', ir #1, <- #8
-  $rax = MOP_COPY.4 $rcx ; %40
-  ret ; %40
+  cmp.4 $rcx, $rsi ; %24
+  jge #8 ; %25
 
 MBB #7, '<while_body>', ir #7, <- #6, -> #5
-  $rcx = imul.4 $rcx, $rdx ; %28
+  $rdi = imul.4 $rdi, $rdx ; %28
   jmp #5 ; %30
+
+MBB #8, '<while_exit>', ir #8, <- #6, -> #1
+  $rdi = add.4 $rdi, $rcx ; %37
+
+MBB #1, '<exit>', ir #1, <- #8
+  $rax = MOP_COPY.4 $rdi ; %40
+  ret ; %40
 
 

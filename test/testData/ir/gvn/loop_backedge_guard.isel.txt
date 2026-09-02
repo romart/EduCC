@@ -9,9 +9,9 @@ VRegs:
   %v5 : gp/4 ; %3
   %v6 : gp/4 ; %6
   %v7 : gp/4 ; %9
-  %v8 : gp/4 ; %36
-  %v9 : gp/4 ; %37
-  %v10 : gp/4 ; %25
+  %v8 : gp/4 ; %25
+  %v9 : gp/4 ; %36
+  %v10 : gp/4 ; %37
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
   %v1 = mov.4 0 ; %14
@@ -25,27 +25,27 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #3
 
 MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
   cmp.4 %v2, %v7 ; %20
-  jl #4 ; %21
-
-MBB #5, '<while_exit>', ir #5, <- #3, -> #1
-  %v8 = MOP_COPY.4 %v5 ; %36
-  %v8 = add.4 %v8, %v6 ; %36
-  %v9 = MOP_COPY.4 %v0 ; %37
-  %v9 = add.4 %v9, %v8 ; %37
-
-MBB #1, '<exit>', ir #1, <- #5
-  $rax = MOP_COPY.4 %v9 ; %40
-  ret ; %40
+  jge #5 ; %21
 
 MBB #4, '<while_body>', ir #4, <- #3, -> #3
-  %v10 = MOP_COPY.4 %v5 ; %25
-  %v10 = add.4 %v10, %v6 ; %25
+  %v8 = MOP_COPY.4 %v5 ; %25
+  %v8 = add.4 %v8, %v6 ; %25
   %v3 = MOP_COPY.4 %v0 ; %26
-  %v3 = add.4 %v3, %v10 ; %26
+  %v3 = add.4 %v3, %v8 ; %26
   %v4 = MOP_COPY.4 %v2 ; %30
   %v4 = add.4 %v4, 1 ; %30
   %v0 = MOP_COPY.4 %v3 ; %45
   %v2 = MOP_COPY.4 %v4 ; %43
   jmp #3 ; %32
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+  %v9 = MOP_COPY.4 %v5 ; %36
+  %v9 = add.4 %v9, %v6 ; %36
+  %v10 = MOP_COPY.4 %v0 ; %37
+  %v10 = add.4 %v10, %v9 ; %37
+
+MBB #1, '<exit>', ir #1, <- #5
+  $rax = MOP_COPY.4 %v10 ; %40
+  ret ; %40
 
 

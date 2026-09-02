@@ -206,7 +206,10 @@ MBB #3, '<do_body>', ir #3, <- #2 #12, -> #4
 MBB #4, '<do_tail>', ir #4, <- #3, -> #12 #5
   $r10 = MOP_RELOAD.4 fi#3
   test.4 $r10, $r10 ; %89
-  jne #12 ; %89
+  je #5 ; %89
+
+MBB #12, '<crit_splitter>', ir #12, <- #4, -> #3
+  jmp #3 ; %142
 
 MBB #5, '<do_exit>', ir #5, <- #4, -> #6 #7
   $r10 = mov.4 [fi#2] ; %91
@@ -329,8 +332,5 @@ MBB #1, '<exit>', ir #1, <- #11
   $xmm8 = MOP_RELOAD.8 fi#47
   $xmm0 = MOP_COPY.8 $xmm8 ; %135
   ret ; %135
-
-MBB #12, '<crit_splitter>', ir #12, <- #4, -> #3
-  jmp #3 ; %142
 
 

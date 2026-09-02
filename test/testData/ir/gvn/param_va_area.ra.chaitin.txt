@@ -93,7 +93,10 @@ MBB #3, '<do_body>', ir #3, <- #2 #12, -> #4
 
 MBB #4, '<do_tail>', ir #4, <- #3, -> #12 #5
   test.4 $r11, $r11 ; %89
-  jne #12 ; %89
+  je #5 ; %89
+
+MBB #12, '<crit_splitter>', ir #12, <- #4, -> #3
+  jmp #3 ; %142
 
 MBB #5, '<do_exit>', ir #5, <- #4, -> #6 #7
   $rdx = mov.4 [fi#2] ; %91
@@ -141,8 +144,5 @@ MBB #11, '<va_arg_done>', ir #11, <- #10 #9, -> #1
 
 MBB #1, '<exit>', ir #1, <- #11
   ret ; %135
-
-MBB #12, '<crit_splitter>', ir #12, <- #4, -> #3
-  jmp #3 ; %142
 
 

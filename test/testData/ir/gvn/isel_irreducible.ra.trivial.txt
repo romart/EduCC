@@ -24,8 +24,8 @@ Frame: 48 bytes
   fi#7 : spill 4/4 @ -32 %v0 ; %49
   fi#8 : spill 4/4 @ -36 %v2 ; %43
   fi#9 : spill 4/4 @ -40 %v7 ; %32
-  fi#10 : spill 4/4 @ -44 %v11 ; %37
-  fi#11 : spill 4/4 @ -48 %v5 ; %28
+  fi#10 : spill 4/4 @ -44 %v5 ; %28
+  fi#11 : spill 4/4 @ -48 %v11 ; %37
 Allocator: trivial
 Physical registers used: $rax $rdx $rsi $rdi $r10 $r11
 MBB #0, '<entry>', ir #0, -> #2
@@ -81,36 +81,36 @@ MBB #6, '<while_head>', ir #6, <- #3 #5, -> #7 #8
   $r10 = MOP_RELOAD.4 fi#5
   $r11 = MOP_RELOAD.4 fi#3
   cmp.4 $r10, $r11 ; %24
-  jl #7 ; %25
-
-MBB #8, '<while_exit>', ir #8, <- #6, -> #1
-  $r11 = MOP_RELOAD.4 fi#6
-  $r10 = MOP_COPY.4 $r11 ; %37
-  MOP_SPILL.4 fi#10, $r10
-  $r10 = MOP_RELOAD.4 fi#10
-  $r11 = MOP_RELOAD.4 fi#5
-  $r10 = add.4 $r10, $r11 ; %37
-  MOP_SPILL.4 fi#10, $r10
-
-MBB #1, '<exit>', ir #1, <- #8
-  $r10 = MOP_RELOAD.4 fi#10
-  $rax = MOP_COPY.4 $r10 ; %40
-  ret ; %40
+  jge #8 ; %25
 
 MBB #7, '<while_body>', ir #7, <- #6, -> #5
   $r11 = MOP_RELOAD.4 fi#6
   $r10 = MOP_COPY.4 $r11 ; %28
-  MOP_SPILL.4 fi#11, $r10
-  $r10 = MOP_RELOAD.4 fi#11
+  MOP_SPILL.4 fi#10, $r10
+  $r10 = MOP_RELOAD.4 fi#10
   $r11 = MOP_RELOAD.4 fi#4
   $r10 = imul.4 $r10, $r11 ; %28
-  MOP_SPILL.4 fi#11, $r10
+  MOP_SPILL.4 fi#10, $r10
   $r11 = MOP_RELOAD.4 fi#5
   $r10 = MOP_COPY.4 $r11 ; %49
   MOP_SPILL.4 fi#7, $r10
-  $r11 = MOP_RELOAD.4 fi#11
+  $r11 = MOP_RELOAD.4 fi#10
   $r10 = MOP_COPY.4 $r11 ; %43
   MOP_SPILL.4 fi#8, $r10
   jmp #5 ; %30
+
+MBB #8, '<while_exit>', ir #8, <- #6, -> #1
+  $r11 = MOP_RELOAD.4 fi#6
+  $r10 = MOP_COPY.4 $r11 ; %37
+  MOP_SPILL.4 fi#11, $r10
+  $r10 = MOP_RELOAD.4 fi#11
+  $r11 = MOP_RELOAD.4 fi#5
+  $r10 = add.4 $r10, $r11 ; %37
+  MOP_SPILL.4 fi#11, $r10
+
+MBB #1, '<exit>', ir #1, <- #8
+  $r10 = MOP_RELOAD.4 fi#11
+  $rax = MOP_COPY.4 $r10 ; %40
+  ret ; %40
 
 

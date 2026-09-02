@@ -71,6 +71,7 @@ set(SOURCES
   src/ir/codegen/mirdump.c
   src/ir/codegen/prepare.c
   src/ir/codegen/isel.c
+  src/ir/codegen/loops.c
   src/ir/codegen/liveness.c
   src/ir/codegen/spill.c
   src/ir/codegen/regalloc.c

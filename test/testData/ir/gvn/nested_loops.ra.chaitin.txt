@@ -14,55 +14,54 @@ VRegs:
   %v10 : gp/4 ; %6
   %v11 : gp/4 ; %9
   %v12 : gp/4 ; %12
-  %v13 : gp/4 ; %56
-  %v14 : gp/4 ; %57
-  %v15 : gp/4 ; %46
-  %v16 : gp/4 ; %35
+  %v13 : gp/4 ; %35
+  %v14 : gp/4 ; %46
+  %v15 : gp/4 ; %56
+  %v16 : gp/4 ; %57
 Frame: <empty>
 Allocator: graph colouring
 Physical registers used: $rax $rcx $rdx $rsi $rdi $r8 $r9 $r10 $r11
 MBB #0, '<entry>', ir #0, -> #2
   $rax = mov.4 0 ; %18
   $r10 = MOP_COPY.4 $rdi ; %3
-  $rdi = MOP_COPY.4 $rsi ; %6
-  $r8 = MOP_COPY.4 $rdx ; %9
-  $r9 = MOP_COPY.4 $rcx ; %12
+  $rdi = MOP_COPY.4 $rdx ; %9
+  $r8 = MOP_COPY.4 $rcx ; %12
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #3
-  $rdx = MOP_COPY.4 $rax ; %69
+  $r11 = MOP_COPY.4 $rax ; %69
   $rcx = MOP_COPY.4 $rax ; %67
 
 MBB #3, '<while_head>', ir #3, <- #2 #8, -> #4 #5
-  cmp.4 $rcx, $r8 ; %24
-  jl #4 ; %25
-
-MBB #5, '<while_exit>', ir #5, <- #3, -> #1
-  $r10 = imul.4 $r10, $rdi ; %56
-  $rdx = add.4 $rdx, $r10 ; %57
-
-MBB #1, '<exit>', ir #1, <- #5
-  $rax = MOP_COPY.4 $rdx ; %60
-  ret ; %60
+  cmp.4 $rcx, $rdi ; %24
+  jge #5 ; %25
 
 MBB #4, '<while_body>', ir #4, <- #3, -> #6
-  $rsi = MOP_COPY.4 $rax ; %63
+  $rdx = MOP_COPY.4 $rax ; %63
 
 MBB #6, '<while_head>', ir #6, <- #4 #7, -> #7 #8
-  cmp.4 $rsi, $r9 ; %30
-  jl #7 ; %31
+  cmp.4 $rdx, $r8 ; %30
+  jge #8 ; %31
+
+MBB #7, '<while_body>', ir #7, <- #6, -> #6
+  $r9 = MOP_COPY.4 $r10 ; %35
+  $r9 = imul.4 $r9, $rsi ; %35
+  $r11 = add.4 $r11, $r9 ; %36
+  $rdx = add.4 $rdx, 1 ; %40
+  jmp #6 ; %42
 
 MBB #8, '<while_exit>', ir #8, <- #6, -> #3
-  $rsi = MOP_COPY.4 $r10 ; %46
-  $rsi = imul.4 $rsi, $rdi ; %46
-  $rdx = add.4 $rdx, $rsi ; %47
+  $rdx = MOP_COPY.4 $r10 ; %46
+  $rdx = imul.4 $rdx, $rsi ; %46
+  $r11 = add.4 $r11, $rdx ; %47
   $rcx = add.4 $rcx, 1 ; %50
   jmp #3 ; %52
 
-MBB #7, '<while_body>', ir #7, <- #6, -> #6
-  $r11 = MOP_COPY.4 $r10 ; %35
-  $r11 = imul.4 $r11, $rdi ; %35
-  $rdx = add.4 $rdx, $r11 ; %36
-  $rsi = add.4 $rsi, 1 ; %40
-  jmp #6 ; %42
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+  $r10 = imul.4 $r10, $rsi ; %56
+  $r11 = add.4 $r11, $r10 ; %57
+
+MBB #1, '<exit>', ir #1, <- #5
+  $rax = MOP_COPY.4 $r11 ; %60
+  ret ; %60
 
 

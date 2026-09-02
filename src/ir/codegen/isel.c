@@ -2,6 +2,7 @@
 
 #include "ir/ir.h"
 #include "ir/isel.h"
+#include "ir/loops.h"
 #include "ir/machine.h"
 
 // The selector is looked up here rather than hung off TargetDescriptor
@@ -30,28 +31,75 @@ static const ArchSelector *archSelectorFor(const TargetDescriptor *target) {
 // depth-first walk finishes the first successor's subtree first, so the second
 // successor is what lands immediately after the branch in the reversed order.
 //
-// Note that this makes layout quality depend on an order nobody is
-// maintaining for the purpose. ast2ir adds a conditional branch's successors
-// as [taken, notTaken] almost everywhere, so the not-taken arm usually falls
-// through - the right call for an if-statement, whose two arms are equally
-// likely, and the wrong one for a loop, where the taken edge is the body and
-// runs every iteration. The '||' short-circuit adds its two the other way
-// round, so it comes out inverted from the rest.
+// Which successor that is, is a decision, and until step 39 it was an
+// inheritance: ast2ir adds a conditional branch's successors as
+// [taken, notTaken] almost everywhere, so the not-taken arm fell through - the
+// right call for an if-statement, whose two arms are equally likely, and the
+// wrong one for a loop, where the taken edge is the body and runs every
+// iteration. A while loop came out as head, exit, <the whole rest of the
+// function>, body, and paid a taken conditional branch into the body and a
+// taken jump back out of it on every trip.
 //
-// None of that is a correctness question - the terminator reads 'taken' and
+// So the walk orders each block's successors by loop depth, shallowest first,
+// and the deepest one is the block that lands next. Ordering by loop depth is
+// what makes a loop's body contiguous with its header: the exit leaves the
+// loop and so sorts ahead of the body, gets its subtree finished first, and
+// ends up after it in the reversal.
+//
+// The order is stable, so a block whose successors are all at one depth - most
+// of them, including every if-statement outside a loop - keeps the order
+// ast2ir gave it and lays out exactly as it did before.
+//
+// None of it is a correctness question. The terminator reads 'taken' and
 // 'notTaken' from the branch itself and never from this order, and inverts the
-// condition when the layout calls for it. Making the layout deliberate rather
-// than inherited needs it to know which edges are back edges, which is a piece
-// of loop analysis this pipeline does not have yet: see
-// docs/ir-codegen-design.md section 10.
+// condition when the layout calls for it.
 
-static void layoutVisit(MachineBasicBlock *mbb, Boolean *visited, Vector *postorder) {
+// -============================ Loop structure ============================-
+//
+// Which successor is the deeper one is a question about loops, and the answer
+// comes from src/ir/codegen/loops.c rather than from here: back edges, natural
+// loops and their nesting are wanted by stage 2C's spill ranking too, and two
+// passes with their own idea of where the loops are is two things that can
+// disagree. See include/ir/loops.h.
+
+static void layoutVisit(MachineBasicBlock *mbb, Boolean *visited, const MachineLoopInfo *li,
+                        Vector *postorder) {
   visited[mbb->id] = TRUE;
 
-  for (size_t idx = 0; idx < mbb->succs.size; ++idx) {
-    MachineBasicBlock *succ = (MachineBasicBlock *)getFromVector(&mbb->succs, idx);
+  const size_t numSuccs = mbb->succs.size;
+
+  if (numSuccs > 1) {
+    MachineBasicBlock **order = heapAllocate(numSuccs * sizeof(MachineBasicBlock *));
+
+    for (size_t idx = 0; idx < numSuccs; ++idx) {
+      order[idx] = (MachineBasicBlock *)getFromVector(&mbb->succs, idx);
+    }
+
+    // Insertion sort, shallowest first, and stable because it only moves a
+    // successor past one strictly deeper than it.
+    for (size_t idx = 1; idx < numSuccs; ++idx) {
+      MachineBasicBlock *succ = order[idx];
+      size_t j = idx;
+
+      while (j > 0 && machineLoopDepthOf(li, order[j - 1]) > machineLoopDepthOf(li, succ)) {
+        order[j] = order[j - 1];
+        j -= 1;
+      }
+
+      order[j] = succ;
+    }
+
+    for (size_t idx = 0; idx < numSuccs; ++idx) {
+      if (!visited[order[idx]->id]) {
+        layoutVisit(order[idx], visited, li, postorder);
+      }
+    }
+
+    releaseHeap(order);
+  } else if (numSuccs == 1) {
+    MachineBasicBlock *succ = (MachineBasicBlock *)getFromVector(&mbb->succs, 0);
     if (!visited[succ->id]) {
-      layoutVisit(succ, visited, postorder);
+      layoutVisit(succ, visited, li, postorder);
     }
   }
 
@@ -83,7 +131,10 @@ static void layoutBlocks(MachineFunction *mf) {
   Vector postorder = {0};
   initVector(&postorder, count);
 
-  layoutVisit(mf->blocks.head, visited, &postorder);
+  MachineLoopInfo loops = {0};
+  computeMachineLoops(mf, &loops);
+
+  layoutVisit(mf->blocks.head, visited, &loops, &postorder);
 
   // Anything the walk never reached is not reachable from the entry block. dce
   // deletes those, so in practice there are none - but a layout pass that
@@ -109,6 +160,7 @@ static void layoutBlocks(MachineFunction *mf) {
 
   releaseVector(&postorder);
   releaseVector(&unreached);
+  releaseMachineLoops(&loops);
   releaseHeap(visited);
 }
 

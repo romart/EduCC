@@ -48,10 +48,7 @@ MBB #3, '<while_head>', ir #3, <- #2 #7 #8, -> #4 #10
   $r10 = MOP_RELOAD.4 fi#5
   $r11 = MOP_RELOAD.4 fi#3
   cmp.4 $r10, $r11 ; %20
-  jl #4 ; %21
-
-MBB #10, '<crit_splitter>', ir #10, <- #3, -> #5
-  jmp #5 ; %65
+  jge #10 ; %21
 
 MBB #4, '<while_body>', ir #4, <- #3, -> #7 #6
   $r11 = MOP_RELOAD.4 fi#5
@@ -93,6 +90,15 @@ MBB #8, '<if_exit>', ir #8, <- #6, -> #3
   jmp #3 ; %42
 
 MBB #9, '<if_then>', ir #9, <- #6, -> #5
+  jmp #5 ; %35
+
+MBB #7, '<if_then>', ir #7, <- #4, -> #3
+  $r11 = MOP_RELOAD.4 fi#6
+  $r10 = MOP_COPY.4 $r11 ; %53
+  MOP_SPILL.4 fi#5, $r10
+  jmp #3 ; %30
+
+MBB #10, '<crit_splitter>', ir #10, <- #3, -> #5
 
 MBB #5, '<while_exit>', ir #5, <- #10 #9, -> #1
   $r11 = MOP_RELOAD.4 fi#1
@@ -114,11 +120,5 @@ MBB #1, '<exit>', ir #1, <- #5
   $r10 = MOP_RELOAD.4 fi#10
   $rax = MOP_COPY.4 $r10 ; %50
   ret ; %50
-
-MBB #7, '<if_then>', ir #7, <- #4, -> #3
-  $r11 = MOP_RELOAD.4 fi#6
-  $r10 = MOP_COPY.4 $r11 ; %53
-  MOP_SPILL.4 fi#5, $r10
-  jmp #3 ; %30
 
 

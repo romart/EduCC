@@ -34,14 +34,7 @@ MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
   $r10 = MOP_RELOAD.4 fi#3
   $r11 = MOP_RELOAD.4 fi#1
   cmp.4 $r10, $r11 ; %14
-  jl #4 ; %15
-
-MBB #5, '<while_exit>', ir #5, <- #3, -> #1
-
-MBB #1, '<exit>', ir #1, <- #5
-  $r10 = MOP_RELOAD.4 fi#2
-  $rax = MOP_COPY.4 $r10 ; %30
-  ret ; %30
+  jge #5 ; %15
 
 MBB #4, '<while_body>', ir #4, <- #3, -> #3
   $r11 = MOP_RELOAD.4 fi#2
@@ -63,5 +56,12 @@ MBB #4, '<while_body>', ir #4, <- #3, -> #3
   $r10 = MOP_COPY.4 $r11 ; %33
   MOP_SPILL.4 fi#3, $r10
   jmp #3 ; %26
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+
+MBB #1, '<exit>', ir #1, <- #5
+  $r10 = MOP_RELOAD.4 fi#2
+  $rax = MOP_COPY.4 $r10 ; %30
+  ret ; %30
 
 
