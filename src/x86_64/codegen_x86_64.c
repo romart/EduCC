@@ -1630,6 +1630,10 @@ static void generateAssign(GeneratedFunction *f, AstExpression *expression) {
               emitPopReg(f, R_ACC);
           }
           storeBitField(f, lType, R_ACC, &addr);
+          // The assignment's value is the field read back: storeBitField leaves
+          // the raw bits behind, extended from neither the field's width nor
+          // the storage type's.
+          loadBitField(f, lType, &addr, R_ACC);
       } else {
           if (isCompositeType(lType)) {
             emitPopReg(f, R_TMP2); // load result
@@ -1678,6 +1682,19 @@ static void generateAssign(GeneratedFunction *f, AstExpression *expression) {
                 if (resultReg != R_ACC) {
                     emitMoveRR(f, resultReg, R_ACC, typeSize);
                 }
+
+                // The assignment's value, widened the way emitLoad widens the
+                // same type: whatever reads it expects a narrow value to have
+                // been extended already. Without this the bytes above it are
+                // the ones the rvalue and the address computation left there.
+                switch (lTypeId) {
+                case T_BOOL:
+                case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break;
+                case T_S1: emitMovxxRR(f, 0xBE, R_ACC, R_ACC); break;
+                case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break;
+                case T_S2: emitMovxxRR(f, 0xBF, R_ACC, R_ACC); break;
+                default: break;
+                }
             }
           }
       }
@@ -1705,6 +1722,7 @@ static void generateAssign(GeneratedFunction *f, AstExpression *expression) {
         emitArithRR(f, selectAssignOpcode(op, storageType), R_ACC, R_TMP, typeSize);
 
         storeBitField(f, lType, R_ACC, &addr);
+        loadBitField(f, lType, &addr, R_ACC);
 
     } else {
         if (isFP) {
@@ -1797,6 +1815,7 @@ static void generateAssignDiv(GeneratedFunction *f, AstExpression *expression) {
       }
 
       storeBitField(f, lType, result, &addr);
+      loadBitField(f, lType, &addr, R_ACC);
   } else {
       emitLoad(f, &addr, R_ACC, rTypeId);
       emitPopReg(f, R_TMP2);

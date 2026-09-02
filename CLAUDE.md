@@ -183,11 +183,11 @@ Nothing here is wired into `ctest`: it measures wall-clock time, it takes minute
 
 | | legacy | trivial | linear | cc -O0 | cc -O2 |
 | --- | --- | --- | --- | --- | --- |
-| run time | 3.39 | 6.86 | **2.26** | 3.05 | 1.42 |
-| `.text` | 11.9K | 23.5K | 11.1K | 8.8K | 12.4K |
+| run time | 3.73 | 6.56 | **2.12** | 3.07 | 1.25 |
+| `.text` | 12.0K | 23.5K | 11.1K | 8.8K | 12.4K |
 | spill slots | — | 14092 | 1844 | — | — |
 
-The linear scan is 3× the trivial allocator and beats the host compiler at `-O0`. The `legacy` column understates itself: `strings` segfaults there (the narrow-store bug above), so its 0.08s is a crash, not a time. It is not free: compiling EduCC's own sources it is the *slowest* of the three configurations (0.41s against `trivial`'s 0.36s and `-legacy`'s 0.21s), which is the allocator doing work the other two do not.
+The linear scan is 3× the trivial allocator and beats the host compiler at `-O0`. It is not free: compiling EduCC's own sources it is the *slowest* of the three configurations (0.39s against `trivial`'s 0.34s and `-legacy`'s 0.20s), which is the allocator doing work the other two do not.
 
 ## Architecture
 
