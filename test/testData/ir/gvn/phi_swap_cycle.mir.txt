@@ -8,13 +8,13 @@ VRegs:
   %v4 : gp/4 ; %65
   %v5 : gp/4 ; %3
   %v6 : gp/4 ; %30
-  %v7 : gp/4
-  %v8 : gp/4 ; %73
-  %v9 : gp/4 ; %71
-  %v10 : gp/4 ; %9
-  %v11 : gp/4 ; %67
-  %v12 : gp/4 ; %63
-  %v13 : gp/4 ; %46
+  %v7 : gp/4 ; %73
+  %v8 : gp/4 ; %71
+  %v9 : gp/4 ; %9
+  %v10 : gp/4 ; %67
+  %v11 : gp/4 ; %63
+  %v12 : gp/4 ; %46
+  %v13 : gp/4
   %v14 : gp/4
 Frame: <empty>
 MBB #0, '<entry>', ir #0, -> #2
@@ -30,24 +30,24 @@ MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
 
 MBB #4, '<while_body>', ir #4, <- #3, -> #3
   %v0 = MOP_COPY.4 %v6 ; %75
-  %v7 = MOP_COPY.4 %v2
+  %v13 = MOP_COPY.4 %v2
   %v2 = MOP_COPY.4 %v4 ; %69
-  %v4 = MOP_COPY.4 %v7 ; %65
+  %v4 = MOP_COPY.4 %v13 ; %65
 
 MBB #5, '<while_exit>', ir #5, <- #3, -> #6
-  %v8 = MOP_COPY.4 %v0 ; %73
-  %v9 = MOP_COPY.4 %v10 ; %71
-  %v11 = MOP_COPY.4 %v2 ; %67
-  %v12 = MOP_COPY.4 %v4 ; %63
+  %v7 = MOP_COPY.4 %v0 ; %73
+  %v8 = MOP_COPY.4 %v9 ; %71
+  %v10 = MOP_COPY.4 %v2 ; %67
+  %v11 = MOP_COPY.4 %v4 ; %63
 
 MBB #6, '<while_head>', ir #6, <- #5 #7, -> #7 #8
 
 MBB #7, '<while_body>', ir #7, <- #6, -> #6
-  %v8 = MOP_COPY.4 %v13 ; %73
-  %v14 = MOP_COPY.4 %v9
-  %v9 = MOP_COPY.4 %v12 ; %71
-  %v12 = MOP_COPY.4 %v11 ; %63
-  %v11 = MOP_COPY.4 %v14 ; %67
+  %v7 = MOP_COPY.4 %v12 ; %73
+  %v14 = MOP_COPY.4 %v8
+  %v8 = MOP_COPY.4 %v11 ; %71
+  %v11 = MOP_COPY.4 %v10 ; %63
+  %v10 = MOP_COPY.4 %v14 ; %67
 
 MBB #8, '<while_exit>', ir #8, <- #6, -> #1
 

@@ -23,14 +23,10 @@
 // cannot be redirected by rewriting the terminator the way a conditional or a
 // switch can.
 //
-// Nothing here has to cope with that, because nothing places a phi behind such
-// an edge in the first place - buildSSA declines to promote an alloca that
-// would need one and gvn's pre() declines to insert one, both asking
-// hasUnsplittablePredecessor(). This is where that becomes load-bearing, so
-// this is where it is checked: below, phi destruction appends the copies for
-// every incoming edge to the predecessor they come from, and on a shared
-// unsplittable edge they would all run whichever way control then went.
-// test/testData/ir/gvn/computed_goto_phi.c is the shape it is checked against.
+// A phi behind such an edge is allowed all the same: phi destruction takes
+// every edge out of one block as a single parallel assignment, which is what
+// makes the copies for one target harmless on the way to another. See
+// destroyPhiNodes() below for why that works.
 static Boolean isUnsplittableEdge(const IrBasicBlock *block, const IrBasicBlock *succ) {
   return block->term != NULL && block->term->kind == IR_IBRANCH;
 }
@@ -41,10 +37,6 @@ static void assertCriticalEdgesSplit(const IrFunction *f) {
       const IrBasicBlock *succ = getBlockFromVector(&block->succs, idx);
       assert(!isCriticalEdge(block, succ) || isUnsplittableEdge(block, succ));
     }
-
-    assert((block->instrunctions.head == NULL || block->instrunctions.head->kind != IR_PHI ||
-            !hasUnsplittablePredecessor(block)) &&
-           "a phi behind an edge its copies cannot be put on");
   }
 }
 
@@ -110,6 +102,13 @@ static void sequentializeCopies(MachineFunction *mf, MachineBasicBlock *mbb, Par
   size_t remaining = 0;
 
   for (size_t idx = 0; idx < count; ++idx) {
+    // Distinct destinations are what the whole algorithm rests on, and what
+    // stops a predecessor listed twice by the same successor from reaching
+    // here - splitCriticalEdges() gives each of those edges a block of its own.
+    for (size_t other = 0; other < idx; ++other) {
+      assert(copies[other].dst != copies[idx].dst && "two copies into one phi");
+    }
+
     // 'x <- x' says nothing and would otherwise look like a cycle of one.
     copies[idx].emitted = copies[idx].dst == copies[idx].src;
     if (!copies[idx].emitted) {
@@ -184,53 +183,108 @@ static size_t countPhis(const IrBasicBlock *block) {
   return count;
 }
 
-static void destroyPhisOfBlock(MachineFunction *mf, const IrBasicBlock *block, size_t numPhis) {
-  ParallelCopy *copies = heapAllocate(numPhis * sizeof(ParallelCopy));
+// Where one predecessor's copies accumulate while the walk below collects
+// them, so that everything belonging at the end of a block is written out at
+// once. Indexed by machine block id, which is dense.
+typedef struct _EdgeCopies {
+  ParallelCopy *copies;
+  size_t count;
+} EdgeCopies;
 
-  // One parallel assignment per incoming edge, carrying every phi's value for
-  // that edge. Edges are identified by position rather than by which block
-  // they come from, because a predecessor can legitimately appear twice - a
-  // branch with both arms landing here - and the two entries then need the
-  // copies that belong to each edge, not two copies of the first one. The
-  // assertion is what keeps that positional reading honest: every phi has to
-  // list the block's predecessors in the block's own order.
-  for (size_t edge = 0; edge < block->preds.size; ++edge) {
-    size_t idx = 0;
+// Adds the copies for the edge at position 'edge' into 'block' to whichever
+// predecessor that edge comes from.
+//
+// Edges are identified by position rather than by which block they come from,
+// because a predecessor can legitimately appear twice - a branch with both
+// arms landing here - and the two entries then need the copies that belong to
+// each edge, not two copies of the first one. The assertion is what keeps that
+// positional reading honest: every phi has to list the block's predecessors in
+// the block's own order.
+static void collectEdgeCopies(MachineFunction *mf, const IrBasicBlock *block, size_t edge,
+                              EdgeCopies *pending) {
+  IrBasicBlock *pred = getBlockFromVector(&block->preds, edge);
+  EdgeCopies *bucket = &pending[machineBlockOf(mf, pred)->id];
 
-    for (const IrInstruction *phi = block->instrunctions.head;
-         phi != NULL && phi->kind == IR_PHI; phi = phi->next, ++idx) {
-      const Vector *phiBlocks = &phi->info.phi.phiBlocks;
-      assert(phiBlocks->size == block->preds.size);
-      assert(getBlockFromVector(phiBlocks, edge) == getBlockFromVector(&block->preds, edge));
+  for (const IrInstruction *phi = block->instrunctions.head;
+       phi != NULL && phi->kind == IR_PHI; phi = phi->next) {
+    const Vector *phiBlocks = &phi->info.phi.phiBlocks;
+    assert(phiBlocks->size == block->preds.size);
+    assert(getBlockFromVector(phiBlocks, edge) == getBlockFromVector(&block->preds, edge));
 
-      const IrInstruction *value = getInstructionFromVector(&phi->inputs, edge);
-      copies[idx].dst = machineVregForValue(mf, phi);
-      copies[idx].src = machineVregForValue(mf, value);
-      copies[idx].phi = phi;
-    }
-
-    assert(idx == numPhis);
-
-    IrBasicBlock *pred = getBlockFromVector(&block->preds, edge);
-    sequentializeCopies(mf, machineBlockOf(mf, pred), copies, numPhis);
+    const IrInstruction *value = getInstructionFromVector(&phi->inputs, edge);
+    ParallelCopy *copy = &bucket->copies[bucket->count++];
+    copy->dst = machineVregForValue(mf, phi);
+    copy->src = machineVregForValue(mf, value);
+    copy->phi = phi;
   }
-
-  releaseHeap(copies);
 }
 
+// The copies for one edge belong at the end of the predecessor that edge comes
+// from, so this is driven by predecessor: everything one block owes its
+// successors is collected first and written out as a single parallel
+// assignment.
+//
+// Ordinarily a block owes exactly one edge's worth, so the grouping changes
+// nothing - a critical edge is split, and a block with several successors
+// therefore feeds successors with one predecessor each. A computed goto is the
+// exception, its edges being the ones splitCriticalEdges() cannot touch, and
+// there the copies for every target land in the one block the goto is in.
+//
+// Which is why they have to be one assignment and not several concatenated.
+// Taken together they are correct for whichever way control then goes: a phi's
+// register is read only in the block that phi heads, and every edge into that
+// block writes it, so the copies belonging to the targets not taken write
+// registers that are dead on the path actually taken. What the parallel form
+// adds is the other half - one target's destination is never read as another
+// target's source, which sequentializing each edge on its own and running the
+// results one after another does not guarantee.
+//
+// Driven off the IR rather than off the machine blocks because that is where
+// the phis still are: stage 0 runs before selection, so the machine blocks are
+// empty and the copies below are their first instructions. The IR phis are
+// left in place - nothing reads them again, and deleting them would only
+// invalidate the inputs of whatever still lists them - so instruction
+// selection has to skip IR_PHI when it walks a block.
 static void destroyPhiNodes(MachineFunction *mf) {
-  // Driven off the IR rather than off the machine blocks because that is where
-  // the phis still are: stage 0 runs before selection, so the machine blocks
-  // are empty and the copies below are their first instructions. The IR phis
-  // are left in place - nothing reads them again, and deleting them would only
-  // invalidate the inputs of whatever still lists them - so instruction
-  // selection has to skip IR_PHI when it walks a block.
+  const size_t numBlocks = mf->numBlocks;
+  EdgeCopies *pending = heapAllocate(numBlocks * sizeof(EdgeCopies));
+  memset(pending, 0, numBlocks * sizeof(EdgeCopies));
+
   for (const IrBasicBlock *block = mf->ir->blocks.head; block != NULL; block = block->next) {
     size_t numPhis = countPhis(block);
-    if (numPhis != 0) {
-      destroyPhisOfBlock(mf, block, numPhis);
+
+    for (size_t edge = 0; numPhis != 0 && edge < block->preds.size; ++edge) {
+      IrBasicBlock *pred = getBlockFromVector(&block->preds, edge);
+      pending[machineBlockOf(mf, pred)->id].count += numPhis;
     }
   }
+
+  for (size_t id = 0; id < numBlocks; ++id) {
+    if (pending[id].count != 0) {
+      pending[id].copies = heapAllocate(pending[id].count * sizeof(ParallelCopy));
+      pending[id].count = 0;
+    }
+  }
+
+  for (const IrBasicBlock *block = mf->ir->blocks.head; block != NULL; block = block->next) {
+    if (countPhis(block) == 0) {
+      continue;
+    }
+
+    for (size_t edge = 0; edge < block->preds.size; ++edge) {
+      collectEdgeCopies(mf, block, edge, pending);
+    }
+  }
+
+  for (MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
+    EdgeCopies *bucket = &pending[mbb->id];
+    if (bucket->count != 0) {
+      sequentializeCopies(mf, mbb, bucket->copies, bucket->count);
+      releaseHeap(bucket->copies);
+    }
+  }
+
+  releaseHeap(pending);
 }
 
 // -============================ Frame layout ============================-

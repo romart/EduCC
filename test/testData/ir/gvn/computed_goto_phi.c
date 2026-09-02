@@ -9,16 +9,16 @@
 // local to repoint, and splitCriticalEdges() skips IR_IBRANCH blocks outright.
 //
 // That matters because 'acc' is live across both gotos and read by both
-// labels, so promoting it would put a phi in each: phi destruction would then
-// want a copy on each incoming edge, and here two of those edges share a
-// predecessor with nowhere to put anything edge-specific.
+// labels, so promoting it puts a phi in each, and phi destruction wants a copy
+// on each incoming edge - while here two of those edges share a predecessor
+// with nowhere to put anything edge-specific.
 //
-// So it is not promoted. buildSSA asks hasUnsplittablePredecessor() before it
-// counts an alloca as a candidate and leaves this one in memory, which is why
-// 'acc' still has its stores and loads below and neither label has a phi. That
-// costs this one variable a load and a store and nothing else - the function
-// is still built by the IR backend, which is the point: the alternative was
-// handing the whole thing back to the legacy one.
+// It is promoted anyway, which is what this dump pins. Each 'goto *' block
+// carries the copies for *both* labels, as one parallel assignment: a phi's
+// register is read only in the block that phi heads and every edge into that
+// block writes it, so on the way to A the copy belonging to B writes a
+// register nothing will read before B is entered again and writes it afresh.
+// So 'acc' has no stack slot below and each dispatch block holds two copies.
 int computed_goto_phi(int n, int k) {
     void *tab[2];
     int acc = 0;

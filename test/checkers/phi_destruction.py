@@ -14,6 +14,11 @@ holds. A phi whose register does not end up holding the incoming value's
 register means the copies were sequentialized in an order that clobbered one
 of them - which is what a naive in-order sequentialization does to a swap.
 
+A block ending in a computed goto owes copies to every target at once, its
+edges being the ones that cannot be split, and the sequence executed here is
+therefore all of them. That is the point: each target's phi still has to come
+out holding what its own edge carried.
+
 Reads two dumps of the same function: '-irDump:dce' for the phis (the last IR
 before the machine backend) and '-irDump:mir' for the copies stage 0 emitted.
 """

@@ -723,11 +723,12 @@ Boolean isCriticalEdge(const IrBasicBlock *src, const IrBasicBlock *dst) {
 // alone, so that anything belonging on it has to be put in the predecessor
 // and will then run whichever successor control actually goes to.
 //
-// A phi is precisely such a thing - it becomes a copy on each incoming edge -
-// so a block this is true of is a block no phi may be placed in, and both
-// passes that place them have to ask. Being a *placement* rule rather than
-// something the backend copes with afterwards is what keeps it checkable: by
-// the time the copies exist there is no record left of which edge each was for.
+// A phi is not such a thing, though it looks like one: its copies are dead on
+// the paths they do not belong to, which is why phi destruction can put every
+// edge's worth in the one block and let them all run (src/ir/codegen/prepare.c).
+// A *computation* is, and that is what this is left for - gvn's pre() clones
+// one into a predecessor, where running it on the way somewhere else is
+// speculation rather than a copy nobody reads.
 Boolean hasUnsplittablePredecessor(const IrBasicBlock *block) {
   for (size_t idx = 0; idx < block->preds.size; ++idx) {
     const IrBasicBlock *pred = getBlockFromVector(&block->preds, idx);

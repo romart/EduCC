@@ -4,66 +4,60 @@ VRegs:
   %v0 : gp/4 ; %60
   %v1 : gp/4 ; %49
   %v2 : gp/4 ; %54
-  %v3 : gp/4 ; %12
-  %v4 : gp/8 ; %10
-  %v5 : gp/8 ; %1
-  %v6 : gp/4 ; %3
-  %v7 : gp/4 ; %6
-  %v8 : gp/8 ; %18
-  %v9 : gp/8 ; %24
-  %v10 : gp/4 ; %39
-  %v11 : gp/8 ; %42
-  %v12 : gp/8 ; %45
-  %v13 : gp/4 ; %30
+  %v3 : gp/4 ; %62
+  %v4 : gp/4 ; %30
+  %v5 : gp/4 ; %39
+  %v6 : gp/4 ; %64
+  %v7 : gp/8 ; %10
+  %v8 : gp/4 ; %3
+  %v9 : gp/4 ; %6
+  %v10 : gp/8 ; %18
+  %v11 : gp/8 ; %24
+  %v12 : gp/8 ; %42
+  %v13 : gp/8 ; %45
   %v14 : gp/8 ; %33
   %v15 : gp/8 ; %36
-  %v16 : gp/4 ; %52
-  %v17 : gp/4 ; %47
-Frame: 32 bytes
-  fi#0 : local 8/4 @ -8 'acc' ; %9
-  fi#1 : local 16/8 @ -24 'tab' ; %11
+Frame: 16 bytes
+  fi#0 : local 16/8 @ -16 'tab' ; %11
 MBB #0, '<entry>', ir #0, -> #4
-  %v3 = mov.4 0 ; %12
-  %v4 = mov.8 16 ; %10
-  %v5 = mov.8 8 ; %1
-  %v6 = MOP_COPY.4 $rdi ; %3
-  %v7 = MOP_COPY.4 $rsi ; %6
+  %v7 = mov.8 16 ; %10
+  %v8 = MOP_COPY.4 $rdi ; %3
+  %v9 = MOP_COPY.4 $rsi ; %6
 
 MBB #4, '<FIRST>', ir #4, <- #0, -> #6 #5
-  mov.4 [fi#0], %v3 ; %13
-  %v8 = lea.8 [#2] ; %18
-  mov.8 [fi#1], %v8 ; %19
-  %v9 = lea.8 [#3] ; %24
-  mov.8 [fi#1 + 8], %v9 ; %25
-  cmp.4 %v6, %v3 ; %27
+  %v10 = lea.8 [#2] ; %18
+  mov.8 [fi#0], %v10 ; %19
+  %v11 = lea.8 [#3] ; %24
+  mov.8 [fi#0 + 8], %v11 ; %25
+  cmp.4 %v8, 0 ; %27
   jg #6 ; %28
 
 MBB #5, '<if_exit>', ir #5, <- #4, -> #2 #3
-  %v10 = MOP_COPY.4 %v6 ; %39
-  %v10 = sub.4 %v10, 1 ; %39
-  mov.4 [fi#0], %v10 ; %40
-  %v11 = movsx.8/4 %v7 ; %42
-  %v12 = mov.8 [fi#1 + %v11*8] ; %45
-  jmp*.8 %v12 ; %46
+  %v5 = MOP_COPY.4 %v8 ; %39
+  %v5 = sub.4 %v5, 1 ; %39
+  %v12 = movsx.8/4 %v9 ; %42
+  %v13 = mov.8 [fi#0 + %v12*8] ; %45
+  %v3 = MOP_COPY.4 %v5 ; %62
+  %v6 = MOP_COPY.4 %v5 ; %64
+  jmp*.8 %v13 ; %46
 
 MBB #6, '<if_then>', ir #6, <- #4, -> #2 #3
-  %v13 = MOP_COPY.4 %v6 ; %30
-  %v13 = add.4 %v13, 1 ; %30
-  mov.4 [fi#0], %v13 ; %31
-  %v14 = movsx.8/4 %v7 ; %33
-  %v15 = mov.8 [fi#1 + %v14*8] ; %36
+  %v4 = MOP_COPY.4 %v8 ; %30
+  %v4 = add.4 %v4, 1 ; %30
+  %v14 = movsx.8/4 %v9 ; %33
+  %v15 = mov.8 [fi#0 + %v14*8] ; %36
+  %v3 = MOP_COPY.4 %v4 ; %62
+  %v6 = MOP_COPY.4 %v4 ; %64
   jmp*.8 %v15 ; %37
 
 MBB #3, 'B', ir #3, <- #6 #5, -> #1
-  %v16 = mov.4 [fi#0] ; %52
-  %v2 = MOP_COPY.4 %v16 ; %54
+  %v2 = MOP_COPY.4 %v6 ; %54
   %v2 = add.4 %v2, 20 ; %54
   %v0 = MOP_COPY.4 %v2 ; %60
   jmp #1 ; %56
 
 MBB #2, 'A', ir #2, <- #6 #5, -> #1
-  %v17 = mov.4 [fi#0] ; %47
-  %v1 = MOP_COPY.4 %v17 ; %49
+  %v1 = MOP_COPY.4 %v3 ; %49
   %v1 = add.4 %v1, 10 ; %49
   %v0 = MOP_COPY.4 %v1 ; %60
 

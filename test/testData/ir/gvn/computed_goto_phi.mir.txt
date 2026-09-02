@@ -4,9 +4,12 @@ VRegs:
   %v0 : gp/4 ; %60
   %v1 : gp/4 ; %49
   %v2 : gp/4 ; %54
-Frame: 32 bytes
-  fi#0 : local 8/4 @ -8 'acc' ; %9
-  fi#1 : local 16/8 @ -24 'tab' ; %11
+  %v3 : gp/4 ; %62
+  %v4 : gp/4 ; %30
+  %v5 : gp/4 ; %39
+  %v6 : gp/4 ; %64
+Frame: 16 bytes
+  fi#0 : local 16/8 @ -16 'tab' ; %11
 MBB #0, '<entry>', ir #0, -> #4
 
 MBB #1, '<exit>', ir #1, <- #2 #3
@@ -20,7 +23,11 @@ MBB #3, 'B', ir #3, <- #6 #5, -> #1
 MBB #4, '<FIRST>', ir #4, <- #0, -> #6 #5
 
 MBB #5, '<if_exit>', ir #5, <- #4, -> #2 #3
+  %v3 = MOP_COPY.4 %v5 ; %62
+  %v6 = MOP_COPY.4 %v5 ; %64
 
 MBB #6, '<if_then>', ir #6, <- #4, -> #2 #3
+  %v3 = MOP_COPY.4 %v4 ; %62
+  %v6 = MOP_COPY.4 %v4 ; %64
 
 

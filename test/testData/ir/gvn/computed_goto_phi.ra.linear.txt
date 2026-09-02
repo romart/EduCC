@@ -4,73 +4,67 @@ VRegs:
   %v0 : gp/4 ; %60
   %v1 : gp/4 ; %49
   %v2 : gp/4 ; %54
-  %v3 : gp/4 ; %12
-  %v4 : gp/8 ; %10
-  %v5 : gp/8 ; %1
-  %v6 : gp/4 ; %3
-  %v7 : gp/4 ; %6
-  %v8 : gp/8 ; %18
-  %v9 : gp/8 ; %24
-  %v10 : gp/4 ; %39
-  %v11 : gp/8 ; %42
-  %v12 : gp/8 ; %45
-  %v13 : gp/4 ; %30
+  %v3 : gp/4 ; %62
+  %v4 : gp/4 ; %30
+  %v5 : gp/4 ; %39
+  %v6 : gp/4 ; %64
+  %v7 : gp/8 ; %10
+  %v8 : gp/4 ; %3
+  %v9 : gp/4 ; %6
+  %v10 : gp/8 ; %18
+  %v11 : gp/8 ; %24
+  %v12 : gp/8 ; %42
+  %v13 : gp/8 ; %45
   %v14 : gp/8 ; %33
   %v15 : gp/8 ; %36
-  %v16 : gp/4 ; %52
-  %v17 : gp/4 ; %47
-Frame: 32 bytes
-  fi#0 : local 8/4 @ -8 'acc' ; %9
-  fi#1 : local 16/8 @ -24 'tab' ; %11
+Frame: 16 bytes
+  fi#0 : local 16/8 @ -16 'tab' ; %11
 Allocator: linear scan
-Physical registers used: $rax $rcx $rdx $rsi $rdi
+Physical registers used: $rax $rcx $rdx $rsi $rdi $r8
 MBB #0, '<entry>', ir #0, -> #4
-  $rax = mov.4 0 ; %12
-  $rcx = mov.8 16 ; %10
-  $rcx = mov.8 8 ; %1
-  $rcx = MOP_COPY.4 $rdi ; %3
-  $rdx = MOP_COPY.4 $rsi ; %6
+  $rax = mov.8 16 ; %10
+  $rax = MOP_COPY.4 $rdi ; %3
+  $rcx = MOP_COPY.4 $rsi ; %6
 
 MBB #4, '<FIRST>', ir #4, <- #0, -> #6 #5
-  mov.4 [fi#0], $rax ; %13
-  $rsi = lea.8 [#2] ; %18
-  mov.8 [fi#1], $rsi ; %19
-  $rsi = lea.8 [#3] ; %24
-  mov.8 [fi#1 + 8], $rsi ; %25
-  cmp.4 $rcx, $rax ; %27
+  $rdx = lea.8 [#2] ; %18
+  mov.8 [fi#0], $rdx ; %19
+  $rdx = lea.8 [#3] ; %24
+  mov.8 [fi#0 + 8], $rdx ; %25
+  cmp.4 $rax, 0 ; %27
   jg #6 ; %28
 
 MBB #5, '<if_exit>', ir #5, <- #4, -> #2 #3
-  $rax = MOP_COPY.4 $rcx ; %39
-  $rax = sub.4 $rax, 1 ; %39
-  mov.4 [fi#0], $rax ; %40
-  $rax = movsx.8/4 $rdx ; %42
-  $rsi = mov.8 [fi#1 + $rax*8] ; %45
-  jmp*.8 $rsi ; %46
+  $rdx = MOP_COPY.4 $rax ; %39
+  $rdx = sub.4 $rdx, 1 ; %39
+  $rsi = movsx.8/4 $rcx ; %42
+  $rdi = mov.8 [fi#0 + $rsi*8] ; %45
+  $rsi = MOP_COPY.4 $rdx ; %62
+  $r8 = MOP_COPY.4 $rdx ; %64
+  jmp*.8 $rdi ; %46
 
 MBB #6, '<if_then>', ir #6, <- #4, -> #2 #3
-  $rax = MOP_COPY.4 $rcx ; %30
-  $rax = add.4 $rax, 1 ; %30
-  mov.4 [fi#0], $rax ; %31
-  $rax = movsx.8/4 $rdx ; %33
-  $rcx = mov.8 [fi#1 + $rax*8] ; %36
+  $rdx = MOP_COPY.4 $rax ; %30
+  $rdx = add.4 $rdx, 1 ; %30
+  $rax = movsx.8/4 $rcx ; %33
+  $rcx = mov.8 [fi#0 + $rax*8] ; %36
+  $rsi = MOP_COPY.4 $rdx ; %62
+  $r8 = MOP_COPY.4 $rdx ; %64
   jmp*.8 $rcx ; %37
 
 MBB #3, 'B', ir #3, <- #6 #5, -> #1
-  $rax = mov.4 [fi#0] ; %52
-  $rcx = MOP_COPY.4 $rax ; %54
-  $rcx = add.4 $rcx, 20 ; %54
-  $rdx = MOP_COPY.4 $rcx ; %60
+  $rax = MOP_COPY.4 $r8 ; %54
+  $rax = add.4 $rax, 20 ; %54
+  $rcx = MOP_COPY.4 $rax ; %60
   jmp #1 ; %56
 
 MBB #2, 'A', ir #2, <- #6 #5, -> #1
-  $rax = mov.4 [fi#0] ; %47
-  $rcx = MOP_COPY.4 $rax ; %49
-  $rcx = add.4 $rcx, 10 ; %49
-  $rdx = MOP_COPY.4 $rcx ; %60
+  $rax = MOP_COPY.4 $rsi ; %49
+  $rax = add.4 $rax, 10 ; %49
+  $rcx = MOP_COPY.4 $rax ; %60
 
 MBB #1, '<exit>', ir #1, <- #2 #3
-  $rax = MOP_COPY.4 $rdx ; %57
+  $rax = MOP_COPY.4 $rcx ; %57
   ret ; %57
 
 
