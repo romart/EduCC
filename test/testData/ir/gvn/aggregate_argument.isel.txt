@@ -7,7 +7,7 @@ VRegs:
   %v3 : gp/8
   %v4 : gp/8
   %v5 : gp/4 ; %6
-Frame: 32 bytes
+Frame: 32 bytes, 32 outgoing
   fi#0 : param 24/8 @ 16 's' ; %2
   fi#1 : local 24/8 @ -24 ; %8
 MBB #0, '<entry>', ir #0, -> #2
@@ -22,15 +22,13 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   mov.8 [fi#1 + 8], %v3 ; %9
   %v3 = mov.8 [fi#0 + 16] ; %9
   mov.8 [fi#1 + 16], %v3 ; %9
-  $rsp = sub.8 $rsp, 8 ; %6
-  %v4 = mov.8 [fi#1 + 16] ; %6
-  push.8 %v4 ; %6
-  %v4 = mov.8 [fi#1 + 8] ; %6
-  push.8 %v4 ; %6
   %v4 = mov.8 [fi#1] ; %6
-  push.8 %v4 ; %6
+  mov.8 [$rsp], %v4 ; %6
+  %v4 = mov.8 [fi#1 + 8] ; %6
+  mov.8 [$rsp + 8], %v4 ; %6
+  %v4 = mov.8 [fi#1 + 16] ; %6
+  mov.8 [$rsp + 16], %v4 ; %6
   call takeBig [implicit-def $rax] <clobbers caller-saved> ; %6
-  $rsp = add.8 $rsp, 32 ; %6
   %v5 = MOP_COPY.4 $rax ; %6
 
 MBB #1, '<exit>', ir #1, <- #2
@@ -49,7 +47,7 @@ VRegs:
   %v5 : gp/8
   %v6 : gp/8
   %v7 : gp/4 ; %12
-Frame: 32 bytes
+Frame: 32 bytes, 32 outgoing
   fi#0 : param 24/8 @ 16 's' ; %6
   fi#1 : local 24/8 @ -24 ; %15
 MBB #0, '<entry>', ir #0, -> #2
@@ -66,17 +64,15 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   mov.8 [fi#1 + 8], %v5 ; %16
   %v5 = mov.8 [fi#0 + 16] ; %16
   mov.8 [fi#1 + 16], %v5 ; %16
-  $rsp = sub.8 $rsp, 8 ; %12
-  %v6 = mov.8 [fi#1 + 16] ; %12
-  push.8 %v6 ; %12
-  %v6 = mov.8 [fi#1 + 8] ; %12
-  push.8 %v6 ; %12
   %v6 = mov.8 [fi#1] ; %12
-  push.8 %v6 ; %12
+  mov.8 [$rsp], %v6 ; %12
+  %v6 = mov.8 [fi#1 + 8] ; %12
+  mov.8 [$rsp + 8], %v6 ; %12
+  %v6 = mov.8 [fi#1 + 16] ; %12
+  mov.8 [$rsp + 16], %v6 ; %12
   $rdi = MOP_COPY.4 %v2 ; %12
   $rsi = MOP_COPY.4 %v3 ; %12
   call mixed [implicit-def $rax, implicit $rdi, implicit $rsi] <clobbers caller-saved> ; %12
-  $rsp = add.8 $rsp, 32 ; %12
   %v7 = MOP_COPY.4 $rax ; %12
 
 MBB #1, '<exit>', ir #1, <- #2

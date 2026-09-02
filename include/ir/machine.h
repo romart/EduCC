@@ -333,6 +333,14 @@ typedef struct _MachineFrame {
   // prologue is emitted in stage 3 and not here.
   uint32_t size;
 
+  // The widest stack-argument list this function passes, reserved once instead
+  // of pushed at each call. It is not part of 'size' and has no offset from
+  // the frame pointer: it sits below everything else, which is where the stack
+  // pointer is, and the stack pointer is what addresses it. Stage 1 measures
+  // it before it selects anything - see the reserveFrame hook - and stage 3
+  // adds it to what the prologue subtracts.
+  uint32_t outgoingSize;
+
   Boolean hasDynamicAlloca;
 } MachineFrame;
 

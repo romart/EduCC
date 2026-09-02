@@ -80,6 +80,13 @@ typedef struct _MachineBuilder {
 } MachineBuilder;
 
 typedef struct _ArchSelector {
+  // Whatever a target has to settle about the whole function before the first
+  // instruction of it is selected, and NULL for one with nothing to settle.
+  // x86_64 reserves its outgoing-argument area here: how wide the area is is a
+  // fact about every call in the function at once, and a dynamic alloca has to
+  // know it before the calls that need it have been reached.
+  void (*reserveFrame)(MachineFunction *mf);
+
   // One non-terminator IR instruction. Never called for IR_PHI (stage 0
   // already destroyed those) nor for an instruction the driver folded away.
   void (*selectInstruction)(MachineBuilder *b, const struct _IrInstruction *i);

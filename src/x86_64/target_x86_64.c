@@ -133,7 +133,6 @@ static const uint8_t x86OpcodeFlags[X86_OPCODE_NUM] = {
 
   [X86_JMP - MOP_TARGET_FIRST] = MFE_NONE,
   [X86_IJMP - MOP_TARGET_FIRST] = MFE_NONE,
-  [X86_PUSH - MOP_TARGET_FIRST] = MFE_NONE,
   // Whatever the callee left, which is not what the caller had.
   [X86_CALL - MOP_TARGET_FIRST] = MFE_CLOBBER,
   [X86_RET - MOP_TARGET_FIRST] = MFE_NONE,

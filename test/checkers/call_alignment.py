@@ -5,13 +5,19 @@
 
 Simulates rsp through the '-S' disassembly of each emitted function, following
 only the instructions that move it - push, pop, and add/sub of an immediate -
-and asserts two things the exit-code tests cannot see:
+and asserts three things the exit-code tests cannot see:
 
   - rsp is 16-byte aligned at every call. At function entry rsp % 16 == 8
     (the caller's return address is on the stack), so the invariant at a call
     is delta % 16 == 8.
   - every call's stack arguments are given back, so by the epilogue rsp is
     where the prologue left it.
+  - the stack pointer stands still between the prologue and the epilogue.
+    Since roadmap step 42 a call's stack arguments are stored into an area the
+    frame reserves once, so the prologue's own push of rbp and its 'sub rsp'
+    are the only constant-sized moves an emitted function makes. A dynamic
+    allocation still moves rsp, by a register rather than by a constant, and
+    is not one of these.
 
 An unaligned call only crashes if the callee touches SSE, which is why running
 the corpus does not catch it: deleting the odd-stack-argument padding shows up
@@ -41,19 +47,30 @@ def checkFunction(where, name, body, stats):
     if not any(ADDSUB.match(i) and i.startswith("sub") for i in body):
         frame = 8
 
+    # What the prologue is allowed: one push of rbp, and one 'sub rsp' when
+    # the function has a frame. Anything beyond that is the stack pointer
+    # moving where nothing should move it - see the third invariant above.
+    pushes, adjustments = 0, 0
+
     for insn in body:
         if PUSH.match(insn):
             delta += 8
+            pushes += 1
+            if pushes > 1:
+                findings.append(f"{where} [{name}]: rsp moved outside the prologue: {insn}")
             continue
         if POP.match(insn):
             delta -= 8
+            findings.append(f"{where} [{name}]: rsp moved outside the prologue: {insn}")
             continue
         m = ADDSUB.match(insn)
         if m:
             v = int(m.group(2), 0)
             delta += v if m.group(1) == "sub" else -v
-            # The prologue's own 'sub rsp, framesize' is the first one;
-            # everything after it is a call's doing.
+            adjustments += 1
+            if adjustments > 1 or m.group(1) == "add":
+                findings.append(f"{where} [{name}]: rsp moved outside the prologue: {insn}")
+            # The prologue's own 'sub rsp, framesize' is the first one.
             if frame is None and m.group(1) == "sub":
                 frame = delta
             continue

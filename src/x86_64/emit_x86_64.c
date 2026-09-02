@@ -789,13 +789,6 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
     emitJumpByReg(f, regOperand(e, mi, 0));
     break;
 
-  case X86_PUSH:
-    // Always the full eight bytes, whatever the argument's own width: a stack
-    // argument occupies a whole eightbyte and the bytes above it are the
-    // callee's business to ignore.
-    emitPushReg(f, regOperand(e, mi, 0));
-    break;
-
   case X86_CALL:
     emitCallInstr(e, mi);
     break;
@@ -832,11 +825,14 @@ static int32_t layoutCalleeSaved(EmitContext *e) {
     e->calleeSavedOffset[idx] = -offset;
   }
 
-  // SysV wants rsp 16-aligned at a call boundary, and this is half of what
-  // keeps it so: rbp is 16-aligned after the prologue's push, so a frame size
-  // rounded to 16 leaves rsp aligned everywhere between calls. The other half
-  // is selectCall padding an odd number of stack arguments.
-  return ALIGN_SIZE(offset, 2 * sizeof(intptr_t));
+  // The outgoing-argument area goes below all three, because the stack pointer
+  // is what addresses it and the stack pointer is at the bottom. Stage 1 both
+  // measured it and rounded it to 16, so this stays aligned.
+  //
+  // SysV wants rsp 16-aligned at a call boundary, and rounding the frame is
+  // now the whole of what keeps it so: rbp is 16-aligned after the prologue's
+  // push, and nothing moves rsp between calls any more.
+  return ALIGN_SIZE(offset, 2 * sizeof(intptr_t)) + (int32_t)e->mf->frame.outgoingSize;
 }
 
 static void emitPrologue(EmitContext *e) {

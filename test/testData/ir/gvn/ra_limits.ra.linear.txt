@@ -44,7 +44,7 @@ VRegs:
   %v15 : gp/8
   %v16 : gp/2
   %v17 : gp/8 ; %20
-Frame: 64 bytes
+Frame: 64 bytes, 64 outgoing
   fi#0 : param 16/16 @ 16 'a' ; %2
   fi#1 : param 16/16 @ 32 'b' ; %4
   fi#2 : local 16/8 @ -16 ; %6
@@ -74,24 +74,23 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   fsubp ; %16
   fstp.10 [fi#4] ; %16
   $rsi = lea.8 [fi#4] ; %16
-  $rdi = mov.8 [$rsi + 8] ; %8
-  push.8 $rdi ; %8
-  $rdi = mov.8 [$rsi] ; %8
-  push.8 $rdi ; %8
-  $rsi = mov.8 [$rdx + 8] ; %8
-  push.8 $rsi ; %8
-  $rsi = mov.8 [$rdx] ; %8
-  push.8 $rsi ; %8
-  $rdx = mov.8 [$rcx + 8] ; %8
-  push.8 $rdx ; %8
-  $rdx = mov.8 [$rcx] ; %8
-  push.8 $rdx ; %8
-  $rcx = mov.8 [$rax + 8] ; %8
-  push.8 $rcx ; %8
-  $rcx = mov.8 [$rax] ; %8
-  push.8 $rcx ; %8
+  $rdi = mov.8 [$rax] ; %8
+  mov.8 [$rsp], $rdi ; %8
+  $rdi = mov.8 [$rax + 8] ; %8
+  mov.8 [$rsp + 8], $rdi ; %8
+  $rax = mov.8 [$rcx] ; %8
+  mov.8 [$rsp + 16], $rax ; %8
+  $rax = mov.8 [$rcx + 8] ; %8
+  mov.8 [$rsp + 24], $rax ; %8
+  $rax = mov.8 [$rdx] ; %8
+  mov.8 [$rsp + 32], $rax ; %8
+  $rax = mov.8 [$rdx + 8] ; %8
+  mov.8 [$rsp + 40], $rax ; %8
+  $rax = mov.8 [$rsi] ; %8
+  mov.8 [$rsp + 48], $rax ; %8
+  $rax = mov.8 [$rsi + 8] ; %8
+  mov.8 [$rsp + 56], $rax ; %8
   call ra_limits_callee <clobbers caller-saved> ; %8
-  $rsp = add.8 $rsp, 64 ; %8
   fstp.10 [fi#5] ; %8
   $rax = lea.8 [fi#5] ; %8
   $rcx = mov.8 [$rax] ; %17

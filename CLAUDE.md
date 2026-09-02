@@ -137,7 +137,7 @@ python3 test/checkers/allocation.py build/bin/main -Xregalloc=trivial test/testD
 | `selection.py` | over `-irDump:isel`: nothing read before written, two-address form intact, emitted branches agree with the CFG's successors |
 | `allocation.py` | over `-irDump:ra`: backward liveness over physical registers and spill slots, no scratch register live across a block boundary, spill widths, and five more |
 | `allocation_widths.py` | forward walk over `-irDump:ra` tracking how many bytes of each register were actually written; a spill may not store more than that |
-| `call_alignment.py` | simulate `rsp` through `-S`; 16-byte aligned at every call, restored by the epilogue |
+| `call_alignment.py` | simulate `rsp` through `-S`; 16-byte aligned at every call, restored by the epilogue, and moved by a constant only in the prologue |
 | `emission_objdump.py` | differential: compare the machine IR against GNU `objdump` as multisets of (mnemonic, register set). The only check that can see stage 3 at all |
 | `disasm_stable.py` | `-S` output is byte-identical across runs of the same command, under both backends, with and without ASLR |
 | `jump_relaxation.py` | over `-S`: a jump written with a four-byte displacement really needs four, and no nop pads one that was shortened |

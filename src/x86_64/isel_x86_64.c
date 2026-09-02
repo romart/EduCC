@@ -247,6 +247,17 @@ static void setFrameAddressOperand(MachineInstr *mi, uint16_t idx, int32_t frame
   setMemoryOperand(mi, idx, &addr);
 }
 
+// Somewhere in the outgoing-argument area, which is the one part of the frame
+// addressed off the stack pointer rather than off the frame pointer. It has to
+// be: the callee reads its stack arguments at [rsp] and upwards, so the area is
+// wherever rsp is and not at a fixed distance below rbp. Which also means the
+// offset is final as soon as it is computed - the frame above it can still
+// grow, and the area does not move.
+static MachineAddress outgoingArgAddress(const MachineFunction *mf, int32_t offset) {
+  MachineAddress addr = { MAK_REG, mf->target->sp, NO_REG, 0, offset };
+  return addr;
+}
+
 // A VLA or a call to alloca(): the block is carved out of the stack where the
 // allocation stands, so its address is the stack pointer afterwards rather
 // than a displacement from the frame pointer.
@@ -289,8 +300,23 @@ static void selectDynamicAlloca(MachineBuilder *b, const IrInstruction *i) {
   setRegisterOperand(carve, 2, bytes);
   carve->opSize = sizeof(intptr_t);
 
-  // The result is the new top of the stack. Copied out into a register of its
-  // own rather than left as rsp, which the next call is about to move.
+  // The result is the new top of the stack, above whatever of it the outgoing
+  // arguments have reserved: the area is always the lowest bytes of the stack,
+  // so carving below it moves it down with rsp and leaves the block that was
+  // just carved starting where it ends. Copied out into a register of its own
+  // rather than left as rsp, which the next allocation is about to move.
+  uint32_t outgoing = b->mf->frame.outgoingSize;
+
+  if (outgoing != 0) {
+    MachineAddress addr = outgoingArgAddress(b->mf, (int32_t)outgoing);
+
+    MachineInstr *result = buildMachineInstr(b, X86_LEA, 1, 1);
+    setRegisterOperand(result, 0, machineBuilderVreg(b, i));
+    setMemoryOperand(result, 1, &addr);
+    result->opSize = sizeof(intptr_t);
+    return;
+  }
+
   MachineInstr *result = buildMachineInstr(b, MOP_COPY, 1, 1);
   setRegisterOperand(result, 0, machineBuilderVreg(b, i));
   setRegisterOperand(result, 1, sp);
@@ -1606,21 +1632,16 @@ static uint32_t callArgLocation(const TargetDescriptor *target, const IrInstruct
   }
 }
 
-// How many SSE registers the call passes arguments in - which is what all has
-// to hold for a variadic callee - how many arguments go in registers, and how
-// many eightbytes of stack the rest need.
-//
-// Eightbytes rather than arguments: an aggregate passed in memory takes as
-// many as it has, and the padding above it is part of what the callee expects.
+// How many SSE registers the call passes arguments in - which is what al has
+// to hold for a variadic callee - and how many arguments go in registers,
+// which is how many implicit uses the call instruction gets.
 static void callArgCounts(const TargetDescriptor *target, const IrInstruction *call,
-                          uint32_t *numFpRegs, uint32_t *numRegArgs, uint32_t *numStackSlots) {
+                          uint32_t *numFpRegs, uint32_t *numRegArgs) {
   uint32_t used[RC_CLASS_COUNT] = {0};
   uint32_t inRegs = 0;
-  uint32_t onStack = 0;
 
   for (size_t idx = firstCallArgIndex(call); idx < call->inputs.size; ++idx) {
     if (callArgInMemory(call, idx)) {
-      onStack += memArgStackSlots(inputAt(call, idx));
       continue;
     }
 
@@ -1629,14 +1650,11 @@ static void callArgCounts(const TargetDescriptor *target, const IrInstruction *c
     if (used[rc] < argRegCountOf(target, rc)) {
       used[rc] += 1;
       inRegs += 1;
-    } else {
-      onStack += 1;
     }
   }
 
   *numFpRegs = used[RC_FP];
   *numRegArgs = inRegs;
-  *numStackSlots = onStack;
 }
 
 // Lays the outgoing argument area out the way classifyParametersGeneric lays
@@ -1684,18 +1702,36 @@ static uint32_t callStackArea(const TargetDescriptor *target, const IrInstructio
   return (uint32_t)ALIGN_SIZE(offset, 2 * sizeof(intptr_t));
 }
 
-// The stack pointer moves twice around a call with stack arguments: down to
-// make room and back up afterwards. Written as an ordinary two-address add or
-// sub over a physical register, which allocation leaves alone and emission
-// already knows how to encode.
-static void selectStackAdjust(MachineBuilder *b, uint32_t opcode, int64_t bytes) {
-  MachineInstr *mi = buildMachineInstr(b, opcode, 1, 2);
-  uint32_t sp = b->mf->target->sp;
+// How much stack the widest call in this function passes arguments on, settled
+// before anything is selected. See ArchSelector.reserveFrame.
+//
+// One area for every call rather than one per call site: they are used one at
+// a time, and reserving the widest is what lets the stack pointer stand still
+// through the whole function. Measuring it here rather than growing it call by
+// call is what a dynamic alloca needs - it has to allocate above an area whose
+// size is settled, and it may well come before the call that would have set it.
+//
+// Every call in the IR is here to be measured. A call is never folded into an
+// operand and never absorbed into another instruction, so there is no call the
+// walk below can see and selection will not.
+static void x86ReserveFrame(MachineFunction *mf) {
+  uint32_t widest = 0;
 
-  setRegisterOperand(mi, 0, sp);
-  setRegisterOperand(mi, 1, sp);
-  setImmediateOperand(mi, 2, bytes);
-  mi->opSize = sizeof(intptr_t);
+  for (const MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
+    for (const IrInstruction *i = mbb->ir->instrunctions.head; i != NULL; i = i->next) {
+      if (i->kind != IR_CALL && i->kind != IR_ICALL) {
+        continue;
+      }
+
+      uint32_t bytes = callStackArea(mf->target, i, SIZE_MAX, NULL);
+
+      if (bytes > widest) {
+        widest = bytes;
+      }
+    }
+  }
+
+  mf->frame.outgoingSize = widest;
 }
 
 // Give a struct returned in rax somewhere to live, and produce its address.
@@ -1740,25 +1776,20 @@ static void selectRegisterReturnedStruct(MachineBuilder *b, const IrInstruction 
   addr->opSize = sizeof(intptr_t);
 }
 
-// Put an aggregate argument on the stack, one eightbyte at a time.
+// Copy an aggregate argument into the outgoing area, one eightbyte at a time,
+// starting at 'offset' - which is where the layout put it and where the callee
+// will read it.
 //
-// The push *is* the copy the ABI asks for - there is no outgoing area to store
-// into, and none is wanted here: the callee reads the bytes where the call
-// left them, so a struct that spans three eightbytes is three pushes and the
-// stack pointer does the arithmetic. Highest eightbyte first, because the rest
-// of the argument list is pushed backwards too and the struct has to come out
-// the right way up.
+// The copy *is* what the ABI asks for: the callee reads the bytes where the
+// call left them, so a struct that spans three eightbytes is three loads and
+// three stores. There is no memcpy to defer to and no reason to want one; the
+// widest aggregate any of this compiles is a handful of eightbytes.
 //
 // Reading up to seven bytes past the end of the struct is deliberate and safe:
 // the source is the temporary translateCall copied into, and createAllocaSlot
 // rounds a slot to a whole eightbyte. The bytes above the struct are padding
 // the callee's own classification skips.
-//
-// Through a register rather than 'push [mem]', which exists: the trivial
-// allocator gives the load's result a frame slot and reloads it for the push,
-// and a frame slot is addressed off rbp - so it survives the stack pointer
-// moving underneath it, which is the only thing that could go wrong here.
-static void selectMemoryArgument(MachineBuilder *b, const IrInstruction *arg) {
+static void selectMemoryArgument(MachineBuilder *b, const IrInstruction *arg, int32_t offset) {
   uint32_t slots = memArgStackSlots(arg);
 
   // Once, outside the loop, for the reason selectMemoryCopy takes both of its
@@ -1770,76 +1801,61 @@ static void selectMemoryArgument(MachineBuilder *b, const IrInstruction *arg) {
   // would put as many frame slots under the call as the argument is wide.
   uint32_t tmp = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
 
-  for (uint32_t slot = slots; slot > 0; --slot) {
+  for (uint32_t slot = 0; slot < slots; ++slot) {
+    int32_t disp = (int32_t)(slot * sizeof(intptr_t));
+
     MachineAddress chunk = from;
-    chunk.disp += (int32_t)((slot - 1) * sizeof(intptr_t));
+    chunk.disp += disp;
 
     MachineInstr *load = buildMachineInstr(b, X86_LOAD, 1, 1);
     setRegisterOperand(load, 0, tmp);
     setMemoryOperand(load, 1, &chunk);
     load->opSize = sizeof(intptr_t);
 
-    MachineInstr *push = buildMachineInstr(b, X86_PUSH, 0, 1);
-    setRegisterOperand(push, 0, tmp);
-    push->opSize = sizeof(intptr_t);
+    MachineAddress to = outgoingArgAddress(b->mf, offset + disp);
+
+    MachineInstr *store = buildMachineInstr(b, X86_STORE, 0, 2);
+    setMemoryOperand(store, 0, &to);
+    setRegisterOperand(store, 1, tmp);
+    store->opSize = sizeof(intptr_t);
   }
 }
 
 static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   const TargetDescriptor *target = b->mf->target;
 
-  uint32_t numFpRegs = 0, numRegArgs = 0, numStackSlots = 0;
-  callArgCounts(target, i, &numFpRegs, &numRegArgs, &numStackSlots);
+  uint32_t numFpRegs = 0, numRegArgs = 0;
+  callArgCounts(target, i, &numFpRegs, &numRegArgs);
 
-  uint32_t stackBytes = callStackArea(target, i, SIZE_MAX, NULL);
+  // Forwards, in the argument list's own order, because a store says where it
+  // goes and does not have to arrive there. The area was reserved for the
+  // whole function before any of this was selected, so nothing here moves the
+  // stack pointer and there is nothing to give back afterwards.
+  for (size_t idx = firstCallArgIndex(i); idx < i->inputs.size; ++idx) {
+    const IrInstruction *arg = inputAt(i, idx);
 
-  // Backwards, so that the last stack argument is pushed first and the first
-  // one ends up at [rsp] where the callee looks for it.
-  //
-  // The cursor is how far above the eventual stack pointer the last push left
-  // us; where the layout puts the next argument lower than that, the gap is
-  // the alignment padding it asked for and the stack pointer takes it in one
-  // move. It reaches zero exactly, the first stack argument being at offset
-  // zero by construction, so no adjustment is needed after the loop.
-  int32_t cursor = (int32_t)stackBytes;
-
-  for (size_t idx = i->inputs.size; idx > firstCallArgIndex(i); --idx) {
-    const IrInstruction *arg = inputAt(i, idx - 1);
-
-    if (callArgLocation(target, i, idx - 1) != NO_REG) {
+    if (callArgLocation(target, i, idx) != NO_REG) {
       continue;
     }
 
-    uint32_t size = sizeof(intptr_t), align = sizeof(intptr_t);
-
-    if (callArgInMemory(i, idx - 1)) {
-      memArgShape(arg, &size, &align);
-    }
-
     int32_t offset = 0;
-    callStackArea(target, i, idx - 1, &offset);
+    callStackArea(target, i, idx, &offset);
 
-    int32_t gap = cursor - (offset + (int32_t)size);
-    if (gap > 0) {
-      selectStackAdjust(b, X86_SUB, gap);
-    }
-
-    cursor = offset;
-
-    if (callArgInMemory(i, idx - 1)) {
-      selectMemoryArgument(b, arg);
+    if (callArgInMemory(i, idx)) {
+      selectMemoryArgument(b, arg, offset);
       continue;
     }
 
     // Always a register: x86IsLegalImmediate folds a constant only into an
     // argument that is passed in one, exactly so that this cannot be an
-    // immediate - the assembler has no push of one.
+    // immediate.
     uint32_t src = machineBuilderVreg(b, arg);
     uint8_t argSize = valueSize(arg);
 
     if (callArgClass(arg) == RC_FP) {
-      // There is no 'push xmm', so the bits come out into a general register
-      // first, at the float's own width.
+      // There is no store of an xmm register at an integer's width, and the
+      // eightbyte is written whole, so the bits come out into a general
+      // register first, at the float's own width.
       uint32_t bits = createVirtualRegister(b->mf, RC_GP, argSize);
 
       MachineInstr *out = buildMachineInstr(b, X86_MOVDR, 1, 1);
@@ -1847,23 +1863,27 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
       setRegisterOperand(out, 1, src);
       out->opSize = argSize;
 
-      // A whole eightbyte is what gets pushed, so the half above a 'float' is
-      // written rather than left as whatever the register held. Zero-extended,
-      // which is what the bits of a stack argument's padding are worth.
+      // The half above a 'float' is written rather than left as whatever the
+      // area held last time round. Zero-extended, which is what the bits of a
+      // stack argument's padding are worth.
       src = argSize < sizeof(intptr_t)
                 ? widenRegister(b, bits, argSize, sizeof(intptr_t), TRUE)
                 : bits;
     } else if (argSize < sizeof(intptr_t)) {
-      // Same for a narrow integer: push writes eight bytes and the value has
-      // to fill them, by its own signedness.
+      // Same for a narrow integer, by its own signedness. SysV leaves the
+      // bytes above it unspecified and a four-byte store would be shorter,
+      // but the area is written over by every call in the function and a
+      // callee that reads its argument wide would read the last call's.
       src = selectWidened(b, arg, sizeof(intptr_t));
     }
 
-    MachineInstr *push = buildMachineInstr(b, X86_PUSH, 0, 1);
-    setRegisterOperand(push, 0, src);
-    // A stack argument occupies a whole eightbyte however narrow it is, and
-    // push is the instruction that says so.
-    push->opSize = sizeof(intptr_t);
+    MachineAddress to = outgoingArgAddress(b->mf, offset);
+
+    MachineInstr *store = buildMachineInstr(b, X86_STORE, 0, 2);
+    setMemoryOperand(store, 0, &to);
+    setRegisterOperand(store, 1, src);
+    // A stack argument occupies a whole eightbyte however narrow it is.
+    store->opSize = sizeof(intptr_t);
   }
 
   for (size_t idx = firstCallArgIndex(i); idx < i->inputs.size; ++idx) {
@@ -1927,15 +1947,9 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   assert(op == call->numOperands);
   call->flags.isCall = 1;
 
-  if (stackBytes != 0) {
-    selectStackAdjust(b, X86_ADD, stackBytes);
-  }
-
   if (i->type == IR_F80) {
     // Off the x87 stack and into a slot of this frame, which is what makes the
     // pair balanced: the callee's return pushed one value, and this pops it.
-    // After the stack adjustment above, so that the slot is addressed off a
-    // frame pointer that is not about to move.
     x87PopToValue(b, i);
   } else if (i->type == IR_P_AGG && i->info.call.returnBuffer == NULL) {
     // A struct small enough to come back in a register. Everything downstream
@@ -2642,6 +2656,7 @@ static Boolean x86FoldsIntoCondition(const IrInstruction *cond) {
 }
 
 const ArchSelector x86Selector = {
+  .reserveFrame = &x86ReserveFrame,
   .selectInstruction = &selectInstruction_x86_64,
   .selectTerminator = &selectTerminator_x86_64,
   .isLegalImmediate = &x86IsLegalImmediate,

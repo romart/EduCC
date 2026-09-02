@@ -627,6 +627,12 @@ void selectInstructions(MachineFunction *mf) {
 
   layoutBlocks(mf);
 
+  // Before the walk, because what it settles is read while the walk runs and
+  // is a fact about the whole function - see ArchSelector.reserveFrame.
+  if (sel->reserveFrame != NULL) {
+    sel->reserveFrame(mf);
+  }
+
   MachineBuilder builder = {0};
   builder.mf = mf;
   initVector(&builder.foldedConstants, INITIAL_VECTOR_CAPACITY);

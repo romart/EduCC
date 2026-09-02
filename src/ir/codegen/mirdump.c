@@ -288,12 +288,21 @@ static const char *frameObjectKindName(enum MachineFrameObjectKind kind) {
 static int32_t dumpMachineFrame(FILE *stream, const MachineFunction *mf) {
   const MachineFrame *frame = &mf->frame;
 
-  if (frame->objects.size == 0) {
+  if (frame->objects.size == 0 && frame->outgoingSize == 0) {
     return fprintf(stream, "Frame: <empty>\n");
   }
 
-  int32_t r = fprintf(stream, "Frame: %u bytes%s\n", frame->size,
+  // The outgoing area on the size line rather than among the objects: it has
+  // no offset from the frame pointer to print, being addressed off the stack
+  // pointer, and it is one region and not one object per argument.
+  int32_t r = fprintf(stream, "Frame: %u bytes%s", frame->size,
                       frame->hasDynamicAlloca ? ", dynamic" : "");
+
+  if (frame->outgoingSize != 0) {
+    r += fprintf(stream, ", %u outgoing", frame->outgoingSize);
+  }
+
+  r += fprintf(stream, "\n");
 
   for (size_t idx = 0; idx < frame->objects.size; ++idx) {
     const MachineFrameObject *obj = machineFrameObjectAt(mf, (int32_t)idx);

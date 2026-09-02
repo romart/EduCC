@@ -7,7 +7,7 @@ VRegs:
   %v3 : gp/8
   %v4 : gp/8
   %v5 : gp/4 ; %6
-Frame: 80 bytes
+Frame: 80 bytes, 32 outgoing
   fi#0 : param 24/8 @ 16 's' ; %2
   fi#1 : local 24/8 @ -24 ; %8
   fi#2 : spill 8/8 @ -40 %v0 ; %7
@@ -39,21 +39,19 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   MOP_SPILL.8 fi#5, $r10
   $r10 = MOP_RELOAD.8 fi#5
   mov.8 [fi#1 + 16], $r10 ; %9
-  $rsp = sub.8 $rsp, 8 ; %6
-  $r10 = mov.8 [fi#1 + 16] ; %6
-  MOP_SPILL.8 fi#6, $r10
-  $r10 = MOP_RELOAD.8 fi#6
-  push.8 $r10 ; %6
-  $r10 = mov.8 [fi#1 + 8] ; %6
-  MOP_SPILL.8 fi#6, $r10
-  $r10 = MOP_RELOAD.8 fi#6
-  push.8 $r10 ; %6
   $r10 = mov.8 [fi#1] ; %6
   MOP_SPILL.8 fi#6, $r10
   $r10 = MOP_RELOAD.8 fi#6
-  push.8 $r10 ; %6
+  mov.8 [$rsp], $r10 ; %6
+  $r10 = mov.8 [fi#1 + 8] ; %6
+  MOP_SPILL.8 fi#6, $r10
+  $r10 = MOP_RELOAD.8 fi#6
+  mov.8 [$rsp + 8], $r10 ; %6
+  $r10 = mov.8 [fi#1 + 16] ; %6
+  MOP_SPILL.8 fi#6, $r10
+  $r10 = MOP_RELOAD.8 fi#6
+  mov.8 [$rsp + 16], $r10 ; %6
   call takeBig [implicit-def $rax] <clobbers caller-saved> ; %6
-  $rsp = add.8 $rsp, 32 ; %6
   $r10 = MOP_COPY.4 $rax ; %6
   MOP_SPILL.4 fi#7, $r10
 
@@ -74,7 +72,7 @@ VRegs:
   %v5 : gp/8
   %v6 : gp/8
   %v7 : gp/4 ; %12
-Frame: 96 bytes
+Frame: 96 bytes, 32 outgoing
   fi#0 : param 24/8 @ 16 's' ; %6
   fi#1 : local 24/8 @ -24 ; %15
   fi#2 : spill 8/8 @ -40 %v0 ; %14
@@ -112,25 +110,23 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   MOP_SPILL.8 fi#7, $r10
   $r10 = MOP_RELOAD.8 fi#7
   mov.8 [fi#1 + 16], $r10 ; %16
-  $rsp = sub.8 $rsp, 8 ; %12
-  $r10 = mov.8 [fi#1 + 16] ; %12
-  MOP_SPILL.8 fi#8, $r10
-  $r10 = MOP_RELOAD.8 fi#8
-  push.8 $r10 ; %12
-  $r10 = mov.8 [fi#1 + 8] ; %12
-  MOP_SPILL.8 fi#8, $r10
-  $r10 = MOP_RELOAD.8 fi#8
-  push.8 $r10 ; %12
   $r10 = mov.8 [fi#1] ; %12
   MOP_SPILL.8 fi#8, $r10
   $r10 = MOP_RELOAD.8 fi#8
-  push.8 $r10 ; %12
+  mov.8 [$rsp], $r10 ; %12
+  $r10 = mov.8 [fi#1 + 8] ; %12
+  MOP_SPILL.8 fi#8, $r10
+  $r10 = MOP_RELOAD.8 fi#8
+  mov.8 [$rsp + 8], $r10 ; %12
+  $r10 = mov.8 [fi#1 + 16] ; %12
+  MOP_SPILL.8 fi#8, $r10
+  $r10 = MOP_RELOAD.8 fi#8
+  mov.8 [$rsp + 16], $r10 ; %12
   $r10 = MOP_RELOAD.4 fi#4
   $rdi = MOP_COPY.4 $r10 ; %12
   $r10 = MOP_RELOAD.4 fi#5
   $rsi = MOP_COPY.4 $r10 ; %12
   call mixed [implicit-def $rax, implicit $rdi, implicit $rsi] <clobbers caller-saved> ; %12
-  $rsp = add.8 $rsp, 32 ; %12
   $r10 = MOP_COPY.4 $rax ; %12
   MOP_SPILL.4 fi#9, $r10
 

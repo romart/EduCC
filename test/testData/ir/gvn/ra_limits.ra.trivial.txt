@@ -58,7 +58,7 @@ VRegs:
   %v15 : gp/8
   %v16 : gp/2
   %v17 : gp/8 ; %20
-Frame: 208 bytes
+Frame: 208 bytes, 64 outgoing
   fi#0 : param 16/16 @ 16 'a' ; %2
   fi#1 : param 16/16 @ 32 'b' ; %4
   fi#2 : local 16/8 @ -16 ; %6
@@ -120,48 +120,47 @@ MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   fstp.10 [fi#4] ; %16
   $r10 = lea.8 [fi#4] ; %16
   MOP_SPILL.8 fi#15, $r10
-  $r11 = MOP_RELOAD.8 fi#15
-  $r10 = mov.8 [$r11 + 8] ; %8
-  MOP_SPILL.8 fi#16, $r10
-  $r10 = MOP_RELOAD.8 fi#16
-  push.8 $r10 ; %8
-  $r11 = MOP_RELOAD.8 fi#15
+  $r11 = MOP_RELOAD.8 fi#8
   $r10 = mov.8 [$r11] ; %8
   MOP_SPILL.8 fi#16, $r10
   $r10 = MOP_RELOAD.8 fi#16
-  push.8 $r10 ; %8
-  $r11 = MOP_RELOAD.8 fi#12
+  mov.8 [$rsp], $r10 ; %8
+  $r11 = MOP_RELOAD.8 fi#8
+  $r10 = mov.8 [$r11 + 8] ; %8
+  MOP_SPILL.8 fi#16, $r10
+  $r10 = MOP_RELOAD.8 fi#16
+  mov.8 [$rsp + 8], $r10 ; %8
+  $r11 = MOP_RELOAD.8 fi#9
+  $r10 = mov.8 [$r11] ; %8
+  MOP_SPILL.8 fi#17, $r10
+  $r10 = MOP_RELOAD.8 fi#17
+  mov.8 [$rsp + 16], $r10 ; %8
+  $r11 = MOP_RELOAD.8 fi#9
   $r10 = mov.8 [$r11 + 8] ; %8
   MOP_SPILL.8 fi#17, $r10
   $r10 = MOP_RELOAD.8 fi#17
-  push.8 $r10 ; %8
+  mov.8 [$rsp + 24], $r10 ; %8
   $r11 = MOP_RELOAD.8 fi#12
   $r10 = mov.8 [$r11] ; %8
-  MOP_SPILL.8 fi#17, $r10
-  $r10 = MOP_RELOAD.8 fi#17
-  push.8 $r10 ; %8
-  $r11 = MOP_RELOAD.8 fi#9
+  MOP_SPILL.8 fi#18, $r10
+  $r10 = MOP_RELOAD.8 fi#18
+  mov.8 [$rsp + 32], $r10 ; %8
+  $r11 = MOP_RELOAD.8 fi#12
   $r10 = mov.8 [$r11 + 8] ; %8
   MOP_SPILL.8 fi#18, $r10
   $r10 = MOP_RELOAD.8 fi#18
-  push.8 $r10 ; %8
-  $r11 = MOP_RELOAD.8 fi#9
+  mov.8 [$rsp + 40], $r10 ; %8
+  $r11 = MOP_RELOAD.8 fi#15
   $r10 = mov.8 [$r11] ; %8
-  MOP_SPILL.8 fi#18, $r10
-  $r10 = MOP_RELOAD.8 fi#18
-  push.8 $r10 ; %8
-  $r11 = MOP_RELOAD.8 fi#8
+  MOP_SPILL.8 fi#19, $r10
+  $r10 = MOP_RELOAD.8 fi#19
+  mov.8 [$rsp + 48], $r10 ; %8
+  $r11 = MOP_RELOAD.8 fi#15
   $r10 = mov.8 [$r11 + 8] ; %8
   MOP_SPILL.8 fi#19, $r10
   $r10 = MOP_RELOAD.8 fi#19
-  push.8 $r10 ; %8
-  $r11 = MOP_RELOAD.8 fi#8
-  $r10 = mov.8 [$r11] ; %8
-  MOP_SPILL.8 fi#19, $r10
-  $r10 = MOP_RELOAD.8 fi#19
-  push.8 $r10 ; %8
+  mov.8 [$rsp + 56], $r10 ; %8
   call ra_limits_callee <clobbers caller-saved> ; %8
-  $rsp = add.8 $rsp, 64 ; %8
   fstp.10 [fi#5] ; %8
   $r10 = lea.8 [fi#5] ; %8
   MOP_SPILL.8 fi#20, $r10
