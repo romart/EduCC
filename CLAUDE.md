@@ -179,16 +179,16 @@ python3 test/bench/bench.py --filter nbody,sort --no-static  # scope it down
 
 Three things get measured, because they are three different questions: how fast the *generated* code runs, how fast EduCC itself compiles (over its own front-end and IR sources), and how big `.text` comes out. `--no-static` turns off a fourth — spill slots and machine instructions counted straight out of `-irDump:ra`, which says *what the allocator did* rather than how long it took.
 
-Nothing here is wired into `ctest`: it measures wall-clock time, it takes minutes, and a loaded machine will lie to it. Run it deliberately, before and after a backend change, with `--compare`. As of step 35 — run time and `.text` totalled over the eight programs, fastest of three runs; the static counts over those plus EduCC's own sources:
+Nothing here is wired into `ctest`: it measures wall-clock time, it takes minutes, and a loaded machine will lie to it. Run it deliberately, before and after a backend change, with `--compare`. As of step 36 — run time and `.text` totalled over the eight programs, fastest of three runs; the static counts over those plus EduCC's own sources:
 
 | | legacy | trivial | linear | chaitin | cc -O0 | cc -O2 |
 | --- | --- | --- | --- | --- | --- | --- |
-| run time | 3.91 | 6.60 | 2.29 | **2.27** | 3.24 | 1.39 |
+| run time | 3.94 | 6.58 | 2.25 | **2.16** | 3.10 | 1.40 |
 | `.text` | 12.0K | 23.5K | 11.1K | **8.5K** | 8.8K | 12.4K |
 | spill slots | — | 14098 | 1844 | **1473** | — | — |
 | instructions | — | 89272 | 53510 | **38913** | — | — |
 
-The linear scan is 3× the trivial allocator and beats the host compiler at `-O0`; the colouring allocator emits a quarter fewer instructions and a quarter less code again, at the same run time. Neither is free, and they cost in the same place: compiling EduCC's own sources, `chaitin` takes 0.49s and `linear` 0.39s against `trivial`'s 0.34s and `-legacy`'s 0.20s, which is the allocator doing work the other two do not. Why the better code is not also faster is `docs/ir-codegen-design.md` §7 stage C, and the answer turned out to be a selection bug rather than an allocation one.
+The linear scan is 3× the trivial allocator and beats the host compiler at `-O0`; the colouring allocator emits a quarter fewer instructions and a quarter less code again. Neither is free, and they cost in the same place: compiling EduCC's own sources, `chaitin` takes 0.49s and `linear` 0.39s against `trivial`'s 0.34s and `-legacy`'s 0.20s, which is the allocator doing work the other two do not. One benchmark (`strings`) is still slower under `chaitin` than under `linear` despite executing fewer instructions; `docs/ir-codegen-design.md` §10 has how far that has been chased.
 
 ## Architecture
 

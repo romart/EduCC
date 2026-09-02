@@ -457,11 +457,24 @@ static void emitCallInstr(EmitContext *e, const MachineInstr *mi) {
 // move is how one is written, since it zeroes the half above what it writes.
 static void emitWiden(EmitContext *e, const MachineInstr *mi) {
   enum Registers dst = regOperand(e, mi, 0);
-  enum Registers src = regOperand(e, mi, 1);
   Boolean isSigned = mi->opcode == X86_MOVSX;
   uint8_t srcSize = machineInstrSrcSize(mi);
 
   assert(srcSize < mi->opSize && "a widening move that widens nothing");
+
+  // The source is memory when selection built this as a load that widens -
+  // one instruction that writes the destination whole, rather than a narrow
+  // load and a widening move over it.
+  if (mi->operands[1].kind == MO_MEM) {
+    assert((srcSize == 1 || srcSize == 2) && "no widening load has this source width");
+    Address addr = addressOperand(e, mi, 1);
+
+    emitMovxxAR(e->gen, srcSize == 1 ? (isSigned ? 0xBE : 0xB6) : (isSigned ? 0xBF : 0xB7),
+                &addr, dst);
+    return;
+  }
+
+  enum Registers src = regOperand(e, mi, 1);
 
   if (srcSize == 4) {
     if (isSigned) {

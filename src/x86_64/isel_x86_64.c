@@ -353,11 +353,29 @@ static void selectMemoryLoad(MachineBuilder *b, const IrInstruction *i) {
   }
 
   MachineAddress addr = addressFor(b, inputAt(i, 0), 0);
+  const uint8_t size = irTypeMachineSize(t);
+
+  // A byte or halfword load widens as it loads rather than writing part of a
+  // register and leaving the rest. 'mov cl, [rax]' merges with whatever was in
+  // rcx, which chains consecutive iterations of a loop like 'while (*p) ++p;'
+  // through a register they share nothing else with - correct, since nothing
+  // reads above the byte, and measurably slower. A widening load writes the
+  // register whole and breaks the chain, in the same one instruction.
+  if (!isFloatIrType(t) && size < sizeof(int32_t)) {
+    MachineInstr *widening =
+        buildMachineInstr(b, isUnsignedIrOperand(t) ? X86_MOVZX : X86_MOVSX, 1, 1);
+
+    setRegisterOperand(widening, 0, machineBuilderVreg(b, i));
+    setMemoryOperand(widening, 1, &addr);
+    widening->opSize = sizeof(int32_t);
+    widening->srcSize = size;
+    return;
+  }
 
   MachineInstr *mi = buildMachineInstr(b, X86_LOAD, 1, 1);
   setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
   setMemoryOperand(mi, 1, &addr);
-  mi->opSize = irTypeMachineSize(t);
+  mi->opSize = size;
 }
 
 // Whether the copy's count is a constant, which every copy this compiler
