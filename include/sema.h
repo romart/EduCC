@@ -24,6 +24,7 @@ StructualMember *computeMember(ParserContext *ctx, Coordinates *coords, TypeRef 
 TypeRef *computeFunctionReturnType(ParserContext *ctx, Coordinates *coords, TypeRef *calleeType);
 TypeRef *computeIncDecType(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, Boolean isDec);
 TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, Coordinates *coords, TypeRef *argumentType, ExpressionType op);
+TypeRef *integerPromotion(ParserContext *ctx, TypeRef *type);
 TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, AstExpression* left, AstExpression *right, ExpressionType op);
 TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* cond, AstExpression *ifTrue, AstExpression *ifFalse, ExpressionType op);
 TypeRef *computeAssignmentTypes(ParserContext *ctx, Coordinates *coords, ExpressionType op, AstExpression *left, AstExpression *right);
@@ -68,6 +69,7 @@ Boolean checkTypeIsCastable(ParserContext *ctx, Coordinates *coords, TypeRef *to
 Boolean checkRefArgument(ParserContext *ctx, Coordinates *coords, AstExpression *arg, Boolean report);
 
 AstExpression *transformCondition(ParserContext *ctx, AstExpression *expr);
+AstExpression *transformUnaryExpression(ParserContext *ctx, AstExpression *expr);
 AstExpression *transformBinaryExpression(ParserContext *ctx, AstExpression *expr);
 AstExpression *transformTernaryExpression(ParserContext *ctx, AstExpression *expr);
 AstExpression *transformAssignExpression(ParserContext *ctx, AstExpression *expr);

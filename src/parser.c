@@ -827,7 +827,7 @@ static AstExpression* parseUnaryExpression(ParserContext *ctx) {
             coords.right = argument->coordinates.right;
             result = createUnaryExpression(ctx, &coords, op, argument);
             result->type = computeTypeForUnaryOperator(ctx, &coords, argument->type, op);
-            return result;
+            return transformUnaryExpression(ctx, result);
         case ALIGNOF:
         case SIZEOF: {
             Token *saved = nextToken(ctx);

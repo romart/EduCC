@@ -180,12 +180,40 @@ TypeEqualityKind typeEquality(TypeRef *t1, TypeRef *t2) {
   unreachable("infinite loop");
 }
 
+// C99 6.3.1.1p2: anything whose rank is below int's is used as an int - and so
+// arithmetic on two chars is arithmetic on two ints that happens to have narrow
+// operands. Every rule that says "the integer promotions are performed" goes
+// through here. Without it '(char)127 + (char)1' was an addition at char width
+// answering -128, and 'sizeof(a + b)' was 1, which is how the missing rule was
+// told apart from a backend that merely computed at the wrong width.
+TypeRef *integerPromotion(ParserContext *ctx, TypeRef *type) {
+  if (type->kind == TR_BITFIELD) type = type->bitFieldDesc.storageType;
+
+  if (type->kind != TR_VALUE) return type;
+
+  TypeId id = type->descriptorDesc->typeId;
+
+  if (id == T_ENUM) return makePrimitiveType(ctx, T_S4, 0);
+
+  // int and above keep their own type; so does anything not an integer.
+  if (id == T_BOOL || (T_S1 <= id && id <= T_S2) || (T_U1 <= id && id <= T_U2)) {
+      return makePrimitiveType(ctx, T_S4, 0);
+  }
+
+  return type;
+}
+
 TypeRef *commonPrimitiveType(ParserContext *ctx, TypeRef *a, TypeRef *b) {
 
   // TODO: should const qualifier be taken into account?
 
   if (a->kind == TR_BITFIELD) a = a->bitFieldDesc.storageType;
   if (b->kind == TR_BITFIELD) b = b->bitFieldDesc.storageType;
+
+  // The usual arithmetic conversions begin with the integer promotions, so the
+  // result can be wider than either operand.
+  a = integerPromotion(ctx, a);
+  b = integerPromotion(ctx, b);
 
   assert(a->kind == TR_VALUE);
   assert(b->kind == TR_VALUE);
@@ -739,6 +767,11 @@ TypeRef *computeBinaryType(ParserContext *ctx, Coordinates *coords, AstExpressio
 
   if (EB_LHS <= op && op <= EB_OR) {
       if ((isIntegerType(left) || left->kind == TR_BITFIELD) && (isIntegerType(right) || right->kind == TR_BITFIELD)) {
+          // C99 6.5.7p3: a shift promotes each operand on its own and answers
+          // with the promoted left one. It is not the usual arithmetic
+          // conversions, and the difference shows in 'x << 1L', which is an int
+          // shift and not a long one.
+          if (op == EB_LHS || op == EB_RHS) return integerPromotion(ctx, left);
           return commonPrimitiveType(ctx, left, right);
       }
       reportDiagnostic(ctx, DIAG_INVALID_BINARY_OPS, coords, left, right);
@@ -921,14 +954,14 @@ TypeRef *computeTypeForUnaryOperator(ParserContext *ctx, Coordinates *coords, Ty
     case EU_PLUS:  // +a
     case EU_MINUS: // -a
       if (isPrimitiveType(argumentType) || argumentType->kind == TR_BITFIELD) {
-          return argumentType;
+          return integerPromotion(ctx, argumentType);
       } else {
           reportDiagnostic(ctx, DIAG_INVALID_UNARY_ARGUMENT, coords, argumentType);
           return makeErrorRef(ctx);
       }
     case EU_TILDA: // ~a
       if (isIntegerType(argumentType) || argumentType->kind == TR_BITFIELD) {
-          return argumentType;
+          return integerPromotion(ctx, argumentType);
       } else {
           reportDiagnostic(ctx, DIAG_INVALID_UNARY_ARGUMENT, coords, argumentType);
           return makeErrorRef(ctx);
@@ -2342,6 +2375,23 @@ AstExpression *transformTernaryExpression(ParserContext *ctx, AstExpression *exp
   return expr;
 }
 
+AstExpression *transformUnaryExpression(ParserContext *ctx, AstExpression *expr) {
+  if (isErrorType(expr->type)) return expr;
+
+  ExpressionType op = expr->op;
+  if (op != EU_PLUS && op != EU_MINUS && op != EU_TILDA) return expr;
+
+  // The operand is promoted too, not merely the result type: '-a' on a char is
+  // a negation of an int, and the backends build the operation at the width the
+  // operand arrives with.
+  AstExpression *argument = expr->unaryExpr.argument;
+  if (!typesEquals(expr->type, argument->type)) {
+      expr->unaryExpr.argument = createCastExpression(ctx, &argument->coordinates, expr->type, parenIfNeeded(ctx, argument));
+  }
+
+  return expr;
+}
+
 AstExpression *transformBinaryExpression(ParserContext *ctx, AstExpression *expr) {
   assert(EB_ADD <= expr->op && expr->op <= EB_GE);
 
@@ -2408,6 +2458,19 @@ AstExpression *transformBinaryExpression(ParserContext *ctx, AstExpression *expr
 
   assert(left->type->kind == TR_VALUE || left->type->kind == TR_BITFIELD);
   assert(right->type->kind == TR_VALUE || right->type->kind == TR_BITFIELD);
+
+  if (expr->op == EB_LHS || expr->op == EB_RHS) {
+      // Each operand promotes on its own; expr->type is already the promoted
+      // left one.
+      TypeRef *rightType = integerPromotion(ctx, right->type);
+      if (!typesEquals(expr->type, left->type)) {
+          expr->binaryExpr.left = createCastExpression(ctx, &left->coordinates, expr->type, parenIfNeeded(ctx, left));
+      }
+      if (!typesEquals(rightType, right->type)) {
+          expr->binaryExpr.right = createCastExpression(ctx, &right->coordinates, rightType, parenIfNeeded(ctx, right));
+      }
+      return expr;
+  }
 
   TypeRef *commonType = commonPrimitiveType(ctx, left->type, right->type);
 

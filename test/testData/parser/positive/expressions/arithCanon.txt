@@ -144,13 +144,13 @@ FILE test/testData/parser/positive/expressions/arithCanon.c
     signed long c = \
       (signed long)30
     signed int d = \
-      (signed int)(*a >> *b >> *c)
+      *a >> *b >> *c
     signed int e = \
-      (signed int)(*a << *b >> *c)
+      *a << *b >> *c
     signed int f = \
-      (signed int)(*a >> *b << *c)
+      *a >> *b << *c
     signed int g = \
-      (signed int)(*a << *b << *c)
+      *a << *b << *c
     signed int h = \
       (signed int)(*c >> *b >> 10)
     signed int i = \
