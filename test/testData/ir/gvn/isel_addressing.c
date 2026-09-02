@@ -21,10 +21,12 @@
 //                This is the case MAK_FRAME exists for - the frame pointer is
 //                the base, so the index still has somewhere to go.
 //   shared       one address, two loads. The address folds into both, because
-//                an addressing mode costs nothing to repeat - but the widening
-//                its index needs is a real instruction and is emitted twice.
-//                That is the price of the fold, and it is meant to be visible
-//                here rather than argued about.
+//                an addressing mode costs nothing to repeat, and the widening
+//                its index needs is emitted *once* - one 'movsx.8/4' and two
+//                address modes. It used to be emitted per fold, the widening
+//                being a real instruction that nothing cached; section 6.23
+//                gave the index a register of its own and both folds find it
+//                already wide. This baseline is what says it stays that way.
 //   escaped      the address is also passed to something that wants it in a
 //                register, so the 'lea' stays *and* the load still folds. A
 //                fold is per use, and only a value every one of whose uses

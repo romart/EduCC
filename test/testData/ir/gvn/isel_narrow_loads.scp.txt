@@ -1,0 +1,229 @@
+--- Phase: scp ---
+Function 'promoted'
+Locals:
+   p:0|p = %2
+   l:1|n = %6
+   r:-1|<ret_slot> = %5
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %12 = IR_DEF_CONST () [kind = integer, v = 1, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %19 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %17 = IR_RET (%14) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %8 = IR_M_LOAD (%3) [load type = I8]
+  %9 = IR_E_BITCAST (%8) [I8->I32]
+  %13 = IR_E_ADD (%9, %12) []
+  %14 = IR_E_BITCAST (%13) [I32->I8]
+  %16 = IR_BRANCH () [target = #1]
+
+
+--- Phase: scp ---
+Function 'unpromoted'
+Locals:
+   p:0|p = %2
+   r:-1|<ret_slot> = %5
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %9 = IR_DEF_CONST () [kind = integer, v = 1, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %15 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %13 = IR_RET (%10) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %7 = IR_M_LOAD (%3) [load type = U8]
+  %8 = IR_E_BITCAST (%7) [U8->I32]
+  %10 = IR_E_ADD (%8, %9) []
+  %12 = IR_BRANCH () [target = #1]
+
+
+--- Phase: scp ---
+Function 'halfword'
+Locals:
+   p:0|p = %2
+   r:-1|<ret_slot> = %5
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %9 = IR_DEF_CONST () [kind = integer, v = 1, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %15 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %13 = IR_RET (%10) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %7 = IR_M_LOAD (%3) [load type = I16]
+  %8 = IR_E_BITCAST (%7) [I16->I32]
+  %10 = IR_E_ADD (%8, %9) []
+  %12 = IR_BRANCH () [target = #1]
+
+
+--- Phase: scp ---
+Function 'mixedSource'
+Locals:
+   p:0|src = %2
+   p:1|dst = %5
+   p:2|limit = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %6 = IR_P_REG () [preg = $rsi]
+  %9 = IR_P_REG () [preg = $rdx]
+  %25 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #3, strict dom #3
+
+  %24 = IR_RET () []
+
+BB #2, '<FIRST>', <- #0, -> #4 #3, strict dom #0, dominatees [#3, #4]
+
+  %12 = IR_M_LOAD (%3) [load type = I8]
+  %13 = IR_E_BITCAST (%12) [I8->I32]
+  %15 = IR_E_BITCAST (%9) [I8->I32]
+  %16 = IR_E_LT (%13, %15) []
+  %17 = IR_CBRANCH (%16) [taken = #4, non taken = #3]
+
+BB #3, '<if_exit>', <- #2 #4, -> #1, strict dom #2, dominatees [#1]
+
+  %23 = IR_BRANCH () [target = #1]
+
+BB #4, '<if_then>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %20 = IR_M_LOAD (%3) [load type = I8]
+  %21 = IR_M_STORE (%6, %20) [store type = I8]
+  %22 = IR_BRANCH () [target = #3]
+
+
+--- Phase: scp ---
+Function 'toWide'
+Locals:
+   p:0|a = %2
+   p:1|p = %5
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %13 = IR_DEF_CONST () [kind = integer, v = 2, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %6 = IR_P_REG () [preg = $rsi]
+  %21 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %19 = IR_RET (%16) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %11 = IR_M_LOAD (%6) [load type = I8]
+  %12 = IR_E_BITCAST (%11) [I8->I64]
+  %14 = IR_E_SHL (%12, %13) []
+  %15 = IR_GET_ELEMENT_PTR (%3, %14) [underlying type = C signed int, index = %12]
+  %16 = IR_M_LOAD (%15) [load type = I32]
+  %18 = IR_BRANCH () [target = #1]
+
+
+--- Phase: scp ---
+Function 'byteLoop'
+Locals:
+   p:0|p = %2
+   p:1|n = %5
+   l:2|i = %9
+   l:3|total = %10
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %49 = IR_DEF_CONST () [kind = integer, v = 0, id = 3]
+  %29 = IR_DEF_CONST () [kind = integer, v = 1, id = 2]
+  %11 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %6 = IR_P_REG () [preg = $rsi]
+  %39 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #5, strict dom #5
+
+  %37 = IR_RET (%42) []
+
+BB #2, '<FIRST>', <- #0, -> #3, strict dom #0, dominatees [#3]
+
+  %14 = IR_BRANCH () [target = #3]
+
+BB #3, '<for_head>', <- #2 #6, -> #4 #5, strict dom #2, domination frontier [#3], dominatees [#4, #5]
+
+  %42 = IR_PHI ([%11, #2], [%26, #6]) [var = total]
+  %40 = IR_PHI ([%11, #2], [%31, #6]) [var = i]
+  %17 = IR_E_LT (%40, %6) []
+  %18 = IR_CBRANCH (%17) [taken = #4, non taken = #5]
+
+BB #4, '<for_body>', <- #3, -> #6, strict dom #3, domination frontier [#3], dominatees [#6]
+
+  %21 = IR_E_BITCAST (%40) [I32->I64]
+  %22 = IR_GET_ELEMENT_PTR (%3, %21) [underlying type = C unsigned char, index = %21]
+  %23 = IR_M_LOAD (%22) [load type = U8]
+  %24 = IR_E_BITCAST (%23) [U8->I32]
+  %26 = IR_E_ADD (%42, %24) []
+  %28 = IR_BRANCH () [target = #6]
+
+BB #5, '<for_exit>', <- #3, -> #1, strict dom #3, dominatees [#1]
+
+  %36 = IR_BRANCH () [target = #1]
+
+BB #6, '<for_mod>', <- #4, -> #3, strict dom #4, domination frontier [#3]
+
+  %31 = IR_E_ADD (%40, %29) []
+  %33 = IR_BRANCH () [target = #3]
+
+
+--- Phase: scp ---
+Function 'throughPhi'
+Locals:
+   p:0|p = %2
+   p:1|n = %5
+   l:2|c = %9
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %21 = IR_DEF_CONST () [kind = integer, v = 1, id = 2]
+  %10 = IR_DEF_CONST () [kind = integer, v = 0, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %6 = IR_P_REG () [preg = $rsi]
+  %27 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #3, strict dom #3
+
+  %25 = IR_RET (%22) []
+
+BB #2, '<FIRST>', <- #0, -> #4 #3, strict dom #0, dominatees [#3, #4]
+
+  %13 = IR_E_GT (%6, %10) []
+  %14 = IR_CBRANCH (%13) [taken = #4, non taken = #3]
+
+BB #3, '<if_exit>', <- #2 #4, -> #1, strict dom #2, dominatees [#1]
+
+  %28 = IR_PHI ([%10, #2], [%17, #4]) [var = c]
+  %22 = IR_E_ADD (%28, %21) []
+  %24 = IR_BRANCH () [target = #1]
+
+BB #4, '<if_then>', <- #2, -> #3, strict dom #2, domination frontier [#3]
+
+  %16 = IR_M_LOAD (%3) [load type = I8]
+  %17 = IR_E_BITCAST (%16) [I8->I32]
+  %19 = IR_BRANCH () [target = #3]
+
+

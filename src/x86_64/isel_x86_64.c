@@ -83,7 +83,17 @@ static uint32_t selectWidened(MachineBuilder *b, const IrInstruction *value, uin
     return src;
   }
 
-  return widenRegister(b, src, srcSize, size, isUnsignedIrOperand(value->type));
+  const Boolean isUnsigned = isUnsignedIrOperand(value->type);
+
+  // The definition may already have written the extension this use wants: a
+  // byte load widens as it loads (selectMemoryLoad), so 'movzx.4/1 [%v5]'
+  // followed by 'movzx.4/1 %v8' is the same extension performed twice, the
+  // second time on its own output.
+  if (machineTakeRegisterExtension(b->mf, src, size, isUnsigned)) {
+    return src;
+  }
+
+  return widenRegister(b, src, srcSize, size, isUnsigned);
 }
 
 // 'dst <- value' at 'size' bytes, in whichever form the value has. A folded
@@ -365,10 +375,16 @@ static void selectMemoryLoad(MachineBuilder *b, const IrInstruction *i) {
     MachineInstr *widening =
         buildMachineInstr(b, isUnsignedIrOperand(t) ? X86_MOVZX : X86_MOVSX, 1, 1);
 
-    setRegisterOperand(widening, 0, machineBuilderVreg(b, i));
+    const uint32_t dst = machineBuilderVreg(b, i);
+
+    setRegisterOperand(widening, 0, dst);
     setMemoryOperand(widening, 1, &addr);
     widening->opSize = sizeof(int32_t);
     widening->srcSize = size;
+
+    // Said rather than left to be rediscovered: four bytes of this register
+    // are the value, and a use wanting it that wide wants nothing further.
+    machineNoteRegisterExtension(b->mf, dst, sizeof(int32_t), isUnsignedIrOperand(t));
     return;
   }
 
@@ -1402,7 +1418,13 @@ static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
     // through selectLoadInto would widen into a register of its own and then
     // copy that here, and this is the one place where the widening *is* the
     // instruction being selected rather than something a use needed.
-    if (srcSize < toSize && !machineBuilderIsFolded(b, value)) {
+    // Unless the value's definition already wrote that extension, in which
+    // case the conversion is a move of a register that is already the answer -
+    // and one the coalescer can delete outright, the two registers now being
+    // the same width as well as the same value.
+    if (srcSize < toSize && !machineBuilderIsFolded(b, value) &&
+        !machineTakeRegisterExtension(b->mf, machineBuilderVreg(b, value), toSize,
+                                      isUnsignedIrOperand(fromType))) {
       widenRegisterInto(b, dst, machineBuilderVreg(b, value), srcSize, toSize,
                         isUnsignedIrOperand(fromType));
       return;

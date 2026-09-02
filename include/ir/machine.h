@@ -254,6 +254,19 @@ typedef struct _VRegInfo {
   enum RegClass rc;
   uint8_t size; // in bytes
 
+  // What the bytes above the value hold, when its definition wrote more of the
+  // register than the value is wide. Zero says nothing is known, which is what
+  // every register starts as and what every use has to assume.
+  //
+  // Only a def can fill this in, and only about itself, so it is never a
+  // second opinion about the same fact. 'size' is not brought up to meet it
+  // here: the declared width is what a spill and a reload move, so a use that
+  // relies on the note widens the register as it takes it, and one that never
+  // comes leaves the register the width its value is. See
+  // machineTakeRegisterExtension.
+  uint8_t extendedTo;         // bytes of the register that are the value, or 0
+  Boolean extendedUnsigned;   // how the bytes above the value were filled
+
   // The IR value this register holds, or NULL for one the backend invented
   // (the temporary that breaks a copy cycle, a spill slot's reload). Only ever
   // read by the dumper - without it a dump is a wall of %v numbers with
@@ -463,6 +476,23 @@ void setSymbolOperand(MachineInstr *mi, uint16_t idx, struct _Symbol *symbol);
 uint32_t createVirtualRegister(MachineFunction *mf, enum RegClass rc, uint8_t size);
 VRegInfo *virtualRegisterInfo(const MachineFunction *mf, uint32_t reg);
 enum RegClass machineRegisterClass(const MachineFunction *mf, uint32_t reg);
+
+// A definition saying what it left above the value: 'bytes' of this register
+// are the value, extended as 'isUnsigned' says. Records only - see section 6.28
+// of the design document for why the register is not widened until somebody
+// reads the note.
+void machineNoteRegisterExtension(MachineFunction *mf, uint32_t reg, uint8_t bytes,
+                                  Boolean isUnsigned);
+
+// Whether a note covers what a use is about to extend for itself, and if so,
+// takes it: the register is widened to 'bytes', because a note is only true
+// while the register is wide enough to hold it. So this is a question with a
+// consequence and not a predicate - ask it where the answer will be used.
+//
+// Conservative in one direction only: FALSE where a widening was not needed
+// costs an instruction, TRUE where it was would be a miscompile.
+Boolean machineTakeRegisterExtension(MachineFunction *mf, uint32_t reg, uint8_t bytes,
+                                     Boolean isUnsigned);
 
 // The virtual register holding an IR value, created on first ask. See
 // MachineFunction.irToVreg.

@@ -368,6 +368,62 @@ uint32_t machineVregForValue(MachineFunction *mf, const IrInstruction *value) {
   return reg;
 }
 
+// A def saying what it left above the value. Records the fact and nothing
+// else: widening the register here would charge every narrow load for a note
+// most of them nobody reads, and that is not free - a byte loaded into a
+// four-byte register no longer coalesces with the one-byte value a byte
+// operation defines, so 'and.1 %v, -57' grows a copy it used to do without.
+//
+// A def no wider than the register it writes leaves nothing above the value to
+// describe, so it records nothing.
+void machineNoteRegisterExtension(MachineFunction *mf, uint32_t reg, uint8_t bytes,
+                                  Boolean isUnsigned) {
+  assert(isVirtualRegister(reg) && "only a virtual register has a declared width to note");
+
+  VRegInfo *info = virtualRegisterInfo(mf, reg);
+
+  assert(info->rc == RC_GP && "an extension is a fact about an integer register");
+
+  if (bytes <= info->size) {
+    return;
+  }
+
+  info->extendedTo = bytes;
+  info->extendedUnsigned = isUnsigned != 0;
+}
+
+// Cashing a note, which is where the register is widened - and the widening is
+// not an optimization bundled in here, it is what makes the note survive stage
+// 2. Four bytes of a register are four bytes only while the register *is* four
+// bytes: a one-byte virtual register is a one-byte spill slot, and the reload
+// out of it brings back one byte and three of whatever the scratch register
+// held before it.
+//
+// Widened to what this use needs rather than to the whole note, so that a use
+// wanting two bytes does not pay for four. Every use is selected before the
+// allocator runs, so the width it ends up with covers all of them.
+Boolean machineTakeRegisterExtension(MachineFunction *mf, uint32_t reg, uint8_t bytes,
+                                     Boolean isUnsigned) {
+  if (!isVirtualRegister(reg)) {
+    return FALSE;
+  }
+
+  VRegInfo *info = virtualRegisterInfo(mf, reg);
+
+  // Equal signedness and not merely "wide enough": the bytes above the value
+  // are the whole question, and a zero-extended register read as a sign-
+  // extended one is 255 where the answer is -1.
+  if (info->extendedTo < bytes || info->extendedUnsigned != (isUnsigned != 0)) {
+    return FALSE;
+  }
+
+  if (bytes > info->size) {
+    info->size = bytes;
+  }
+
+  return TRUE;
+}
+
 Boolean machineHasVregForValue(const MachineFunction *mf, const IrInstruction *value) {
   const Vector *map = &mf->irToVreg;
   return value->id < map->size && getFromVector(map, value->id) != 0;
