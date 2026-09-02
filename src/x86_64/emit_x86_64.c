@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <string.h>
 
 #include "codegen.h"
 #include "ir/emit.h"
@@ -32,6 +33,17 @@ static const enum Registers x86CalleeSaved[] = {
 
 #define CALLEE_SAVED_COUNT (sizeof(x86CalleeSaved) / sizeof(x86CalleeSaved[0]))
 
+// One jump that names a block of this function, numbered in emission order -
+// the same order every time, since nothing between passes touches the machine
+// IR. 'offset' and the target's bound label are where the last pass put them,
+// which is what relaxJumps measures; 'isShort' is the decision the next pass
+// will be emitted with.
+typedef struct _JumpSite {
+  ptrdiff_t offset;
+  uint32_t block;
+  Boolean isShort;
+} JumpSite;
+
 typedef struct _EmitContext {
   GeneratedFunction *gen;
   MachineFunction *mf;
@@ -46,6 +58,12 @@ typedef struct _EmitContext {
   // that reaches a table is emitted long before that, so this is a forward
   // reference like any other and uses the same patching.
   struct Label *jumpTableLabels;
+
+  // Every jump that names a block, and how far through them this pass is. The
+  // count comes from the machine IR before the first pass and does not change.
+  JumpSite *jumps;
+  size_t numJumps;
+  size_t nextJump;
 
   // Where in the frame each saved callee-saved register lives, indexed the
   // same way as x86CalleeSaved; 0 for the ones this function does not use.
@@ -329,13 +347,21 @@ static MachineBasicBlock *blockOperand(const MachineInstr *mi, uint16_t idx) {
 
 // A forward jump has to reserve its displacement before the target's address is
 // known, and the assembler's 'isNear' picks which: TRUE reserves one byte, FALSE
-// four. Always four here. Spilling every value makes blocks long enough that a
-// one-byte displacement is a coin flip, and getting it wrong is not a worse
-// encoding but a failed assertion in patchJumpTo once the label is bound.
-// Choosing the short form where it fits wants a relaxation pass, which is worth
-// having and is not this stage's job. A backward jump is not affected - its
-// label is already bound, so the assembler measures the distance and picks.
-#define JUMP_DISPLACEMENT_IS_SHORT FALSE
+// four. Guessing wrong is not a worse encoding but a failed assertion in
+// patchJumpTo once the label is bound, so the guess is not made - the function
+// is emitted, measured, and emitted again knowing where everything landed. See
+// relaxJumps. A backward jump is not affected either way: its label is already
+// bound, so the assembler measures the distance itself and ignores what it was
+// told.
+static Boolean takeJumpSite(EmitContext *e, const MachineInstr *mi) {
+  assert(e->nextJump < e->numJumps && "a jump the pre-pass did not count");
+
+  JumpSite *site = &e->jumps[e->nextJump++];
+  site->offset = e->gen->section->pc - e->gen->section->start;
+  site->block = blockOperand(mi, 0)->id;
+
+  return site->isShort;
+}
 
 // -============================ Instruction arms ==========================-
 
@@ -553,7 +579,8 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
   }
 
   if (isJcc(mi->opcode)) {
-    emitCondJump(f, &e->labels[blockOperand(mi, 0)->id], conditionFor(mi->opcode), JUMP_DISPLACEMENT_IS_SHORT);
+    emitCondJump(f, &e->labels[blockOperand(mi, 0)->id], conditionFor(mi->opcode),
+                 takeJumpSite(e, mi));
     return;
   }
 
@@ -755,7 +782,7 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
     break;
 
   case X86_JMP:
-    emitJumpTo(f, &e->labels[blockOperand(mi, 0)->id], JUMP_DISPLACEMENT_IS_SHORT);
+    emitJumpTo(f, &e->labels[blockOperand(mi, 0)->id], takeJumpSite(e, mi));
     break;
 
   case X86_IJMP:
@@ -874,6 +901,95 @@ static void emitJumpTables(EmitContext *e) {
   }
 }
 
+// -============================ Relaxation ================================-
+//
+// The body, once. Everything about it is a function of the machine IR and of
+// the jump decisions in e->jumps, so emitting it twice with the same decisions
+// produces the same bytes - which is what lets the pass below throw a pass away
+// and do it again.
+
+static void emitFunctionBody(EmitContext *e) {
+  MachineFunction *mf = e->mf;
+
+  e->nextJump = 0;
+
+  emitPrologue(e);
+
+  for (MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
+    assert(mbb->id < mf->numBlocks);
+    bindBlockLabel(e->gen, &e->labels[mbb->id]);
+
+    for (const MachineInstr *mi = mbb->instructions.head; mi != NULL; mi = mi->next) {
+      emitInstruction(e, mi);
+    }
+  }
+
+  // A C function that runs off its end without returning has undefined
+  // behaviour only if the caller reads the result; falling out of the emitted
+  // bytes into whatever follows in .text is a different and much worse thing,
+  // so the epilogue is repeated unconditionally when the last block does not
+  // end in one.
+  const MachineBasicBlock *last = mf->blocks.tail;
+  const MachineInstr *lastInstr = last != NULL ? last->instructions.tail : NULL;
+  if (lastInstr == NULL || lastInstr->opcode != X86_RET) {
+    emitEpilogue(e);
+  }
+
+  assert(e->nextJump == e->numJumps && "a jump the pre-pass counted was not emitted");
+}
+
+// Which jumps the *next* pass may spell in one byte, given where this pass put
+// them. Answers TRUE when it found any it had not found before, which is the
+// signal to emit again.
+//
+// Only ever adds, and that is what makes it terminate and makes it safe. A
+// short jump is three or four bytes smaller than the long form and nothing in
+// a function body grows, so every span shrinks or stays; a displacement that
+// fitted when measured still fits after the code between it and its target has
+// been rewritten. Shrinking brings further targets into reach, which is why
+// this is a fixed point rather than a single re-emission - two passes is the
+// common case and three is not rare.
+//
+// The distance is measured exactly as patchJumpTo will: from the byte after a
+// two-byte instruction, both forms of the jump being relative to their own end.
+static Boolean relaxJumps(EmitContext *e) {
+  Boolean changed = FALSE;
+
+  for (size_t idx = 0; idx < e->numJumps; ++idx) {
+    JumpSite *site = &e->jumps[idx];
+    if (site->isShort) {
+      continue;
+    }
+
+    assert(e->labels[site->block].binded && "a jump names a block that was never emitted");
+
+    const ptrdiff_t d = e->labels[site->block].label_cp - site->offset - 2;
+    if ((ptrdiff_t)(int8_t)d == d) {
+      site->isShort = TRUE;
+      changed = TRUE;
+    }
+  }
+
+  return changed;
+}
+
+// How many jumps name a block, so that the sites can be an array indexed by
+// emission order rather than a list rebuilt every pass. A jump through a
+// register reaches its target without a displacement and is not one of these.
+static size_t countJumpSites(const MachineFunction *mf) {
+  size_t count = 0;
+
+  for (const MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
+    for (const MachineInstr *mi = mbb->instructions.head; mi != NULL; mi = mi->next) {
+      if (isJcc(mi->opcode) || mi->opcode == X86_JMP) {
+        ++count;
+      }
+    }
+  }
+
+  return count;
+}
+
 // -============================ Entry points ==============================-
 
 GeneratedFunction *emitMachineFunction_x86_64(GenerationContext *ctx, MachineFunction *mf) {
@@ -890,30 +1006,37 @@ GeneratedFunction *emitMachineFunction_x86_64(GenerationContext *ctx, MachineFun
   if (mf->jumpTables.size != 0) {
     e.jumpTableLabels = areanAllocate(ctx->codegenArena, mf->jumpTables.size * sizeof(struct Label));
   }
+  e.numJumps = countJumpSites(mf);
+  if (e.numJumps != 0) {
+    e.jumps = areanAllocate(ctx->codegenArena, e.numJumps * sizeof(JumpSite));
+  }
   e.frameSize = layoutCalleeSaved(&e);
 
   gen->frameSize = e.frameSize;
 
-  emitPrologue(&e);
+  // Emitting again means unwinding what the last attempt left behind: the bytes
+  // themselves, the labels it bound, and the relocations it prepended to the
+  // section's list. Nothing else is written outside this function - a literal
+  // goes through the constant cache, so asking for it a second time returns the
+  // same offset rather than storing it twice - and the arena keeps the pass's
+  // discarded relocations, which is the price of not having a second size model
+  // to keep in step with the assembler.
+  Section *section = gen->section;
+  Relocation *relocationsBefore = section->reloc;
 
-  for (MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
-    assert(mbb->id < mf->numBlocks);
-    bindBlockLabel(gen, &e.labels[mbb->id]);
-
-    for (const MachineInstr *mi = mbb->instructions.head; mi != NULL; mi = mi->next) {
-      emitInstruction(&e, mi);
+  for (;;) {
+    section->pc = section->start + gen->sectionOffset;
+    section->reloc = relocationsBefore;
+    memset(e.labels, 0, mf->numBlocks * sizeof(struct Label));
+    if (e.jumpTableLabels != NULL) {
+      memset(e.jumpTableLabels, 0, mf->jumpTables.size * sizeof(struct Label));
     }
-  }
 
-  // A C function that runs off its end without returning has undefined
-  // behaviour only if the caller reads the result; falling out of the emitted
-  // bytes into whatever follows in .text is a different and much worse thing,
-  // so the epilogue is repeated unconditionally when the last block does not
-  // end in one.
-  const MachineBasicBlock *last = mf->blocks.tail;
-  const MachineInstr *lastInstr = last != NULL ? last->instructions.tail : NULL;
-  if (lastInstr == NULL || lastInstr->opcode != X86_RET) {
-    emitEpilogue(&e);
+    emitFunctionBody(&e);
+
+    if (!relaxJumps(&e)) {
+      break;
+    }
   }
 
   // Where the instructions stop, which is not where the function's bytes do:

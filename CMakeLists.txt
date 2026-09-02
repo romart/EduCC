@@ -261,7 +261,7 @@ if(BUILD_TESTING)
     foreach(alloc chaitin linear trivial)
       foreach(checker
           phi_destruction frame_layout selection allocation allocation_widths
-          call_alignment emission_objdump disasm_stable)
+          call_alignment emission_objdump disasm_stable jump_relaxation)
         add_test(NAME checker_${checker}_${alloc}
           COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/test/checkers/${checker}.py"
                   "$<TARGET_FILE:main>" "-Xregalloc=${alloc}" "test/testData/codegen"
