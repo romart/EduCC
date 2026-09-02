@@ -1267,9 +1267,17 @@ static IrInstruction *translateAssignment(AstExpression *expr) {
       enum IrTypeKind irMemType =
           typeRefToIrType(assignee->type->bitFieldDesc.storageType);
       IrInstruction *storageOp = addLoadInstr(irMemType, lvalue, expr);
-      rvalue = encodeBitField(assignee->type, storageOp, rvalue);
+      IrInstruction *encoded = encodeBitField(assignee->type, storageOp, rvalue);
+      addStoreInstr(lvalue, encoded, expr);
+      // The value is the field read back, not the storage unit written: a
+      // value too wide for the field, or a signed field holding a negative
+      // one, is not what came in.
+      rvalue = decodeBitField(assignee->type, encoded);
+      rvalue->astType = assignee->type;
+      rvalue->meta.astExpr = expr;
+    } else {
+      addStoreInstr(lvalue, rvalue, expr);
     }
-    addStoreInstr(lvalue, rvalue, expr);
   }
   return rvalue;
 }
@@ -1313,13 +1321,17 @@ static IrInstruction *translateAssignArith(AstExpression *expr) {
   operation->astType = expr->type;
 
   IrInstruction *storeValue = operation;
+  IrInstruction *result = operation;
   if (assignee->type->kind == TR_BITFIELD) {
     assert(storageOp != NULL);
     storeValue = encodeBitField(assignee->type, storageOp, operation);
+    result = decodeBitField(assignee->type, storeValue);
+    result->astType = assignee->type;
+    result->meta.astExpr = expr;
   }
   addStoreInstr(lvalue, storeValue, expr);
 
-  return operation;
+  return result;
 }
 
 static IrInstruction *translateReference(AstExpression *expr) {
