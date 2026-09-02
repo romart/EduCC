@@ -23,8 +23,9 @@
 
 // Physical registers occupy the low indices of the dataflow bitset and virtual
 // ones follow, so the two are one lattice and a value flowing between them -
-// which is what every ABI copy is - needs no translation.
-static size_t regBitIndex(const MachineFunction *mf, uint32_t reg) {
+// which is what every ABI copy is - needs no translation. Exported because
+// stage 2C reads the live sets this builds rather than the intervals.
+size_t machineLivenessRegBit(const MachineFunction *mf, uint32_t reg) {
   assert(reg != NO_REG);
 
   if (isVirtualRegister(reg)) {
@@ -34,6 +35,7 @@ static size_t regBitIndex(const MachineFunction *mf, uint32_t reg) {
   assert(reg < mf->target->numPhysRegs);
   return reg;
 }
+
 
 typedef struct _BlockLiveness {
   MachineBasicBlock *mbb;
@@ -53,7 +55,7 @@ typedef struct _BlockLiveness {
 // live before it. Defs kill and uses revive, in that order, so that a register
 // an instruction both writes and reads - two-address form, and every partial
 // def - comes out live, which is what it is.
-static void transferInstruction(const MachineFunction *mf, MachineInstr *mi, BitSet *live) {
+void machineLivenessTransfer(const MachineFunction *mf, MachineInstr *mi, BitSet *live) {
   for (uint16_t idx = 0; idx < mi->numOperands; ++idx) {
     MachineOperand *op = &mi->operands[idx];
 
@@ -65,7 +67,7 @@ static void transferInstruction(const MachineFunction *mf, MachineInstr *mi, Bit
     uint16_t numRegs = machineOperandRegisters(op, regs);
 
     for (uint16_t r = 0; r < numRegs; ++r) {
-      clearBit(live, regBitIndex(mf, *regs[r]));
+      clearBit(live, machineLivenessRegBit(mf, *regs[r]));
     }
   }
 
@@ -77,7 +79,7 @@ static void transferInstruction(const MachineFunction *mf, MachineInstr *mi, Bit
     const TargetDescriptor *target = mf->target;
 
     for (uint32_t idx = 0; idx < target->callerSavedRegCount; ++idx) {
-      clearBit(live, regBitIndex(mf, target->callerSavedRegs[idx]));
+      clearBit(live, machineLivenessRegBit(mf, target->callerSavedRegs[idx]));
     }
   }
 
@@ -92,7 +94,7 @@ static void transferInstruction(const MachineFunction *mf, MachineInstr *mi, Bit
     uint16_t numRegs = machineOperandRegisters(op, regs);
 
     for (uint16_t r = 0; r < numRegs; ++r) {
-      setBit(live, regBitIndex(mf, *regs[r]));
+      setBit(live, machineLivenessRegBit(mf, *regs[r]));
     }
   }
 }
@@ -172,7 +174,7 @@ static void runDataflow(const MachineFunction *mf, BlockLiveness *bls, size_t nu
       copyBitSet(&live, &bl->out);
 
       for (MachineInstr *mi = bl->mbb->instructions.tail; mi != NULL; mi = mi->prev) {
-        transferInstruction(mf, mi, &live);
+        machineLivenessTransfer(mf, mi, &live);
       }
 
       if (compareBitSets(&live, &bl->in) != 0) {
@@ -243,6 +245,13 @@ void computeMachineLiveness(MachineFunction *mf, MachineLiveness *lv) {
 
   const size_t setSize = target->numPhysRegs + lv->numVregs;
 
+  lv->numBlocks = numBlocks;
+  lv->setSize = setSize;
+  lv->blockAt = heapAllocate(sizeof(MachineBasicBlock *) * numBlocks);
+  lv->blockLiveOut = heapAllocate(sizeof(BitSet) * numBlocks);
+  lv->blockFirst = heapAllocate(sizeof(uint32_t) * numBlocks);
+  lv->blockLast = heapAllocate(sizeof(uint32_t) * numBlocks);
+
   size_t bIdx = 0;
   uint32_t pos = 0;
   for (MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next, ++bIdx) {
@@ -260,6 +269,10 @@ void computeMachineLiveness(MachineFunction *mf, MachineLiveness *lv) {
 
     bl->last = pos != bl->first ? pos - 1 : bl->first;
     blockIndex[mbb->id] = (int32_t)bIdx;
+
+    lv->blockAt[bIdx] = mbb;
+    lv->blockFirst[bIdx] = bl->first;
+    lv->blockLast[bIdx] = bl->last;
   }
 
   runDataflow(mf, bls, numBlocks, blockIndex, setSize);
@@ -288,7 +301,7 @@ void computeMachineLiveness(MachineFunction *mf, MachineLiveness *lv) {
     uint32_t p = bl->last;
     for (MachineInstr *mi = bl->mbb->instructions.tail; mi != NULL; mi = mi->prev, --p) {
       const uint64_t after = physMask(mf, &live);
-      transferInstruction(mf, mi, &live);
+      machineLivenessTransfer(mf, mi, &live);
       const uint64_t before = physMask(mf, &live);
 
       lv->physBusy[p] = after | before | namedPhysMask(mi) |
@@ -381,9 +394,12 @@ void computeMachineLiveness(MachineFunction *mf, MachineLiveness *lv) {
   releaseHeap(starts);
   releaseHeap(byVreg);
 
+  // The live-out sets outlive this call rather than being freed with the rest
+  // of the scaffolding: replaying a block backwards from one is how stage 2C
+  // gets interference out of this dataflow instead of building its own.
   for (size_t idx = 0; idx < numBlocks; ++idx) {
     releaseBitSet(&bls[idx].in);
-    releaseBitSet(&bls[idx].out);
+    lv->blockLiveOut[idx] = bls[idx].out;
   }
 
   releaseHeap(bls);
@@ -400,6 +416,16 @@ void releaseMachineLiveness(MachineLiveness *lv) {
   if (lv->intervals != NULL) {
     releaseHeap(lv->intervals);
     releaseHeap(lv->vregToInterval);
+  }
+
+  if (lv->blockAt != NULL) {
+    for (size_t idx = 0; idx < lv->numBlocks; ++idx) {
+      releaseBitSet(&lv->blockLiveOut[idx]);
+    }
+    releaseHeap(lv->blockAt);
+    releaseHeap(lv->blockLiveOut);
+    releaseHeap(lv->blockFirst);
+    releaseHeap(lv->blockLast);
   }
 
   memset(lv, 0, sizeof *lv);

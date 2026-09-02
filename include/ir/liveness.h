@@ -80,6 +80,25 @@ typedef struct _MachineLiveness {
   // give it.
   int32_t *vregToInterval;
   uint32_t numVregs;
+
+  // The block-level half of the dataflow, kept rather than thrown away once
+  // the intervals are built. An allocator that wants interference instead of
+  // intervals replays the transfer backwards through a block from its live-out
+  // set, and replaying it is how stage 2C reads this answer rather than
+  // computing a second one of its own.
+  //
+  // Blocks are in layout order, the same order 'instrAt' numbers positions in.
+  // A block with no instructions has first == last and is not worth walking:
+  // nothing is live across it that is not live across its neighbours.
+  size_t numBlocks;
+  MachineBasicBlock **blockAt;
+  BitSet *blockLiveOut; // [numBlocks], indexed by the bit layout below
+  uint32_t *blockFirst; // [numBlocks], position of the block's first instruction
+  uint32_t *blockLast;
+
+  // Bits in each of those sets: the physical registers first, the virtual ones
+  // after them. See machineLivenessRegBit().
+  size_t setSize;
 } MachineLiveness;
 
 // Computes all of the above over the function as it stands. Cheap enough to
@@ -93,5 +112,16 @@ uint64_t machineLivenessBusyRange(const MachineLiveness *lv, uint32_t from, uint
 
 // The interval of a virtual register, or NULL if it occurs nowhere.
 LiveInterval *machineLivenessIntervalFor(const MachineLiveness *lv, uint32_t vreg);
+
+// Where a register sits in a live set: physical registers at their own ids,
+// virtual ones above them. One namespace, so an ABI copy needs no translation
+// between the two halves.
+size_t machineLivenessRegBit(const MachineFunction *mf, uint32_t reg);
+
+// One instruction's effect on the set live *after* it, turning it into the set
+// live before it. Exposed so that an allocator can replay a block backwards
+// from its live-out set: one description of what an instruction does to a
+// register, and every pass that needs to know asks this one.
+void machineLivenessTransfer(const MachineFunction *mf, MachineInstr *mi, BitSet *live);
 
 #endif // __IR_LIVENESS_H__

@@ -106,6 +106,12 @@ void copyBitSet(const BitSet *src, BitSet *dst);
 int compareBitSets(const BitSet *lhs, const BitSet *rhs);
 Boolean isEmptyBitSet(const BitSet *bs);
 size_t countBits(const BitSet *bs);
+
+// The next set bit at or after 'from', or the set's size when there is none.
+// Walking a set this way rather than asking getBit() per index is what keeps
+// an interference build linear in what is live rather than in the size of the
+// register file.
+size_t nextSetBit(const BitSet *bs, size_t from);
 void printBitSet(FILE *stream, const BitSet *bs);
 
 unsigned countLinesInBuffer(const char *buffer);

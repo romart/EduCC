@@ -441,6 +441,39 @@ size_t countBits(const BitSet *bs) {
   return r;
 }
 
+size_t nextSetBit(const BitSet *bs, size_t from) {
+  if (from >= bs->size) {
+    return bs->size;
+  }
+
+  size_t wordIdx = from / bitsPerWord;
+  uintptr_t word = bs->bits[wordIdx] & (~(uintptr_t)0 << (from % bitsPerWord));
+
+  while (word == 0) {
+    if (++wordIdx >= bs->wordCount) {
+      return bs->size;
+    }
+    word = bs->bits[wordIdx];
+  }
+
+  // Binary search for the lowest set bit rather than a shift per zero: this
+  // is the inner loop of every walk over a live set.
+  size_t bit = wordIdx * bitsPerWord;
+  size_t shift = bitsPerWord / 2;
+  uintptr_t mask = ((uintptr_t)1 << shift) - 1;
+
+  while (shift != 0) {
+    if ((word & mask) == 0) {
+      word >>= shift;
+      bit += shift;
+    }
+    shift /= 2;
+    mask >>= shift;
+  }
+
+  return bit < bs->size ? bit : bs->size;
+}
+
 void printBitSet(FILE *stream, const BitSet *bs) {
   for (int i = 0; i < bs->size; ++i) {
 
