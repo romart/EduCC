@@ -332,6 +332,7 @@ int main(int argc, char** argv) {
   config.verbose = 1;
   config.arch = X86_64;
   config.irBackend = 1;
+  config.regAlloc = RA_COLOUR;
 
   StringList chead = { 0 }, *ccur = &chead;
   StringList ohead = { 0 }, *ocur = &ohead;
@@ -396,9 +397,9 @@ int main(int argc, char** argv) {
     } else if (strcmp("-legacy", arg) == 0) {
       config.irBackend = 0;
     } else if (strncmp("-Xregalloc=", arg, 11) == 0) {
-      // Which stage 2 runs. 'linear' is the default; the other two are kept
-      // reachable as differential oracles - see docs/ir-codegen-design.md
-      // section 7.
+      // Which stage 2 runs. 'chaitin' is the default since step 37; the other
+      // two are kept reachable as differential oracles - see
+      // docs/ir-codegen-design.md section 7.
       const char *which = &arg[11];
       if (strcmp(which, "trivial") == 0) {
         config.regAlloc = RA_TRIVIAL;
@@ -408,7 +409,7 @@ int main(int argc, char** argv) {
         config.regAlloc = RA_COLOUR;
       } else {
         fprintf(stderr,
-                "unknown register allocator '%s', expected 'linear', 'trivial' or 'chaitin'\n",
+                "unknown register allocator '%s', expected 'chaitin', 'linear' or 'trivial'\n",
                 which);
         return 2;
       }

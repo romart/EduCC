@@ -26,9 +26,9 @@ enum Arch {
 // Which stage 2 runs, selected by '-Xregalloc='. See include/ir/regalloc.h for
 // what the three of them are and why all three are kept.
 enum RegAllocKind {
-  RA_LINEAR = 0, // stage 2B, the default
+  RA_LINEAR = 0, // stage 2B, linear scan
   RA_TRIVIAL,    // stage 2A, spill everything
-  RA_COLOUR      // stage 2C, Chaitin-Briggs graph colouring
+  RA_COLOUR      // stage 2C, Chaitin-Briggs graph colouring, the default
 };
 
 // Bitmask values for Configuration.irDumpPhases, selected via

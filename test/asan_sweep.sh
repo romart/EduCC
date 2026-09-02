@@ -10,9 +10,10 @@
 # real C and are by a wide margin the deepest input it has. Both backends, since
 # the sanitized bug is as likely to be in one code generator as the other - and
 # within the IR backend both of the allocators that keep state of their own,
-# the linear scan's intervals and the colouring allocator's graph being two
-# different things to get a lifetime wrong about. (Stage 2A keeps none: it
-# allocates one instruction at a time and remembers nothing between them.)
+# the colouring allocator's graph (the default) and the linear scan's intervals
+# being two different things to get a lifetime wrong about. (Stage 2A keeps
+# none: it allocates one instruction at a time and remembers nothing between
+# them.)
 #
 # Leak detection is off: the compiler is an arena allocator that deliberately
 # never frees, so every run "leaks" and the report would be all noise.
@@ -60,9 +61,9 @@ cd "$root"
 
 echo "== the fixture corpus, both backends"
 while IFS= read -r fixture; do
-  sweep "$fixture (ir)"      "$compiler" -oneline -c -o "$tmp/o.o" "$fixture"
-  sweep "$fixture (chaitin)" "$compiler" -oneline -Xregalloc=chaitin -c -o "$tmp/o.o" "$fixture"
-  sweep "$fixture (legacy)"  "$compiler" -oneline -legacy -c -o "$tmp/o.o" "$fixture"
+  sweep "$fixture (ir)"     "$compiler" -oneline -c -o "$tmp/o.o" "$fixture"
+  sweep "$fixture (linear)" "$compiler" -oneline -Xregalloc=linear -c -o "$tmp/o.o" "$fixture"
+  sweep "$fixture (legacy)" "$compiler" -oneline -legacy -c -o "$tmp/o.o" "$fixture"
 done < <(find test/testData -name '*.c' | sort)
 
 echo "== EduCC's own sources, both backends"
@@ -72,9 +73,9 @@ echo "== EduCC's own sources, both backends"
 educcFlags=(-I include -I sdk/include -I .deps/zydis_src-src
             -DZYDIS_STATIC_BUILD -DZYCORE_STATIC_BUILD)
 while IFS= read -r source; do
-  sweep "$source (ir)"      "$compiler" -c "${educcFlags[@]}" -o "$tmp/o.o" "$source"
-  sweep "$source (chaitin)" "$compiler" -c -Xregalloc=chaitin "${educcFlags[@]}" -o "$tmp/o.o" "$source"
-  sweep "$source (legacy)"  "$compiler" -c -legacy "${educcFlags[@]}" -o "$tmp/o.o" "$source"
+  sweep "$source (ir)"     "$compiler" -c "${educcFlags[@]}" -o "$tmp/o.o" "$source"
+  sweep "$source (linear)" "$compiler" -c -Xregalloc=linear "${educcFlags[@]}" -o "$tmp/o.o" "$source"
+  sweep "$source (legacy)" "$compiler" -c -legacy "${educcFlags[@]}" -o "$tmp/o.o" "$source"
 done < <(find src -name '*.c' | sort)
 
 echo "== $compiled compiles, $rejected rejected inputs, $findings AddressSanitizer findings"

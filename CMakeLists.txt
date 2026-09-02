@@ -150,7 +150,9 @@ if(BUILD_TESTING)
   educc_add_test(preprocessor pp preprocessor 60)
   # Compiles, links, and runs every fixture, so it gets more headroom. No flag:
   # the compiler's default backend is the IR pipeline since step 30 of
-  # docs/ir-codegen-design.md, so this is the one that has to stay green.
+  # docs/ir-codegen-design.md, and its default register allocator the graph
+  # colouring of stage 2C since step 37, so this is the one that has to stay
+  # green.
   educc_add_test(codegen codegen codegen 300)
   # Every one of those fixtures a second time, through the old AST walker. It
   # was the other way round until step 30 - the IR backend was the second
@@ -169,17 +171,16 @@ if(BUILD_TESTING)
   # ignores it. --compiler-flag is spelled with '=' because argparse will not
   # take a value beginning with '-' as a separate word.
   educc_add_test(codegen_legacy codegen codegen 300 ssa --compiler-flag=-legacy)
-  # And a third time through stage 2A, the spill-everything allocator that the
-  # linear scan of step 34 replaced as the default. This is what makes it the
-  # differential oracle section 7 keeps it for rather than dead code behind a
-  # flag: two allocators over one set of fixtures have to produce programs with
-  # identical observable behaviour, so the whole suite becomes a test of
-  # whichever one is being changed.
+  # And a third time through stage 2A, the spill-everything allocator, and a
+  # fourth through stage 2B, the linear scan that replaced it as the default in
+  # step 34 and was itself replaced by the colouring allocator in step 37. This
+  # is what makes them the differential oracles section 7 keeps them for rather
+  # than dead code behind a flag: three allocators over one set of fixtures have
+  # to produce programs with identical observable behaviour, however differently
+  # they arrive at it, so the whole suite becomes a test of whichever one is
+  # being changed.
   educc_add_test(codegen_regalloc_trivial codegen codegen 300 ssa --compiler-flag=-Xregalloc=trivial)
-  # And a fourth through stage 2C, the graph colouring of step 35, for the same
-  # reason: three allocators over one set of fixtures have to agree about what
-  # the programs do, however differently they arrive at it.
-  educc_add_test(codegen_regalloc_chaitin codegen codegen 300 ssa --compiler-flag=-Xregalloc=chaitin)
+  educc_add_test(codegen_regalloc_linear codegen codegen 300 ssa --compiler-flag=-Xregalloc=linear)
   # The two backends inside one link: each fixture is a pair of files compiled
   # with a different backend each, linked and run, then swapped over. Every
   # other suite runs one backend at a time, so their ABI agreement is otherwise
@@ -225,12 +226,12 @@ if(BUILD_TESTING)
   # default would silently rewrite the file rather than fail. Every allocator
   # names itself on both sides: '-Xregalloc=' on the command line and the
   # 'Allocator:' line in the dump.
+  educc_add_test(ir_ra_chaitin ir/gvn ir 60 ra
+                 --compiler-flag=-Xregalloc=chaitin --baseline-tag chaitin)
   educc_add_test(ir_ra_linear ir/gvn ir 60 ra
                  --compiler-flag=-Xregalloc=linear --baseline-tag linear)
   educc_add_test(ir_ra_trivial ir/gvn ir 60 ra
                  --compiler-flag=-Xregalloc=trivial --baseline-tag trivial)
-  educc_add_test(ir_ra_chaitin ir/gvn ir 60 ra
-                 --compiler-flag=-Xregalloc=chaitin --baseline-tag chaitin)
 
   # The structural checkers (test/checkers/, docs/ir-codegen-design.md section
   # 9). A golden baseline says the output has not changed; these say it is
@@ -256,7 +257,7 @@ if(BUILD_TESTING)
   # run at all.
   option(EDUCC_RUN_CHECKERS "Register test/checkers/ as CTest tests" ON)
   if(EDUCC_RUN_CHECKERS)
-    foreach(alloc linear trivial chaitin)
+    foreach(alloc chaitin linear trivial)
       foreach(checker
           phi_destruction frame_layout selection allocation allocation_widths
           call_alignment emission_objdump disasm_stable)
