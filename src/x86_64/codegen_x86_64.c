@@ -1578,6 +1578,21 @@ static Boolean isShiftLikeOp(ExpressionType op) {
   return FALSE;
 }
 
+// An assignment's value, widened the way emitLoad widens the same type:
+// whatever reads it expects a narrow value to have been extended already.
+// Without this the bytes above it are whatever the rvalue, the address
+// computation or a 32-bit divide left there.
+static void extendAssignResult(GeneratedFunction *f, TypeId tid) {
+  switch (tid) {
+  case T_BOOL:
+  case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break;
+  case T_S1: emitMovxxRR(f, 0xBE, R_ACC, R_ACC); break;
+  case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break;
+  case T_S2: emitMovxxRR(f, 0xBF, R_ACC, R_ACC); break;
+  default: break;
+  }
+}
+
 static void generateAssign(GeneratedFunction *f, AstExpression *expression) {
   AstExpression *lvalue = expression->binaryExpr.left;
   AstExpression *rvalue = expression->binaryExpr.right;
@@ -1683,18 +1698,7 @@ static void generateAssign(GeneratedFunction *f, AstExpression *expression) {
                     emitMoveRR(f, resultReg, R_ACC, typeSize);
                 }
 
-                // The assignment's value, widened the way emitLoad widens the
-                // same type: whatever reads it expects a narrow value to have
-                // been extended already. Without this the bytes above it are
-                // the ones the rvalue and the address computation left there.
-                switch (lTypeId) {
-                case T_BOOL:
-                case T_U1: emitMovxxRR(f, 0xB6, R_ACC, R_ACC); break;
-                case T_S1: emitMovxxRR(f, 0xBE, R_ACC, R_ACC); break;
-                case T_U2: emitMovxxRR(f, 0xB7, R_ACC, R_ACC); break;
-                case T_S2: emitMovxxRR(f, 0xBF, R_ACC, R_ACC); break;
-                default: break;
-                }
+                extendAssignResult(f, lTypeId);
             }
           }
       }
@@ -1760,6 +1764,20 @@ static void generateAssign(GeneratedFunction *f, AstExpression *expression) {
   }
 }
 
+// A byte divide is done at four bytes, and the divisor arrives at its own
+// width - a literal is materialised as 'mov al, imm8', whose upper bytes are
+// whatever was in the register. The dividend needs no help: emitLoad and
+// loadBitField both widen anything narrower than a word.
+static void widenDivisor(GeneratedFunction *f, TypeRef *type, size_t divSize) {
+  size_t size = computeTypeSize(type);
+  if (size >= divSize) return;
+
+  Boolean isU = isUnsignedType(type);
+  assert(size == 1 || size == 2);
+  uint8_t opcode = size == 1 ? (isU ? 0xB6 : 0xBE) : (isU ? 0xB7 : 0xBF);
+  emitMovxxRR(f, opcode, R_TMP2, R_TMP2);
+}
+
 static void generateAssignDiv(GeneratedFunction *f, AstExpression *expression) {
   assert(expression->op == EB_ASG_DIV || EB_ASG_MOD);
 
@@ -1786,58 +1804,85 @@ static void generateAssignDiv(GeneratedFunction *f, AstExpression *expression) {
   size_t typeSize = computeTypeSize(type);
   Boolean isU = isUnsignedType(type);
 
+  // Always at least 32 bits. C promotes both operands to int before dividing,
+  // so a narrower divide is the wrong one twice over: x86 sign-extends into
+  // rdx:rax only from 16 bits up (and the byte divide's remainder lands in ah,
+  // which nothing here names), and at 16 bits '(short)-32768 / -1' overflows
+  // where the promoted division does not. The store narrows the result back,
+  // and the dividend arrives already extended - emitLoad and loadBitField both
+  // widen anything narrower than a word.
+  size_t divSize = typeSize < sizeof(int32_t) ? sizeof(int32_t) : typeSize;
+
   assert(lvalue->op == EU_DEREF);
   translateAddress(f, lvalue->unaryExpr.argument, &addr);
-  leaRelocatable(f, &addr, R_EDI);
+
+  // Into rdi before anything else. A divide pins rax and rdx, and the address
+  // just built is free to have named either: '*p /= 3' put the pointer in rax,
+  // loaded the dividend through it into the same register, and then stored the
+  // quotient through the quotient.
+  emitLea(f, &addr, R_EDI);
+  addr.base = R_EDI;
+  addr.index = R_BAD;
+  addr.imm = addr.scale = 0;
+  addr.reloc = NULL;
 
   enum Opcodes opcode;
   if (lType->kind == TR_BITFIELD) {
       TypeRef *storageType = lType->bitFieldDesc.storageType;
 
       loadBitField(f, lType, &addr, R_ACC);
-      emitPopReg(f, R_TMP);
+      // R_TMP2, not R_TMP: R_TMP is rdx, which the divide is about to fill
+      // with the dividend's high half and then the remainder.
+      emitPopReg(f, R_TMP2);
+      widenDivisor(f, rType, divSize);
 
       if (isU) {
-        emitArithRR(f, OP_XOR, R_EDX, R_EDX, typeSize);
+        emitArithRR(f, OP_XOR, R_EDX, R_EDX, divSize);
         opcode = OP_UDIV;
       } else {
-        emitConvertWDQ(f, 0x99, typeSize);
+        emitConvertWDQ(f, 0x99, divSize);
         opcode = OP_SDIV;
       }
 
-      emitArithRR(f, opcode, R_ACC, R_TMP2, typeSize);
+      emitArithRR(f, opcode, R_ACC, R_TMP2, divSize);
 
-      enum Registers result = R_ACC;
-
+      // Out of rdx and left there: R_TMP is rdx, and storeBitField loads the
+      // storage unit into it, so storing the remainder straight out of rdx
+      // stored whatever the field's storage happened to hold.
       if (expression->op == EB_ASG_MOD) {
-          emitMoveRR(f, R_EDX, R_ACC, typeSize);
-          result = R_EDX;
+          emitMoveRR(f, R_EDX, R_ACC, divSize);
       }
 
-      storeBitField(f, lType, result, &addr);
+      storeBitField(f, lType, R_ACC, &addr);
       loadBitField(f, lType, &addr, R_ACC);
   } else {
-      emitLoad(f, &addr, R_ACC, rTypeId);
+      // The destination's type, not the divisor's: 'c /= someInt' has an int
+      // right-hand side and a char lvalue, and reading four bytes out of a
+      // one-byte object - then writing four back - is not a narrower bug than
+      // dividing at the wrong width.
+      emitLoad(f, &addr, R_ACC, lTypeId);
       emitPopReg(f, R_TMP2);
+      widenDivisor(f, rType, divSize);
 
       if (isU) {
-        emitArithRR(f, OP_XOR, R_EDX, R_EDX, typeSize);
+        emitArithRR(f, OP_XOR, R_EDX, R_EDX, divSize);
         opcode = OP_UDIV;
       } else {
-        emitConvertWDQ(f, 0x99, typeSize);
+        emitConvertWDQ(f, 0x99, divSize);
         opcode = OP_SDIV;
       }
 
-      emitArithRR(f, opcode, R_ACC, R_TMP2, typeSize);
+      emitArithRR(f, opcode, R_ACC, R_TMP2, divSize);
 
       enum Registers result = R_ACC;
 
       if (expression->op == EB_ASG_MOD) {
-          emitMoveRR(f, R_EDX, R_ACC, typeSize);
+          emitMoveRR(f, R_EDX, R_ACC, divSize);
           result = R_EDX;
       }
 
-      emitStore(f, result, &addr, rTypeId);
+      emitStore(f, result, &addr, lTypeId);
+      extendAssignResult(f, lTypeId);
   }
 }
 

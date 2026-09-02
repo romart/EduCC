@@ -8,9 +8,8 @@
 // storage type's, and the IR one returned the whole storage unit before the
 // field was shifted out of it.
 //
-// '/=' and '%=' on a bit-field are left out on purpose: they abort both
-// backends outright ("cdq has no byte form") when the storage unit is a byte,
-// which is a different bug and has no fixture yet.
+// '/=' and '%=' on a bit-field live in bugs/narrow_division.c: they used to
+// abort both backends before reaching any of this.
 
 struct B {
   unsigned u : 3;

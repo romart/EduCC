@@ -557,7 +557,21 @@ static void selectDivMod(MachineBuilder *b, const IrInstruction *i, Boolean want
   Boolean isSigned = !isUnsignedIrOperand(i->type);
   uint32_t dst = machineBuilderVreg(b, i);
 
+  // Always at least four bytes. C promotes both operands to int before
+  // dividing, so a narrower divide is the wrong one twice over: there is no
+  // sign-extend-into-a-pair below a word at all (and the byte divide's
+  // remainder lands in ah, which nothing here can name), and at 16 bits
+  // '(short)-32768 / -1' overflows where the promoted division does not. The
+  // copy at the end takes the narrow result back out.
+  const uint8_t divSize = size < sizeof(int32_t) ? sizeof(int32_t) : size;
+
   selectLoadInto(b, R_EAX, inputAt(i, 0), size);
+  if (divSize != size) {
+    // Extended after the load rather than by it, so that a folded operand is
+    // still read at its own width.
+    widenRegisterInto(b, R_EAX, R_EAX, size, divSize,
+                      isUnsignedIrOperand(inputAt(i, 0)->type));
+  }
 
   if (isSigned) {
     // Sign-extend rax into rdx:rax. One opcode for the whole cwd/cdq/cqo
@@ -566,18 +580,18 @@ static void selectDivMod(MachineBuilder *b, const IrInstruction *i, Boolean want
     setRegisterOperand(ext, 0, R_EDX);
     setRegisterOperand(ext, 1, R_EAX);
     machineOperandAt(ext, 1)->flags.isImplicit = 1;
-    ext->opSize = size;
+    ext->opSize = divSize;
   } else {
     // An unsigned divide wants the high half zero rather than sign-extended.
     MachineInstr *zero = buildMachineInstr(b, X86_MOV, 1, 1);
     setRegisterOperand(zero, 0, R_EDX);
     setImmediateOperand(zero, 1, 0);
-    zero->opSize = size;
+    zero->opSize = divSize;
   }
 
   // The divisor is never an immediate on x86, which is why isLegalImmediate
   // refuses to fold a constant into a divide - it arrives here in a register.
-  uint32_t divisor = selectWidened(b, inputAt(i, 1), size);
+  uint32_t divisor = selectWidened(b, inputAt(i, 1), divSize);
 
   MachineInstr *div = buildMachineInstr(b, isSigned ? X86_IDIV : X86_DIV, 2, 3);
   setRegisterOperand(div, 0, R_EAX);
@@ -591,7 +605,7 @@ static void selectDivMod(MachineBuilder *b, const IrInstruction *i, Boolean want
   machineOperandAt(div, 1)->flags.isImplicit = 1;
   machineOperandAt(div, 3)->flags.isImplicit = 1;
   machineOperandAt(div, 4)->flags.isImplicit = 1;
-  div->opSize = size;
+  div->opSize = divSize;
 
   MachineInstr *out = buildMachineInstr(b, MOP_COPY, 1, 1);
   setRegisterOperand(out, 0, dst);
