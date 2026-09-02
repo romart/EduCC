@@ -68,6 +68,7 @@ def configurations(compiler, reference):
         Config("legacy", compiler, ["-legacy"], True),
         Config("trivial", compiler, ["-Xregalloc=trivial"], True),
         Config("linear", compiler, ["-Xregalloc=linear"], True),
+        Config("chaitin", compiler, ["-Xregalloc=chaitin"], True),
     ]
     if reference:
         cfgs.append(Config(reference + " -O0", reference, ["-O0"], False))
