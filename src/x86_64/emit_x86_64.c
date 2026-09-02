@@ -601,6 +601,12 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
     break;
   }
 
+  case X86_REP_MOVSB:
+    // Every operand is implicit - rdi, rsi and rcx, each of them read and
+    // written - so there is nothing here to encode but the instruction.
+    emitRepMovsb(f);
+    break;
+
   case X86_LOAD: {
     Address addr = addressOperand(e, mi, 1);
     uint32_t dstId = regIdOperand(mi, 0);

@@ -43,6 +43,11 @@ MNEMONIC = {
     # cltd/cqto name no operand at all: the register pair is the whole point of
     # the instruction and is implicit in the opcode.
     "cdq": {"cltd", "cqto", "cwtd"},
+    # 'rep movsb', whose first word is all the parse below keeps. Its three
+    # registers are implicit on both sides - the machine IR puts them in the
+    # bracketed annotation the parse drops, and objdump prints two of the three
+    # as string operands - so the mnemonic is the whole of the comparison.
+    "rep": {"rep"},
     "idiv": {"idiv"}, "div": {"div"},
     "call": {"call"}, "lea": {"lea"}, "push": {"push"}, "pop": {"pop"},
     # AT&T spells the operand widths into the mnemonic, so one MIR opcode

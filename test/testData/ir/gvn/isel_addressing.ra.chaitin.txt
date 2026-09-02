@@ -61,17 +61,15 @@ MBB #1, '<exit>', ir #1, <- #2
 MachineFunction 'localSlot' [target = x86_64]
 VRegs:
   %v0 : gp/4 ; %13
-  %v1 : gp/8 ; %6
-  %v2 : gp/4 ; %3
-  %v3 : gp/8 ; %9
-  %v4 : gp/4 ; %19
+  %v1 : gp/4 ; %3
+  %v2 : gp/8 ; %9
+  %v3 : gp/4 ; %19
 Frame: 32 bytes
   fi#0 : local 32/4 @ -32 'a' ; %7
 Allocator: graph colouring
 Physical registers used: $rax $rcx $rdi
 MBB #0, '<entry>', ir #0, -> #2
   $rax = mov.4 3 ; %13
-  $rcx = mov.8 32 ; %6
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   $rcx = movsx.8/4 $rdi ; %9
@@ -162,23 +160,21 @@ MBB #1, '<exit>', ir #1, <- #2
 MachineFunction 'twoIndexes' [target = x86_64]
 VRegs:
   %v0 : gp/4 ; %21
-  %v1 : gp/8 ; %9
-  %v2 : gp/4 ; %3
-  %v3 : gp/4 ; %6
-  %v4 : gp/8 ; %12
-  %v5 : gp/8 ; %14
-  %v6 : gp/8 ; %15
-  %v7 : gp/8 ; %17
-  %v8 : gp/8 ; %25
-  %v9 : gp/8 ; %26
-  %v10 : gp/4 ; %31
+  %v1 : gp/4 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/8 ; %12
+  %v4 : gp/8 ; %14
+  %v5 : gp/8 ; %15
+  %v6 : gp/8 ; %17
+  %v7 : gp/8 ; %25
+  %v8 : gp/8 ; %26
+  %v9 : gp/4 ; %31
 Frame: 64 bytes
   fi#0 : local 64/4 @ -64 'm' ; %10
 Allocator: graph colouring
 Physical registers used: $rax $rcx $rdx $rsi $rdi
 MBB #0, '<entry>', ir #0, -> #2
   $rax = mov.4 5 ; %21
-  $rcx = mov.8 64 ; %9
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
   $rcx = movsx.8/4 $rdi ; %12

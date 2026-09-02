@@ -1,17 +1,15 @@
 --- Phase: ra ---
 MachineFunction 'large' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %8
-  %v1 : gp/4 ; %3
-  %v2 : gp/8 ; %6
-  %v3 : gp/8 ; %18
-  %v4 : gp/8
+  %v0 : gp/4 ; %3
+  %v1 : gp/8 ; %6
+  %v2 : gp/8 ; %18
+  %v3 : gp/8
 Frame: 48 bytes
   fi#0 : local 40/8 @ -40 'r' ; %9
 Allocator: linear scan
 Physical registers used: $rax $rcx $rdx $rsi $rdi
 MBB #0, '<entry>', ir #0, -> #2
-  $rax = mov.8 40 ; %8
   $rax = MOP_COPY.4 $rsi ; %3
   $rcx = MOP_COPY.8 $rdi ; %6
 
@@ -37,18 +35,16 @@ MBB #1, '<exit>', ir #1, <- #2
 --- Phase: ra ---
 MachineFunction 'small' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %1
-  %v1 : gp/4 ; %3
-  %v2 : gp/4 ; %15
-  %v3 : gp/8
-  %v4 : gp/8 ; %20
+  %v0 : gp/4 ; %3
+  %v1 : gp/4 ; %15
+  %v2 : gp/8
+  %v3 : gp/8 ; %20
 Frame: 16 bytes
   fi#0 : local 8/8 @ -8 ; %5
   fi#1 : local 8/4 @ -16 'r' ; %6
 Allocator: linear scan
 Physical registers used: $rax $rcx $rdi
 MBB #0, '<entry>', ir #0, -> #2
-  $rax = mov.8 8 ; %1
   $rax = MOP_COPY.4 $rdi ; %3
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
@@ -68,29 +64,27 @@ MBB #1, '<exit>', ir #1, <- #2
 --- Phase: ra ---
 MachineFunction 'shifted' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %22
-  %v1 : gp/8 ; %0
-  %v2 : gp/4 ; %3
-  %v3 : gp/4 ; %6
-  %v4 : gp/4 ; %9
-  %v5 : gp/4 ; %12
-  %v6 : gp/4 ; %15
-  %v7 : gp/8 ; %20
-  %v8 : gp/4 ; %33
-  %v9 : gp/4 ; %35
-  %v10 : gp/8 ; %36
-  %v11 : gp/4 ; %45
-  %v12 : gp/4 ; %46
-  %v13 : gp/4 ; %47
-  %v14 : gp/8 ; %48
-  %v15 : gp/8
+  %v0 : gp/8 ; %0
+  %v1 : gp/4 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/4 ; %9
+  %v4 : gp/4 ; %12
+  %v5 : gp/4 ; %15
+  %v6 : gp/8 ; %20
+  %v7 : gp/4 ; %33
+  %v8 : gp/4 ; %35
+  %v9 : gp/8 ; %36
+  %v10 : gp/4 ; %45
+  %v11 : gp/4 ; %46
+  %v12 : gp/4 ; %47
+  %v13 : gp/8 ; %48
+  %v14 : gp/8
 Frame: 48 bytes
   fi#0 : param 4/4 @ 16 'f' ; %18
   fi#1 : local 40/8 @ -40 'r' ; %23
 Allocator: linear scan
 Physical registers used: $rax $rcx $rdx $rsp $rsi $rdi $r8 $r9
 MBB #0, '<entry>', ir #0, -> #2
-  $rax = mov.8 40 ; %22
   $rax = MOP_COPY.8 $rsp ; %0
   $rax = MOP_COPY.4 $rsi ; %3
   $rsi = MOP_COPY.4 $rdx ; %6
@@ -134,12 +128,11 @@ MachineFunction 'twice' [target = x86_64]
 VRegs:
   %v0 : gp/8 ; %51
   %v1 : gp/8 ; %48
-  %v2 : gp/8 ; %8
-  %v3 : gp/4 ; %3
-  %v4 : gp/8 ; %6
-  %v5 : gp/8 ; %18
+  %v2 : gp/4 ; %3
+  %v3 : gp/8 ; %6
+  %v4 : gp/8 ; %18
+  %v5 : gp/8
   %v6 : gp/8
-  %v7 : gp/8
 Frame: 48 bytes
   fi#0 : local 40/8 @ -40 'r' ; %9
 Allocator: linear scan
@@ -147,7 +140,6 @@ Physical registers used: $rax $rcx $rdx $rsi $rdi
 MBB #0, '<entry>', ir #0, -> #2
   $rax = mov.8 -1 ; %51
   $rcx = mov.8 1 ; %48
-  $rdx = mov.8 40 ; %8
   $rdx = MOP_COPY.4 $rsi ; %3
   $rsi = MOP_COPY.8 $rdi ; %6
 

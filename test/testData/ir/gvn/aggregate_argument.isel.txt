@@ -1,107 +1,101 @@
 --- Phase: isel ---
 MachineFunction 'pass' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %7
-  %v1 : gp/8 ; %0
-  %v2 : gp/8 ; %8
+  %v0 : gp/8 ; %0
+  %v1 : gp/8 ; %8
+  %v2 : gp/8
   %v3 : gp/8
-  %v4 : gp/8
-  %v5 : gp/4 ; %6
+  %v4 : gp/4 ; %6
 Frame: 32 bytes, 32 outgoing
   fi#0 : param 24/8 @ 16 's' ; %2
   fi#1 : local 24/8 @ -24 ; %8
 MBB #0, '<entry>', ir #0, -> #2
-  %v0 = mov.8 24 ; %7
-  %v1 = MOP_COPY.8 $rsp ; %0
+  %v0 = MOP_COPY.8 $rsp ; %0
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  %v2 = lea.8 [fi#1] ; %8
-  %v3 = mov.8 [fi#0] ; %9
-  mov.8 [fi#1], %v3 ; %9
-  %v3 = mov.8 [fi#0 + 8] ; %9
-  mov.8 [fi#1 + 8], %v3 ; %9
-  %v3 = mov.8 [fi#0 + 16] ; %9
-  mov.8 [fi#1 + 16], %v3 ; %9
-  %v4 = mov.8 [fi#1] ; %6
-  mov.8 [$rsp], %v4 ; %6
-  %v4 = mov.8 [fi#1 + 8] ; %6
-  mov.8 [$rsp + 8], %v4 ; %6
-  %v4 = mov.8 [fi#1 + 16] ; %6
-  mov.8 [$rsp + 16], %v4 ; %6
+  %v1 = lea.8 [fi#1] ; %8
+  %v2 = mov.8 [fi#0] ; %9
+  mov.8 [fi#1], %v2 ; %9
+  %v2 = mov.8 [fi#0 + 8] ; %9
+  mov.8 [fi#1 + 8], %v2 ; %9
+  %v2 = mov.8 [fi#0 + 16] ; %9
+  mov.8 [fi#1 + 16], %v2 ; %9
+  %v3 = mov.8 [fi#1] ; %6
+  mov.8 [$rsp], %v3 ; %6
+  %v3 = mov.8 [fi#1 + 8] ; %6
+  mov.8 [$rsp + 8], %v3 ; %6
+  %v3 = mov.8 [fi#1 + 16] ; %6
+  mov.8 [$rsp + 16], %v3 ; %6
   call takeBig [implicit-def $rax] <clobbers caller-saved> ; %6
-  %v5 = MOP_COPY.4 $rax ; %6
+  %v4 = MOP_COPY.4 $rax ; %6
 
 MBB #1, '<exit>', ir #1, <- #2
-  $rax = MOP_COPY.4 %v5 ; %12
+  $rax = MOP_COPY.4 %v4 ; %12
   ret ; %12
 
 
 --- Phase: isel ---
 MachineFunction 'scalars' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %14
-  %v1 : gp/8 ; %0
-  %v2 : gp/4 ; %3
-  %v3 : gp/4 ; %8
-  %v4 : gp/8 ; %15
+  %v0 : gp/8 ; %0
+  %v1 : gp/4 ; %3
+  %v2 : gp/4 ; %8
+  %v3 : gp/8 ; %15
+  %v4 : gp/8
   %v5 : gp/8
-  %v6 : gp/8
-  %v7 : gp/4 ; %12
+  %v6 : gp/4 ; %12
 Frame: 32 bytes, 32 outgoing
   fi#0 : param 24/8 @ 16 's' ; %6
   fi#1 : local 24/8 @ -24 ; %15
 MBB #0, '<entry>', ir #0, -> #2
-  %v0 = mov.8 24 ; %14
-  %v1 = MOP_COPY.8 $rsp ; %0
-  %v2 = MOP_COPY.4 $rdi ; %3
-  %v3 = MOP_COPY.4 $rsi ; %8
+  %v0 = MOP_COPY.8 $rsp ; %0
+  %v1 = MOP_COPY.4 $rdi ; %3
+  %v2 = MOP_COPY.4 $rsi ; %8
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  %v4 = lea.8 [fi#1] ; %15
-  %v5 = mov.8 [fi#0] ; %16
-  mov.8 [fi#1], %v5 ; %16
-  %v5 = mov.8 [fi#0 + 8] ; %16
-  mov.8 [fi#1 + 8], %v5 ; %16
-  %v5 = mov.8 [fi#0 + 16] ; %16
-  mov.8 [fi#1 + 16], %v5 ; %16
-  %v6 = mov.8 [fi#1] ; %12
-  mov.8 [$rsp], %v6 ; %12
-  %v6 = mov.8 [fi#1 + 8] ; %12
-  mov.8 [$rsp + 8], %v6 ; %12
-  %v6 = mov.8 [fi#1 + 16] ; %12
-  mov.8 [$rsp + 16], %v6 ; %12
-  $rdi = MOP_COPY.4 %v2 ; %12
-  $rsi = MOP_COPY.4 %v3 ; %12
+  %v3 = lea.8 [fi#1] ; %15
+  %v4 = mov.8 [fi#0] ; %16
+  mov.8 [fi#1], %v4 ; %16
+  %v4 = mov.8 [fi#0 + 8] ; %16
+  mov.8 [fi#1 + 8], %v4 ; %16
+  %v4 = mov.8 [fi#0 + 16] ; %16
+  mov.8 [fi#1 + 16], %v4 ; %16
+  %v5 = mov.8 [fi#1] ; %12
+  mov.8 [$rsp], %v5 ; %12
+  %v5 = mov.8 [fi#1 + 8] ; %12
+  mov.8 [$rsp + 8], %v5 ; %12
+  %v5 = mov.8 [fi#1 + 16] ; %12
+  mov.8 [$rsp + 16], %v5 ; %12
+  $rdi = MOP_COPY.4 %v1 ; %12
+  $rsi = MOP_COPY.4 %v2 ; %12
   call mixed [implicit-def $rax, implicit $rdi, implicit $rsi] <clobbers caller-saved> ; %12
-  %v7 = MOP_COPY.4 $rax ; %12
+  %v6 = MOP_COPY.4 $rax ; %12
 
 MBB #1, '<exit>', ir #1, <- #2
-  $rax = MOP_COPY.4 %v7 ; %20
+  $rax = MOP_COPY.4 %v6 ; %20
   ret ; %20
 
 
 --- Phase: isel ---
 MachineFunction 'small' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %1
-  %v1 : gp/8 ; %3
-  %v2 : gp/8 ; %10
-  %v3 : gp/4 ; %7
+  %v0 : gp/8 ; %3
+  %v1 : gp/8 ; %10
+  %v2 : gp/4 ; %7
 Frame: 16 bytes
   fi#0 : local 8/4 @ -8 's' ; %2
 MBB #0, '<entry>', ir #0, -> #2
-  %v0 = mov.8 8 ; %1
-  %v1 = MOP_COPY.8 $rdi ; %3
-  mov.8 [fi#0], %v1 ; %4
+  %v0 = MOP_COPY.8 $rdi ; %3
+  mov.8 [fi#0], %v0 ; %4
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  %v2 = mov.8 [fi#0] ; %10
-  $rdi = MOP_COPY.8 %v2 ; %7
+  %v1 = mov.8 [fi#0] ; %10
+  $rdi = MOP_COPY.8 %v1 ; %7
   call takeSmall [implicit-def $rax, implicit $rdi] <clobbers caller-saved> ; %7
-  %v3 = MOP_COPY.4 $rax ; %7
+  %v2 = MOP_COPY.4 $rax ; %7
 
 MBB #1, '<exit>', ir #1, <- #2
-  $rax = MOP_COPY.4 %v3 ; %13
+  $rax = MOP_COPY.4 %v2 ; %13
   ret ; %13
 
 

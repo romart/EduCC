@@ -200,6 +200,7 @@ void emitMovxxRR(struct _GeneratedFunction *f, uint8_t opcode, enum Registers fr
 void emitMovxxRR64(struct _GeneratedFunction *f, uint8_t opcode, enum Registers from, enum Registers to);
 void emitMovxxAR(struct _GeneratedFunction *f, uint8_t opcode, Address *from, enum Registers to);
 void emitConvertWDQ(struct _GeneratedFunction *f, uint8_t opcode, uint8_t opSize);
+void emitRepMovsb(struct _GeneratedFunction *f);
 void emitConvertFP(struct _GeneratedFunction *f, uint8_t prefix, uint8_t opcode, enum Registers from, enum Registers to, Boolean isW);
 
 void emitMovfpRR(struct _GeneratedFunction *f, enum Registers from, enum Registers to, size_t size);

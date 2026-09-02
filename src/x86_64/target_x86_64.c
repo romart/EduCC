@@ -77,6 +77,11 @@ static const uint8_t x86OpcodeFlags[X86_OPCODE_NUM] = {
   [X86_LEA - MOP_TARGET_FIRST] = MFE_NONE,
   [X86_LOAD - MOP_TARGET_FIRST] = MFE_NONE,
   [X86_STORE - MOP_TARGET_FIRST] = MFE_NONE,
+  // The direction flag is the one flag it reads, and this model is about the
+  // arithmetic flags a compare leaves - which a string move neither reads nor
+  // writes. SysV has DF clear at every call boundary and nothing here ever
+  // sets it, so the copy is forwards.
+  [X86_REP_MOVSB - MOP_TARGET_FIRST] = MFE_NONE,
   [X86_MOVSX - MOP_TARGET_FIRST] = MFE_NONE,
   [X86_MOVZX - MOP_TARGET_FIRST] = MFE_NONE,
 

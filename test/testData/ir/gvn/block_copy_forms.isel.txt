@@ -1,0 +1,49 @@
+--- Phase: isel ---
+MachineFunction 'small' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %3
+  %v1 : gp/8 ; %6
+  %v2 : gp/8
+  %v3 : gp/8 ; %21
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = MOP_COPY.8 $rdi ; %3
+  %v1 = MOP_COPY.8 $rsi ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v2 = mov.8 [%v1] ; %12
+  mov.8 [%v0], %v2 ; %12
+  %v2 = mov.8 [%v1 + 8] ; %12
+  mov.8 [%v0 + 8], %v2 ; %12
+  %v2 = mov.8 [%v1 + 16] ; %12
+  mov.8 [%v0 + 16], %v2 ; %12
+  %v3 = mov.8 [%v0] ; %21
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.8 %v3 ; %24
+  ret ; %24
+
+
+--- Phase: isel ---
+MachineFunction 'large' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %3
+  %v1 : gp/8 ; %6
+  %v2 : gp/8 ; %21
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = MOP_COPY.8 $rdi ; %3
+  %v1 = MOP_COPY.8 $rsi ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $rcx = mov.8 512 ; %12
+  $rdi = lea.8 [%v0] ; %12
+  $rsi = lea.8 [%v1] ; %12
+  rep movsb.8 [implicit-def $rdi, implicit-def $rsi, implicit-def $rcx, implicit $rdi, implicit $rsi, implicit $rcx] ; %12
+  %v2 = mov.8 [%v0] ; %21
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.8 %v2 ; %24
+  ret ; %24
+
+

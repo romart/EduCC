@@ -8,125 +8,121 @@ VRegs:
   %v4 : gp/4 ; %30
   %v5 : gp/4 ; %39
   %v6 : gp/4 ; %64
-  %v7 : gp/8 ; %10
-  %v8 : gp/4 ; %3
-  %v9 : gp/4 ; %6
-  %v10 : gp/8 ; %18
-  %v11 : gp/8 ; %24
-  %v12 : gp/8 ; %42
-  %v13 : gp/8 ; %45
-  %v14 : gp/8 ; %33
-  %v15 : gp/8 ; %36
-Frame: 128 bytes
+  %v7 : gp/4 ; %3
+  %v8 : gp/4 ; %6
+  %v9 : gp/8 ; %18
+  %v10 : gp/8 ; %24
+  %v11 : gp/8 ; %42
+  %v12 : gp/8 ; %45
+  %v13 : gp/8 ; %33
+  %v14 : gp/8 ; %36
+Frame: 112 bytes
   fi#0 : local 16/8 @ -16 'tab' ; %11
-  fi#1 : spill 8/8 @ -24 %v7 ; %10
-  fi#2 : spill 4/4 @ -28 %v8 ; %3
-  fi#3 : spill 4/4 @ -32 %v9 ; %6
-  fi#4 : spill 8/8 @ -40 %v10 ; %18
-  fi#5 : spill 8/8 @ -48 %v11 ; %24
-  fi#6 : spill 4/4 @ -52 %v5 ; %39
-  fi#7 : spill 8/8 @ -64 %v12 ; %42
-  fi#8 : spill 8/8 @ -72 %v13 ; %45
-  fi#9 : spill 4/4 @ -76 %v3 ; %62
-  fi#10 : spill 4/4 @ -80 %v6 ; %64
-  fi#11 : spill 4/4 @ -84 %v4 ; %30
-  fi#12 : spill 8/8 @ -96 %v14 ; %33
-  fi#13 : spill 8/8 @ -104 %v15 ; %36
-  fi#14 : spill 4/4 @ -108 %v2 ; %54
-  fi#15 : spill 4/4 @ -112 %v0 ; %60
-  fi#16 : spill 4/4 @ -116 %v1 ; %49
+  fi#1 : spill 4/4 @ -20 %v7 ; %3
+  fi#2 : spill 4/4 @ -24 %v8 ; %6
+  fi#3 : spill 8/8 @ -32 %v9 ; %18
+  fi#4 : spill 8/8 @ -40 %v10 ; %24
+  fi#5 : spill 4/4 @ -44 %v5 ; %39
+  fi#6 : spill 8/8 @ -56 %v11 ; %42
+  fi#7 : spill 8/8 @ -64 %v12 ; %45
+  fi#8 : spill 4/4 @ -68 %v3 ; %62
+  fi#9 : spill 4/4 @ -72 %v6 ; %64
+  fi#10 : spill 4/4 @ -76 %v4 ; %30
+  fi#11 : spill 8/8 @ -88 %v13 ; %33
+  fi#12 : spill 8/8 @ -96 %v14 ; %36
+  fi#13 : spill 4/4 @ -100 %v2 ; %54
+  fi#14 : spill 4/4 @ -104 %v0 ; %60
+  fi#15 : spill 4/4 @ -108 %v1 ; %49
 Allocator: trivial
 Physical registers used: $rax $rsi $rdi $r10 $r11
 MBB #0, '<entry>', ir #0, -> #4
-  $r10 = mov.8 16 ; %10
-  MOP_SPILL.8 fi#1, $r10
   $r10 = MOP_COPY.4 $rdi ; %3
-  MOP_SPILL.4 fi#2, $r10
+  MOP_SPILL.4 fi#1, $r10
   $r10 = MOP_COPY.4 $rsi ; %6
-  MOP_SPILL.4 fi#3, $r10
+  MOP_SPILL.4 fi#2, $r10
 
 MBB #4, '<FIRST>', ir #4, <- #0, -> #6 #5
   $r10 = lea.8 [#2] ; %18
-  MOP_SPILL.8 fi#4, $r10
-  $r10 = MOP_RELOAD.8 fi#4
+  MOP_SPILL.8 fi#3, $r10
+  $r10 = MOP_RELOAD.8 fi#3
   mov.8 [fi#0], $r10 ; %19
   $r10 = lea.8 [#3] ; %24
-  MOP_SPILL.8 fi#5, $r10
-  $r10 = MOP_RELOAD.8 fi#5
+  MOP_SPILL.8 fi#4, $r10
+  $r10 = MOP_RELOAD.8 fi#4
   mov.8 [fi#0 + 8], $r10 ; %25
-  $r10 = MOP_RELOAD.4 fi#2
+  $r10 = MOP_RELOAD.4 fi#1
   cmp.4 $r10, 0 ; %27
   jg #6 ; %28
 
 MBB #5, '<if_exit>', ir #5, <- #4, -> #2 #3
-  $r11 = MOP_RELOAD.4 fi#2
+  $r11 = MOP_RELOAD.4 fi#1
   $r10 = MOP_COPY.4 $r11 ; %39
-  MOP_SPILL.4 fi#6, $r10
-  $r10 = MOP_RELOAD.4 fi#6
+  MOP_SPILL.4 fi#5, $r10
+  $r10 = MOP_RELOAD.4 fi#5
   $r10 = sub.4 $r10, 1 ; %39
-  MOP_SPILL.4 fi#6, $r10
-  $r11 = MOP_RELOAD.4 fi#3
+  MOP_SPILL.4 fi#5, $r10
+  $r11 = MOP_RELOAD.4 fi#2
   $r10 = movsx.8/4 $r11 ; %42
-  MOP_SPILL.8 fi#7, $r10
-  $r11 = MOP_RELOAD.8 fi#7
+  MOP_SPILL.8 fi#6, $r10
+  $r11 = MOP_RELOAD.8 fi#6
   $r10 = mov.8 [fi#0 + $r11*8] ; %45
-  MOP_SPILL.8 fi#8, $r10
-  $r11 = MOP_RELOAD.4 fi#6
+  MOP_SPILL.8 fi#7, $r10
+  $r11 = MOP_RELOAD.4 fi#5
   $r10 = MOP_COPY.4 $r11 ; %62
-  MOP_SPILL.4 fi#9, $r10
-  $r11 = MOP_RELOAD.4 fi#6
+  MOP_SPILL.4 fi#8, $r10
+  $r11 = MOP_RELOAD.4 fi#5
   $r10 = MOP_COPY.4 $r11 ; %64
-  MOP_SPILL.4 fi#10, $r10
-  $r10 = MOP_RELOAD.8 fi#8
+  MOP_SPILL.4 fi#9, $r10
+  $r10 = MOP_RELOAD.8 fi#7
   jmp*.8 $r10 ; %46
 
 MBB #6, '<if_then>', ir #6, <- #4, -> #2 #3
-  $r11 = MOP_RELOAD.4 fi#2
+  $r11 = MOP_RELOAD.4 fi#1
   $r10 = MOP_COPY.4 $r11 ; %30
-  MOP_SPILL.4 fi#11, $r10
-  $r10 = MOP_RELOAD.4 fi#11
-  $r10 = add.4 $r10, 1 ; %30
-  MOP_SPILL.4 fi#11, $r10
-  $r11 = MOP_RELOAD.4 fi#3
-  $r10 = movsx.8/4 $r11 ; %33
-  MOP_SPILL.8 fi#12, $r10
-  $r11 = MOP_RELOAD.8 fi#12
-  $r10 = mov.8 [fi#0 + $r11*8] ; %36
-  MOP_SPILL.8 fi#13, $r10
-  $r11 = MOP_RELOAD.4 fi#11
-  $r10 = MOP_COPY.4 $r11 ; %62
-  MOP_SPILL.4 fi#9, $r10
-  $r11 = MOP_RELOAD.4 fi#11
-  $r10 = MOP_COPY.4 $r11 ; %64
   MOP_SPILL.4 fi#10, $r10
-  $r10 = MOP_RELOAD.8 fi#13
+  $r10 = MOP_RELOAD.4 fi#10
+  $r10 = add.4 $r10, 1 ; %30
+  MOP_SPILL.4 fi#10, $r10
+  $r11 = MOP_RELOAD.4 fi#2
+  $r10 = movsx.8/4 $r11 ; %33
+  MOP_SPILL.8 fi#11, $r10
+  $r11 = MOP_RELOAD.8 fi#11
+  $r10 = mov.8 [fi#0 + $r11*8] ; %36
+  MOP_SPILL.8 fi#12, $r10
+  $r11 = MOP_RELOAD.4 fi#10
+  $r10 = MOP_COPY.4 $r11 ; %62
+  MOP_SPILL.4 fi#8, $r10
+  $r11 = MOP_RELOAD.4 fi#10
+  $r10 = MOP_COPY.4 $r11 ; %64
+  MOP_SPILL.4 fi#9, $r10
+  $r10 = MOP_RELOAD.8 fi#12
   jmp*.8 $r10 ; %37
 
 MBB #3, 'B', ir #3, <- #6 #5, -> #1
-  $r11 = MOP_RELOAD.4 fi#10
+  $r11 = MOP_RELOAD.4 fi#9
   $r10 = MOP_COPY.4 $r11 ; %54
-  MOP_SPILL.4 fi#14, $r10
-  $r10 = MOP_RELOAD.4 fi#14
+  MOP_SPILL.4 fi#13, $r10
+  $r10 = MOP_RELOAD.4 fi#13
   $r10 = add.4 $r10, 20 ; %54
-  MOP_SPILL.4 fi#14, $r10
-  $r11 = MOP_RELOAD.4 fi#14
+  MOP_SPILL.4 fi#13, $r10
+  $r11 = MOP_RELOAD.4 fi#13
   $r10 = MOP_COPY.4 $r11 ; %60
-  MOP_SPILL.4 fi#15, $r10
+  MOP_SPILL.4 fi#14, $r10
   jmp #1 ; %56
 
 MBB #2, 'A', ir #2, <- #6 #5, -> #1
-  $r11 = MOP_RELOAD.4 fi#9
+  $r11 = MOP_RELOAD.4 fi#8
   $r10 = MOP_COPY.4 $r11 ; %49
-  MOP_SPILL.4 fi#16, $r10
-  $r10 = MOP_RELOAD.4 fi#16
-  $r10 = add.4 $r10, 10 ; %49
-  MOP_SPILL.4 fi#16, $r10
-  $r11 = MOP_RELOAD.4 fi#16
-  $r10 = MOP_COPY.4 $r11 ; %60
   MOP_SPILL.4 fi#15, $r10
+  $r10 = MOP_RELOAD.4 fi#15
+  $r10 = add.4 $r10, 10 ; %49
+  MOP_SPILL.4 fi#15, $r10
+  $r11 = MOP_RELOAD.4 fi#15
+  $r10 = MOP_COPY.4 $r11 ; %60
+  MOP_SPILL.4 fi#14, $r10
 
 MBB #1, '<exit>', ir #1, <- #2 #3
-  $r10 = MOP_RELOAD.4 fi#15
+  $r10 = MOP_RELOAD.4 fi#14
   $rax = MOP_COPY.4 $r10 ; %57
   ret ; %57
 

@@ -26,24 +26,23 @@ MBB #1, '<exit>', ir #1, <- #2
 --- Phase: ra ---
 MachineFunction 'ra_scratch_budget' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %5
-  %v1 : gp/8 ; %0
-  %v2 : gp/8 ; %9
-  %v3 : gp/8 ; %10
-  %v4 : gp/8 ; %11
-  %v5 : gp/8 ; %12
-  %v6 : gp/8 ; %13
-  %v7 : gp/8 ; %14
-  %v8 : gp/8 ; %15
-  %v9 : gp/8 ; %16
+  %v0 : gp/8 ; %0
+  %v1 : gp/8 ; %9
+  %v2 : gp/8 ; %10
+  %v3 : gp/8 ; %11
+  %v4 : gp/8 ; %12
+  %v5 : gp/8 ; %13
+  %v6 : gp/8 ; %14
+  %v7 : gp/8 ; %15
+  %v8 : gp/8 ; %16
+  %v9 : gp/8
   %v10 : gp/8
   %v11 : gp/8
   %v12 : gp/8
-  %v13 : gp/8
-  %v14 : gp/8 ; %8
-  %v15 : gp/8
-  %v16 : gp/2
-  %v17 : gp/8 ; %20
+  %v13 : gp/8 ; %8
+  %v14 : gp/8
+  %v15 : gp/2
+  %v16 : gp/8 ; %20
 Frame: 64 bytes, 64 outgoing
   fi#0 : param 16/16 @ 16 'a' ; %2
   fi#1 : param 16/16 @ 32 'b' ; %4
@@ -54,7 +53,6 @@ Frame: 64 bytes, 64 outgoing
 Allocator: linear scan
 Physical registers used: $rax $rcx $rdx $rsp $rsi $rdi
 MBB #0, '<entry>', ir #0, -> #2
-  $rax = mov.8 16 ; %5
   $rax = MOP_COPY.8 $rsp ; %0
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1

@@ -420,11 +420,10 @@ static void selectMemoryLoad(MachineBuilder *b, const IrInstruction *i) {
   mi->opSize = size;
 }
 
-// Whether the copy's count is a constant, which every copy this compiler
-// builds has: generateCompositeCopy is the only thing that makes one, and it
-// takes the count from computeTypeSize(). Asked by the driver, which has to
-// know whether this instruction's pointers will reach an addressing mode
-// before it decides to fold them away.
+// Whether the copy's count is known here. Every copy this frontend builds has
+// a constant one - generateCompositeCopy is the only producer and it takes the
+// count from computeTypeSize() - but that is a property of today's frontend
+// and not of the instruction, so the question is asked rather than assumed.
 //
 // Zero is a count like any other - an empty struct is a GNU extension this
 // frontend accepts, and copying nothing is the right amount of code for it.
@@ -432,12 +431,25 @@ static void selectMemoryLoad(MachineBuilder *b, const IrInstruction *i) {
 // The size is read from the IR rather than from the operand, because whether
 // it was folded into an immediate is a question about *uses* and this one is
 // not a use at all - the count is spent at selection time.
-static Boolean isUnrollableCopy(const IrInstruction *i) {
+static Boolean hasConstantCount(const IrInstruction *i) {
   const IrInstruction *size = inputAt(i, 2);
 
   return size->kind == IR_DEF_CONST && size->info.constant.kind == IR_CK_INTEGER &&
          size->info.constant.data.i >= 0;
 }
+
+// Past this many bytes a copy is emitted as a string move rather than unrolled
+// into load/store pairs. The number is a *cost* boundary and not a capability
+// one: both forms copy any size, and section 6.16 removed the refusal that
+// used to sit at this same 128 because it had been written down as if it were
+// the second kind.
+//
+// Under it, the pairs win: they are two instructions per eight bytes against
+// the tens of cycles a 'rep' takes to start, and the widths taper so the tail
+// costs nothing. Over it the unrolling is what costs - a 4KB struct assignment
+// is a thousand load/store pairs of straight-line code - and the string move
+// is four instructions whatever the size.
+#define X86_UNROLLED_COPY_LIMIT 128
 
 // 'copy n bytes from src to dst', as a run of load/store pairs at increasing
 // displacements, largest chunk first.
@@ -494,24 +506,79 @@ static void selectFixedCopy(MachineBuilder *b, const MachineAddress *to,
   }
 }
 
+// The same copy as a string move: the count in rcx, the two addresses in rsi
+// and rdi, and one instruction that walks all three. It copies forwards, which
+// is what the direction flag being clear at every ABI boundary guarantees, and
+// forwards is what a C assignment of one object to another needs - the two
+// either coincide or do not overlap at all.
+//
+// The three registers are the ISA's choice and are written as physical ones
+// here, exactly as a divide's rax and rdx are: the allocator may not reassign
+// them and may not leave anything live in them across this.
+//
+// The count goes in first, before any of the three is written, because it is
+// the operand that can need arbitrary computation to produce - a run-time size
+// is an ordinary value with an ordinary def - and everything that computes it
+// is then outside the window where three registers are pinned.
+static void selectRepCopy(MachineBuilder *b, const IrInstruction *i,
+                          const MachineAddress *to, const MachineAddress *from) {
+  // Whatever width the count was computed at, rcx is read whole, so a narrow
+  // one is widened by its own signedness rather than left with the bytes above
+  // it as they were.
+  selectLoadInto(b, R_ECX, inputAt(i, 2), sizeof(intptr_t));
+
+  MachineInstr *dst = buildMachineInstr(b, X86_LEA, 1, 1);
+  setRegisterOperand(dst, 0, R_EDI);
+  setMemoryOperand(dst, 1, to);
+  dst->opSize = sizeof(intptr_t);
+
+  MachineInstr *src = buildMachineInstr(b, X86_LEA, 1, 1);
+  setRegisterOperand(src, 0, R_ESI);
+  setMemoryOperand(src, 1, from);
+  src->opSize = sizeof(intptr_t);
+
+  // All six operands implicit: the encoding names none of them, and what they
+  // are here for is to tell liveness that this reads three registers and
+  // leaves all three changed.
+  MachineInstr *mi = buildMachineInstr(b, X86_REP_MOVSB, 3, 3);
+  setRegisterOperand(mi, 0, R_EDI);
+  setRegisterOperand(mi, 1, R_ESI);
+  setRegisterOperand(mi, 2, R_ECX);
+  setRegisterOperand(mi, 3, R_EDI);
+  setRegisterOperand(mi, 4, R_ESI);
+  setRegisterOperand(mi, 5, R_ECX);
+
+  for (uint16_t op = 0; op < mi->numOperands; ++op) {
+    machineOperandAt(mi, op)->flags.isImplicit = 1;
+  }
+
+  // The registers it advances, not the byte it moves at a time: opSize is what
+  // a def's width is read from, and all three come out eight bytes wide.
+  mi->opSize = sizeof(intptr_t);
+}
+
 static void selectMemoryCopy(MachineBuilder *b, const IrInstruction *i) {
   const IrInstruction *size = inputAt(i, 2);
 
-  // A count known only at run time would need a loop, and nothing here builds
-  // one - but nothing builds such a copy either. generateCompositeCopy is the
-  // only producer of an IR_M_COPY and its count is always computeTypeSize() of
-  // the type being copied, C having no assignment of an object whose size is
-  // not known: a VLA cannot be assigned, and a flexible array member is not
-  // part of its struct's size.
-  assert(isUnrollableCopy(i) && "a copy of a size only known at run time");
-
-  // Both addresses once, outside the loop: the chunks differ only in their
-  // displacement, and an address that had to widen an index would otherwise
-  // widen it again for every eight bytes copied.
+  // Both addresses once, outside whichever form is chosen: the chunks of an
+  // unrolled copy differ only in their displacement, and an address that had
+  // to widen an index would otherwise widen it again for every eight bytes.
   MachineAddress from = addressFor(b, inputAt(i, 1), 0);
   MachineAddress to = addressFor(b, inputAt(i, 0), 0);
 
-  selectFixedCopy(b, &to, &from, (int32_t)size->info.constant.data.i);
+  // A count known only at run time takes the string move by necessity rather
+  // than by cost - there is nothing to unroll against. Nothing the frontend
+  // accepts builds such a copy today, C having no assignment of an object
+  // whose size is not known: a VLA cannot be assigned, and a flexible array
+  // member is not part of its struct's size. The rule is here because the
+  // alternative to a rule is an assertion, and the two forms differ by which
+  // branch of one 'if' this takes.
+  if (hasConstantCount(i) && size->info.constant.data.i <= X86_UNROLLED_COPY_LIMIT) {
+    selectFixedCopy(b, &to, &from, (int32_t)size->info.constant.data.i);
+    return;
+  }
+
+  selectRepCopy(b, i, &to, &from);
 }
 
 static void selectMemoryStore(MachineBuilder *b, const IrInstruction *i) {
@@ -2514,6 +2581,25 @@ static Boolean x86IsLegalImmediate(const IrInstruction *use, size_t operandIdx,
   // x87 stack out of memory, and an immediate has no address.
   if (use->kind == IR_RET) {
     return cnst->type != IR_F80;
+  }
+
+  // Two sizes that are spent at selection time rather than read out of a
+  // register. A block copy's count decides which form the copy takes and, in
+  // the unrolled one, reaches no operand at all; a static allocation's size
+  // was spent by stage 0 laying out the frame, and a dynamic one's is a move
+  // into a register that takes an immediate like any other (selectDynamicAlloca).
+  //
+  // Both matter because a constant that any use refuses holds a register for
+  // the whole function - and these are the same constants: createAllocaSlot
+  // and generateCompositeCopy both ask createIntegerConstant for the type's
+  // size, and constants are shared, so one unfoldable use of the number kept
+  // the other's register too.
+  if (use->kind == IR_M_COPY) {
+    return operandIdx == 2;
+  }
+
+  if (use->kind == IR_ALLOCA) {
+    return operandIdx == 0;
   }
 
   // The right-hand operand only. x86 encodes an immediate as the source, so

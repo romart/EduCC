@@ -37,6 +37,12 @@
                                    operands say which way it goes - a dump     \
                                    reads '%v2 = mov.4 [%v1]' one way and       \
                                    'mov.4 [%v1], %v2' the other */             \
+  X86_OPCODE_DEF(REP_MOVSB, "rep movsb"), /* rcx bytes from [rsi] to [rdi],    \
+                                   forwards, leaving all three advanced. Every \
+                                   register it touches is fixed by the ISA and \
+                                   named nowhere in the encoding, so all six   \
+                                   operands are implicit and the whole         \
+                                   instruction is two bytes */                 \
   X86_OPCODE_DEF(MOVSX, "movsx"), /* widen, keeping the sign; opSize is the    \
                                      destination and srcSize the source */     \
   X86_OPCODE_DEF(MOVZX, "movzx"), /* widen, filling with zeroes */             \

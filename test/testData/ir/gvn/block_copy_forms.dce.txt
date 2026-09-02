@@ -1,0 +1,60 @@
+--- Phase: dce ---
+Function 'small'
+Locals:
+   p:0|dst = %2
+   p:1|src = %5
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %18 = IR_DEF_CONST () [kind = integer, v = 3, id = 4]
+  %16 = IR_DEF_CONST () [kind = integer, v = 0, id = 3]
+  %14 = IR_DEF_CONST () [kind = integer, v = 0, id = 2]
+  %11 = IR_DEF_CONST () [kind = integer, v = 24, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %6 = IR_P_REG () [preg = $rsi]
+  %26 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %24 = IR_RET (%21) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %12 = IR_M_COPY (%3, %6, %11) [elementType = STRUCT Small]
+  %15 = IR_GET_ELEMENT_PTR (%3, %14) [underlying type = signed long[3], member = a]
+  %20 = IR_GET_ELEMENT_PTR (%15, %14) [underlying type = signed long, index = %17]
+  %21 = IR_M_LOAD (%20) [load type = I64]
+  %23 = IR_BRANCH () [target = #1]
+
+
+--- Phase: dce ---
+Function 'large'
+Locals:
+   p:0|dst = %2
+   p:1|src = %5
+   r:-1|<ret_slot> = %8
+BB #0, '<entry>', -> #2, dominatees [#2]
+
+  %18 = IR_DEF_CONST () [kind = integer, v = 3, id = 4]
+  %16 = IR_DEF_CONST () [kind = integer, v = 0, id = 3]
+  %14 = IR_DEF_CONST () [kind = integer, v = 0, id = 2]
+  %11 = IR_DEF_CONST () [kind = integer, v = 512, id = 1]
+  %1 = IR_DEF_CONST () [kind = integer, v = 8, id = 0]
+  %3 = IR_P_REG () [preg = $rdi]
+  %6 = IR_P_REG () [preg = $rsi]
+  %26 = IR_BRANCH () [target = #2]
+
+BB #1, '<exit>', <- #2, strict dom #2
+
+  %24 = IR_RET (%21) []
+
+BB #2, '<FIRST>', <- #0, -> #1, strict dom #0, dominatees [#1]
+
+  %12 = IR_M_COPY (%3, %6, %11) [elementType = STRUCT Large]
+  %15 = IR_GET_ELEMENT_PTR (%3, %14) [underlying type = signed long[64], member = a]
+  %20 = IR_GET_ELEMENT_PTR (%15, %14) [underlying type = signed long, index = %17]
+  %21 = IR_M_LOAD (%20) [load type = I64]
+  %23 = IR_BRANCH () [target = #1]
+
+

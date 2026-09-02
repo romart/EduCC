@@ -8,21 +8,19 @@ VRegs:
   %v4 : gp/4 ; %30
   %v5 : gp/4 ; %39
   %v6 : gp/4 ; %64
-  %v7 : gp/8 ; %10
-  %v8 : gp/4 ; %3
-  %v9 : gp/4 ; %6
-  %v10 : gp/8 ; %18
-  %v11 : gp/8 ; %24
-  %v12 : gp/8 ; %42
-  %v13 : gp/8 ; %45
-  %v14 : gp/8 ; %33
-  %v15 : gp/8 ; %36
+  %v7 : gp/4 ; %3
+  %v8 : gp/4 ; %6
+  %v9 : gp/8 ; %18
+  %v10 : gp/8 ; %24
+  %v11 : gp/8 ; %42
+  %v12 : gp/8 ; %45
+  %v13 : gp/8 ; %33
+  %v14 : gp/8 ; %36
 Frame: 16 bytes
   fi#0 : local 16/8 @ -16 'tab' ; %11
 Allocator: linear scan
 Physical registers used: $rax $rcx $rdx $rsi $rdi $r8
 MBB #0, '<entry>', ir #0, -> #4
-  $rax = mov.8 16 ; %10
   $rax = MOP_COPY.4 $rdi ; %3
   $rcx = MOP_COPY.4 $rsi ; %6
 

@@ -1,26 +1,24 @@
 --- Phase: isel ---
 MachineFunction 'local_addr_taken' [target = x86_64]
 VRegs:
-  %v0 : gp/8 ; %1
-  %v1 : gp/4 ; %3
-  %v2 : gp/4 ; %14
-  %v3 : gp/4 ; %17
-  %v4 : gp/4 ; %21
+  %v0 : gp/4 ; %3
+  %v1 : gp/4 ; %14
+  %v2 : gp/4 ; %17
+  %v3 : gp/4 ; %21
 Frame: 16 bytes
   fi#0 : local 8/4 @ -8 'x' ; %9
 MBB #0, '<entry>', ir #0, -> #2
-  %v0 = mov.8 8 ; %1
-  %v1 = MOP_COPY.4 $rdi ; %3
+  %v0 = MOP_COPY.4 $rdi ; %3
 
 MBB #2, '<FIRST>', ir #2, <- #0, -> #1
-  mov.4 [fi#0], %v1 ; %11
-  %v2 = mov.4 [fi#0] ; %14
-  %v3 = mov.4 [fi#0] ; %17
-  %v4 = MOP_COPY.4 %v2 ; %21
-  %v4 = add.4 %v4, %v3 ; %21
+  mov.4 [fi#0], %v0 ; %11
+  %v1 = mov.4 [fi#0] ; %14
+  %v2 = mov.4 [fi#0] ; %17
+  %v3 = MOP_COPY.4 %v1 ; %21
+  %v3 = add.4 %v3, %v2 ; %21
 
 MBB #1, '<exit>', ir #1, <- #2
-  $rax = MOP_COPY.4 %v4 ; %24
+  $rax = MOP_COPY.4 %v3 ; %24
   ret ; %24
 
 

@@ -1027,6 +1027,14 @@ void emitConvertWDQ(GeneratedFunction *f, uint8_t opcode, uint8_t opSize) {
     }
 }
 
+// No REX.W: rcx is counted at its full width by default in 64-bit mode, and
+// the operands are rsi and rdi whatever the prefix says. The whole instruction
+// is the repeat prefix and the byte-wide string move.
+void emitRepMovsb(GeneratedFunction *f) {
+  emitByte(f, 0xF3);
+  emitByte(f, 0xA4);
+}
+
 void emitConvertFP(GeneratedFunction *f, uint8_t prefix, uint8_t opcode, enum Registers from, enum Registers to, Boolean isW) {
 
   emitByte(f, prefix);
