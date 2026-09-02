@@ -1,0 +1,22 @@
+--- Phase: ra ---
+MachineFunction 'scp_never_loop' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %13
+  %v1 : gp/4 ; %3
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rdi
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.4 0 ; %13
+  $rax = MOP_COPY.4 $rdi ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+
+MBB #3, '<while_head>', ir #3, <- #2, -> #4
+
+MBB #4, '<while_exit>', ir #5, <- #3, -> #1
+
+MBB #1, '<exit>', ir #1, <- #4
+  ret ; %23
+
+

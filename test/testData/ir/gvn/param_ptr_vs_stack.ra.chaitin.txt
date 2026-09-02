@@ -1,0 +1,30 @@
+--- Phase: ra ---
+MachineFunction 'param_ptr_vs_stack' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %0
+  %v1 : gp/8 ; %12
+  %v2 : gp/4 ; %26
+  %v3 : gp/4 ; %27
+  %v4 : gp/4 ; %28
+  %v5 : gp/4 ; %29
+  %v6 : gp/4 ; %30
+Frame: 0 bytes
+  fi#0 : param 4/4 @ 16 'a6' ; %21
+  fi#1 : param 4/4 @ 24 'a7' ; %23
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdx $rsp
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = MOP_COPY.8 $rsp ; %0
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $rdx = mov.4 [$rcx] ; %26
+  $rax = mov.4 [fi#0] ; %27
+  $rdx = add.4 $rdx, $rax ; %28
+  $rax = mov.4 [fi#1] ; %29
+  $rdx = add.4 $rdx, $rax ; %30
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 $rdx ; %33
+  ret ; %33
+
+

@@ -1,0 +1,25 @@
+--- Phase: ra ---
+MachineFunction 'commutative' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %3
+  %v1 : gp/4 ; %6
+  %v2 : gp/4 ; %11
+  %v3 : gp/4 ; %15
+  %v4 : gp/4 ; %23
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rsi $rdi
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $rdi = add.4 $rdi, $rsi ; %11
+  $rax = MOP_COPY.4 $rdi ; %15
+  $rax = imul.4 $rax, $rdi ; %15
+  $rcx = MOP_COPY.4 $rax ; %23
+  $rcx = add.4 $rcx, $rax ; %23
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 $rcx ; %26
+  ret ; %26
+
+

@@ -396,15 +396,20 @@ int main(int argc, char** argv) {
     } else if (strcmp("-legacy", arg) == 0) {
       config.irBackend = 0;
     } else if (strncmp("-Xregalloc=", arg, 11) == 0) {
-      // Which stage 2 runs. 'trivial' is the spill-everything allocator, kept
-      // as the differential oracle of docs/ir-codegen-design.md section 7.
+      // Which stage 2 runs. 'linear' is the default; the other two are kept
+      // reachable as differential oracles - see docs/ir-codegen-design.md
+      // section 7.
       const char *which = &arg[11];
       if (strcmp(which, "trivial") == 0) {
-        config.trivialRegAlloc = 1;
+        config.regAlloc = RA_TRIVIAL;
       } else if (strcmp(which, "linear") == 0) {
-        config.trivialRegAlloc = 0;
+        config.regAlloc = RA_LINEAR;
+      } else if (strcmp(which, "chaitin") == 0) {
+        config.regAlloc = RA_COLOUR;
       } else {
-        fprintf(stderr, "unknown register allocator '%s', expected 'linear' or 'trivial'\n", which);
+        fprintf(stderr,
+                "unknown register allocator '%s', expected 'linear', 'trivial' or 'chaitin'\n",
+                which);
         return 2;
       }
     } else if (strcmp("-experimental", arg) == 0) {

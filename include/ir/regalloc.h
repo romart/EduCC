@@ -5,7 +5,7 @@
 
 // -============================ Stage 2: register allocation ==============-
 //
-// Two allocators, and the choice between them is '-Xregalloc'.
+// Three allocators, and the choice between them is '-Xregalloc'.
 //
 // 2A, "spill everything" (src/ir/codegen/regalloc.c), gives every virtual
 // register a frame slot and nothing else: each instruction reloads the
@@ -23,18 +23,24 @@
 // spills the interval reaching furthest ahead. See
 // docs/ir-codegen-design.md section 7.
 //
-// After either runs, no MO_REG operand names a virtual register - that is the
-// one postcondition everything downstream depends on, and it is asserted.
+// 2C, graph colouring (src/ir/codegen/regalloc_colour.c), is Chaitin-Briggs:
+// an interference graph built from the same liveness read as live sets rather
+// than as intervals, simplified by degree, potential spills pushed
+// optimistically, colours chosen coming back, and Briggs-conservative
+// coalescing to delete the copies phi destruction and the ABI left behind.
+//
+// After any of them runs, no MO_REG operand names a virtual register - that is
+// the one postcondition everything downstream depends on, and it is asserted.
 
-void allocateRegisters(MachineFunction *mf, Boolean trivial);
+void allocateRegisters(MachineFunction *mf, enum RegAllocKind kind);
 
 // -============================ The shared spiller ========================-
 //
-// Deliberately not part of either allocator. Both of them - and the graph
-// colouring of step 35 after them - answer the same two questions differently
-// ("which values get registers", "which one goes when there are none left")
-// and the same three questions identically: where a spilled value lives, what
-// the code around it looks like, and what happens next.
+// Deliberately not part of any one allocator. All three of them answer the
+// same two questions differently ("which values get registers", "which one
+// goes when there are none left") and the same three questions identically:
+// where a spilled value lives, what the code around it looks like, and what
+// happens next.
 //
 // What happens next is the part worth naming. A spilled value's *uses* still
 // need a register, and this is where they get one: rewriting a spill site
@@ -48,8 +54,9 @@ void allocateRegisters(MachineFunction *mf, Boolean trivial);
 // That it terminates is Briggs' argument. A register this spiller created is
 // never spilled again: in 2B that falls out of the heuristic rather than
 // needing enforcement - a one-instruction interval has the nearest end point,
-// so "spill the interval reaching furthest ahead" never picks it - and it is
-// asserted, because a heuristic that quietly stopped holding would loop here
+// so "spill the interval reaching furthest ahead" never picks it - and 2C says
+// it outright, refusing to nominate one as a spill candidate. Either way it is
+// asserted here, because a heuristic that quietly stopped holding would loop
 // rather than fail.
 typedef struct _SpillState {
   MachineFunction *mf;
@@ -102,5 +109,8 @@ void recordUsedPhysRegs(MachineFunction *mf);
 
 // -============================ Stage 2B ============================-
 void allocateRegistersLinear(MachineFunction *mf);
+
+// -============================ Stage 2C ============================-
+void allocateRegistersColour(MachineFunction *mf);
 
 #endif // __IR_REGALLOC_H__

@@ -1,0 +1,59 @@
+--- Phase: ra ---
+MachineFunction 'loop_break_continue' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %57
+  %v1 : gp/4 ; %14
+  %v2 : gp/4 ; %53
+  %v3 : gp/4 ; %24
+  %v4 : gp/4 ; %40
+  %v5 : gp/4 ; %3
+  %v6 : gp/4 ; %6
+  %v7 : gp/4 ; %9
+  %v8 : gp/4 ; %39
+  %v9 : gp/4 ; %46
+  %v10 : gp/4 ; %47
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdx $rsi $rdi $r8
+MBB #0, '<entry>', ir #0, -> #2
+  $r8 = mov.4 0 ; %14
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  $rax = MOP_COPY.4 $r8 ; %53
+
+MBB #3, '<while_head>', ir #3, <- #2 #7 #8, -> #4 #10
+  cmp.4 $rax, $rdx ; %20
+  jl #4 ; %21
+
+MBB #10, '<crit_splitter>', ir #10, <- #3, -> #5
+  jmp #5 ; %65
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #7 #6
+  $rax = add.4 $rax, 1 ; %24
+  cmp.4 $rax, 3 ; %28
+  je #7 ; %29
+
+MBB #6, '<if_exit>', ir #6, <- #4, -> #9 #8
+  cmp.4 $rax, 7 ; %33
+  je #9 ; %34
+
+MBB #8, '<if_exit>', ir #8, <- #6, -> #3
+  $rcx = MOP_COPY.4 $rdi ; %39
+  $rcx = add.4 $rcx, $rsi ; %39
+  $r8 = add.4 $r8, $rcx ; %40
+  jmp #3 ; %42
+
+MBB #9, '<if_then>', ir #9, <- #6, -> #5
+
+MBB #5, '<while_exit>', ir #5, <- #10 #9, -> #1
+  $rdi = add.4 $rdi, $rsi ; %46
+  $r8 = add.4 $r8, $rdi ; %47
+
+MBB #1, '<exit>', ir #1, <- #5
+  $rax = MOP_COPY.4 $r8 ; %50
+  ret ; %50
+
+MBB #7, '<if_then>', ir #7, <- #4, -> #3
+  jmp #3 ; %30
+
+

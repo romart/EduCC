@@ -75,6 +75,7 @@ set(SOURCES
   src/ir/codegen/spill.c
   src/ir/codegen/regalloc.c
   src/ir/codegen/regalloc_linear.c
+  src/ir/codegen/regalloc_colour.c
   src/x86_64/emit_x86_64.c
 )
 
@@ -175,6 +176,10 @@ if(BUILD_TESTING)
   # identical observable behaviour, so the whole suite becomes a test of
   # whichever one is being changed.
   educc_add_test(codegen_regalloc_trivial codegen codegen 300 ssa --compiler-flag=-Xregalloc=trivial)
+  # And a fourth through stage 2C, the graph colouring of step 35, for the same
+  # reason: three allocators over one set of fixtures have to agree about what
+  # the programs do, however differently they arrive at it.
+  educc_add_test(codegen_regalloc_chaitin codegen codegen 300 ssa --compiler-flag=-Xregalloc=chaitin)
   # The two backends inside one link: each fixture is a pair of files compiled
   # with a different backend each, linked and run, then swapped over. Every
   # other suite runs one backend at a time, so their ABI agreement is otherwise
@@ -219,11 +224,13 @@ if(BUILD_TESTING)
   # ever record whichever one happened to be the default - and a change of
   # default would silently rewrite the file rather than fail. Every allocator
   # names itself on both sides: '-Xregalloc=' on the command line and the
-  # 'Allocator:' line in the dump. Stage 2C gets a third line here.
+  # 'Allocator:' line in the dump.
   educc_add_test(ir_ra_linear ir/gvn ir 60 ra
                  --compiler-flag=-Xregalloc=linear --baseline-tag linear)
   educc_add_test(ir_ra_trivial ir/gvn ir 60 ra
                  --compiler-flag=-Xregalloc=trivial --baseline-tag trivial)
+  educc_add_test(ir_ra_chaitin ir/gvn ir 60 ra
+                 --compiler-flag=-Xregalloc=chaitin --baseline-tag chaitin)
 
   # The structural checkers (test/checkers/, docs/ir-codegen-design.md section
   # 9). A golden baseline says the output has not changed; these say it is
@@ -249,7 +256,7 @@ if(BUILD_TESTING)
   # run at all.
   option(EDUCC_RUN_CHECKERS "Register test/checkers/ as CTest tests" ON)
   if(EDUCC_RUN_CHECKERS)
-    foreach(alloc linear trivial)
+    foreach(alloc linear trivial chaitin)
       foreach(checker
           phi_destruction frame_layout selection allocation allocation_widths
           call_alignment emission_objdump disasm_stable)

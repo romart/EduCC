@@ -1,0 +1,33 @@
+--- Phase: ra ---
+MachineFunction 'phi_swapped_edges' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %38
+  %v1 : gp/4 ; %3
+  %v2 : gp/4 ; %36
+  %v3 : gp/4 ; %6
+  %v4 : gp/4 ; %9
+  %v5 : gp/4 ; %30
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rdx $rsi $rdi
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
+  cmp.4 $rdx, 0 ; %16
+  jg #4 ; %17
+
+MBB #5, '<if_else>', ir #5, <- #2, -> #3
+  $rax = MOP_COPY.4 $rsi ; %38
+  jmp #3 ; %27
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  $rax = MOP_COPY.4 $rdi ; %38
+  $rdi = MOP_COPY.4 $rsi ; %36
+
+MBB #3, '<if_exit>', ir #3, <- #4 #5, -> #1
+  $rax = sub.4 $rax, $rdi ; %30
+
+MBB #1, '<exit>', ir #1, <- #3
+  ret ; %33
+
+

@@ -1,0 +1,26 @@
+--- Phase: ra ---
+MachineFunction 'calls_not_merged' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %3
+  %v1 : gp/4 ; %7
+  %v2 : gp/4 ; %9
+  %v3 : gp/4 ; %11
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rbx $rdi $r12
+MBB #0, '<entry>', ir #0, -> #2
+  $rbx = MOP_COPY.4 $rdi ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $rdi = MOP_COPY.4 $rbx ; %7
+  call opaque [implicit-def $rax, implicit $rdi] <clobbers caller-saved> ; %7
+  $r12 = MOP_COPY.4 $rax ; %7
+  $rdi = MOP_COPY.4 $rbx ; %9
+  call opaque [implicit-def $rax, implicit $rdi] <clobbers caller-saved> ; %9
+  $r12 = add.4 $r12, $rax ; %11
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 $r12 ; %14
+  ret ; %14
+
+

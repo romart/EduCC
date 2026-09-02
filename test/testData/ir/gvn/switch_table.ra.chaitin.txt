@@ -1,0 +1,246 @@
+--- Phase: ra ---
+MachineFunction 'dense' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %36
+  %v1 : gp/4 ; %9
+  %v2 : gp/4 ; %12
+  %v3 : gp/4 ; %15
+  %v4 : gp/4 ; %18
+  %v5 : gp/4 ; %21
+  %v6 : gp/4 ; %24
+  %v7 : gp/4 ; %40
+  %v8 : gp/4 ; %3
+  %v9 : gp/8
+  %v10 : gp/8
+  %v11 : gp/8
+  %v12 : gp/8
+Frame: <empty>
+Jump tables:
+  jt#0 : #4 #5 #6 #7 #8 #3 #9
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdx $rbx $rsi $rdi $r8 $r9 $r10 $r11
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.4 -1 ; %40
+  $r10 = mov.4 700 ; %24
+  $r9 = mov.4 500 ; %21
+  $r8 = mov.4 400 ; %18
+  $rsi = mov.4 300 ; %15
+  $rdx = mov.4 200 ; %12
+  $rcx = mov.4 100 ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5 #6 #7 #8 #9 #3
+  $r11 = movsx.8/4 $rdi ; %7
+  $r11 = sub.8 $r11, 1 ; %7
+  cmp.8 $r11, 6 ; %7
+  ja #3 ; %7
+  $rdi = lea.8 [jt#0] ; %7
+  $rbx = mov.8 [$rdi + $r11*8] ; %7
+  $rbx = add.8 $rbx, $rdi ; %7
+  jmp*.8 $rbx ; %7
+
+MBB #3, '<default_case>', ir #4, <- #2, -> #1
+  jmp #1 ; %31
+
+MBB #9, '<case_block>', ir #10, <- #2, -> #1
+  $rax = MOP_COPY.4 $r10 ; %36
+  jmp #1 ; %26
+
+MBB #8, '<case_block>', ir #9, <- #2, -> #1
+  $rax = MOP_COPY.4 $r9 ; %36
+  jmp #1 ; %23
+
+MBB #7, '<case_block>', ir #8, <- #2, -> #1
+  $rax = MOP_COPY.4 $r8 ; %36
+  jmp #1 ; %20
+
+MBB #6, '<case_block>', ir #7, <- #2, -> #1
+  $rax = MOP_COPY.4 $rsi ; %36
+  jmp #1 ; %17
+
+MBB #5, '<case_block>', ir #6, <- #2, -> #1
+  $rax = MOP_COPY.4 $rdx ; %36
+  jmp #1 ; %14
+
+MBB #4, '<case_block>', ir #5, <- #2, -> #1
+  $rax = MOP_COPY.4 $rcx ; %36
+
+MBB #1, '<exit>', ir #1, <- #4 #5 #6 #7 #8 #9 #3
+  ret ; %33
+
+
+--- Phase: ra ---
+MachineFunction 'sparse' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %36
+  %v1 : gp/4 ; %9
+  %v2 : gp/4 ; %12
+  %v3 : gp/4 ; %15
+  %v4 : gp/4 ; %18
+  %v5 : gp/4 ; %21
+  %v6 : gp/4 ; %24
+  %v7 : gp/4 ; %40
+  %v8 : gp/4 ; %3
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdx $rsi $rdi $r8 $r9 $r10
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.4 -1 ; %40
+  $r10 = mov.4 700 ; %24
+  $r9 = mov.4 500 ; %21
+  $r8 = mov.4 400 ; %18
+  $rsi = mov.4 300 ; %15
+  $rdx = mov.4 200 ; %12
+  $rcx = mov.4 100 ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5 #6 #7 #8 #9 #3
+  cmp.4 $rdi, 1 ; %7
+  je #4 ; %7
+  cmp.4 $rdi, 200 ; %7
+  je #5 ; %7
+  cmp.4 $rdi, 3000 ; %7
+  je #6 ; %7
+  cmp.4 $rdi, 40000 ; %7
+  je #7 ; %7
+  cmp.4 $rdi, 500000 ; %7
+  je #8 ; %7
+  cmp.4 $rdi, 6000000 ; %7
+  je #9 ; %7
+
+MBB #3, '<default_case>', ir #4, <- #2, -> #1
+  jmp #1 ; %31
+
+MBB #9, '<case_block>', ir #10, <- #2, -> #1
+  $rax = MOP_COPY.4 $r10 ; %36
+  jmp #1 ; %26
+
+MBB #8, '<case_block>', ir #9, <- #2, -> #1
+  $rax = MOP_COPY.4 $r9 ; %36
+  jmp #1 ; %23
+
+MBB #7, '<case_block>', ir #8, <- #2, -> #1
+  $rax = MOP_COPY.4 $r8 ; %36
+  jmp #1 ; %20
+
+MBB #6, '<case_block>', ir #7, <- #2, -> #1
+  $rax = MOP_COPY.4 $rsi ; %36
+  jmp #1 ; %17
+
+MBB #5, '<case_block>', ir #6, <- #2, -> #1
+  $rax = MOP_COPY.4 $rdx ; %36
+  jmp #1 ; %14
+
+MBB #4, '<case_block>', ir #5, <- #2, -> #1
+  $rax = MOP_COPY.4 $rcx ; %36
+
+MBB #1, '<exit>', ir #1, <- #4 #5 #6 #7 #8 #9 #3
+  ret ; %33
+
+
+--- Phase: ra ---
+MachineFunction 'few' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %27
+  %v1 : gp/4 ; %9
+  %v2 : gp/4 ; %12
+  %v3 : gp/4 ; %15
+  %v4 : gp/4 ; %31
+  %v5 : gp/4 ; %3
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdx $rsi $rdi
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.4 -1 ; %31
+  $rsi = mov.4 30 ; %15
+  $rdx = mov.4 20 ; %12
+  $rcx = mov.4 10 ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5 #6 #3
+  cmp.4 $rdi, 1 ; %7
+  je #4 ; %7
+  cmp.4 $rdi, 2 ; %7
+  je #5 ; %7
+  cmp.4 $rdi, 3 ; %7
+  je #6 ; %7
+
+MBB #3, '<default_case>', ir #4, <- #2, -> #1
+  jmp #1 ; %22
+
+MBB #6, '<case_block>', ir #7, <- #2, -> #1
+  $rax = MOP_COPY.4 $rsi ; %27
+  jmp #1 ; %17
+
+MBB #5, '<case_block>', ir #6, <- #2, -> #1
+  $rax = MOP_COPY.4 $rdx ; %27
+  jmp #1 ; %14
+
+MBB #4, '<case_block>', ir #5, <- #2, -> #1
+  $rax = MOP_COPY.4 $rcx ; %27
+
+MBB #1, '<exit>', ir #1, <- #4 #5 #6 #3
+  ret ; %24
+
+
+--- Phase: ra ---
+MachineFunction 'negative' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %32
+  %v1 : gp/4 ; %9
+  %v2 : gp/4 ; %12
+  %v3 : gp/4 ; %15
+  %v4 : gp/4 ; %18
+  %v5 : gp/4 ; %21
+  %v6 : gp/4 ; %36
+  %v7 : gp/4 ; %3
+  %v8 : gp/8
+  %v9 : gp/8
+  %v10 : gp/8
+  %v11 : gp/8
+Frame: <empty>
+Jump tables:
+  jt#0 : #4 #5 #6 #7 #8
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdx $rsi $rdi $r8 $r9 $r10 $r11
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.4 -1 ; %36
+  $r9 = mov.4 5 ; %21
+  $r8 = mov.4 4 ; %18
+  $rsi = mov.4 3 ; %15
+  $rdx = mov.4 2 ; %12
+  $rcx = mov.4 1 ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5 #6 #7 #8 #3
+  $r10 = movsx.8/4 $rdi ; %7
+  $r10 = sub.8 $r10, -4 ; %7
+  cmp.8 $r10, 4 ; %7
+  ja #3 ; %7
+  $rdi = lea.8 [jt#0] ; %7
+  $r11 = mov.8 [$rdi + $r10*8] ; %7
+  $r11 = add.8 $r11, $rdi ; %7
+  jmp*.8 $r11 ; %7
+
+MBB #3, '<default_case>', ir #4, <- #2, -> #1
+  jmp #1 ; %27
+
+MBB #8, '<case_block>', ir #9, <- #2, -> #1
+  $rax = MOP_COPY.4 $r9 ; %32
+  jmp #1 ; %23
+
+MBB #7, '<case_block>', ir #8, <- #2, -> #1
+  $rax = MOP_COPY.4 $r8 ; %32
+  jmp #1 ; %20
+
+MBB #6, '<case_block>', ir #7, <- #2, -> #1
+  $rax = MOP_COPY.4 $rsi ; %32
+  jmp #1 ; %17
+
+MBB #5, '<case_block>', ir #6, <- #2, -> #1
+  $rax = MOP_COPY.4 $rdx ; %32
+  jmp #1 ; %14
+
+MBB #4, '<case_block>', ir #5, <- #2, -> #1
+  $rax = MOP_COPY.4 $rcx ; %32
+
+MBB #1, '<exit>', ir #1, <- #4 #5 #6 #7 #8 #3
+  ret ; %29
+
+

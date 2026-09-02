@@ -1,0 +1,48 @@
+--- Phase: ra ---
+MachineFunction 'branch_dup' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %57
+  %v1 : gp/8 ; %23
+  %v2 : gp/8 ; %36
+  %v3 : gp/8 ; %20
+  %v4 : gp/8 ; %3
+  %v5 : gp/4 ; %6
+  %v6 : gp/4 ; %9
+  %v7 : gp/8 ; %34
+  %v8 : gp/8 ; %35
+  %v9 : gp/8 ; %21
+  %v10 : gp/8 ; %22
+  %v11 : gp/4 ; %46
+  %v12 : gp/4 ; %48
+  %v13 : gp/4 ; %49
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdx $rsi $rdi
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.8 4 ; %20
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
+  cmp.4 $rdx, 0 ; %16
+  jg #4 ; %17
+
+MBB #5, '<if_else>', ir #5, <- #2, -> #3
+  $rcx = movsx.8/4 $rsi ; %34
+  $rcx = imul.8 $rcx, $rax ; %35
+  $rdi = add.8 $rdi, $rcx ; %36
+  jmp #3 ; %44
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  $rcx = movsx.8/4 $rsi ; %21
+  $rcx = imul.8 $rcx, $rax ; %22
+  $rdi = add.8 $rdi, $rcx ; %23
+
+MBB #3, '<if_exit>', ir #3, <- #4 #5, -> #1
+  $rcx = mov.4 [$rdi] ; %46
+  $rax = mov.4 [$rdi] ; %48
+  $rcx = add.4 $rcx, $rax ; %49
+
+MBB #1, '<exit>', ir #1, <- #3
+  $rax = MOP_COPY.4 $rcx ; %52
+  ret ; %52
+
+

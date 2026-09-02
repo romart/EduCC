@@ -1,0 +1,24 @@
+--- Phase: ra ---
+MachineFunction 'load_value_cse' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %3
+  %v1 : gp/4 ; %6
+  %v2 : gp/4 ; %13
+  %v3 : gp/4 ; %17
+  %v4 : gp/4 ; %25
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rsi $rdi
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $rax = mov.4 [$rdi] ; %13
+  $rax = add.4 $rax, $rsi ; %17
+  $rcx = MOP_COPY.4 $rax ; %25
+  $rcx = add.4 $rcx, $rax ; %25
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 $rcx ; %28
+  ret ; %28
+
+

@@ -1,0 +1,50 @@
+--- Phase: ra ---
+MachineFunction 'isel_immediates' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %33
+  %v1 : gp/8 ; %23
+  %v2 : gp/8 ; %19
+  %v3 : gp/8 ; %3
+  %v4 : gp/8 ; %6
+  %v5 : gp/8 ; %16
+  %v6 : gp/8 ; %20
+  %v7 : gp/8 ; %24
+  %v8 : gp/8 ; %26
+  %v9 : gp/8 ; %27
+  %v10 : gp/8 ; %31
+  %v11 : gp/8 ; %35
+  %v12 : gp/8 ; %39
+  %v13 : gp/8 ; %41
+  %v14 : gp/8 ; %43
+  %v15 : gp/8 ; %45
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdx $rsi $rdi $r8 $r9 $r10
+MBB #0, '<entry>', ir #0, -> #2
+  $r9 = mov.8 3 ; %33
+  $rax = mov.8 100 ; %23
+  $rcx = mov.8 78187493520 ; %19
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $r10 = MOP_COPY.8 $rdi ; %16
+  $r10 = add.8 $r10, 7 ; %16
+  $r8 = MOP_COPY.8 $rdi ; %20
+  $r8 = add.8 $r8, $rcx ; %20
+  $rcx = MOP_COPY.8 $rdi ; %24
+  $rcx = add.8 $rcx, $rax ; %24
+  $rdx = cdq.8 [implicit $rax] ; %26
+  idiv.8 $rsi [implicit-def $rax, implicit-def $rdx, implicit $rax, implicit $rdx] ; %26
+  $rcx = add.8 $rcx, $rax ; %27
+  $rax = MOP_COPY.8 $rdi ; %31
+  $rax = shl.8 $rax, 5 ; %31
+  $r9 = sub.8 $r9, $rdi ; %35
+  $r10 = add.8 $r10, $r8 ; %39
+  $r10 = add.8 $r10, $rcx ; %41
+  $r10 = add.8 $r10, $rax ; %43
+  $r10 = add.8 $r10, $r9 ; %45
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.8 $r10 ; %48
+  ret ; %48
+
+

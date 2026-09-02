@@ -1,0 +1,24 @@
+--- Phase: ra ---
+MachineFunction 'dce_side_effects' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %3
+  %v1 : gp/4 ; %6
+  %v2 : gp/4 ; %21
+  %v3 : gp/4 ; %30
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rbx $rsi $rdi $r12
+MBB #0, '<entry>', ir #0, -> #2
+  $r12 = MOP_COPY.4 $rdi ; %3
+  $rbx = MOP_COPY.4 $rsi ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $rdi = MOP_COPY.4 $r12 ; %21
+  call sink [implicit-def $rax, implicit $rdi] <clobbers caller-saved> ; %21
+  $r12 = sub.4 $r12, $rbx ; %30
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 $r12 ; %33
+  ret ; %33
+
+

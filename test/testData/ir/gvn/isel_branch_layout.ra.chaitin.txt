@@ -1,0 +1,80 @@
+--- Phase: ra ---
+MachineFunction 'isel_branch_layout' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %54
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %27
+  %v3 : gp/4 ; %23
+  %v4 : gp/4 ; %21
+  %v5 : gp/4 ; %52
+  %v6 : gp/4 ; %43
+  %v7 : gp/4 ; %38
+  %v8 : gp/4 ; %39
+  %v9 : gp/4 ; %36
+  %v10 : gp/4 ; %3
+  %v11 : gp/4 ; %6
+  %v12 : gp/4 ; %9
+  %v13 : gp/4 ; %17
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdx $rsi $rdi $r8 $r9
+MBB #0, '<entry>', ir #0, -> #2
+  $r8 = mov.4 1 ; %39
+  $rcx = mov.4 0 ; %13
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #5 #11
+  $r9 = mov.4 0 ; %17
+  cmp.4 $rdi, $rdx ; %17
+  $r9<partial-def> = setg.1 ; %17
+  test.4 $r9, $r9 ; %18
+  jne #5 ; %18
+
+MBB #11, '<crit_splitter>', ir #11, <- #2, -> #6
+  $rax = MOP_COPY.4 $rcx ; %23
+  jmp #6 ; %61
+
+MBB #5, '< && >', ir #5, <- #2, -> #6
+  $rax = mov.4 0 ; %21
+  cmp.4 $rsi, $rdx ; %21
+  $rax<partial-def> = setg.1 ; %21
+
+MBB #6, '< &&-exit>', ir #6, <- #11 #5, -> #4 #13
+  test.4 $rax, $rax ; %24
+  jne #4 ; %24
+
+MBB #13, '<crit_splitter>', ir #13, <- #6, -> #3
+  jmp #3 ; %63
+
+MBB #4, '<if_then>', ir #4, <- #6, -> #3
+  $rdi = add.4 $rdi, $rsi ; %27
+  $rcx = MOP_COPY.4 $rdi ; %54
+
+MBB #3, '<if_exit>', ir #3, <- #13 #4, -> #9 #12
+  test.4 $r9, $r9 ; %33
+  je #9 ; %33
+
+MBB #12, '<crit_splitter>', ir #12, <- #3, -> #10
+  jmp #10 ; %62
+
+MBB #9, '< || >', ir #9, <- #3, -> #10
+  $r8 = mov.4 0 ; %36
+  cmp.4 $rsi, $rdx ; %36
+  $r8<partial-def> = setg.1 ; %36
+
+MBB #10, '< ||-exit>', ir #10, <- #12 #9, -> #8 #14
+  test.4 $r8, $r8 ; %40
+  jne #8 ; %40
+
+MBB #14, '<crit_splitter>', ir #14, <- #10, -> #7
+  jmp #7 ; %64
+
+MBB #8, '<if_then>', ir #8, <- #10, -> #7
+  $rcx = add.4 $rcx, $rdx ; %43
+
+MBB #7, '<if_exit>', ir #7, <- #14 #8, -> #1
+
+MBB #1, '<exit>', ir #1, <- #7
+  $rax = MOP_COPY.4 $rcx ; %49
+  ret ; %49
+
+

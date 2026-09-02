@@ -1,0 +1,31 @@
+--- Phase: ra ---
+MachineFunction 'pointer_arith' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %14
+  %v1 : gp/8 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/8 ; %15
+  %v4 : gp/8 ; %16
+  %v5 : gp/8 ; %17
+  %v6 : gp/4 ; %26
+  %v7 : gp/4 ; %28
+  %v8 : gp/4 ; %29
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rsi $rdi
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.8 4 ; %14
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $rcx = movsx.8/4 $rsi ; %15
+  $rcx = imul.8 $rcx, $rax ; %16
+  $rdi = add.8 $rdi, $rcx ; %17
+  $rcx = mov.4 [$rdi] ; %26
+  $rax = mov.4 [$rdi] ; %28
+  $rcx = add.4 $rcx, $rax ; %29
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 $rcx ; %34
+  ret ; %34
+
+

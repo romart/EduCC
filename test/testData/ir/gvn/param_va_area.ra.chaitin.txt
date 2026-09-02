@@ -1,0 +1,148 @@
+--- Phase: ra ---
+MachineFunction 'param_va_area' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %106
+  %v1 : gp/8 ; %97
+  %v2 : gp/8 ; %102
+  %v3 : gp/8 ; %126
+  %v4 : gp/8 ; %117
+  %v5 : gp/8 ; %122
+  %v6 : gp/4 ; %88
+  %v7 : gp/8 ; %82
+  %v8 : gp/4 ; %19
+  %v9 : gp/4 ; %15
+  %v10 : gp/8 ; %6
+  %v11 : gp/8 ; %0
+  %v12 : gp/8 ; %7
+  %v13 : gp/8 ; %10
+  %v14 : gp/8 ; %21
+  %v15 : gp/8 ; %26
+  %v16 : gp/8 ; %30
+  %v17 : gp/8 ; %34
+  %v18 : gp/8 ; %38
+  %v19 : gp/8 ; %42
+  %v20 : gp/8 ; %46
+  %v21 : fp/8 ; %50
+  %v22 : fp/8 ; %54
+  %v23 : fp/8 ; %58
+  %v24 : fp/8 ; %62
+  %v25 : fp/8 ; %66
+  %v26 : fp/8 ; %70
+  %v27 : fp/8 ; %74
+  %v28 : fp/8 ; %78
+  %v29 : gp/8 ; %85
+  %v30 : gp/8
+  %v31 : gp/4 ; %91
+  %v32 : gp/8 ; %95
+  %v33 : gp/8 ; %96
+  %v34 : gp/4 ; %98
+  %v35 : gp/8 ; %103
+  %v36 : gp/4 ; %107
+  %v37 : gp/4 ; %110
+  %v38 : gp/8 ; %115
+  %v39 : gp/8 ; %116
+  %v40 : gp/4 ; %118
+  %v41 : gp/8 ; %123
+  %v42 : fp/8 ; %127
+  %v43 : fp/8 ; %131
+  %v44 : fp/8 ; %132
+Frame: 176 bytes
+  fi#0 : param 0/8 @ 16 ; %21
+  fi#1 : local 144/8 @ -144 '__va_area__' ; %7
+  fi#2 : local 24/8 @ -168 'ap' ; %83
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdx $rbx $rsp $rsi $rdi $r8 $r9 $r10 $r11 $r12 $xmm0 $xmm1 $xmm2 $xmm3 $xmm4 $xmm5 $xmm6 $xmm7 $xmm8
+MBB #0, '<entry>', ir #0, -> #2
+  $r11 = mov.4 0 ; %88
+  $rax = mov.8 24 ; %82
+  $rbx = mov.4 48 ; %19
+  $r10 = mov.4 8 ; %15
+  $rax = mov.8 144 ; %6
+  $rax = MOP_COPY.8 $rsp ; %0
+  $r12 = lea.8 [fi#1] ; %7
+  $rax = lea.8 [fi#1 + 24] ; %10
+  mov.8 [fi#1 + 16], $rax ; %13
+  mov.4 [fi#1], $r10 ; %16
+  mov.4 [fi#1 + 4], $rbx ; %20
+  $rax = lea.8 [fi#0] ; %21
+  mov.8 [fi#1 + 8], $rax ; %24
+  mov.8 [fi#1 + 24], $rdi ; %27
+  mov.8 [fi#1 + 32], $rsi ; %31
+  mov.8 [fi#1 + 40], $rdx ; %35
+  mov.8 [fi#1 + 48], $rcx ; %39
+  mov.8 [fi#1 + 56], $r8 ; %43
+  mov.8 [fi#1 + 64], $r9 ; %47
+  mov.8 [fi#1 + 72], $xmm0 ; %51
+  mov.8 [fi#1 + 80], $xmm1 ; %55
+  mov.8 [fi#1 + 88], $xmm2 ; %59
+  mov.8 [fi#1 + 96], $xmm3 ; %63
+  mov.8 [fi#1 + 104], $xmm4 ; %67
+  mov.8 [fi#1 + 112], $xmm5 ; %71
+  mov.8 [fi#1 + 120], $xmm6 ; %75
+  mov.8 [fi#1 + 128], $xmm7 ; %79
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+
+MBB #3, '<do_body>', ir #3, <- #2 #12, -> #4
+  $rax = mov.8 [$r12] ; %86
+  mov.8 [fi#2], $rax ; %86
+  $rax = mov.8 [$r12 + 8] ; %86
+  mov.8 [fi#2 + 8], $rax ; %86
+  $rax = mov.8 [$r12 + 16] ; %86
+  mov.8 [fi#2 + 16], $rax ; %86
+
+MBB #4, '<do_tail>', ir #4, <- #3, -> #12 #5
+  test.4 $r11, $r11 ; %89
+  jne #12 ; %89
+
+MBB #5, '<do_exit>', ir #5, <- #4, -> #6 #7
+  $rdx = mov.4 [fi#2] ; %91
+  cmp.4 $rdx, $rbx ; %92
+  jae #6 ; %93
+
+MBB #7, '<va_arg_update>', ir #7, <- #5, -> #8
+  $rax = mov.8 [fi#2 + 16] ; %95
+  $rcx = movzx.8/4 $rdx ; %96
+  $rax = add.8 $rax, $rcx ; %97
+  $rdx = add.4 $rdx, $r10 ; %98
+  mov.4 [fi#2], $rdx ; %99
+  jmp #8 ; %100
+
+MBB #6, '<va_arg_mem>', ir #6, <- #5, -> #8
+  $rax = mov.8 [fi#2 + 8] ; %102
+  $rcx = MOP_COPY.8 $rax ; %103
+  $rcx = add.8 $rcx, 8 ; %103
+  mov.8 [fi#2 + 8], $rcx ; %104
+
+MBB #8, '<va_arg_done>', ir #8, <- #7 #6, -> #9 #10
+  $rcx = mov.4 [$rax] ; %107
+  $rsi = mov.4 [fi#2 + 4] ; %110
+  cmp.4 $rsi, 112 ; %112
+  jae #9 ; %113
+
+MBB #10, '<va_arg_update>', ir #10, <- #8, -> #11
+  $rax = mov.8 [fi#2 + 16] ; %115
+  $rdx = movzx.8/4 $rsi ; %116
+  $rax = add.8 $rax, $rdx ; %117
+  $rsi = add.4 $rsi, $r10 ; %118
+  mov.4 [fi#2 + 4], $rsi ; %119
+  jmp #11 ; %120
+
+MBB #9, '<va_arg_mem>', ir #9, <- #8, -> #11
+  $rax = mov.8 [fi#2 + 8] ; %122
+  $rdx = MOP_COPY.8 $rax ; %123
+  $rdx = add.8 $rdx, 8 ; %123
+  mov.8 [fi#2 + 8], $rdx ; %124
+
+MBB #11, '<va_arg_done>', ir #11, <- #10 #9, -> #1
+  $xmm0 = mov.8 [$rax] ; %127
+  $xmm8 = cvtsi2f.8/4 $rcx ; %131
+  $xmm0 = fadd.8 $xmm0, $xmm8 ; %132
+
+MBB #1, '<exit>', ir #1, <- #11
+  ret ; %135
+
+MBB #12, '<crit_splitter>', ir #12, <- #4, -> #3
+  jmp #3 ; %142
+
+

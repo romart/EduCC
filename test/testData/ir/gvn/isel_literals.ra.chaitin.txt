@@ -1,0 +1,79 @@
+--- Phase: ra ---
+MachineFunction 'one' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %3
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = lea.8 [cp#0 "hello"] ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %6
+
+
+--- Phase: ra ---
+MachineFunction 'twice' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %5
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = lea.8 [cp#0 "same"] ; %5
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = mov.4 1 ; %13
+  ret ; %13
+
+
+--- Phase: ra ---
+MachineFunction 'distinct' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %14
+  %v1 : gp/8 ; %8
+  %v2 : gp/8 ; %11
+  %v3 : gp/4 ; %3
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdi
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = lea.8 [cp#0 "second"] ; %11
+  $rcx = lea.8 [cp#1 "first"] ; %8
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3 #4
+  test.4 $rdi, $rdi ; %7
+  jne #3 ; %7
+
+MBB #4, '<ifFalse>', ir #4, <- #2, -> #5
+  jmp #5 ; %13
+
+MBB #3, '<ifTrue>', ir #3, <- #2, -> #5
+  $rax = MOP_COPY.8 $rcx ; %14
+
+MBB #5, '<ternary_exit>', ir #5, <- #3 #4, -> #1
+
+MBB #1, '<exit>', ir #1, <- #5
+  ret ; %17
+
+
+--- Phase: ra ---
+MachineFunction 'embedded' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %3
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = lea.8 [cp#0 "a\n\"b\\c\200\000d"] ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %6
+
+

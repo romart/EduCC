@@ -23,6 +23,14 @@ enum Arch {
     RISCV64
 };
 
+// Which stage 2 runs, selected by '-Xregalloc='. See include/ir/regalloc.h for
+// what the three of them are and why all three are kept.
+enum RegAllocKind {
+  RA_LINEAR = 0, // stage 2B, the default
+  RA_TRIVIAL,    // stage 2A, spill everything
+  RA_COLOUR      // stage 2C, Chaitin-Briggs graph colouring
+};
+
 // Bitmask values for Configuration.irDumpPhases, selected via
 // '-irDump:phase[,phase...] <file>'. Each bit requests a snapshot of the IR
 // taken immediately after the named pass in translateFunction() (ast2ir.c),
@@ -76,10 +84,11 @@ typedef struct _Configuration {
   // any '-march' without a selector.
   unsigned irBackend : 1;
 
-  // '-Xregalloc=trivial' asks for stage 2A, the spill-everything allocator,
-  // instead of the linear scan that is the default. It is kept reachable as a
-  // differential oracle - see include/ir/regalloc.h.
-  unsigned trivialRegAlloc : 1;
+  // '-Xregalloc=' - which of the three allocators stage 2 runs. The linear
+  // scan is the default; the other two are kept reachable because two
+  // allocators over one corpus have to agree about observable behaviour, which
+  // is what makes each of them the others' oracle - see include/ir/regalloc.h.
+  enum RegAllocKind regAlloc;
 
   unsigned hadError : 1;
 } Configuration;

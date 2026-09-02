@@ -1,0 +1,28 @@
+--- Phase: ra ---
+MachineFunction 'array_of_structs' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %3
+  %v1 : gp/4 ; %6
+  %v2 : gp/4 ; %9
+  %v3 : gp/8 ; %16
+  %v4 : gp/4 ; %22
+  %v5 : gp/4 ; %30
+  %v6 : gp/4 ; %34
+  %v7 : gp/4 ; %36
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdx $rsi $rdi
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $rax = movsx.8/4 $rsi ; %16
+  $rsi = mov.4 [$rdi + $rax*8 + 4] ; %22
+  $rcx = mov.4 [$rdi + $rax*8 + 4] ; %30
+  $rsi = add.4 $rsi, $rcx ; %34
+  $rsi = add.4 $rsi, $rdx ; %36
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 $rsi ; %39
+  ret ; %39
+
+

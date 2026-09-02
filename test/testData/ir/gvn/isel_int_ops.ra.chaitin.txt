@@ -1,0 +1,85 @@
+--- Phase: ra ---
+MachineFunction 'isel_int_ops' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %90
+  %v1 : gp/4 ; %53
+  %v2 : gp/4 ; %62
+  %v3 : gp/4 ; %88
+  %v4 : gp/4 ; %72
+  %v5 : gp/4 ; %98
+  %v6 : gp/4 ; %3
+  %v7 : gp/4 ; %6
+  %v8 : gp/4 ; %9
+  %v9 : gp/4 ; %12
+  %v10 : gp/4 ; %21
+  %v11 : gp/4 ; %22
+  %v12 : gp/4 ; %23
+  %v13 : gp/4 ; %27
+  %v14 : gp/4 ; %28
+  %v15 : gp/4 ; %29
+  %v16 : gp/4 ; %34
+  %v17 : gp/4 ; %35
+  %v18 : gp/4 ; %40
+  %v19 : gp/4 ; %41
+  %v20 : gp/4 ; %46
+  %v21 : gp/4 ; %47
+  %v22 : gp/4 ; %52
+  %v23 : gp/4 ; %80
+  %v24 : gp/4 ; %81
+  %v25 : gp/4 ; %82
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdx $rsi $rdi $r8
+MBB #0, '<entry>', ir #0, -> #2
+  $r8 = mov.4 0 ; %98
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
+  $rdx = not.4 $rdx ; %21
+  $r8 = add.4 $r8, $rdx ; %23
+  $rax = mov.4 0 ; %27
+  test.4 $rcx, $rcx ; %27
+  $rax<partial-def> = sete.1 ; %27
+  $r8 = add.4 $r8, $rax ; %29
+  $rax = MOP_COPY.4 $rdi ; %34
+  $rax = shl.4 $rax, $rcx ; %34
+  $r8 = add.4 $r8, $rax ; %35
+  $rax = MOP_COPY.4 $rdi ; %40
+  $rax = shr.4 $rax, 3 ; %40
+  $r8 = add.4 $r8, $rax ; %41
+  $rax = MOP_COPY.4 $rdi ; %46
+  $rdx = mov.4 0 ; %46
+  div.4 $rsi [implicit-def $rax, implicit-def $rdx, implicit $rax, implicit $rdx] ; %46
+  $r8 = add.4 $r8, $rax ; %47
+  $rax = MOP_COPY.4 $rdi ; %52
+  $rdx = mov.4 0 ; %52
+  div.4 $rsi [implicit-def $rax, implicit-def $rdx, implicit $rax, implicit $rdx] ; %52
+  $r8 = add.4 $r8, $rdx ; %53
+  cmp.4 $rdi, $rsi ; %57
+  jb #4 ; %58
+
+MBB #7, '<crit_splitter>', ir #7, <- #2, -> #3
+  jmp #3 ; %102
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  $r8 = add.4 $r8, 1 ; %62
+
+MBB #3, '<if_exit>', ir #3, <- #7 #4, -> #6 #8
+  cmp.4 $rdi, $rsi ; %67
+  ja #6 ; %68
+
+MBB #8, '<crit_splitter>', ir #8, <- #3, -> #5
+  jmp #5 ; %103
+
+MBB #6, '<if_then>', ir #6, <- #3, -> #5
+  $r8 = add.4 $r8, 2 ; %72
+
+MBB #5, '<if_exit>', ir #5, <- #8 #6, -> #1
+  $rsi = xor.4 $rsi, 252645135 ; %80
+  $rdi = or.4 $rdi, $rsi ; %81
+  $r8 = and.4 $r8, $rdi ; %82
+
+MBB #1, '<exit>', ir #1, <- #5
+  $rax = MOP_COPY.4 $r8 ; %85
+  ret ; %85
+
+

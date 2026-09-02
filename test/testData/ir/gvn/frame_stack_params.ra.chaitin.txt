@@ -1,0 +1,40 @@
+--- Phase: ra ---
+MachineFunction 'frame_stack_params' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %27
+  %v1 : gp/8 ; %0
+  %v2 : gp/4 ; %34
+  %v3 : gp/4 ; %40
+  %v4 : gp/4 ; %45
+  %v5 : gp/4 ; %49
+  %v6 : gp/4 ; %50
+  %v7 : gp/8 ; %53
+  %v8 : gp/4 ; %54
+  %v9 : gp/4 ; %55
+Frame: 16 bytes
+  fi#0 : param 4/4 @ 16 'g' ; %21
+  fi#1 : param 4/4 @ 24 'h' ; %23
+  fi#2 : param 24/8 @ 32 's' ; %25
+  fi#3 : local 16/4 @ -16 'arr' ; %28
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rsp
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.8 16 ; %27
+  $rax = MOP_COPY.8 $rsp ; %0
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $rax = mov.4 [fi#0] ; %34
+  mov.4 [fi#3], $rax ; %35
+  $rax = mov.4 [fi#1] ; %40
+  mov.4 [fi#3 + 4], $rax ; %41
+  $rcx = mov.4 [fi#3] ; %45
+  $rax = mov.4 [fi#3 + 4] ; %49
+  $rcx = add.4 $rcx, $rax ; %50
+  $rax = mov.8 [fi#2] ; %53
+  $rcx = add.4 $rcx, $rax ; %55
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 $rcx ; %58
+  ret ; %58
+
+

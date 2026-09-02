@@ -1,0 +1,103 @@
+--- Phase: ra ---
+MachineFunction 'ra_byte_setcc' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %3
+  %v1 : gp/4 ; %6
+  %v2 : gp/4 ; %11
+  %v3 : gp/1 ; %12
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rsi $rdi
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $rdi = or.4 $rdi, $rsi ; %11
+  test.4 $rdi, $rdi ; %12
+  $rax = setne.1 ; %12
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %15
+
+
+--- Phase: ra ---
+MachineFunction 'ra_scratch_budget' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %5
+  %v1 : gp/8 ; %0
+  %v2 : gp/8 ; %9
+  %v3 : gp/8 ; %10
+  %v4 : gp/8 ; %11
+  %v5 : gp/8 ; %12
+  %v6 : gp/8 ; %13
+  %v7 : gp/8 ; %14
+  %v8 : gp/8 ; %15
+  %v9 : gp/8 ; %16
+  %v10 : gp/8
+  %v11 : gp/8
+  %v12 : gp/8
+  %v13 : gp/8
+  %v14 : gp/8 ; %8
+  %v15 : gp/8
+  %v16 : gp/2
+  %v17 : gp/8 ; %20
+Frame: 64 bytes
+  fi#0 : param 16/16 @ 16 'a' ; %2
+  fi#1 : param 16/16 @ 32 'b' ; %4
+  fi#2 : local 16/8 @ -16 ; %6
+  fi#3 : scratch 16/16 @ -32
+  fi#4 : scratch 16/16 @ -48
+  fi#5 : scratch 16/16 @ -64
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdx $rsp $rsi $rdi
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.8 16 ; %5
+  $rax = MOP_COPY.8 $rsp ; %0
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $rax = lea.8 [fi#0] ; %9
+  $rcx = lea.8 [fi#1] ; %10
+  $rdx = lea.8 [fi#0] ; %11
+  $rsi = lea.8 [fi#1] ; %12
+  fld.10 [$rdx] ; %13
+  fld.10 [$rsi] ; %13
+  faddp ; %13
+  fstp.10 [fi#3] ; %13
+  $rdx = lea.8 [fi#3] ; %13
+  $rsi = lea.8 [fi#0] ; %14
+  $rdi = lea.8 [fi#1] ; %15
+  fld.10 [$rsi] ; %16
+  fld.10 [$rdi] ; %16
+  fsubp ; %16
+  fstp.10 [fi#4] ; %16
+  $rsi = lea.8 [fi#4] ; %16
+  $rdi = mov.8 [$rsi + 8] ; %8
+  push.8 $rdi ; %8
+  $rdi = mov.8 [$rsi] ; %8
+  push.8 $rdi ; %8
+  $rsi = mov.8 [$rdx + 8] ; %8
+  push.8 $rsi ; %8
+  $rsi = mov.8 [$rdx] ; %8
+  push.8 $rsi ; %8
+  $rdx = mov.8 [$rcx + 8] ; %8
+  push.8 $rdx ; %8
+  $rdx = mov.8 [$rcx] ; %8
+  push.8 $rdx ; %8
+  $rcx = mov.8 [$rax + 8] ; %8
+  push.8 $rcx ; %8
+  $rcx = mov.8 [$rax] ; %8
+  push.8 $rcx ; %8
+  call ra_limits_callee <clobbers caller-saved> ; %8
+  $rsp = add.8 $rsp, 64 ; %8
+  fstp.10 [fi#5] ; %8
+  $rax = lea.8 [fi#5] ; %8
+  $rcx = mov.8 [$rax] ; %17
+  mov.8 [fi#2], $rcx ; %17
+  $rcx = mov.2 [$rax + 8] ; %17
+  mov.2 [fi#2 + 8], $rcx ; %17
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = lea.8 [fi#2] ; %20
+  fld.10 [$rax] ; %19
+  ret ; %19
+
+

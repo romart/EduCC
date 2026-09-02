@@ -1,0 +1,43 @@
+--- Phase: ra ---
+MachineFunction 'frame_dynamic_alloca' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %12
+  %v1 : gp/8 ; %1
+  %v2 : gp/4 ; %3
+  %v3 : gp/8 ; %9
+  %v4 : gp/8 ; %13
+  %v5 : gp/8
+  %v6 : gp/8 ; %14
+  %v7 : gp/4 ; %32
+  %v8 : gp/4 ; %43
+  %v9 : gp/4 ; %47
+  %v10 : gp/4 ; %48
+Frame: 16 bytes, dynamic
+  fi#0 : local 8/4 @ -8 'fixed' ; %7
+  fi#1 : local dynamic 'v' ; %14
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rsp $rdi
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.8 4 ; %12
+  $rcx = mov.8 8 ; %1
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $rcx = movsx.8/4 $rdi ; %9
+  $rcx = imul.8 $rcx, $rax ; %13
+  $rcx = add.8 $rcx, 15 ; %14
+  $rcx = and.8 $rcx, -16 ; %14
+  $rsp = sub.8 $rsp, $rcx ; %14
+  $rax = MOP_COPY.8 $rsp ; %14
+  mov.4 [$rax], $rdi ; %24
+  $rcx = mov.4 [$rax] ; %32
+  mov.4 [fi#0], $rcx ; %33
+  mov.4 [fi#0 + 4], $rdi ; %39
+  $rcx = mov.4 [fi#0] ; %43
+  $rax = mov.4 [fi#0 + 4] ; %47
+  $rcx = add.4 $rcx, $rax ; %48
+
+MBB #1, '<exit>', ir #1, <- #2
+  $rax = MOP_COPY.4 $rcx ; %51
+  ret ; %51
+
+

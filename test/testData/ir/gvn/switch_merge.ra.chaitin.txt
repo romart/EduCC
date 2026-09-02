@@ -1,0 +1,57 @@
+--- Phase: ra ---
+MachineFunction 'switch_merge' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %54
+  %v1 : gp/4 ; %20
+  %v2 : gp/4 ; %47
+  %v3 : gp/4 ; %25
+  %v4 : gp/4 ; %27
+  %v5 : gp/4 ; %55
+  %v6 : gp/4 ; %32
+  %v7 : gp/4 ; %56
+  %v8 : gp/4 ; %13
+  %v9 : gp/4 ; %3
+  %v10 : gp/4 ; %6
+  %v11 : gp/4 ; %9
+  %v12 : gp/4 ; %41
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rdx $rsi $rdi
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.4 0 ; %13
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #5 #6 #7 #4
+  cmp.4 $rdx, 0 ; %16
+  je #5 ; %16
+  cmp.4 $rdx, 1 ; %16
+  je #6 ; %16
+  cmp.4 $rdx, 2 ; %16
+  je #7 ; %16
+
+MBB #4, '<default_case>', ir #4, <- #2, -> #3
+  $rdi = add.4 $rdi, $rsi ; %56
+  jmp #3 ; %36
+
+MBB #7, '<case_block>', ir #7, <- #2, -> #3
+  $rax = MOP_COPY.4 $rdi ; %32
+  $rax = sub.4 $rax, $rsi ; %32
+  $rdi = add.4 $rdi, $rsi ; %55
+  jmp #3 ; %34
+
+MBB #6, '<case_block>', ir #6, <- #2, -> #3
+  $rdi = add.4 $rdi, $rsi ; %25
+  $rax = MOP_COPY.4 $rdi ; %27
+  $rax = add.4 $rax, 1 ; %27
+  jmp #3 ; %29
+
+MBB #5, '<case_block>', ir #5, <- #2, -> #3
+  $rdi = add.4 $rdi, $rsi ; %20
+  $rax = MOP_COPY.4 $rdi ; %47
+
+MBB #3, '<switch_exit>', ir #3, <- #5 #6 #7 #4, -> #1
+  $rax = add.4 $rax, $rdi ; %41
+
+MBB #1, '<exit>', ir #1, <- #3
+  ret ; %44
+
+

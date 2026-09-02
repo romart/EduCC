@@ -1,0 +1,269 @@
+--- Phase: ra ---
+MachineFunction 'folded' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rsi $rdi
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.4 2 ; %16
+  $rcx = mov.4 1 ; %13
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  cmp.4 $rdi, $rsi ; %11
+  jl #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  jmp #1 ; %18
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $rax = MOP_COPY.4 $rcx ; %22
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  ret ; %19
+
+
+--- Phase: ra ---
+MachineFunction 'inverted' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %28
+  %v1 : gp/4 ; %18
+  %v2 : gp/4 ; %22
+  %v3 : gp/4 ; %17
+  %v4 : gp/4 ; %15
+  %v5 : gp/4 ; %3
+  %v6 : gp/4 ; %6
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdx $rsi $rdi
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.4 2 ; %22
+  $rcx = mov.4 1 ; %18
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #5 #7
+  cmp.4 $rdi, $rsi ; %11
+  jle #5 ; %12
+
+MBB #7, '<crit_splitter>', ir #7, <- #2, -> #6
+  $rdx = MOP_COPY.4 $rcx ; %17
+  jmp #6 ; %33
+
+MBB #5, '< || >', ir #5, <- #2, -> #6
+  $rdx = mov.4 0 ; %15
+  cmp.4 $rdi, 0 ; %15
+  $rdx<partial-def> = sete.1 ; %15
+
+MBB #6, '< ||-exit>', ir #6, <- #7 #5, -> #4 #3
+  test.4 $rdx, $rdx ; %19
+  jne #4 ; %19
+
+MBB #3, '<if_exit>', ir #3, <- #6, -> #1
+  jmp #1 ; %24
+
+MBB #4, '<if_then>', ir #4, <- #6, -> #1
+  $rax = MOP_COPY.4 $rcx ; %28
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  ret ; %25
+
+
+--- Phase: ra ---
+MachineFunction 'unsigned_' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rsi $rdi
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.4 2 ; %16
+  $rcx = mov.4 1 ; %13
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  cmp.4 $rdi, $rsi ; %11
+  jb #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  jmp #1 ; %18
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $rax = MOP_COPY.4 $rcx ; %22
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  ret ; %19
+
+
+--- Phase: ra ---
+MachineFunction 'kept' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %27
+  %v1 : gp/4 ; %18
+  %v2 : gp/4 ; %12
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rsi $rdi
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  $rax = mov.4 0 ; %12
+  cmp.4 $rdi, $rsi ; %12
+  $rax<partial-def> = sete.1 ; %12
+  test.4 $rax, $rax ; %15
+  jne #4 ; %15
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  jmp #1 ; %23
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $rax = add.4 $rax, 10 ; %18
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  ret ; %24
+
+
+--- Phase: ra ---
+MachineFunction 'distant' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %35
+  %v1 : gp/4 ; %24
+  %v2 : gp/4 ; %27
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+  %v5 : gp/4 ; %9
+  %v6 : gp/4 ; %15
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdx $rsi $rdi $r8
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.4 2 ; %27
+  $rcx = mov.4 1 ; %24
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
+  $r8 = mov.4 0 ; %15
+  cmp.4 $rdi, $rsi ; %15
+  $r8<partial-def> = setg.1 ; %15
+  test.4 $rdx, $rdx ; %18
+  jne #4 ; %18
+
+MBB #7, '<crit_splitter>', ir #7, <- #2, -> #3
+  jmp #3 ; %42
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+
+MBB #3, '<if_exit>', ir #3, <- #7 #4, -> #6 #5
+  test.4 $r8, $r8 ; %23
+  jne #6 ; %23
+
+MBB #5, '<if_exit>', ir #5, <- #3, -> #1
+  jmp #1 ; %29
+
+MBB #6, '<if_then>', ir #6, <- #3, -> #1
+  $rax = MOP_COPY.4 $rcx ; %35
+
+MBB #1, '<exit>', ir #1, <- #6 #5
+  ret ; %30
+
+
+--- Phase: ra ---
+MachineFunction 'notCompare' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %17
+  %v1 : gp/4 ; %8
+  %v2 : gp/4 ; %11
+  %v3 : gp/4 ; %3
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdi
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.4 2 ; %11
+  $rcx = mov.4 1 ; %8
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  test.4 $rdi, $rdi ; %7
+  jne #4 ; %7
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  jmp #1 ; %13
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $rax = MOP_COPY.4 $rcx ; %17
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  ret ; %14
+
+
+--- Phase: ra ---
+MachineFunction 'floatOrder' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+  %v3 : fp/8 ; %3
+  %v4 : fp/8 ; %6
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $xmm0 $xmm1
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.4 2 ; %16
+  $rcx = mov.4 1 ; %13
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  comis.8 $xmm0, $xmm1 ; %11
+  jae #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  jmp #1 ; %18
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $rax = MOP_COPY.4 $rcx ; %22
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  ret ; %19
+
+
+--- Phase: ra ---
+MachineFunction 'floatEqual' [target = x86_64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+  %v3 : fp/8 ; %3
+  %v4 : fp/8 ; %6
+  %v5 : gp/4 ; %11
+  %v6 : gp/4
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $rax $rcx $rdx $rsi $xmm0 $xmm1
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = mov.4 2 ; %16
+  $rcx = mov.4 1 ; %13
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  $rdx = mov.4 0 ; %11
+  ucomis.8 $xmm0, $xmm1 ; %11
+  $rdx<partial-def> = sete.1 ; %11
+  $rsi = mov.4 0 ; %11
+  $rsi<partial-def> = setnp.1 ; %11
+  $rdx = and.4 $rdx, $rsi ; %11
+  test.4 $rdx, $rdx ; %12
+  jne #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  jmp #1 ; %18
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $rax = MOP_COPY.4 $rcx ; %22
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  ret ; %19
+
+

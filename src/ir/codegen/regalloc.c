@@ -272,23 +272,24 @@ static void allocateRegistersTrivial(MachineFunction *mf) {
   mf->allocator = "trivial";
 }
 
-void allocateRegisters(MachineFunction *mf, Boolean trivial) {
+void allocateRegisters(MachineFunction *mf, enum RegAllocKind kind) {
   // Only x86_64 reaches this - the IR backend with any other '-march' is
   // refused where the options are read, riscv64 having neither a selector nor
   // a register file to hand out.
   assert(mf->target->scratchRegCount[RC_GP] != 0 && "this target has no IR backend");
 
-  if (trivial) {
-    allocateRegistersTrivial(mf);
-  } else {
-    allocateRegistersLinear(mf);
+  switch (kind) {
+  case RA_TRIVIAL: allocateRegistersTrivial(mf); break;
+  case RA_LINEAR: allocateRegistersLinear(mf); break;
+  case RA_COLOUR: allocateRegistersColour(mf); break;
+  default: unreachable("unknown register allocator");
   }
 
   recordUsedPhysRegs(mf);
 
   // Spill code placed by liveness is exactly the case the flags model was
   // built for (section 6.4), so the question is asked again here and not only
-  // after selection: what stage 2B inserts between a compare and its reader
-  // has to be as inert as what stage 2A does.
+  // after selection: what stages 2B and 2C insert between a compare and its
+  // reader has to be as inert as what stage 2A does.
   verifyFlagsDependencies(mf);
 }

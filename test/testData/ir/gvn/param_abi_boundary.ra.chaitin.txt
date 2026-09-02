@@ -1,0 +1,33 @@
+--- Phase: ra ---
+MachineFunction 'param_abi_boundary' [target = x86_64]
+VRegs:
+  %v0 : gp/8 ; %0
+  %v1 : gp/4 ; %18
+  %v2 : fp/8 ; %44
+  %v3 : fp/8 ; %50
+  %v4 : fp/8 ; %51
+  %v5 : gp/4 ; %53
+  %v6 : gp/4 ; %54
+  %v7 : fp/8 ; %55
+  %v8 : fp/8 ; %56
+Frame: 0 bytes
+  fi#0 : param 4/4 @ 16 'i6' ; %21
+  fi#1 : param 8/8 @ 24 'f8' ; %47
+Allocator: graph colouring
+Physical registers used: $rax $rsp $r9 $xmm0 $xmm7 $xmm8
+MBB #0, '<entry>', ir #0, -> #2
+  $rax = MOP_COPY.8 $rsp ; %0
+  $xmm0 = MOP_COPY.8 $xmm7 ; %44
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $xmm8 = mov.8 [fi#1] ; %50
+  $xmm0 = fadd.8 $xmm0, $xmm8 ; %51
+  $rax = mov.4 [fi#0] ; %53
+  $r9 = add.4 $r9, $rax ; %54
+  $xmm8 = cvtsi2f.8/4 $r9 ; %55
+  $xmm0 = fadd.8 $xmm0, $xmm8 ; %56
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %59
+
+

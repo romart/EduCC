@@ -3348,7 +3348,7 @@ static IrFunction *translateFunction(AstFunctionDefinition *function) {
     dumpMachineFunctionPhase(ctx->irDumpStream, func->machine, "isel");
   }
 
-  allocateRegisters(func->machine, ctx->pctx->config->trivialRegAlloc ? TRUE : FALSE);
+  allocateRegisters(func->machine, ctx->pctx->config->regAlloc);
   if (ctx->irDumpStream && (ctx->irDumpPhases & IR_DUMP_PHASE_RA)) {
     dumpMachineFunctionPhase(ctx->irDumpStream, func->machine, "ra");
   }
