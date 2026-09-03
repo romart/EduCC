@@ -102,6 +102,11 @@ IrFunctionList translateAstToIr(AstFile *file) {
             unit->definition->declaration->name);
       IrFunction *function = translateFunction(unit->definition);
       addFunctionTail(&list, function);
+      // Nothing outside a function body has a current function, and
+      // translateGlobalVariable() reads that as "declared inside one": left
+      // set, every file-scope static after the first definition was listed as
+      // that function's static local and given storage a second time.
+      ctx->currentFunc = NULL;
     } else {
       assert(unit->kind == TU_DECLARATION);
       translateDeclaration(unit->declaration);
