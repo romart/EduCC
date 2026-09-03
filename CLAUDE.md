@@ -53,9 +53,23 @@ Since roadmap step 30 a bootstrap goes through the **IR backend**, and since ste
 
 `./selfhost.sh` asks the other half of the question — not "does it reach a fixed point" but "is the compiler it produces any good". It builds stage 0 with the host compiler, stages 1 and 2 with EduCC, checks the two EduCC stages are byte-identical, and then runs the whole `ctest` suite *with stage 2*, which is the combination that found seven of this tree's shipped bugs and that nothing automated did before roadmap step 31. It builds under `build-selfhost/` and never touches `build/`. `--no-tests` stops after the fixed-point check; `EDUCC_SELFHOST_FLAGS=-legacy` asks the same of the other backend.
 
-Two build-system-level workarounds exist solely to keep this working, both in `CMakeLists.txt`/`cmake/Zydis.cmake`:
-- The vendored Zydis (above) is always built with a real compiler, never with the in-progress EduCC binary — EduCC can't yet parse arbitrary third-party C against real system headers well enough to compile it. (It *can* parse `Zydis.h`, which is what lets `-S` survive a bootstrap; the library's own 55k-line `Zydis.c` is a different question and has never been asked.)
-- `src/main.c` adds a default include path `"sdk/include"` that EduCC resolves relative to its *current working directory* at invocation time. That assumption holds for `make` (always invoked from the repo root) but not CMake, which always runs compile recipes from the build directory. When `CMAKE_C_COMPILER_ID` is empty (i.e. the compiler is an unrecognized EduCC binary, not gcc/clang), `CMakeLists.txt` adds an explicit absolute `-I<repo>/sdk/include` to the `main` target so EduCC can still find its `stddef.h`/`stdarg.h` shims. This is inert for normal gcc/clang builds.
+One build-system-level workaround exists solely to keep this working, in `cmake/Zydis.cmake`: the vendored Zydis (above) is always built with a real compiler, never with the in-progress EduCC binary — EduCC can't yet parse arbitrary third-party C against real system headers well enough to compile it. (It *can* parse `Zydis.h`, which is what lets `-S` survive a bootstrap; the library's own 55k-line `Zydis.c` is a different question and has never been asked.)
+
+There used to be a second one. `src/main.c` added a default include path `"sdk/include"` that EduCC resolved relative to its *current working directory*, which held for `make` (always invoked from the repo root) but not for CMake, which runs compile recipes from the build directory — so `CMakeLists.txt` bolted an absolute `-I` onto the `main` target whenever `CMAKE_C_COMPILER_ID` was empty. That is gone: the path is now resolved from the binary's own location, and the `EDUCC_BUILD_SDK_DIR` define below covers the build tree for every stage at once.
+
+## Installing
+
+`cmake --install build --prefix <dir>` gives a distributable tree — the binary as `<prefix>/bin/educc`, its headers as `<prefix>/lib/educc/include`. There is no `sudo make install` step in any workflow here; the build tree is what the tests and scripts use.
+
+`sdkIncludePath()` in `src/main.c` is how a binary finds those headers, and it is the reason the compiler works from any directory rather than only from the repo root. It resolves, first hit wins:
+
+1. `$EDUCC_SDK_DIR`, if set — the override, and how a test harness pins a specific copy.
+2. `<prefix>/lib/educc/include` (also `lib64`, `share`), derived from `/proc/self/exe` by stripping the binary and `bin/`. Nothing absolute is recorded at install time, so an installed tree can be moved, tarred up or unpacked elsewhere and still resolves.
+3. `EDUCC_BUILD_SDK_DIR` — the absolute source location, baked in by `CMakeLists.txt` for a built-but-never-installed binary. It has to be absolute: a relative hop up from `bin/` would be wrong for `selfhost.sh`, which builds two levels down. An installed copy never reaches this tier, because (2) hits first.
+
+`-print-sdk-dir` reports which one won, which is the only way to tell an installed binary from a build one without an `strace`.
+
+`install(PROGRAMS ... RENAME educc)` rather than renaming the target: `build/bin/main` stays `build/bin/main`, so `bootstrap.sh`, `selfhost.sh`, `ctest`, the checkers and every launch config keep working untouched. The install destination is a literal `lib`, not `CMAKE_INSTALL_LIBDIR` — these are the compiler's private resource files rather than system libraries, and a fixed name keeps the probe list in `sdkIncludePath()` short.
 
 ## Running the compiler
 

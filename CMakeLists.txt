@@ -84,16 +84,27 @@ add_executable(main ${SOURCES})
 target_include_directories(main PRIVATE include)
 target_link_libraries(main PRIVATE zydis m)
 
-if(NOT CMAKE_C_COMPILER_ID)
-  # Self-hosting: CMAKE_C_COMPILER is an EduCC binary from a previous stage.
-  # Its own default include path list (src/main.c) has a "sdk/include"
-  # entry that it resolves relative to its current working directory at
-  # invocation time. That assumption holds for `make` (always run from the
-  # repo root) but not for CMake, which always runs compile recipes from
-  # the build directory. Supply the real, absolute location explicitly so
-  # EduCC can still find its stddef.h/stdarg.h/etc. shims.
-  target_include_directories(main PRIVATE "${CMAKE_SOURCE_DIR}/sdk/include")
-endif()
+# Where a built-but-not-installed binary finds its own stddef.h/stdarg.h
+# shims. sdkIncludePath() in src/main.c probes the installed layout relative
+# to the binary first and only falls back to this, so an installed copy never
+# reads it. Absolute, because it has to be right for a build directory at any
+# depth or location - selfhost.sh builds two levels down, and this same define
+# is what lets a previous stage's EduCC compile the next one.
+target_compile_definitions(main PRIVATE
+                           EDUCC_BUILD_SDK_DIR="${CMAKE_SOURCE_DIR}/sdk/include")
+
+# `cmake --install build --prefix <dir>` produces a distributable tree: the
+# binary as `educc`, and its headers where sdkIncludePath() looks first.
+# Nothing absolute is recorded in it, so the result can be moved or tarred up
+# and still resolves. A literal `lib` rather than CMAKE_INSTALL_LIBDIR - these
+# are the compiler's private resource files, not system libraries, and a fixed
+# name keeps the probe list in src/main.c short.
+include(GNUInstallDirs)
+install(PROGRAMS "$<TARGET_FILE:main>"
+        DESTINATION "${CMAKE_INSTALL_BINDIR}"
+        RENAME educc)
+install(DIRECTORY sdk/include/
+        DESTINATION lib/educc/include)
 
 # `ctest` in the build directory is the single "run everything" entrypoint:
 # it runs all three suites, applies a per-suite timeout (a hung test binary

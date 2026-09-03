@@ -12,6 +12,7 @@
 
 extern char *strdup(const char *s);
 extern char *mkdtemp (char *__template);
+extern long readlink(const char *path, char *buffer, unsigned long size);
 
 static IncludePath *allocIncludePath(const char *path, IncludePath *next) {
   IncludePath *ip = heapAllocate(sizeof(IncludePath));
@@ -24,6 +25,58 @@ static StringList *newStringNode(const char *s) {
   StringList *fl = heapAllocate(sizeof(StringList));
   fl->s = s;
   return fl;
+}
+
+// Everything else on the default include path belongs to the system, but the
+// stddef.h/stdarg.h shims under sdk/include ship with this binary, so they are
+// looked up relative to the binary rather than to whatever directory it
+// happens to be invoked from. Returns NULL if none of the candidates exist.
+static const char *sdkIncludePath() {
+  const char *env = getenv("EDUCC_SDK_DIR");
+  if (env) return env;
+
+  char prefix[512] = { 0 };
+  int len = readlink("/proc/self/exe", prefix, sizeof prefix - 1);
+
+  if (len > 0) {
+    prefix[len] = '\0';
+    char *slash = strrchr(prefix, '/');
+    if (slash) {
+      *slash = '\0';                       // strip the binary, leaving bin/
+      slash = strrchr(prefix, '/');
+    }
+
+    if (slash) {
+      *slash = '\0';                       // strip bin/, leaving the prefix
+
+      // An installed tree, addressed relative to the prefix above bin/ so it
+      // survives being moved or unpacked somewhere else.
+      static const char *installed[] = {
+        "/lib/educc/include",
+        "/lib64/educc/include",
+        "/share/educc/include",
+      };
+
+      char buffer[1024] = { 0 };
+      unsigned i = 0;
+      for (; i < sizeof installed / sizeof installed[0]; ++i) {
+        snprintf(buffer, sizeof buffer, "%s%s/stddef.h", prefix, installed[i]);
+        if (access(buffer, F_OK) == 0) {
+          snprintf(buffer, sizeof buffer, "%s%s", prefix, installed[i]);
+          return strdup(buffer);
+        }
+      }
+    }
+  }
+
+#ifdef EDUCC_BUILD_SDK_DIR
+  // Built but never installed. CMake bakes in the absolute source location,
+  // which is exact for a build directory at any depth, where guessing a
+  // relative hop up from bin/ is not - selfhost.sh builds two levels down.
+  return EDUCC_BUILD_SDK_DIR;
+#else
+  return NULL;
+#endif
 }
 
 static void runProcess(int argc, char **argv, int verbose) {
@@ -324,9 +377,13 @@ int main(int argc, char** argv) {
   unsigned i;
   Configuration config = { 0 };
 
+  const char *sdkDir = sdkIncludePath();
+
   config.includePath = allocIncludePath("/usr/include", NULL);
   config.includePath = allocIncludePath("/usr/local/include", config.includePath);
-  config.includePath = allocIncludePath("sdk/include", config.includePath);
+  if (sdkDir) {
+    config.includePath = allocIncludePath(sdkDir, config.includePath);
+  }
   config.includePath = allocIncludePath("/usr/include/x86_64-linux-gnu", config.includePath);
 
   config.verbose = 1;
@@ -378,6 +435,15 @@ int main(int argc, char** argv) {
           fprintf(stderr, "file name expected after '-irDump' option");
           return 2;
         }
+    } else if (strcmp("-print-sdk-dir", arg) == 0) {
+      // Which copy of the shipped headers this binary resolved to - the only
+      // way to tell an installed tree from a build one without an strace.
+      if (!sdkDir) {
+        fprintf(stderr, "error: no SDK include directory found\n");
+        return 1;
+      }
+      fprintf(stdout, "%s\n", sdkDir);
+      return 0;
     } else if (strcmp("-oneline", arg) == 0) {
       config.verbose = 0;
     } else if (strcmp("-memstat", arg) == 0) {

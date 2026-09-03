@@ -36,6 +36,24 @@ build/bin/main -o hello ./path/to/hello.c
 
 It accepts a GCC-like subset of flags (`-o`, `-c`, `-I`, `-L`, `-l`, `-D`, `-E`, `-march x86_64|riscv64`, ...). See `src/main.c` for the full list, including EduCC-specific debugging flags like `-astDump` and `-irDump`, and `-legacy`, which compiles through the older direct-from-AST code generator instead of the IR pipeline the compiler uses by default.
 
+## Installing
+
+```sh
+cmake --install build --prefix ~/.local
+~/.local/bin/educc -o hello hello.c
+```
+
+That gives `<prefix>/bin/educc` and the compiler's own `stddef.h`/`stdarg.h` shims under `<prefix>/lib/educc/include`. The result is relocatable: nothing absolute is recorded in it, so the tree can be moved, tarred up, or unpacked somewhere else and still works.
+
+EduCC finds those headers relative to its own binary (via `/proc/self/exe`), not relative to the current directory, so an installed copy compiles from anywhere. `EDUCC_SDK_DIR` overrides the lookup, and `-print-sdk-dir` reports which copy won:
+
+```sh
+$ ~/.local/bin/educc -print-sdk-dir
+/home/you/.local/lib/educc/include
+```
+
+A binary built but never installed falls back to the source tree it was configured from, so `build/bin/main` keeps working without an install step. The install renames the binary to `educc` but leaves `build/bin/main` alone, so every script and launch config in the repo is unaffected.
+
 ## Editor support (clangd)
 
 Generate a compilation database and point clangd at it:
