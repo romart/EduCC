@@ -97,6 +97,8 @@ const TargetDescriptor targetRiscv64 = {
 
   .intRetReg = X_A0,
   .fpRetReg = FR(F_A0),
+  .intRetReg2 = IR_NO_PHYS_REG,
+  .fpRetReg2 = IR_NO_PHYS_REG,
 
   .classifyParameters = &classifyParametersGeneric
 };

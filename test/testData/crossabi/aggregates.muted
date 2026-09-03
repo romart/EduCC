@@ -1,0 +1,24 @@
+The two backends disagree about SysV's aggregate classification on purpose, and
+this fixture is what says so.
+
+The IR backend implements the rule: an aggregate of at most sixteen bytes is
+split into eightbytes, each classified INTEGER or SSE, and passed and returned
+in one register apiece - rdi:rsi, xmm0:xmm1, rax:rdx, and the mixed orders. That
+is what the ABI says and what gcc and tcc do, and it is checked against gcc by
+codegen/bugs/eightbyte_aggregates.c. The legacy backend passes every composite
+wider than a word on the stack and returns it through a hidden pointer, down an
+address-based path that never reaches a register class at all, and is not going
+to be taught otherwise.
+
+So every shape here but struct I8 (one eightbyte) and struct Big (too large for
+either) now travels differently depending on which backend compiled the caller.
+Each backend is right linked against itself; the disagreement is only visible
+across a link, which is what this suite is. See crossabi/sse_aggregate.c for the
+single-eightbyte half of the same divergence.
+
+What this costs: the hidden-return-pointer and large-struct checks below no
+longer report across backends, because the small shapes fail first. Nothing else
+covers those two across a link.
+
+Delete this file if the legacy side ever learns the rule - the runner flags a
+muted test that starts passing.

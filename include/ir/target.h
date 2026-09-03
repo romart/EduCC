@@ -74,6 +74,24 @@ enum MachineFlagsEffect {
   MFE_WRITE = MFE_CLOBBER | MFE_PRODUCE
 };
 
+// What one eightbyte of an aggregate is made of, and so which register file it
+// travels in. SysV's X87, X87UP and COMPLEX_X87 classes are not here: nothing
+// with a long double in it goes in a register at all, and classifyComposite
+// says so by returning no eightbytes rather than by naming a class.
+enum EightbyteClass {
+  EB_NONE = 0,  // no member reached this eightbyte
+  EB_INTEGER,
+  EB_SSE
+};
+
+// How a composite travels: the class of each of its eightbytes, and how many of
+// them there are - one or two. Zero means it goes in memory, because it is
+// larger than two eightbytes or because something in it has no register class.
+//
+// A scalar answers zero too: it is not an aggregate, and isRealType already
+// decides where a bare float goes.
+uint32_t classifyComposite(const TypeRef *type, enum EightbyteClass classes[2]);
+
 // Where one parameter arrives, as decided by the target's ABI.
 typedef struct {
   AstValueDeclaration *declaration;
@@ -82,6 +100,16 @@ typedef struct {
     int32_t stackOffset;  // when !isRegister, relative to the frame pointer
     uint32_t physReg;     // when isRegister, an id in the flat namespace above
   } loc;
+
+  // A composite of two eightbytes arrives in two registers, each of its own
+  // class - {double,double} in xmm0:xmm1, {long,long} in rdi:rsi. 'regCount' is
+  // 1 for everything else and 'physReg2' is only read when it is 2. SysV passes
+  // such an aggregate all in registers or all on the stack and never splits it,
+  // so one 'isRegister' still answers for both halves.
+  uint32_t physReg2;
+  enum EightbyteClass classes[2];
+  uint32_t regCount;
+
   uint32_t idx;
   Boolean isRegister;
 } ParamtersABIInfo;
@@ -130,6 +158,13 @@ typedef struct _TargetDescriptor {
 
   uint32_t intRetReg;
   uint32_t fpRetReg;
+
+  // Where the second eightbyte of an aggregate returned in registers goes -
+  // rdx for an INTEGER one, xmm1 for an SSE one. A target that returns nothing
+  // in two registers leaves these IR_NO_PHYS_REG, and classifyComposite never
+  // hands it a second eightbyte to place.
+  uint32_t intRetReg2;
+  uint32_t fpRetReg2;
 
   // Every register a call destroys, of either class. Read together with
   // MachineInstr.flags.isCall, which is what marks the instructions this

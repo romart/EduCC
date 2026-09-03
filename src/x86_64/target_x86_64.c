@@ -238,6 +238,8 @@ const TargetDescriptor targetX86_64 = {
 
   .intRetReg = R_EAX,
   .fpRetReg = FP(0),
+  .intRetReg2 = R_EDX,
+  .fpRetReg2 = FP(1),
 
   .callerSavedRegs = x86CallerSavedRegs,
   .callerSavedRegCount = sizeof(x86CallerSavedRegs) / sizeof(x86CallerSavedRegs[0]),

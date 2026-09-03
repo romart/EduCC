@@ -48,40 +48,120 @@ enum MachineFlagsEffect targetOpcodeFlagsEffect(const TargetDescriptor *target, 
                                   : MFE_UNKNOWN;
 }
 
-// SysV classifies each eightbyte of an aggregate by what lands in it: one made
-// of nothing but 'float' and 'double' fields is class SSE and travels in an xmm
-// register; anything else in it - an integer, a pointer, a long double, which
-// is class X87 and not SSE - makes the eightbyte INTEGER. This answers that for
-// an aggregate that *is* one eightbyte, which is as far as the classification
-// below goes; see the TODO in classifyParametersGeneric for the rest.
+// SysV classifies an aggregate one eightbyte at a time by what lands in each:
+// an eightbyte holding nothing but 'float' and 'double' is class SSE and
+// travels in an xmm register, and anything else in it - an integer, a pointer,
+// a bitfield - makes it INTEGER. Two eightbytes is the whole of it: sixteen
+// bytes is where the rule stops and the aggregate goes to memory instead.
 //
-// A scalar answers FALSE: it is not an aggregate, and isRealType already
-// decides where a bare float goes.
-static Boolean isSSEClassAggregate(const TypeRef *type) {
-  if (type->kind == TR_ARRAY) {
-    return isSSEClassAggregate(type->arrayTypeDesc.elementType);
-  }
+// Marks the eightbytes one scalar leaf spans, at 'offset' from the start of the
+// aggregate being classified. FALSE means the whole aggregate is class MEMORY,
+// which is what a long double in it says: SysV gives that class X87, which has
+// no argument register, and an aggregate containing one is passed on the stack.
+static Boolean classifyLeaf(const TypeRef *type, size_t offset, enum EightbyteClass classes[2]);
 
-  if (!isCompositeType(type)) {
-    // The recursion's leaf, reached through a member rather than at the top:
-    // float and double are the only two field types that keep an eightbyte SSE.
-    return type->kind == TR_VALUE &&
-           (type->descriptorDesc->typeId == T_F4 ||
-            type->descriptorDesc->typeId == T_F8);
-  }
-
+static Boolean classifyMembers(const TypeRef *type, size_t offset, enum EightbyteClass classes[2]) {
   TypeDefiniton *definition = type->descriptorDesc->typeDefinition;
-  if (definition == NULL || definition->members == NULL) {
-    return FALSE;  // an empty struct is passed in nothing at all
+
+  if (definition == NULL) {
+    return FALSE;  // an incomplete type never gets this far, but say so anyway
   }
 
-  StructualMember *member = definition->members;
-  for (; member != NULL; member = member->next) {
+  for (StructualMember *member = definition->members; member != NULL; member = member->next) {
     if (member->type == NULL) continue;
-    if (!isSSEClassAggregate(member->type)) return FALSE;
+
+    // A union's members all start where the union does, and 'offset' already
+    // carries that; StructualMember.offset is zero for each of them.
+    if (!classifyLeaf(member->type, offset + (size_t)member->offset, classes)) {
+      return FALSE;
+    }
   }
 
   return TRUE;
+}
+
+static Boolean classifyLeaf(const TypeRef *type, size_t offset, enum EightbyteClass classes[2]) {
+  if (offset >= 2 * sizeof(intptr_t)) {
+    return FALSE;  // past the second eightbyte: the size test should have caught it
+  }
+
+  if (type->kind == TR_ARRAY) {
+    const TypeRef *element = type->arrayTypeDesc.elementType;
+    size_t elementSize = (size_t)computeTypeSize(element);
+    int count = type->arrayTypeDesc.size;
+
+    if (elementSize == 0 || count <= 0) {
+      return TRUE;  // nothing occupies an eightbyte, so nothing to classify
+    }
+
+    for (int idx = 0; idx < count; ++idx) {
+      if (!classifyLeaf(element, offset + idx * elementSize, classes)) {
+        return FALSE;
+      }
+    }
+
+    return TRUE;
+  }
+
+  if (isCompositeType(type)) {
+    return classifyMembers(type, offset, classes);
+  }
+
+  enum EightbyteClass leaf = EB_INTEGER;
+
+  if (type->kind == TR_BITFIELD) {
+    leaf = EB_INTEGER;  // its storage is an integer whatever it is declared as
+  } else if (type->kind == TR_VALUE) {
+    TypeId id = type->descriptorDesc->typeId;
+    if (id == T_F10) return FALSE;  // class X87: the aggregate goes to memory
+    if (id == T_F4 || id == T_F8) leaf = EB_SSE;
+  }
+
+  // The leaf's own bytes decide which eightbytes it touches; one that straddles
+  // the boundary marks both. INTEGER wins wherever the two meet, which is the
+  // whole of SysV's merge rule once MEMORY has been dealt with above.
+  size_t size = (size_t)computeTypeSize(type);
+  size_t last = size == 0 ? offset : offset + size - 1;
+
+  if (last >= 2 * sizeof(intptr_t)) {
+    return FALSE;
+  }
+
+  for (size_t eb = offset / sizeof(intptr_t); eb <= last / sizeof(intptr_t); ++eb) {
+    classes[eb] = (classes[eb] == EB_SSE || classes[eb] == EB_NONE) && leaf == EB_SSE
+                      ? EB_SSE : EB_INTEGER;
+  }
+
+  return TRUE;
+}
+
+uint32_t classifyComposite(const TypeRef *type, enum EightbyteClass classes[2]) {
+  classes[0] = classes[1] = EB_NONE;
+
+  if (!isCompositeType(type)) {
+    return 0;
+  }
+
+  size_t size = (size_t)computeTypeSize(type);
+
+  if (size == 0 || size > 2 * sizeof(intptr_t)) {
+    return 0;
+  }
+
+  if (!classifyMembers(type, 0, classes)) {
+    return 0;
+  }
+
+  // An eightbyte no member reached - a struct that is all padding, or one whose
+  // only member is a zero-sized array - still has to travel as something, and
+  // INTEGER is what SysV makes of a NO_CLASS eightbyte that is not MEMORY.
+  uint32_t eightbytes = (uint32_t)((size + sizeof(intptr_t) - 1) / sizeof(intptr_t));
+
+  for (uint32_t eb = 0; eb < eightbytes; ++eb) {
+    if (classes[eb] == EB_NONE) classes[eb] = EB_INTEGER;
+  }
+
+  return eightbytes;
 }
 
 // Which register file a composite small enough to travel in one register uses.
@@ -92,12 +172,14 @@ static Boolean isSSEClassAggregate(const TypeRef *type) {
 // class at all, so it still passes these in the integer file - which is why
 // the two backends disagree here and the crossabi fixtures below say so.
 Boolean isCompositeInSSERegister(const TypeRef *type) {
-  return isCompositeType(type) && isSSEClassAggregate(type);
+  enum EightbyteClass classes[2];
+  return classifyComposite(type, classes) == 1 && classes[0] == EB_SSE;
 }
 
 Boolean returnsThroughHiddenPointer(const TypeRef *returnType) {
-  return isCompositeType(returnType) &&
-         computeTypeSize(returnType) > sizeof(intptr_t);
+  enum EightbyteClass classes[2];
+  return isCompositeType(returnType) && !isEmptyCompositeType(returnType) &&
+         classifyComposite(returnType, classes) == 0;
 }
 
 void classifyParametersGeneric(const TargetDescriptor *target,
@@ -135,6 +217,10 @@ void classifyParametersGeneric(const TargetDescriptor *target,
 
     Boolean inRegister = FALSE;
 
+    pi->regCount = 1;
+    pi->physReg2 = IR_NO_PHYS_REG;
+    pi->classes[0] = pi->classes[1] = EB_NONE;
+
     if (isEmptyCompositeType(paramType)) {
       // Passed in nothing: no register is used up and no stack space is
       // reserved, so the parameter behind it arrives where it would have with
@@ -146,16 +232,34 @@ void classifyParametersGeneric(const TargetDescriptor *target,
       continue;
     }
 
-    if (isCompositeType(paramType) && size > sizeof(intptr_t)) {
-      // TODO: SysV splits an aggregate of <= 16 bytes into two eightbytes and
-      // passes those in registers; riscv64 LP64D has its own rules. Both are
-      // approximated here by passing everything oversized on the stack, which
-      // is ABI-incompatible for small structs. This is the point where the
-      // two targets will need separate classifyParameters implementations.
-      inRegister = FALSE;
-    } else if (isRealType(paramType) || isCompositeInSSERegister(paramType)) {
-      // A composite reaches this arm only from the eightbyte case above, its
-      // oversized sibling having been sent to the stack already.
+    if (isCompositeType(paramType)) {
+      // The eightbyte rule below is SysV's; riscv64 LP64D has its own, and this
+      // is the point the hook comment in target.h means when it says the two
+      // targets will stop sharing an implementation.
+      uint32_t eightbytes = classifyComposite(paramType, pi->classes);
+
+      uint32_t needInt = 0, needFp = 0;
+      for (uint32_t eb = 0; eb < eightbytes; ++eb) {
+        if (pi->classes[eb] == EB_SSE) needFp += 1; else needInt += 1;
+      }
+
+      // All in registers or all on the stack. An aggregate that would take the
+      // last integer register and one that is not there does not get half of
+      // what it needs - it goes to memory entire, and the argument behind it
+      // may still find a register.
+      inRegister = eightbytes != 0 &&
+                   intRegParams + needInt <= target->intArgRegCount &&
+                   fpRegParams + needFp <= target->fpArgRegCount;
+
+      if (inRegister) {
+        pi->regCount = eightbytes;
+        for (uint32_t eb = 0; eb < eightbytes; ++eb) {
+          uint32_t reg = pi->classes[eb] == EB_SSE ? target->fpArgRegs[fpRegParams++]
+                                                   : target->intArgRegs[intRegParams++];
+          if (eb == 0) pi->loc.physReg = reg; else pi->physReg2 = reg;
+        }
+      }
+    } else if (isRealType(paramType)) {
       inRegister = fpRegParams < target->fpArgRegCount && size <= sizeof(intptr_t);
       if (inRegister) {
         pi->loc.physReg = target->fpArgRegs[fpRegParams++];

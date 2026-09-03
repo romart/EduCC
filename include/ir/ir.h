@@ -237,6 +237,13 @@ struct _IrInstruction {
           // where the callee reads bytes. NULL until setCallMemoryArg is
           // called; ask isCallMemoryArg rather than reading it.
           uint64_t *memArgs;
+
+          // The same shape, saying which inputs are the *second* eightbyte of
+          // the aggregate the input before them started. SysV passes a
+          // two-eightbyte aggregate wholly in registers or wholly on the
+          // stack, and selection cannot see the grouping otherwise: two loads
+          // out of one struct look like two unrelated arguments.
+          uint64_t *pairArgs;
         } call;
         struct {
           uint32_t cacheIdx;
@@ -412,9 +419,11 @@ IrInstruction *newMemoryCopyInstruction(IrInstruction *dst, IrInstruction *src, 
 // IrInstruction.info.call.memArgs, which is a bitmap and not a word. Sized for
 // 'numInputs' before any input is added, because that is the only point at
 // which the count is known and the bits are set as the inputs arrive.
-void allocateCallMemoryArgs(IrInstruction *call, size_t numInputs);
+void allocateCallArgMaps(IrInstruction *call, size_t numInputs);
 void setCallMemoryArg(IrInstruction *call, size_t idx);
 Boolean isCallMemoryArg(const IrInstruction *call, size_t idx);
+void setCallPairedArg(IrInstruction *call, size_t idx);
+Boolean isCallPairedArg(const IrInstruction *call, size_t idx);
 
 IrBasicBlock *updateBlock();
 void addInstruction(IrInstruction *instr);

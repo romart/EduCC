@@ -3,12 +3,12 @@
 // The driver half; see scalars.c for what the pair is for and how it is run.
 // One struct per shape real SysV classifies differently: a single eightbyte,
 // two integer ones, one whose second is partial, two SSE, the two mixed
-// orders, and one too large for either. Neither backend actually splits a
-// 16-byte struct into two eightbytes - both pass anything over a word on the
-// stack, which is the approximation src/ir/target.c's TODO records - so what
-// these check today is that they make that approximation identically, and the
-// day one of them learns the real rules this is the fixture that says the
-// other has not.
+// orders, and one too large for either. The IR backend splits an aggregate of
+// at most sixteen bytes into eightbytes and passes each in a register of its
+// own class; the legacy backend passes anything over a word on the stack. That
+// is a deliberate disagreement and this fixture is muted for it - see
+// aggregates.muted, which the runner prints on every run and which the runner
+// flags the day the two agree again.
 //
 // The disagreements this can find are the ones no single-backend fixture can:
 // a hidden return pointer one side passes and the other reads out of a

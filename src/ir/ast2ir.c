@@ -619,6 +619,20 @@ static IrInstruction *maybeTranslateAlloca(AstExpression *expr) {
   return allocaInstr;
 }
 
+// The IR type one eightbyte of an aggregate travels as. An INTEGER eightbyte is
+// IR_P_AGG, which is what keeps it in the integer file; an SSE one is a float of
+// the eightbyte's own width, which is what puts it in an xmm register and makes
+// the move a movss/movsd rather than a mov. 'bytes' is what is left of the
+// aggregate at this eightbyte, so a trailing four-byte one is not read eight
+// bytes wide.
+static enum IrTypeKind eightbyteIrType(enum EightbyteClass cls, size_t bytes) {
+  if (cls != EB_SSE) {
+    return IR_P_AGG;
+  }
+
+  return bytes > 4 ? IR_F64 : IR_F32;
+}
+
 static IrInstruction *translateCall(AstExpression *expr) {
   assert(expr->op == E_CALL);
 
@@ -642,18 +656,21 @@ static IrInstruction *translateCall(AstExpression *expr) {
   IrInstruction *callInstr =
       newInstruction(IR_CALL, typeRefToIrType(expr->type));
 
-  // The callee, an optional return buffer, and one input per argument - the
-  // width the memory-argument bitmap has to cover, counted before the first
-  // input goes in because that is when it can still be sized.
+  // The callee, an optional return buffer, and one input per argument - two for
+  // an aggregate that travels as two eightbytes. This is the width the argument
+  // bitmaps have to cover, counted before the first input goes in because that
+  // is when they can still be sized.
   size_t numInputs = 1;
-  if (isCompositeType(returnType) && returnTypeSize > sizeof(intptr_t)) {
+  if (returnsThroughHiddenPointer(returnType)) {
     numInputs += 1;
   }
   for (AstExpressionList *args = expr->callExpr.arguments; args != NULL;
        args = args->next) {
-    numInputs += 1;
+    enum EightbyteClass argClasses[2];
+    uint32_t parts = classifyComposite(args->expression->type, argClasses);
+    numInputs += parts == 0 ? 1 : parts;
   }
-  allocateCallMemoryArgs(callInstr, numInputs);
+  allocateCallArgMaps(callInstr, numInputs);
 
   addInstructionInput(callInstr, calleeOp);
 
@@ -665,7 +682,7 @@ static IrInstruction *translateCall(AstExpression *expr) {
 
   // TODO: save and restore stack after series of alloca's
 
-  if (isCompositeType(returnType) && returnTypeSize > sizeof(intptr_t)) {
+  if (returnsThroughHiddenPointer(returnType)) {
     returnSlotOp = createAllocaSlot(returnTypeSize);
     returnSlotOp->info.alloca.valueType = typeRefToIrType(returnType);
     addInstructionInput(callInstr, returnSlotOp);
@@ -689,7 +706,10 @@ static IrInstruction *translateCall(AstExpression *expr) {
       continue;
 
     if (isCompositeType(argType)) {
-      if (argSize > sizeof(intptr_t)) {
+      enum EightbyteClass classes[2];
+      uint32_t eightbytes = classifyComposite(argType, classes);
+
+      if (eightbytes == 0) {
         // The temporary is the copy C says a by-value argument is, and the
         // backend passes its *bytes* rather than its address - so the slot is
         // where the argument is built, not where it is passed from. Its index
@@ -702,19 +722,33 @@ static IrInstruction *translateCall(AstExpression *expr) {
 
         setCallMemoryArg(callInstr, callInstr->inputs.size);
       } else {
-        // The eightbyte itself. Loaded as a float when its class is SSE, which
-        // is what sends it to an xmm argument register - the same spelling the
-        // callee's prologue reads it back with, see initializeParamterLocal.
-        enum IrTypeKind eightbyte = IR_P_AGG;
-        if (isCompositeInSSERegister(argType)) {
-          eightbyte = computeTypeSize(argType) > 4 ? IR_F64 : IR_F32;
+        // One input per eightbyte, loaded as a float when its class is SSE -
+        // which is what sends it to an xmm argument register, the same spelling
+        // the callee's prologue reads it back with; see
+        // initializeParamterLocal. The second one is marked as continuing the
+        // first, because SysV passes such an aggregate all in registers or all
+        // on the stack and selection is where that is decided.
+        size_t size = (size_t)computeTypeSize(argType);
+
+        for (uint32_t eb = 0; eb < eightbytes; ++eb) {
+          enum IrTypeKind eightbyte =
+              eightbyteIrType(classes[eb], size - eb * sizeof(intptr_t));
+
+          IrInstruction *offset =
+              createIntegerConstant(IR_I64, (int64_t)(eb * sizeof(intptr_t)));
+          IrInstruction *gep = newGEPInstruction(argOp, offset, argType);
+          addInstruction(gep);
+          IrInstruction *part = addLoadInstr(eightbyte, gep, expr);
+          gep->meta.astExpr = part->meta.astExpr = argExpr;
+
+          if (eb != 0) {
+            setCallPairedArg(callInstr, callInstr->inputs.size);
+          }
+
+          addInstructionInput(callInstr, part);
         }
 
-        IrInstruction *offset = createIntegerConstant(IR_I64, 0);
-        IrInstruction *gep = newGEPInstruction(argOp, offset, argType);
-        addInstruction(gep);
-        realArgOp = addLoadInstr(eightbyte, gep, expr);
-        gep->meta.astExpr = realArgOp->meta.astExpr = argExpr;
+        continue;
       }
     } else {
       realArgOp = argOp;
@@ -2941,22 +2975,44 @@ static void generateExitBlock(IrFunction *func, TypeRef *returnType) {
     // IR_P_AGG rather than as the struct it spells.
     TypeRef *slotType = returnType;
     enum IrTypeKind valueType = IR_P_AGG;
+    enum EightbyteClass classes[2];
+    uint32_t eightbytes = 0;
 
     if (returnsThroughHiddenPointer(returnType)) {
       slotType = makePointedType(ctx->pctx, 0, returnType);
       valueType = IR_PTR;
     } else if (!isCompositeType(returnType)) {
       valueType = typeRefToIrType(returnType);
-    } else if (isCompositeInSSERegister(returnType)) {
-      // The eightbyte comes back in xmm0 rather than rax, so it is read as a
-      // float of the aggregate's width; selectReturn picks the register file
-      // off this type.
-      valueType = computeTypeSize(returnType) > 4 ? IR_F64 : IR_F32;
+    } else {
+      // One input per eightbyte, each spelled by its class: an SSE one comes
+      // back in xmm0/xmm1 rather than rax/rdx, and selectReturn picks the
+      // register file off these types.
+      eightbytes = classifyComposite(returnType, classes);
     }
 
-    IrInstruction *retValue = addLoadInstr(valueType, func->retOperand, NULL);
-    retValue->astType = slotType;
-    addInstructionInput(ret, retValue);
+    if (eightbytes == 0) {
+      IrInstruction *retValue = addLoadInstr(valueType, func->retOperand, NULL);
+      retValue->astType = slotType;
+      addInstructionInput(ret, retValue);
+    } else {
+      size_t size = (size_t)computeTypeSize(returnType);
+
+      for (uint32_t eb = 0; eb < eightbytes; ++eb) {
+        IrInstruction *at = func->retOperand;
+
+        if (eb != 0) {
+          IrInstruction *offset =
+              createIntegerConstant(IR_I64, (int64_t)(eb * sizeof(intptr_t)));
+          at = newGEPInstruction(func->retOperand, offset, returnType);
+          addInstruction(at);
+        }
+
+        IrInstruction *part = addLoadInstr(
+            eightbyteIrType(classes[eb], size - eb * sizeof(intptr_t)), at, NULL);
+        part->astType = slotType;
+        addInstructionInput(ret, part);
+      }
+    }
   }
 
   termintateBlock(ret);
@@ -2984,20 +3040,36 @@ static void initializeParamterLocal(IrBasicBlock *entryBB,
         makePointedType(ctx->pctx, astType->flags.storage, astType);
     lvi->stackSlot = stackSlot;
 
-    // A composite whose eightbyte is class SSE arrives in an xmm register, so
-    // the value the slot is filled from is a float of the aggregate's width -
-    // that is what puts the physical register in the right file and makes the
-    // store a movss/movsd rather than a mov. The slot itself stays what its
-    // type says; only the eightbyte in flight is spelled this way.
-    enum IrTypeKind regType = type;
-    if (isCompositeInSSERegister(astType)) {
-      regType = computeTypeSize(astType) > 4 ? IR_F64 : IR_F32;
+    // One register per eightbyte, each spelled by its class: an SSE one arrives
+    // in an xmm register, and a float of the eightbyte's width is what puts the
+    // physical register in the right file and makes the store a movss/movsd
+    // rather than a mov. The slot itself stays what its type says; only the
+    // eightbytes in flight are spelled this way. A scalar is the same shape
+    // with one eightbyte whose class nothing had to decide.
+    size_t size = (size_t)computeTypeSize(astType);
+
+    for (uint32_t eb = 0; eb < paramInfo->regCount; ++eb) {
+      enum IrTypeKind regType =
+          paramInfo->classes[eb] == EB_NONE
+              ? type
+              : eightbyteIrType(paramInfo->classes[eb], size - eb * sizeof(intptr_t));
+
+      IrInstruction *regInstr = newPhysRegister(
+          regType, eb == 0 ? paramInfo->loc.physReg : paramInfo->physReg2);
+      addInstruction(regInstr);
+
+      IrInstruction *at = stackSlot;
+
+      if (eb != 0) {
+        IrInstruction *offset =
+            createIntegerConstant(IR_I64, (int64_t)(eb * sizeof(intptr_t)));
+        at = newGEPInstruction(stackSlot, offset, astType);
+        addInstruction(at);
+      }
+
+      addStoreInstr(at, regInstr, NULL);
     }
 
-    IrInstruction *regInstr = newPhysRegister(regType, paramInfo->loc.physReg);
-    addInstruction(regInstr);
-
-    addStoreInstr(stackSlot, regInstr, NULL);
     stackSlot->info.alloca.v = param;
   } else {
     param->index2 = paramIndex;
