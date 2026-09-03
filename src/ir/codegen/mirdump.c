@@ -46,6 +46,13 @@ static int32_t dumpMachineAddress(FILE *stream, const MachineFunction *mf,
     empty = FALSE;
   }
 
+  // Spelled the way the assembler spells it, and the suffix is load-bearing to
+  // a reader: '[x]' under '-fPIC' would be the one thing this cannot mean.
+  if (addr->kind == MAK_GOT) {
+    r += fprintf(stream, "%s@GOTPCREL", addr->anchor.symbol->name);
+    empty = FALSE;
+  }
+
   if (addr->kind == MAK_FRAME) {
     // Spelled exactly like the MO_FRAME_IDX operand a spill carries, because
     // it names the same thing - the frame pointer it is measured from is

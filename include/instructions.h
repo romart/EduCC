@@ -13,6 +13,7 @@ enum RelocKind {
   RK_CONST,
   RK_REF, // absolute
   RK_RIP, // rip-relative
+  RK_GOT, // the symbol's GOT slot, rip-relative; '-fPIC' only
 };
 
 struct _GeneratedFunction;

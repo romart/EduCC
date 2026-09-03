@@ -22,6 +22,7 @@ MachineFunction *createMachineFunction(IrFunction *f) {
   mf->ir = f;
   mf->ast = f->ast;
   mf->target = ctx->target;
+  mf->pic = ctx->pctx->config->pic;
   mf->id = f->id;
 
   initVector(&mf->vregs, INITIAL_VECTOR_CAPACITY);

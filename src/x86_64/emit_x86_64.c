@@ -225,6 +225,21 @@ static Address symbolAddress(EmitContext *e, const MachineAddress *m) {
   return addr;
 }
 
+// The same encoding, a different relocation: the four bytes end up holding the
+// distance to the linker-made GOT slot rather than to the symbol. Nothing here
+// makes the slot - that is the linker's half of R_X86_64_GOTPCREL - so the only
+// difference from the above is which type serializeTextRelocs writes.
+static Address gotAddress(EmitContext *e, const MachineAddress *m) {
+  Relocation *reloc = newSectionRelocation(e->gen);
+
+  reloc->kind = RK_GOT;
+  reloc->symbolData.symbol = m->anchor.symbol;
+  reloc->symbolData.symbolName = m->anchor.symbol->name;
+
+  Address addr = { R_RIP, R_BAD, 0, 0, reloc, NULL };
+  return addr;
+}
+
 // The same rip-relative form, resolved here rather than by the linker: these
 // bytes are ours, so we place them and point at where they landed. RK_RIP
 // against a section and an offset is what the legacy backend builds for a
@@ -318,6 +333,7 @@ static Address addressOperand(EmitContext *e, const MachineInstr *mi, uint16_t i
 
   switch (m->kind) {
   case MAK_SYMBOL:   return symbolAddress(e, m);
+  case MAK_GOT:      return gotAddress(e, m);
   case MAK_CONSTANT: return constantAddress(e, m);
   case MAK_FRAME:    return frameAnchorAddress(e, m);
   case MAK_BLOCK:    return blockAddress(e, m);

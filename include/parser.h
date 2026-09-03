@@ -80,6 +80,17 @@ typedef struct _Configuration {
 
   unsigned objOutput : 1;
 
+  // '-shared' - link a shared object rather than an executable. It changes
+  // which CRT objects the link needs and drops the dynamic linker, which is
+  // why runLinker has to know rather than ld being handed the flag.
+  unsigned sharedOutput : 1;
+
+  // '-fPIC'. A shared object may not contain a PC-relative reference to a
+  // preemptible symbol, so with this on a global's address is loaded out of
+  // the GOT instead of computed - see selectConstant in isel_x86_64.c. Only
+  // the IR backend implements it; '-legacy' refuses the flag.
+  unsigned pic : 1;
+
   // The IR backend, which is the default; '-legacy' turns it off, and so does
   // any '-march' without a selector.
   unsigned irBackend : 1;

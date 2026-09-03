@@ -138,8 +138,17 @@ static void selectConstant(MachineBuilder *b, const IrInstruction *i) {
     // finished by the linker. A directly called function's name never gets
     // here - that one folds into the call - so this is a variable, or a
     // function whose address is wanted as a value.
-    MachineAddress addr = { MAK_SYMBOL, NO_REG, NO_REG, 0, 0, { i->info.constant.data.s } };
-    MachineInstr *mi = buildMachineInstr(b, X86_LEA, 1, 1);
+    //
+    // This is the only rule that computes one, which is what makes '-fPIC' a
+    // change of two tokens rather than a pass: every use of a global in this
+    // backend reads it through the register defined here, so making that
+    // register hold a loaded address instead of a computed one is the whole of
+    // it. The GOT slot is the address of the address, so the instruction
+    // becomes a load and the operand names the slot.
+    Boolean viaGot = isPreemptibleSymbol(b->mf, i->info.constant.data.s);
+    MachineAddress addr = { viaGot ? MAK_GOT : MAK_SYMBOL, NO_REG, NO_REG, 0, 0,
+                            { i->info.constant.data.s } };
+    MachineInstr *mi = buildMachineInstr(b, viaGot ? X86_LOAD : X86_LEA, 1, 1);
 
     setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
     setMemoryOperand(mi, 1, &addr);

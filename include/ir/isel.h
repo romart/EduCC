@@ -170,6 +170,12 @@ Boolean machineBuilderFallsThroughTo(const MachineBuilder *b, const struct _IrBa
 // The machine block for an IR block, for use as a branch target operand.
 MachineBasicBlock *machineBuilderBlock(MachineBuilder *b, const struct _IrBasicBlock *target);
 
+// Whether another shared object could define this name and win. Only under
+// '-fPIC', and only then for a name with external linkage: the address of a
+// preemptible object is not known until load time, so it has to be read out of
+// the GOT rather than computed from the instruction pointer.
+Boolean isPreemptibleSymbol(const MachineFunction *mf, const struct _Symbol *s);
+
 // ------------- entry point ------------------------
 
 // Fixes the block layout, then fills every block. Every instruction gets a

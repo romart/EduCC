@@ -193,6 +193,12 @@ if(BUILD_TESTING)
   # being changed.
   educc_add_test(codegen_regalloc_trivial codegen codegen 300 ssa --compiler-flag=-Xregalloc=trivial)
   educc_add_test(codegen_regalloc_linear codegen codegen 300 ssa --compiler-flag=-Xregalloc=linear)
+  # And a fifth time position-independent (step 51). '-fPIC' changes how every
+  # global is reached, which is one selection rule and every fixture that has a
+  # global - so the cheapest honest test of it is the corpus it already has,
+  # compiled the other way and run. checker_pic asks whether the objects could
+  # be a shared library; this asks whether they still compute the right answers.
+  educc_add_test(codegen_pic codegen codegen 300 ssa --compiler-flag=-fPIC)
   # The two backends inside one link: each fixture is a pair of files compiled
   # with a different backend each, linked and run, then swapped over. Every
   # other suite runs one backend at a time, so their ABI agreement is otherwise
@@ -272,7 +278,7 @@ if(BUILD_TESTING)
     foreach(alloc chaitin linear trivial)
       foreach(checker
           phi_destruction frame_layout selection allocation allocation_widths
-          call_alignment emission_objdump disasm_stable jump_relaxation)
+          call_alignment emission_objdump disasm_stable jump_relaxation pic)
         add_test(NAME checker_${checker}_${alloc}
           COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/test/checkers/${checker}.py"
                   "$<TARGET_FILE:main>" "-Xregalloc=${alloc}" "test/testData/codegen"

@@ -147,7 +147,7 @@ static void gccLibPath(char *buffer) {
    unreachable("No gcc library path found");
 }
 
-static void runLinker(const char *outputFile, StringList *compiledObjs, StringList *cliObjs, StringList *libs, StringList *libDirs, StringList *ldArgs) {
+static void runLinker(const char *outputFile, Boolean shared, StringList *compiledObjs, StringList *cliObjs, StringList *libs, StringList *libDirs, StringList *ldArgs) {
   unsigned argc = 1;
 
   // -o <output>
@@ -159,11 +159,13 @@ static void runLinker(const char *outputFile, StringList *compiledObjs, StringLi
   // -z noexecstack
   argc += 2;
 
-  // -dynamic-linker /lib64/ld-linux-x86-64.so.2
-  argc += 2;
+  // '-shared', or '-dynamic-linker /lib64/ld-linux-x86-64.so.2'. A shared
+  // object has no interpreter: whoever loads it already has one.
+  argc += shared ? 1 : 2;
 
-  // crt1.o, crti.o, crtbegin.o
-  argc += 3;
+  // crti.o and crtbegin.o, with crt1.o in front of them for an executable -
+  // that one holds _start, which a library must not carry a second copy of.
+  argc += shared ? 2 : 3;
 
   char gccLPath[256] = { 0 };
 
@@ -228,14 +230,21 @@ static void runLinker(const char *outputFile, StringList *compiledObjs, StringLi
   argv[i++] = strdup("-z");
   argv[i++] = strdup("noexecstack");
 
-  argv[i++] = strdup("-dynamic-linker");
-  argv[i++] = strdup("/lib64/ld-linux-x86-64.so.2");
+  if (shared) {
+      argv[i++] = strdup("-shared");
+  } else {
+      argv[i++] = strdup("-dynamic-linker");
+      argv[i++] = strdup("/lib64/ld-linux-x86-64.so.2");
 
-  sprintf(buffer, "%s/crt1.o", lPath);
-  argv[i++] = strdup(buffer);
+      sprintf(buffer, "%s/crt1.o", lPath);
+      argv[i++] = strdup(buffer);
+  }
+
   sprintf(buffer, "%s/crti.o", lPath);
   argv[i++] = strdup(buffer);
-  sprintf(buffer, "%s/crtbegin.o", gccLPath);
+  // The 'S' pair is the position-independent one, and is what a shared object
+  // needs: crtbegin.o's own code is not.
+  sprintf(buffer, "%s/crtbegin%s.o", gccLPath, shared ? "S" : "");
   argv[i++] = strdup(buffer);
 
   unsigned j = 0;
@@ -282,7 +291,7 @@ static void runLinker(const char *outputFile, StringList *compiledObjs, StringLi
   argv[i++] = strdup("-lgcc_s");
   argv[i++] = strdup("--no-as-needed");
 
-  sprintf(buffer, "%s/crtend.o", gccLPath);
+  sprintf(buffer, "%s/crtend%s.o", gccLPath, shared ? "S" : "");
   argv[i++] = strdup(buffer);
   sprintf(buffer, "%s/crtn.o", lPath);
   argv[i++] = strdup(buffer);
@@ -534,8 +543,14 @@ int main(int argc, char** argv) {
             }
             rest = comma ? comma + 1 : NULL;
         }
-    } else if (strcmp("-static", arg) == 0 || strcmp("-shared", arg) == 0 ||
-               strcmp("-nostdlib", arg) == 0 || strcmp("-pie", arg) == 0) {
+    } else if (strcmp("-shared", arg) == 0) {
+        // The one of the four below that runLinker now has a layout for. It is
+        // still not passed on: what changes is the CRT objects and the absence
+        // of a dynamic linker, which ld is told about a piece at a time.
+        config.sharedOutput = 1;
+        continue;
+    } else if (strcmp("-static", arg) == 0 || strcmp("-nostdlib", arg) == 0 ||
+               strcmp("-pie", arg) == 0) {
         // Refused rather than ignored or passed on: each of these decides
         // which CRT objects and dynamic linker the link needs, and runLinker
         // spells those out for one layout only. Passing it to ld would produce
@@ -552,6 +567,18 @@ int main(int argc, char** argv) {
         continue;
     } else if (strncmp("-O", arg, 2) == 0) {
         // optimization? lol
+        continue;
+    } else if (strcmp("-fPIC", arg) == 0 || strcmp("-fpic", arg) == 0 ||
+               strcmp("-fPIE", arg) == 0 || strcmp("-fpie", arg) == 0) {
+        // One setting for all four. PIE is the weaker request - an executable's
+        // symbols are not preemptible, so it could keep the PC-relative form -
+        // but GOT-loading them is correct for it too, and one code path that
+        // is always exercised beats a second that almost never is.
+        config.pic = 1;
+        continue;
+    } else if (strcmp("-fno-pic", arg) == 0 || strcmp("-fno-PIC", arg) == 0 ||
+               strcmp("-fno-pie", arg) == 0 || strcmp("-fno-PIE", arg) == 0) {
+        config.pic = 0;
         continue;
     } else if (strncmp("-f", arg, 2) == 0) {
         // we do not support any extra feature yet
@@ -630,6 +657,16 @@ int main(int argc, char** argv) {
       config.irBackend = 0;
   }
 
+  // Refused rather than ignored, for the same reason the four flags above are:
+  // accepting it would produce an object that links into a shared library and
+  // crashes when it is loaded. The legacy backend reaches a global through a
+  // rip-relative memory operand it builds at the use site, so the GOT load has
+  // nowhere to put its register there - see step 51 in docs/ir-codegen-design.md.
+  if (!config.irBackend && config.pic) {
+      fprintf(stderr, "error: ‘-fPIC’ is not supported under ‘-legacy’\n");
+      return 2;
+  }
+
   // Easy to ask for by accident now that the IR backend is the default and
   // '-legacy' is the opt-out: the legacy backend builds no IR, so the dump was
   // silently not written and the file left as it was.
@@ -664,7 +701,7 @@ int main(int argc, char** argv) {
   // A file that did not compile left no object behind, so linking would only
   // report the same input missing a second time and in ld's words.
   if (!config.hadError && !config.objOutput && !config.ppOutput) {
-    runLinker(config.outputFile ? config.outputFile : "a.out", compiledObjFiles, ohead.next, lhead.next, lDirHead.next, ldHead.next);
+    runLinker(config.outputFile ? config.outputFile : "a.out", config.sharedOutput, compiledObjFiles, ohead.next, lhead.next, lDirHead.next, ldHead.next);
   }
 
   if (tmpDir) {

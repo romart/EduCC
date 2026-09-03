@@ -126,7 +126,9 @@ static void serializeExternalSymbol(Section *symtab, Section *strtab, const char
 static unsigned serializeExternalSymbols(Section *symtab, Section *strtab, Relocation *reloc, unsigned idx) {
 
   while (reloc) {
-      if (reloc->kind == RK_SYMBOL) {
+      // RK_GOT names a symbol the same way RK_SYMBOL does and needs the same
+      // entry: 'extern int x;' read through the GOT is still undefined here.
+      if (reloc->kind == RK_SYMBOL || reloc->kind == RK_GOT) {
           Symbol *s = reloc->symbolData.symbol;
           if (s->symbolTableIndex == 0) {
               if (s->kind == ValueSymbol && s->variableDesc->gen == NULL) {
@@ -242,6 +244,15 @@ static unsigned serializeTextRelocs(Section *section, Relocation *relocs) {
           Elf64_Xword sym = s->symbolTableIndex;
 
           rela.r_info = ELF64_R_INFO(sym, type);
+          rela.r_addend = relocs->addend;
+          rela.r_offset = relocs->applySectionOffset;
+      } else if (relocs->kind == RK_GOT) {
+          // The four bytes hold the distance to the symbol's GOT slot, not to
+          // the symbol - the linker makes the slot and points this at it. Only
+          // '-fPIC' asks for one; see selectConstant in isel_x86_64.c.
+          const Symbol *s = relocs->symbolData.symbol;
+
+          rela.r_info = ELF64_R_INFO(s->symbolTableIndex, R_X86_64_GOTPCREL);
           rela.r_addend = relocs->addend;
           rela.r_offset = relocs->applySectionOffset;
       } else if (relocs->kind == RK_RIP) {

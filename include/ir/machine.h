@@ -88,6 +88,10 @@ enum MachineAddressKind {
   MAK_REG = 0,  // base + index * scale + disp, and nothing else
   MAK_FRAME,    // a slot of this frame; the frame pointer is the base
   MAK_SYMBOL,   // a named object, addressed relative to the instruction pointer
+  // The GOT slot holding a named object's address, likewise. Not the object:
+  // loading from this yields the address, where loading from MAK_SYMBOL would
+  // yield the contents. '-fPIC' only, and only for a preemptible name.
+  MAK_GOT,
   MAK_CONSTANT, // an entry of this function's constant pool, likewise
   MAK_BLOCK,    // a block of this function, for '&&label' and the tables below
   MAK_JUMPTABLE, // a jump table of this function, likewise
@@ -113,7 +117,7 @@ typedef struct _MachineAddress {
   int32_t disp;
 
   union {
-    struct _Symbol *symbol; // MAK_SYMBOL
+    struct _Symbol *symbol; // MAK_SYMBOL, MAK_GOT
     uint32_t constantIdx;   // MAK_CONSTANT, into MachineFunction.constants
     int32_t frameIdx;       // MAK_FRAME, into MachineFunction.frame.objects
     struct _MachineBasicBlock *block; // MAK_BLOCK
@@ -394,6 +398,10 @@ typedef struct _MachineFunction {
   // from stage 2B's, and one invariant - that no scratch register is live
   // across a block boundary - belongs to 2A alone.
   const char *allocator;
+
+  // '-fPIC'. Read by selection, which is the only stage that has to know: it
+  // decides whether a global's address is computed or loaded out of the GOT.
+  Boolean pic;
 
   // Which frame object holds each IR value, indexed by IrInstruction.id and
   // biased the same way as irToVreg. Only IR_ALLOCA values are ever in here;

@@ -4,6 +4,7 @@
 #include "ir/isel.h"
 #include "ir/loops.h"
 #include "ir/machine.h"
+#include "sema.h"
 
 // The selector is looked up here rather than hung off TargetDescriptor
 // because a cross-TU symbol address in a *static initializer* is currently
@@ -565,6 +566,28 @@ void setValueOperand(MachineBuilder *b, MachineInstr *mi, uint16_t idx,
   } else {
     setImmediateOperand(mi, idx, value->info.constant.data.i);
   }
+}
+
+// 'static' is the whole test, and it is the right one for both kinds of symbol:
+// a static object or function has internal linkage and cannot be interposed, so
+// its distance from here is fixed at link time. Everything else - a definition
+// this file exports as much as an 'extern' it only reads - may be defined by
+// whichever object the loader binds first.
+//
+// A function declared and never defined has no AstFunctionDeclaration to ask
+// (see serializeExternalSymbols in elf.c), which reads as preemptible: correct,
+// since it is defined somewhere else by definition.
+Boolean isPreemptibleSymbol(const MachineFunction *mf, const Symbol *s) {
+  if (!mf->pic) {
+    return FALSE;
+  }
+
+  if (s->kind == ValueSymbol) {
+    return !s->variableDesc->flags.bits.isStatic;
+  }
+
+  assert(s->kind == FunctionSymbol);
+  return s->function == NULL || !s->function->flags.bits.isStatic;
 }
 
 Boolean machineBuilderFallsThroughTo(const MachineBuilder *b, const IrBasicBlock *target) {
