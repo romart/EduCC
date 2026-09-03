@@ -188,17 +188,19 @@ Everything lands under `build-tcc/`, the checkout included. Two columns are cont
 ```
                         legacy     trivial      linear     chaitin      cc -O0      cc -O1      cc -O2         tcc
 ------------------------------------------------------------------------------------------------------------------
-tinycc's test suite       12/15       12/15       12/15       12/15       15/15       15/15       15/15       15/15
-compiling tinycc (s)      0.302       0.657       0.281       0.248       0.267       0.164       0.156       0.263
-compiling EduCC (s)       0.339       0.733       0.331       0.288       0.306       0.209       0.197       0.295
+tinycc's test suite       13/15       14/15       14/15       14/15       15/15       15/15       15/15       15/15
+compiling tinycc (s)      0.302       0.658       0.280       0.239       0.266       0.165       0.152       0.261
+compiling EduCC (s)       0.340       0.733       0.331       0.289       0.301       0.211       0.199       0.294
 .text of tcc             330.7K      784.4K      366.0K      281.3K      231.6K      163.6K      207.8K      299.0K
 
 objects emitted: identical across all eight tccs, over both workloads
 ```
 
-The tcc EduCC's colouring allocator builds is 15% smaller than the one the host compiler builds at `-O0`, and compiles tinycc 8% faster than it.
+The tcc EduCC's colouring allocator builds is 15% smaller than the one the host compiler builds at `-O0`, and compiles tinycc 10% faster than it.
 
-The three sections no EduCC column passes are known gaps, all three the same under `-legacy`: SysV splits an aggregate of up to sixteen bytes into two eightbytes and EduCC passes it on the stack (`abitest`), `-fPIC` is accepted and ignored (`dlltest`), and tinycc built as a single 50k-line translation unit is miscompiled (`memtest`). `docs/ir-codegen-design.md` §10 has all three. Within `abitest` the two backends already differ — the IR one passes `ret_2float_test`, which is the eight-byte half of that classifier, and the legacy one does not.
+The one section no EduCC column passes is `dlltest`: `-fPIC` is accepted and ignored, so the object EduCC produces cannot go into a shared library. `-legacy` fails `abitest` on top of it, and that one stays failing on purpose — the IR backend implements SysV's eightbyte classification for aggregates and the legacy backend passes every composite wider than a word on the stack, which is a disagreement recorded in `crossabi/aggregates.muted` rather than a bug to be fixed. `docs/ir-codegen-design.md` §10 has both.
+
+Three more sections were failing when this harness was first written, and all three are fixed: an x87 conversion that stored its operand before defining it, the aggregate classifier above, and — the one that looked like a code-generator bug and was not — a file-scope object declared in a header and defined in a `.c` file getting two addresses, which only a single-translation-unit build can expose.
 
 ## Bootstrapping
 
