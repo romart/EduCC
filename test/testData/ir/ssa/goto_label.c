@@ -21,7 +21,7 @@
 //                           conditional and an unconditional jump, which needs
 //                           a branch whose two successors are *both* already
 //                           placed by the block layout (see the third case in
-//                           test/testData/ir/gvn/isel_branch_layout.c, and
+//                           test/testData/ir/pipeline/isel_branch_layout.c, and
 //                           docs/ir-codegen-design.md section 10).
 //
 // Both compile and run correctly through the legacy pipeline, so this is a gap

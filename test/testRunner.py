@@ -438,7 +438,7 @@ def runIrTest(compiler, workingDir, dirname, name):
     # '-irDump:<phase>', see -irDump:phase[,phase...] in src/main.c) so each
     # fixture suite tests one pass in isolation, unaffected by whatever the
     # later passes do to the IR afterwards - e.g. the ir/ssa suite runs with
-    # 'ssa' (right after buildSSA), the ir/gvn suite with 'gvn'.
+    # 'ssa' (right after buildSSA), the ir/pipeline suite with 'gvn'.
     testFilePath = dirname + '/' + name + '.c'
     phaseSuffix = irPhase + ('.' + baselineTag if baselineTag else '')
     expectedIrFilePath = dirname + '/' + name + '.' + phaseSuffix + '.txt'

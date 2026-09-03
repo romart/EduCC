@@ -100,8 +100,8 @@ python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/cro
 # IR-dump tests: one pass, against <name>.<phase>.txt. The 'ra' phase is the
 # one that differs per register allocator, so it names the allocator on both
 # sides - the flag it compiles with, and the baseline suffix it compares to.
-python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/ir/gvn -m ir --ir-phase gvn
-python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/ir/gvn -m ir --ir-phase ra \
+python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/ir/pipeline -m ir --ir-phase gvn
+python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/ir/pipeline -m ir --ir-phase ra \
         --compiler-flag=-Xregalloc=trivial --baseline-tag trivial
 ```
 

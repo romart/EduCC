@@ -195,25 +195,25 @@ if(BUILD_TESTING)
   # is handed, so this suite both covers sparse constant propagation (which
   # had no fixtures of its own) and keeps the gvn baselines honest about what
   # they inherited rather than folded themselves.
-  educc_add_test(ir_scp ir/gvn ir 60 scp)
+  educc_add_test(ir_scp ir/pipeline ir 60 scp)
   # Compares '-irDump:gvn' output (IR right after the gvn pass, before dce
   # sweeps the replaced instructions) against golden dumps.
-  educc_add_test(ir_gvn ir/gvn ir 60 gvn)
+  educc_add_test(ir_gvn ir/pipeline ir 60 gvn)
   # The same fixtures one pass later: '-irDump:dce' is what survives once dce
   # sweeps the instructions gvn superseded, so the two suites read as a
   # before/after pair over one shared set of .c files - ir_gvn pins down what
   # gvn rewrote, ir_dce that the leftovers actually go away.
-  educc_add_test(ir_dce ir/gvn ir 60 dce)
+  educc_add_test(ir_dce ir/pipeline ir 60 dce)
   # Not an IR phase but the machine IR built from what ir_dce leaves behind:
   # '-irDump:mir' dumps the MachineFunction, so this suite pins down the CFG
   # the backend is handed and, as selection lands, what it selects into it.
-  educc_add_test(ir_mir ir/gvn ir 60 mir)
+  educc_add_test(ir_mir ir/pipeline ir 60 mir)
   # The same MachineFunction one stage later: '-irDump:isel' is what stage 1
   # selected into those blocks. Split from ir_mir rather than folded into it so
   # that the two read as a before/after pair - ir_mir pins down the CFG, the
   # frame and the phi copies, ir_isel the instructions - and so a change to
   # selection cannot silently rewrite the baselines for stage 0.
-  educc_add_test(ir_isel ir/gvn ir 60 isel)
+  educc_add_test(ir_isel ir/pipeline ir 60 isel)
   # And one stage later again: '-irDump:ra' is the same function with every
   # virtual register replaced by a real one, which is what stage 3 will be
   # handed. Same reason for the split - stage 2 rewrites operands throughout,
@@ -227,11 +227,11 @@ if(BUILD_TESTING)
   # default would silently rewrite the file rather than fail. Every allocator
   # names itself on both sides: '-Xregalloc=' on the command line and the
   # 'Allocator:' line in the dump.
-  educc_add_test(ir_ra_chaitin ir/gvn ir 60 ra
+  educc_add_test(ir_ra_chaitin ir/pipeline ir 60 ra
                  --compiler-flag=-Xregalloc=chaitin --baseline-tag chaitin)
-  educc_add_test(ir_ra_linear ir/gvn ir 60 ra
+  educc_add_test(ir_ra_linear ir/pipeline ir 60 ra
                  --compiler-flag=-Xregalloc=linear --baseline-tag linear)
-  educc_add_test(ir_ra_trivial ir/gvn ir 60 ra
+  educc_add_test(ir_ra_trivial ir/pipeline ir 60 ra
                  --compiler-flag=-Xregalloc=trivial --baseline-tag trivial)
 
   # The structural checkers (test/checkers/, docs/ir-codegen-design.md section
