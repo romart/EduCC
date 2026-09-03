@@ -357,42 +357,24 @@ static uint8_t *serializeSections(ElfFile *elfFile, unsigned sectionCount, uint8
   return buffer + off;
 }
 
-static void relocateStaticSymbol(address buffer, ptrdiff_t applySectionOffset, ptrdiff_t applyOffset, ptrdiff_t dataSectionOffset, ptrdiff_t dataOffset, uint64_t addend) {
-  address applyAddress = buffer + applySectionOffset + applyOffset;
-  address symbolAddress = buffer + dataSectionOffset + dataOffset;
-  ptrdiff_t delta = (symbolAddress + addend) - applyAddress;
-
-  applyAddress[0] = (uint8_t)(delta >> 0);
-  applyAddress[1] = (uint8_t)(delta >> 8);
-  applyAddress[2] = (uint8_t)(delta >> 16);
-  applyAddress[3] = (uint8_t)(delta >> 24);
-}
-
-static void relocateStaticSymbols(Relocation *reloc, uint8_t *buffer) {
+// The four bytes an emitted instruction left where its displacement goes are
+// the 0x7EADBEFF poison (see encodeAR in instructions_x86_64.c), and every one
+// of them is covered by a relocation in a section written above. RELA says the
+// addend is in the entry and the field is unused, which is what lets the poison
+// survive to here at all - but "unused" is a rule linkers are free to read
+// generously, and tinycc *adds* the field to what it computes rather than
+// overwriting it. An EduCC object linked by tcc came out with every relocated
+// address off by 0x7EADBEFF, which is how tests/dlltest segfaulted.
+//
+// So zero exactly the fields a relocation names, in the serialized copy alone:
+// the in-memory section keeps the poison, so '-S' still shows it, and a
+// displacement no relocation covers - the failure the poison exists to make
+// visible - still reaches the object file as 0x7EADBEFF.
+static void clearRelocatedFields(Relocation *reloc, uint8_t *buffer) {
   while (reloc) {
-      if (reloc->kind == RK_SYMBOL) {
-          const Symbol *s = reloc->symbolData.symbol;
-          if (s->kind == ValueSymbol) {
-              AstValueDeclaration *v = s->variableDesc;
-              if (v->flags.bits.isStatic) {
-                  GeneratedVariable *gen = v->gen;
-                  relocateStaticSymbol(buffer, reloc->applySection->offset, reloc->applySectionOffset, gen->section->offset, gen->sectionOffset, reloc->addend);
-                  reloc = reloc->next;
-                  continue;
-              }
-          } else {
-              assert(s->kind == FunctionSymbol);
-              AstFunctionDeclaration *f = s->function;
-              if (f && f->flags.bits.isStatic) {
-                  GeneratedFunction *gen = f->gen;
-                  if (gen) {
-                    relocateStaticSymbol(buffer, reloc->applySection->offset, reloc->applySectionOffset, gen->section->offset, gen->sectionOffset, reloc->addend);
-                  }
-                  reloc = reloc->next;
-                  continue;
-              }
-          }
-      }
+      address applyAddress = buffer + reloc->applySection->offset + reloc->applySectionOffset;
+
+      applyAddress[0] = applyAddress[1] = applyAddress[2] = applyAddress[3] = 0;
 
       reloc = reloc->next;
   }
@@ -474,7 +456,7 @@ uint8_t *generateElfFile(ElfFile *elfFile, GeneratedFile *genFile, size_t *elfFi
   ptrdiff_t sectionHeaderOffset = sectionHeaderAddress - buffer;
   assert(sectionHeaderOffset == h_s_size);
 
-  relocateStaticSymbols(elfFile->sections.asStruct.text->reloc, buffer);
+  clearRelocatedFields(elfFile->sections.asStruct.text->reloc, buffer);
 
   finalizeSectionHeaders(elfFile, sectionHeadersLen, lastLocalIndex);
 
