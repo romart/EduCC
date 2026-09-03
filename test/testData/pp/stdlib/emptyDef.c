@@ -3,5 +3,5 @@
 
 #include "emptyDef.h"
 
-#include <memory.h>
+#include "strdecls.h"
 
