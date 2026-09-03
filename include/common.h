@@ -22,11 +22,14 @@ typedef enum _Boolean {
 #define SET_BIT(v, n) ((v) =| BIT(n))
 #define CLEAR_BIT(v, n) ((v) =& ~BIT(n))
 
-#define ALIGN_SIZE(len, align) (((len)+(align - 1)) & ~((align)-1))
+#define ALIGN_SIZE(len, align) (((len)+((align) - 1)) & ~((align)-1))
 #define ALIGN_PTR(ptr, align) (((~((uintptr_t)(ptr))) + 1) & ((align) - 1))
 
-#define max(a, b) ((a) < (b)) ? (b) : (a)
-#define min(a, b) ((a) < (b)) ? (a) : (b)
+// Parenthesized as a whole, because '?:' binds looser than anything an
+// expression is likely to wrap it in: without the outer pair, a cast on the
+// result casts the *comparison* and the two arms are what is left over.
+#define max(a, b) (((a) < (b)) ? (b) : (a))
+#define min(a, b) (((a) < (b)) ? (a) : (b))
 
 void unreachable(const char *msg);
 void unimplemented(const char *msg);
