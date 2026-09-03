@@ -3526,6 +3526,10 @@ static AstDeclaration *parseDeclaration(ParserContext *ctx, DeclarationSpecifier
 
   ctx->stateFlags.inStaticScope = old;
 
+  if (isTopLevel) {
+      chooseDefiningDeclaration(ctx, valueDeclaration);
+  }
+
   AstDeclaration *declaration = createAstDeclaration(ctx, DK_VAR, name);
   declaration->variableDeclaration = valueDeclaration;
 

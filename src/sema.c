@@ -2918,6 +2918,38 @@ Symbol *declareValueSymbol(ParserContext *ctx, const char *name, AstValueDeclara
   return declareGenericSymbol(ctx, ValueSymbol, name, declaration, existedValueProcessor, newValueProcessor);
 }
 
+// A file-scope object may be declared any number of times and defined once, and
+// the parser builds one node per declaration. This picks the node that owns the
+// object's storage: a declaration that stops it being a mere 'extern', and of
+// those the one carrying the initializer. Everything else is emitted by nobody
+// - see ownsStorage() in codegen_common.c - so the object gets one address and
+// one initial value rather than one of each per declaration.
+//
+// Which is not academic: tinycc declares 'reg_classes' in tcc.h and defines it
+// with an initializer in x86_64-gen.c, and in a ONE_SOURCE build both land in
+// the same translation unit. Emitting both gave the array an empty .bss copy
+// that every reference used and an initialized .rodata copy that nothing did.
+void chooseDefiningDeclaration(ParserContext *ctx, AstValueDeclaration *declaration) {
+  Symbol *s = declaration->symbol;
+
+  if (s == NULL || s->kind != ValueSymbol) return;
+
+  AstValueDeclaration *owner = s->variableDesc;
+  if (owner == NULL || owner == declaration) return;
+
+  if (declaration->initializer != NULL && owner->initializer != NULL) {
+    reportDiagnostic(ctx, DIAG_MEMBER_REDEFINITION, &declaration->coordinates, declaration->name);
+    return;
+  }
+
+  Boolean defines = declaration->initializer != NULL ||
+                    (owner->flags.bits.isExternal && !declaration->flags.bits.isExternal);
+
+  if (defines) {
+    s->variableDesc = declaration;
+  }
+}
+
 Symbol *declareTypeSymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeId, const char *symbolName, TypeDefiniton *definition) {
   Symbol *s = findSymbolInScope(ctx->currentScope, symbolName); // TODO: allow local struct redeclaration
 

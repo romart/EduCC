@@ -141,6 +141,10 @@ Symbol* findOrDeclareSymbol(ParserContext* ctx, SymbolKind kind, const char* nam
 
 Symbol *declareTypeDef(ParserContext *ctx, const char *name, TypeRef *type);
 Symbol *declareValueSymbol(ParserContext *ctx, const char *name, AstValueDeclaration *declaration);
+
+// Which of a file-scope object's declarations owns its storage. Called once per
+// declaration, after its initializer has been parsed; see the definition.
+void chooseDefiningDeclaration(ParserContext *ctx, AstValueDeclaration *declaration);
 Symbol *declareFunctionSymbol(ParserContext *ctx, const char *name, AstFunctionDeclaration *declaration);
 Symbol *declareTypeSymbol(ParserContext *ctx, SymbolKind symbolKind, TypeId typeId, const char *symbolName, TypeDefiniton *definition);
 Symbol *declareEnumConstantSymbol(ParserContext *ctx, EnumConstant *enumerator);

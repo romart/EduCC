@@ -35,3 +35,4 @@ test/testData/parser/negative/expressions/designators.c:48:35: warning: initiali
 test/testData/parser/negative/expressions/designators.c:48:44: warning: initializer overrides prior initialization of this subobject
 test/testData/parser/negative/expressions/designators.c:48:47: warning: initializer overrides prior initialization of this subobject
 test/testData/parser/negative/expressions/designators.c:48:50: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:48:1: error: redefinition of 'x'

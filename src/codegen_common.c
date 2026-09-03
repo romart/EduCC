@@ -208,6 +208,15 @@ static MachineFunction *machineFunctionFor(struct _IrFunctionList *irFunctions,
   return NULL;
 }
 
+// Whether this is the declaration of a file-scope object that carries its
+// storage. C lets one be declared any number of times and the parser keeps a
+// node for each; chooseDefiningDeclaration() picked which of them the symbol
+// points at, and emitting any other one gives the object a second address.
+static Boolean ownsStorage(const AstValueDeclaration *v) {
+  const Symbol *s = v->symbol;
+  return s == NULL || s->kind != ValueSymbol || s->variableDesc == v;
+}
+
 // Gives storage to the static variables declared inside a function the IR
 // backend emitted. See IrFunction.staticLocals for why the two backends need
 // different arrangements for the same thing.
@@ -218,7 +227,7 @@ static void emitStaticLocals(GenerationContext *ctx, ArchCodegen *archCodegen,
 
     // A file-scope variable is emitted once, from the translation unit walk;
     // only the ones declared inside a function reach here without storage.
-    if (v->gen != NULL) {
+    if (v->gen != NULL || !ownsStorage(v)) {
       continue;
     }
 
@@ -330,7 +339,7 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, ArchCodegen *archCodegen
       } else {
           assert(unit->kind == TU_DECLARATION);
           AstDeclaration *d = unit->declaration;
-          if (d->kind == DK_VAR) {
+          if (d->kind == DK_VAR && ownsStorage(d->variableDeclaration)) {
             GeneratedVariable *v = archCodegen->generateVaribale(&ctx, d->variableDeclaration);
             if (v) {
               d->variableDeclaration->gen = v;
