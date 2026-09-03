@@ -171,6 +171,35 @@ spill slots                      -       14071        1758        1479          
 instructions                     -       89757       53388       39010           -           -
 ```
 
+### Against a program nobody wrote for it
+
+The eight programs above were written for this compiler. `test/bench/bench_tcc.py` asks the same questions of one that was not: it clones [tinycc](https://github.com/TinyCC/tinycc), builds it once per configuration, runs *tinycc's own test suite* against each resulting `tcc`, and measures that `tcc` compiling tinycc and compiling EduCC.
+
+```sh
+python3 test/bench/bench_tcc.py             # clone, build, test, bench (~8 min)
+python3 test/bench/bench_tcc.py --no-tests  # skip tinycc's suite
+python3 test/bench/bench_tcc.py --keep      # reuse the checkout and builds
+```
+
+Everything lands under `build-tcc/`, the checkout included. Two columns are controls rather than measurements: tinycc compiled by itself, which separates a bug in EduCC from a property of building tinycc with a compiler configure does not recognise, and the fact that tcc is deterministic — two of these tccs that emit different object files for the same input disagree because one of them was miscompiled, and the run names the file.
+
+`--runs 3`, on an idle machine. Every configuration builds tinycc and produces a working compiler:
+
+```
+                        legacy     trivial      linear     chaitin      cc -O0      cc -O1      cc -O2         tcc
+------------------------------------------------------------------------------------------------------------------
+tinycc's test suite       12/15       12/15       12/15       12/15       15/15       15/15       15/15       15/15
+compiling tinycc (s)      0.302       0.657       0.281       0.248       0.267       0.164       0.156       0.263
+compiling EduCC (s)       0.339       0.733       0.331       0.288       0.306       0.209       0.197       0.295
+.text of tcc             330.7K      784.4K      366.0K      281.3K      231.6K      163.6K      207.8K      299.0K
+
+objects emitted: identical across all eight tccs, over both workloads
+```
+
+The tcc EduCC's colouring allocator builds is 15% smaller than the one the host compiler builds at `-O0`, and compiles tinycc 8% faster than it.
+
+The three sections no EduCC column passes are known gaps, all three the same under `-legacy`: SysV splits an aggregate of up to sixteen bytes into two eightbytes and EduCC passes it on the stack (`abitest`), `-fPIC` is accepted and ignored (`dlltest`), and tinycc built as a single 50k-line translation unit is miscompiled (`memtest`). `docs/ir-codegen-design.md` §10 has all three. Within `abitest` the two backends already differ — the IR one passes `ret_2float_test`, which is the eight-byte half of that classifier, and the legacy one does not.
+
 ## Bootstrapping
 
 ```sh

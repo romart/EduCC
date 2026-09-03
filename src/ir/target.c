@@ -48,6 +48,53 @@ enum MachineFlagsEffect targetOpcodeFlagsEffect(const TargetDescriptor *target, 
                                   : MFE_UNKNOWN;
 }
 
+// SysV classifies each eightbyte of an aggregate by what lands in it: one made
+// of nothing but 'float' and 'double' fields is class SSE and travels in an xmm
+// register; anything else in it - an integer, a pointer, a long double, which
+// is class X87 and not SSE - makes the eightbyte INTEGER. This answers that for
+// an aggregate that *is* one eightbyte, which is as far as the classification
+// below goes; see the TODO in classifyParametersGeneric for the rest.
+//
+// A scalar answers FALSE: it is not an aggregate, and isRealType already
+// decides where a bare float goes.
+static Boolean isSSEClassAggregate(const TypeRef *type) {
+  if (type->kind == TR_ARRAY) {
+    return isSSEClassAggregate(type->arrayTypeDesc.elementType);
+  }
+
+  if (!isCompositeType(type)) {
+    // The recursion's leaf, reached through a member rather than at the top:
+    // float and double are the only two field types that keep an eightbyte SSE.
+    return type->kind == TR_VALUE &&
+           (type->descriptorDesc->typeId == T_F4 ||
+            type->descriptorDesc->typeId == T_F8);
+  }
+
+  TypeDefiniton *definition = type->descriptorDesc->typeDefinition;
+  if (definition == NULL || definition->members == NULL) {
+    return FALSE;  // an empty struct is passed in nothing at all
+  }
+
+  StructualMember *member = definition->members;
+  for (; member != NULL; member = member->next) {
+    if (member->type == NULL) continue;
+    if (!isSSEClassAggregate(member->type)) return FALSE;
+  }
+
+  return TRUE;
+}
+
+// Which register file a composite small enough to travel in one register uses.
+// The size test is the caller's; this only picks the class.
+//
+// The IR backend alone reads this. The legacy backend evaluates a composite
+// argument down a separate address-based path that never reaches a register
+// class at all, so it still passes these in the integer file - which is why
+// the two backends disagree here and the crossabi fixtures below say so.
+Boolean isCompositeInSSERegister(const TypeRef *type) {
+  return isCompositeType(type) && isSSEClassAggregate(type);
+}
+
 Boolean returnsThroughHiddenPointer(const TypeRef *returnType) {
   return isCompositeType(returnType) &&
          computeTypeSize(returnType) > sizeof(intptr_t);
@@ -106,7 +153,9 @@ void classifyParametersGeneric(const TargetDescriptor *target,
       // is ABI-incompatible for small structs. This is the point where the
       // two targets will need separate classifyParameters implementations.
       inRegister = FALSE;
-    } else if (isRealType(paramType)) {
+    } else if (isRealType(paramType) || isCompositeInSSERegister(paramType)) {
+      // A composite reaches this arm only from the eightbyte case above, its
+      // oversized sibling having been sent to the stack already.
       inRegister = fpRegParams < target->fpArgRegCount && size <= sizeof(intptr_t);
       if (inRegister) {
         pi->loc.physReg = target->fpArgRegs[fpRegParams++];

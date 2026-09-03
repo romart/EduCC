@@ -574,7 +574,12 @@ void initializeProprocessor(ParserContext *ctx) {
   defineBuiltinMacro(ctx, "__STDC__", constToken(ctx, 1, NULL));
   defineBuiltinMacro(ctx, "__STDC_VERSION__", constToken(ctx, 199409L, NULL));
   defineBuiltinMacro(ctx, "__STDC_HOSTED__", constToken(ctx, 199409L, NULL));
-  defineBuiltinMacro(ctx, "__STRICT_ANSI__", constToken(ctx, 1, NULL));
+  // Only under a strict '-std=c...'. The default dialect is gnu99, where gcc
+  // leaves it undefined; defining it unconditionally is what hid readlink,
+  // strdup, mkdtemp and usleep behind glibc's features.h.
+  if (ctx->config->strictAnsi) {
+    defineBuiltinMacro(ctx, "__STRICT_ANSI__", constToken(ctx, 1, NULL));
+  }
 
   defineBuiltinMacro(ctx, "_LP64", constToken(ctx, 1, NULL));
   defineBuiltinMacro(ctx, "__LP64__", constToken(ctx, 1, NULL));

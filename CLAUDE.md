@@ -73,7 +73,11 @@ There used to be a second one. `src/main.c` added a default include path `"sdk/i
 
 ## Running the compiler
 
-The CLI intentionally mimics a subset of GCC flags (`-o`, `-c`, `-I`, `-L`, `-l`, `-D`, `-E`, `-S`, `-march`, `-std`, `-O*`, `-W*` are accepted, many as no-ops). EduCC-specific flags (see `src/main.c`):
+The CLI intentionally mimics a subset of GCC flags (`-o`, `-c`, `-I`, `-L`, `-l`, `-D`, `-E`, `-S`, `-march`, `-std`, `-O*`, `-W*` are accepted, many as no-ops).
+
+Three of them reach `ld` rather than being consumed: `-s`, `-Xlinker <arg>` and `-Wl,a,b,c` are collected and passed through by `runLinker`. Four are **refused by name** — `-static`, `-shared`, `-nostdlib`, `-pie` — because each decides which CRT objects and dynamic linker the link needs and `runLinker` spells those out for one layout only; forwarding one would produce a binary that links and does not run, and anything unrecognised is treated as an input file, so the error is the honest answer. `-std` is read for exactly one bit: a strict `-std=c...` (not `gnu...`) predefines `__STRICT_ANSI__`, which is what makes glibc's headers hide `readlink`, `strdup` and `usleep`; the default dialect is gnu99 and does not.
+
+EduCC-specific flags (see `src/main.c`):
 
 - `-legacy` — compile through the old direct-from-AST code generator instead of the AST→IR pipeline (see Architecture). The IR pipeline is the **default** since roadmap step 30; `-legacy` is how the other one is still reachable, and the whole file goes to whichever is chosen. There is no per-function fallback either way, so a construct the IR backend cannot build aborts the compiler rather than being handed to the legacy one.
 - `-experimental` — accepted and does nothing. It used to select the IR pipeline, which is now the default; it is kept because it is in every script, launch configuration and shell history this compiler has.
@@ -127,7 +131,7 @@ Notes on the runner's behavior:
 - `--compiler-flag` (repeatable) prepends a flag to every compiler invocation, which is how one set of fixtures is run against a second configuration rather than being copied. The `codegen_legacy` CTest entry uses it for `-legacy`. It has to be spelled with `=` (`--compiler-flag=-legacy`), since argparse will not take a value beginning with `-` as a separate word.
 - `--baseline-tag <tag>` qualifies an `ir`-mode baseline's name, giving `<name>.<phase>.<tag>.txt`. Use it whenever the same fixtures go through a second configuration whose dump legitimately differs — which today means the `ra` phase, since two register allocators do not produce the same code and are not meant to. `ir_ra_chaitin`, `ir_ra_linear` and `ir_ra_trivial` are the same 57 fixtures against `*.ra.chaitin.txt`, `*.ra.linear.txt` and `*.ra.trivial.txt`. A single shared baseline could only ever record whichever allocator happened to be the default, and a change of default would silently rewrite the file rather than fail.
 - A test can be **muted** by placing a `<name>.muted` file next to its `<name>.c`, with the reason as the file's contents (printed whenever the test runs). This is for known-broken fixtures kept in the repo so a bug stays reproducible: the test still runs and reports, but its failures don't count towards the exit code. If a muted test passes every check, the summary flags it under `MUTED TESTS THAT NOW PASS` so the stale marker gets deleted — loudly, but without failing the run. `--update-baselines` deliberately skips muted tests rather than baking their known-wrong output into a golden file. A `<name>.muted.legacy` / `<name>.muted.ir` sibling mutes in that one configuration only, for a bug that belongs to one backend and not the other (`codegen/bugs/float_to_bool.c`) — without it the fixture is reported as a muted test that now passes on every run of the configuration that gets it right.
-- `crossabi` mode is the odd one out: a fixture there is a **pair**, `<name>.c` and `<name>.partner.c`, compiled with a *different* backend each, linked into one binary and run — then swapped over and run again. The partner half is skipped by the directory walk rather than run as a fixture of its own, and `--compiler-flag` is deliberately ignored in this mode, since it names both backends itself. Every other suite runs one backend at a time, so this is the only place their ABI agreement is tested rather than assumed; it was tested by accident until roadmap step 18 removed the per-function fallback that arranged it.
+- `crossabi` mode is the odd one out: a fixture there is a **pair**, `<name>.c` and `<name>.partner.c`, compiled with a *different* backend each, linked into one binary and run — then swapped over and run again. The partner half is skipped by the directory walk rather than run as a fixture of its own, and `--compiler-flag` is deliberately ignored in this mode, since it names both backends itself. Every other suite runs one backend at a time, so this is the only place their ABI agreement is tested rather than assumed; it was tested by accident until roadmap step 18 removed the per-function fallback that arranged it. Since roadmap step 49 the two backends deliberately **disagree** about one thing — a single-eightbyte all-float aggregate, which the IR backend passes in `xmm0` the way SysV says and the legacy backend passes in the integer file — so `sse_aggregate.c` is a muted crossabi fixture that records exactly that, failing in both directions. Note what this suite cannot say either way: both backends agreeing proves nothing about whether they agree with *the platform*, which is what tinycc's `abitest` is for (see the benchmarks below).
 - A `<name>.ir` or `<name>.legacy` sibling (reason as its contents) marks a fixture that belongs to that backend alone, the other one not being going to be taught to agree — a VLA in a loop, whose storage the legacy backend never gives back (`codegen/experimental/vla_in_loop.c`, whose directory keeps its historical name), or a fixture reading one local through a pointer to the next, which the IR backend is right to disagree with and which gcc fails too (`codegen/my/adjacent_locals.c`). Such a test is **skipped** in every other configuration and listed under `Skipped (belong to the other backend)`; it is not muted, because muting is for a bug someone intends to fix and a muted test is flagged the day it starts passing.
 
 ### Structural checkers (`test/checkers/`)
@@ -204,6 +208,23 @@ Nothing here is wired into `ctest`: it measures wall-clock time, it takes minute
 | instructions | — | 89272 | 53510 | **38913** | — | — |
 
 The linear scan is 3× the trivial allocator and beats the host compiler at `-O0`; the colouring allocator emits a quarter fewer instructions and a quarter less code again. Neither is free, and they cost in the same place: compiling EduCC's own sources, `chaitin` takes 0.49s and `linear` 0.39s against `trivial`'s 0.34s and `-legacy`'s 0.20s, which is the allocator doing work the other two do not. One benchmark (`strings`) is still slower under `chaitin` than under `linear` despite executing fewer instructions — the one known cost of making it the default; `docs/ir-codegen-design.md` §10 has how far that has been chased.
+
+### tinycc (`test/bench/bench_tcc.py`)
+
+The eight programs above were written for this compiler. `bench_tcc.py` asks the same questions of one that was not: it clones [tinycc](https://github.com/TinyCC/tinycc) (`dev`), builds it once per configuration, runs **tinycc's own test suite** against each resulting `tcc`, and then measures that `tcc` compiling tinycc and compiling EduCC.
+
+```sh
+python3 test/bench/bench_tcc.py                  # clone, build, test, bench (~8 min)
+python3 test/bench/bench_tcc.py --no-tests       # skip tinycc's suite
+python3 test/bench/bench_tcc.py --only chaitin   # one configuration
+python3 test/bench/bench_tcc.py --keep           # reuse the checkout and builds
+```
+
+Everything lives under `build-tcc/` (git-ignored) — the checkout included, so nothing is written outside the repo. Not wired into `ctest`: it clones from the network and times things.
+
+Two of its columns are controls rather than measurements. **tinycc compiled by tinycc** separates "EduCC got this wrong" from "this is what building tinycc with a compiler that is not gcc looks like" — `config.h`'s `GCC_MAJOR` is 0 for anything configure does not recognise, and it gates a block of `tcctest.c`'s expected output. And because **tcc is deterministic**, the object files two of these tccs emit for one input have to be byte-identical; a mismatch is a miscompilation and it names the file. That is what found `tccgen.c` — the isel bug in §10 of the design doc — before any test did.
+
+Nothing here is an oracle EduCC's own suite already has: `crossabi` compares EduCC to EduCC, so a classifier both backends share is invisible to it, where tinycc's `abitest` compares EduCC to a third party.
 
 ## Architecture
 

@@ -3,6 +3,7 @@ obj/*
 build/*
 build-asan/
 build-selfhost/
+build-tcc/
 bootstrap/*
 .deps/
 src/generated/*

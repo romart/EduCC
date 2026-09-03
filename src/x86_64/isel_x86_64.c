@@ -1436,11 +1436,15 @@ static void selectX87Conversion(MachineBuilder *b, const IrInstruction *i, uint3
     MachineAddress at = { MAK_FRAME, NO_REG, NO_REG, 0, 0 };
     at.anchor.frameIdx = slot;
 
+    // Selected before the store is built, not while its operand is being set:
+    // selectWidened emits the widening instruction where it is called, and
+    // buildMachineInstr has already appended the store by then.
+    uint32_t src = isFloatIrType(fromType) ? machineBuilderVreg(b, value)
+                                           : selectWidened(b, value, srcSize);
+
     MachineInstr *store = buildMachineInstr(b, X86_STORE, 0, 2);
     setMemoryOperand(store, 0, &at);
-    setRegisterOperand(store, 1, isFloatIrType(fromType)
-                                     ? machineBuilderVreg(b, value)
-                                     : selectWidened(b, value, srcSize));
+    setRegisterOperand(store, 1, src);
     store->opSize = srcSize;
 
     x87Mem(b, isFloatIrType(fromType) ? X86_FLD : X86_FILD, &at, srcSize);
@@ -1832,9 +1836,14 @@ static void selectRegisterReturnedStruct(MachineBuilder *b, const IrInstruction 
   mf->frame.size = (uint32_t)ALIGN_SIZE(
       placeMachineFrameObject(mf, (int32_t)mf->frame.size, frameIdx), 2 * sizeof(intptr_t));
 
+  // Which register the eightbyte came back in: xmm0 when its class is SSE,
+  // rax otherwise. The call's astType is the return type, which is what
+  // ast2ir asked the same question of when it built the callee's side.
+  Boolean sse = i->astType != NULL && isCompositeInSSERegister(i->astType);
+
   MachineInstr *store = buildMachineInstr(b, X86_STORE, 0, 2);
   setFrameAddressOperand(store, 0, frameIdx);
-  setRegisterOperand(store, 1, mf->target->intRetReg);
+  setRegisterOperand(store, 1, sse ? mf->target->fpRetReg : mf->target->intRetReg);
   store->opSize = sizeof(intptr_t);
 
   MachineInstr *addr = buildMachineInstr(b, X86_LEA, 1, 1);
@@ -1992,7 +2001,13 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   uint16_t op = 0;
 
   if (hasResult) {
-    setRegisterOperand(call, op, isFloatIrType(i->type) ? target->fpRetReg : target->intRetReg);
+    // A small composite is IR_P_AGG whichever file it comes back in, so the
+    // return type has the answer where the IR type does not - the same test
+    // selectRegisterReturnedStruct makes when it reads the value out.
+    Boolean inFpReg = isFloatIrType(i->type) ||
+                      (i->type == IR_P_AGG && i->info.call.returnBuffer == NULL &&
+                       i->astType != NULL && isCompositeInSSERegister(i->astType));
+    setRegisterOperand(call, op, inFpReg ? target->fpRetReg : target->intRetReg);
     machineOperandAt(call, op)->flags.isImplicit = 1;
     op += 1;
   }

@@ -697,10 +697,18 @@ static IrInstruction *translateCall(AstExpression *expr) {
 
         setCallMemoryArg(callInstr, callInstr->inputs.size);
       } else {
+        // The eightbyte itself. Loaded as a float when its class is SSE, which
+        // is what sends it to an xmm argument register - the same spelling the
+        // callee's prologue reads it back with, see initializeParamterLocal.
+        enum IrTypeKind eightbyte = IR_P_AGG;
+        if (isCompositeInSSERegister(argType)) {
+          eightbyte = computeTypeSize(argType) > 4 ? IR_F64 : IR_F32;
+        }
+
         IrInstruction *offset = createIntegerConstant(IR_I64, 0);
         IrInstruction *gep = newGEPInstruction(argOp, offset, argType);
         addInstruction(gep);
-        realArgOp = addLoadInstr(IR_P_AGG, gep, expr);
+        realArgOp = addLoadInstr(eightbyte, gep, expr);
         gep->meta.astExpr = realArgOp->meta.astExpr = argExpr;
       }
     } else {
@@ -2934,6 +2942,11 @@ static void generateExitBlock(IrFunction *func, TypeRef *returnType) {
       valueType = IR_PTR;
     } else if (!isCompositeType(returnType)) {
       valueType = typeRefToIrType(returnType);
+    } else if (isCompositeInSSERegister(returnType)) {
+      // The eightbyte comes back in xmm0 rather than rax, so it is read as a
+      // float of the aggregate's width; selectReturn picks the register file
+      // off this type.
+      valueType = computeTypeSize(returnType) > 4 ? IR_F64 : IR_F32;
     }
 
     IrInstruction *retValue = addLoadInstr(valueType, func->retOperand, NULL);
@@ -2966,7 +2979,17 @@ static void initializeParamterLocal(IrBasicBlock *entryBB,
         makePointedType(ctx->pctx, astType->flags.storage, astType);
     lvi->stackSlot = stackSlot;
 
-    IrInstruction *regInstr = newPhysRegister(type, paramInfo->loc.physReg);
+    // A composite whose eightbyte is class SSE arrives in an xmm register, so
+    // the value the slot is filled from is a float of the aggregate's width -
+    // that is what puts the physical register in the right file and makes the
+    // store a movss/movsd rather than a mov. The slot itself stays what its
+    // type says; only the eightbyte in flight is spelled this way.
+    enum IrTypeKind regType = type;
+    if (isCompositeInSSERegister(astType)) {
+      regType = computeTypeSize(astType) > 4 ? IR_F64 : IR_F32;
+    }
+
+    IrInstruction *regInstr = newPhysRegister(regType, paramInfo->loc.physReg);
     addInstruction(regInstr);
 
     addStoreInstr(stackSlot, regInstr, NULL);

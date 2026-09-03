@@ -1,0 +1,9 @@
+The two backends disagree about SysV's SSE class on purpose. The IR backend
+passes and returns a single-eightbyte all-float aggregate in xmm0, which is what
+the ABI says and what gcc and tcc do; the legacy backend passes every composite
+in the integer file, down an address-based path that never reaches a register
+class, and is not going to be taught otherwise. Each is right linked against
+itself, so the disagreement is only visible here.
+
+Delete this file if the legacy side ever learns the rule - the runner flags a
+muted test that starts passing.

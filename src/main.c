@@ -10,10 +10,6 @@
 #include "parser.h"
 #include "utils.h"
 
-extern char *strdup(const char *s);
-extern char *mkdtemp (char *__template);
-extern long readlink(const char *path, char *buffer, unsigned long size);
-
 static IncludePath *allocIncludePath(const char *path, IncludePath *next) {
   IncludePath *ip = heapAllocate(sizeof(IncludePath));
   ip->path = path;
@@ -151,7 +147,7 @@ static void gccLibPath(char *buffer) {
    unreachable("No gcc library path found");
 }
 
-static void runLinker(const char *outputFile, StringList *compiledObjs, StringList *cliObjs, StringList *libs, StringList *libDirs) {
+static void runLinker(const char *outputFile, StringList *compiledObjs, StringList *cliObjs, StringList *libs, StringList *libDirs, StringList *ldArgs) {
   unsigned argc = 1;
 
   // -o <output>
@@ -191,6 +187,10 @@ static void runLinker(const char *outputFile, StringList *compiledObjs, StringLi
   argc += sizeof stdLibPaths / sizeof stdLibPaths[0];
 
   for (n = libDirs; n; n = n->next) {
+      ++argc;
+  }
+
+  for (n = ldArgs; n; n = n->next) {
       ++argc;
   }
 
@@ -253,6 +253,10 @@ static void runLinker(const char *outputFile, StringList *compiledObjs, StringLi
       char *arg = heapAllocate(len);
       sprintf(arg, "-L%s", n->s);
       argv[i++] = arg;
+  }
+
+  for (n = ldArgs; n; n = n->next) {
+      argv[i++] = strdup(n->s);
   }
 
   for (n = compiledObjs; n; n = n->next) {
@@ -396,6 +400,7 @@ int main(int argc, char** argv) {
   StringList mhead = { 0 }, *mcur = &mhead;
   StringList lhead = { 0 }, *lcur = &lhead;
   StringList lDirHead = { 0 }, *lDirCur = &lDirHead;
+  StringList ldHead = { 0 }, *ldCur = &ldHead;
 
   unsigned inputCountC = 0;
   unsigned inputCountO = 0;
@@ -507,8 +512,43 @@ int main(int argc, char** argv) {
     } else if (strcmp("-w", arg) == 0) {
         // ignore
         continue;
+    } else if (strcmp("-s", arg) == 0) {
+        // Strip. Nothing here has to understand it - it is ld's flag and ld is
+        // what runs it. The same goes for anything behind '-Wl,' or '-Xlinker'.
+        ldCur = ldCur->next = newStringNode(arg);
+    } else if (strcmp("-Xlinker", arg) == 0) {
+        if (i + 1 >= argc) {
+            fprintf(stderr, "error: missing argument to ‘-Xlinker’\n");
+            return 2;
+        }
+        ldCur = ldCur->next = newStringNode(argv[++i]);
+    } else if (strncmp("-Wl,", arg, 4) == 0) {
+        // One ld argument per comma, gcc's spelling. strdup'd because the
+        // separators are overwritten in place to terminate each piece.
+        char *rest = strdup(&arg[4]);
+        while (rest && *rest) {
+            char *comma = strchr(rest, ',');
+            if (comma) *comma = '\0';
+            if (*rest) {
+                ldCur = ldCur->next = newStringNode(rest);
+            }
+            rest = comma ? comma + 1 : NULL;
+        }
+    } else if (strcmp("-static", arg) == 0 || strcmp("-shared", arg) == 0 ||
+               strcmp("-nostdlib", arg) == 0 || strcmp("-pie", arg) == 0) {
+        // Refused rather than ignored or passed on: each of these decides
+        // which CRT objects and dynamic linker the link needs, and runLinker
+        // spells those out for one layout only. Passing it to ld would produce
+        // a binary that links and does not run.
+        fprintf(stderr, "error: ‘%s’ is not supported\n", arg);
+        return 2;
     } else if (strncmp("-std", arg, 4) == 0) {
-        // we only support strict ansi c for now
+        // The dialect itself is not implemented - what is read here is whether
+        // the name asks for strict ISO C, since '-std=c99' and '-std=gnu99'
+        // differ to glibc's headers even where they do not differ to the
+        // parser. Anything but a 'c' after '=' (gnu99, iso9899:1999) is not
+        // strict; so is a bare '-std' with no value.
+        config.strictAnsi = arg[4] == '=' && arg[5] == 'c';
         continue;
     } else if (strncmp("-O", arg, 2) == 0) {
         // optimization? lol
@@ -624,7 +664,7 @@ int main(int argc, char** argv) {
   // A file that did not compile left no object behind, so linking would only
   // report the same input missing a second time and in ld's words.
   if (!config.hadError && !config.objOutput && !config.ppOutput) {
-    runLinker(config.outputFile ? config.outputFile : "a.out", compiledObjFiles, ohead.next, lhead.next, lDirHead.next);
+    runLinker(config.outputFile ? config.outputFile : "a.out", compiledObjFiles, ohead.next, lhead.next, lDirHead.next, ldHead.next);
   }
 
   if (tmpDir) {

@@ -90,6 +90,12 @@ typedef struct _Configuration {
   // is what makes each of them the others' oracle - see include/ir/regalloc.h.
   enum RegAllocKind regAlloc;
 
+  // A strict '-std=c...' rather than the gnu99 default. All it decides today is
+  // whether __STRICT_ANSI__ is defined, which is not cosmetic: glibc's
+  // features.h reads it as "hide everything that is not ISO C", so with it on,
+  // <unistd.h> declares no readlink and <string.h> no strdup.
+  unsigned strictAnsi : 1;
+
   unsigned hadError : 1;
 } Configuration;
 

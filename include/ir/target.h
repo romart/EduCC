@@ -201,6 +201,14 @@ void classifyParametersGeneric(const TargetDescriptor *target,
 // and the two have to move together.
 Boolean returnsThroughHiddenPointer(const TypeRef *returnType);
 
+// Whether a composite that fits in one register travels in the SSE file rather
+// than the integer one - SysV's SSE class, for the single-eightbyte case. The
+// caller decides that it fits; this decides which file.
+//
+// Read by the IR backend only. See the definition for why the legacy backend
+// does not, and what that costs.
+Boolean isCompositeInSSERegister(const TypeRef *type);
+
 const char *physRegName(const TargetDescriptor *target, uint32_t reg);
 
 // The mnemonic for one of this target's machine opcodes, or NULL if the target
