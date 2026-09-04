@@ -252,6 +252,22 @@ if(BUILD_TESTING)
   educc_add_test(ir_ra_trivial ir/pipeline ir 60 ra
                  --compiler-flag=-Xregalloc=trivial --baseline-tag trivial)
 
+  # Unit tests for the linker's ELF reader. Every input is synthesized byte by
+  # byte inside the test rather than checked in or taken from the host: a
+  # golden dump of the distro's crt1.o would pin the distro and not the reader,
+  # which is the mistake test/testData/pp/stdlib/emptyDef.c had to be rescued
+  # from. Synthesizing is also the only way to reach a COMMON symbol, a
+  # /SYM64/ armap, and every malformed input - which has to produce a
+  # diagnostic rather than a signal. A second half cross-checks the reader
+  # against nm and ar over whatever real objects the machine has, and says so
+  # when they are absent instead of failing.
+  add_test(NAME link_reader
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/test/link/reader_test.py"
+            "$<TARGET_FILE:main>"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+  set_tests_properties(link_reader PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 2)
+
   # The structural checkers (test/checkers/, docs/ir-codegen-design.md section
   # 9). A golden baseline says the output has not changed; these say it is
   # right, which is a different question and the only one that catches a bug
