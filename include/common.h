@@ -31,7 +31,7 @@ typedef enum _Boolean {
 #define max(a, b) (((a) < (b)) ? (b) : (a))
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 
-void unreachable(const char *msg);
-void unimplemented(const char *msg);
+void unreachable(const char *fmt, ...);
+void unimplemented(const char *fmt, ...);
 
 #endif // __COMMON_H__

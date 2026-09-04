@@ -548,13 +548,23 @@ void putSymbol(StringBuffer *b, char c) {
   b->ptr[b->idx++] = c;
 }
 
-void unreachable(const char *msg) {
-  fprintf(stderr, "Unreachable execution: %s\n", msg);
+void unreachable(const char *fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  fprintf(stderr, "Unreachable execution: ");
+  vfprintf(stderr, fmt, args);
+  fputc('\n', stderr);
+  va_end(args);
   abort();
 }
 
-void unimplemented(const char *msg) {
-  fprintf(stderr, "Unimplemented: %s\n", msg);
+void unimplemented(const char *fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  fprintf(stderr, "Unimplemented: ");
+  vfprintf(stderr, fmt, args);
+  fputc('\n', stderr);
+  va_end(args);
   abort();
 }
 
