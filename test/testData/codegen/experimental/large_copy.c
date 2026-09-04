@@ -7,14 +7,14 @@
 // it fixes - rdi, rsi and rcx - taken away from something that was still using
 // them.
 //
-// The sizes are chosen around the limit rather than at random. 128 bytes is
-// the largest copy still unrolled, 136 the smallest that is not, and 129 is a
-// count no chunk width divides, so the two forms have to agree about a tail
-// that the unrolled one would copy in four different widths.
+// The sizes are chosen around the limit rather than at random. 256 bytes is
+// the largest copy still unrolled and 257 the smallest that is not, which is
+// also a count no chunk width divides, so the two forms have to agree about a
+// tail that the unrolled one would copy in four different widths.
 
-struct Under { char b[128]; };
-struct Odd { char b[129]; };
-struct Over { int a[64]; };
+struct Under { char b[256]; };
+struct Odd { char b[257]; };
+struct Over { int a[128]; };
 
 static struct Over global;
 
@@ -22,7 +22,7 @@ static int sumOver(const struct Over *p) {
   int total = 0;
   int i;
 
-  for (i = 0; i < 64; ++i) {
+  for (i = 0; i < 128; ++i) {
     total += p->a[i];
   }
 
@@ -32,13 +32,13 @@ static int sumOver(const struct Over *p) {
 static void fillOver(struct Over *p, int base) {
   int i;
 
-  for (i = 0; i < 64; ++i) {
+  for (i = 0; i < 128; ++i) {
     p->a[i] = base + i;
   }
 }
 
 // Local to local, local to global, and back out of the global: three copies of
-// the same 256 bytes, none of which the address of the other tells you.
+// the same 512 bytes, none of which the address of the other tells you.
 static int throughGlobal(int base) {
   struct Over a;
   struct Over b;
@@ -60,20 +60,20 @@ static int bothForms(int seed) {
   int i;
   int total = 0;
 
-  for (i = 0; i < 128; ++i) {
+  for (i = 0; i < 256; ++i) {
     u.b[i] = (char)(seed + i);
   }
-  for (i = 0; i < 129; ++i) {
+  for (i = 0; i < 257; ++i) {
     o.b[i] = (char)(seed - i);
   }
 
   u2 = u;
   o2 = o;
 
-  for (i = 0; i < 128; ++i) {
+  for (i = 0; i < 256; ++i) {
     total += u2.b[i];
   }
-  for (i = 0; i < 129; ++i) {
+  for (i = 0; i < 257; ++i) {
     total += o2.b[i];
   }
 
@@ -94,7 +94,7 @@ static int liveAcross(int a, int b, int c, int d, int e) {
   fillOver(&big, a);
   copy = big;
 
-  return copy.a[0] + copy.a[63] + f + g + h;
+  return copy.a[0] + copy.a[127] + f + g + h;
 }
 
 // A copy of an element of an array of structs, so the addresses the string
@@ -140,7 +140,7 @@ static struct Over doubled(struct Over in) {
   struct Over out;
   int i;
 
-  for (i = 0; i < 64; ++i) {
+  for (i = 0; i < 128; ++i) {
     out.a[i] = in.a[i] * 2;
   }
 
@@ -151,16 +151,17 @@ int main(void) {
   struct Over in;
   struct Over out;
 
-  // 0..63 summed is 2016.
-  if (throughGlobal(0) != 2016) return 1;
-  if (throughGlobal(1) != 2080) return 2;
+  // 0..127 summed is 8128.
+  if (throughGlobal(0) != 8128) return 1;
+  if (throughGlobal(1) != 8256) return 2;
 
-  // 128 bytes of seed+i against 129 of seed-i, both as signed chars: the two
-  // runs very nearly cancel, so a byte copied wrongly is a visible difference.
-  if (bothForms(0) != -128) return 3;
-  if (bothForms(1) != -127) return 4;
+  // 256 bytes of seed+i against 257 of seed-i, both as signed chars: a whole
+  // byte cycle sums to -128 whatever the seed, so the pair very nearly cancels
+  // and a byte copied wrongly is a visible difference.
+  if (bothForms(0) != -256) return 3;
+  if (bothForms(1) != -255) return 4;
 
-  if (liveAcross(1, 2, 3, 4, 5) != 1 + 64 + 3 + 7 + 6) return 5;
+  if (liveAcross(1, 2, 3, 4, 5) != 1 + 128 + 3 + 7 + 6) return 5;
 
   if (indexed(0) != 1) return 6;
   if (indexed(2) != 401) return 7;
@@ -174,10 +175,10 @@ int main(void) {
   fillOver(&in, 10);
   out = doubled(in);
   if (out.a[0] != 20) return 11;
-  if (out.a[63] != 146) return 12;
+  if (out.a[127] != 274) return 12;
 
   // The source unchanged: a by-value argument is the callee's own copy.
-  if (in.a[63] != 73) return 13;
+  if (in.a[127] != 137) return 13;
 
   return 0;
 }

@@ -457,15 +457,21 @@ static Boolean hasConstantCount(const IrInstruction *i) {
 // Past this many bytes a copy is emitted as a string move rather than unrolled
 // into load/store pairs. The number is a *cost* boundary and not a capability
 // one: both forms copy any size, and section 6.16 removed the refusal that
-// used to sit at this same 128 because it had been written down as if it were
-// the second kind.
+// used to sit at 128 because it had been written down as if it were the second
+// kind.
 //
 // Under it, the pairs win: they are two instructions per eight bytes against
 // the tens of cycles a 'rep' takes to start, and the widths taper so the tail
 // costs nothing. Over it the unrolling is what costs - a 4KB struct assignment
 // is a thousand load/store pairs of straight-line code - and the string move
 // is four instructions whatever the size.
-#define X86_UNROLLED_COPY_LIMIT 128
+//
+// It sat at 128 until it was measured (test/bench/programs/blockcopy.c, and
+// section 10). On a Zen 3 the pairs are still 3.7x faster at 136 bytes, 1.6x
+// at 256 and 1.27x at 384, the two forms meeting near 500. It is not put there
+// because the unrolled code costs about 1.7 bytes per byte copied: a 256-byte
+// copy site is ~440 bytes of text, and a 512-byte one ~870 for no time saved.
+#define X86_UNROLLED_COPY_LIMIT 256
 
 // 'copy n bytes from src to dst', as a run of load/store pairs at increasing
 // displacements, largest chunk first.
