@@ -89,11 +89,22 @@ class Elf:
     def addSymbol(self, name, bind, type, shndx, value=0, size=0):
         self.symbols.append((name, bind, type, shndx, value, size))
 
-    def _buildSymtab(self, strtab):
+    def _ordered(self):
         # Locals first, which is the ordering .symtab requires and what sh_info
         # is the boundary of.
-        ordered = ([s for s in self.symbols if s[1] == STB_LOCAL] +
-                   [s for s in self.symbols if s[1] != STB_LOCAL])
+        return ([s for s in self.symbols if s[1] == STB_LOCAL] +
+                [s for s in self.symbols if s[1] != STB_LOCAL])
+
+    def symbolIndex(self, name):
+        """What a relocation has to put in r_info, which is a position in the
+        table rather than anything the caller chose."""
+        for index, symbol in enumerate(self._ordered()):
+            if symbol[0] == name:
+                return index + 1  # the null symbol is 0
+        raise KeyError(name)
+
+    def _buildSymtab(self, strtab):
+        ordered = self._ordered()
         firstGlobal = sum(1 for s in ordered if s[1] == STB_LOCAL) + 1
 
         blob = struct.pack("<IBBHQQ", 0, 0, 0, SHN_UNDEF, 0, 0)

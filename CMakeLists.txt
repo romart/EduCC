@@ -269,6 +269,20 @@ if(BUILD_TESTING)
   )
   set_tests_properties(link_reader PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 2)
 
+  # Unit tests for the static linker. Same synthesized inputs, machine code
+  # included, and every fixture is linked and then *run*: what is asserted is
+  # the exit code of a program this linker produced, so a relocation that lands
+  # four bytes off is a wrong answer rather than a diff. One half compiles a
+  # real file with EduCC, which is the only part that sees the relocations the
+  # compiler actually emits; another asserts the shape of the output, and is
+  # what test/checkers/link.py will grow out of.
+  add_test(NAME link_static
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/test/link/linker_test.py"
+            "$<TARGET_FILE:main>"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+  set_tests_properties(link_static PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 2)
+
   # The structural checkers (test/checkers/, docs/ir-codegen-design.md section
   # 9). A golden baseline says the output has not changed; these say it is
   # right, which is a different question and the only one that catches a bug
