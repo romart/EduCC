@@ -10,6 +10,7 @@
 #include "parser.h"
 #include "utils.h"
 #include "link/elfread.h"
+#include "link/link.h"
 
 static IncludePath *allocIncludePath(const char *path, IncludePath *next) {
   IncludePath *ip = heapAllocate(sizeof(IncludePath));
@@ -393,6 +394,13 @@ int main(int argc, char** argv) {
   // any shape - a '.so' is not something the driver otherwise accepts.
   if (strcmp(argv[1], "-Xlink-read") == 0) {
       return dumpLinkInputs(argc - 2, argv + 2);
+  }
+
+  // '-Xlink-static [-o out] [-e entry] <object>...': link without ld. Static
+  // and freestanding so far, which is why it is a mode of its own rather than
+  // something the driver reaches on its way to runLinker().
+  if (strcmp(argv[1], "-Xlink-static") == 0) {
+      return linkStaticCommand(argc - 2, argv + 2);
   }
 
   argc--; argv++;
