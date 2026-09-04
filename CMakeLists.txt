@@ -78,6 +78,7 @@ set(SOURCES
   src/ir/codegen/regalloc_linear.c
   src/ir/codegen/regalloc_colour.c
   src/x86_64/emit_x86_64.c
+  src/link/elfread.c
 )
 
 add_executable(main ${SOURCES})

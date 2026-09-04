@@ -9,6 +9,7 @@
 
 #include "parser.h"
 #include "utils.h"
+#include "link/elfread.h"
 
 static IncludePath *allocIncludePath(const char *path, IncludePath *next) {
   IncludePath *ip = heapAllocate(sizeof(IncludePath));
@@ -386,6 +387,14 @@ static unsigned parseIrDumpPhases(const char *spec) {
 
 int main(int argc, char** argv) {
   if (argc < 2) return -1;
+
+  // Reads its remaining arguments as link inputs and prints what the reader
+  // made of each. Before the flag parser, because those arguments are paths of
+  // any shape - a '.so' is not something the driver otherwise accepts.
+  if (strcmp(argv[1], "-Xlink-read") == 0) {
+      return dumpLinkInputs(argc - 2, argv + 2);
+  }
+
   argc--; argv++;
   unsigned i;
   Configuration config = { 0 };
