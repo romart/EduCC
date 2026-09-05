@@ -614,16 +614,29 @@ static Symbol *extractSymbol(AstExpression *expr) {
   }
 }
 
+// Whether the object itself may be written, which is a question about the type
+// and not about the 'const' in the declaration: in 'static const char *p' the
+// const belongs to what p points at, and p is assignable. Reading the
+// specifier flag put it in .rodata and made the first assignment a fault.
+static Boolean isReadOnlyObject(const TypeRef *type) {
+  while (type->kind == TR_ARRAY) {
+    type = type->arrayTypeDesc.elementType;
+  }
+
+  return type->flags.bits.isConst;
+}
+
 static GeneratedVariable *generateVaribale_x86_64(GenerationContext *ctx, AstValueDeclaration *d) {
   if (d->flags.bits.isExternal) return NULL; // no declaration is needed
 
   Section *section = NULL;
+  Boolean readOnly = isReadOnlyObject(d->type);
 
   if (d->initializer) {
       if (hasRelocationsInit(d->initializer)) {
-          section = d->flags.bits.isConst ? ctx->rodataLocal : ctx->dataLocal;
+          section = readOnly ? ctx->rodataLocal : ctx->dataLocal;
       } else {
-          section = d->flags.bits.isConst ? ctx->rodata : ctx->data;
+          section = readOnly ? ctx->rodata : ctx->data;
       }
   } else {
       section = ctx->bss;
