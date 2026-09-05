@@ -1434,10 +1434,20 @@ static IrInstruction *translateUnary(AstExpression *expr) {
     result = arg;
     break;
   case EU_MINUS: {
-    IrInstruction *zeroConst = isFloat ? createFloatConstant(irType, 0.0)
-                                       : createIntegerConstant(irType, 0);
-    enum IrIntructionKind op = isFloat ? IR_E_FSUB : IR_E_SUB;
-    result = newInstruction(op, irType);
+    // '0.0 - x' is not negation: it answers +0.0 for x = +0.0, where negation
+    // owes -0.0. Multiplying by -1.0 flips the sign bit and is exact for every
+    // finite value, both zeroes and both infinities.
+    if (isFloat) {
+      IrInstruction *minusOne = createFloatConstant(irType, -1.0);
+      result = newInstruction(IR_E_FMUL, irType);
+      addInstructionInput(result, arg);
+      addInstructionInput(result, minusOne);
+      addInstruction(result);
+      break;
+    }
+
+    IrInstruction *zeroConst = createIntegerConstant(irType, 0);
+    result = newInstruction(IR_E_SUB, irType);
     addInstructionInput(result, zeroConst);
     addInstructionInput(result, arg);
     addInstruction(result);
