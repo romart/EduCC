@@ -340,6 +340,12 @@ def testStructure(link, suite, output):
 
     suite.equal(exe.tag(DT_STRSZ), exe.section(".dynstr")["size"],
                 "DT_STRSZ is the size of .dynstr")
+
+    # '-lc' is named twice on every link, so one soname reaching DT_NEEDED
+    # twice is a library loaded twice rather than a harmless repetition.
+    needed = [exe.string(o) for o in exe.tags(DT_NEEDED)]
+    suite.equal(sorted(needed), sorted(set(needed)),
+                "no library is recorded as needed twice: %s" % needed)
     suite.equal(exe.tag(DT_SYMENT), 24, "DT_SYMENT is the size of an entry")
     suite.check(exe.tag(DT_DEBUG) is not None,
                 "DT_DEBUG is there for the loader to fill in")
@@ -915,6 +921,43 @@ def testDefaultVersionWins(link, suite):
                     "the copy is sized from the default version, not the old one")
 
 
+def testAsNeeded(compiler, tmp, suite, directory):
+    """A library named on the command line and never referenced. ld records it
+    all the same - '--no-as-needed' is its default - and so must this: what a
+    program looks up out of one at run time is invisible to the link, which is
+    how tcc's '-run' finds 'sin' after nothing in tcc itself called it.
+
+    ld is the oracle on both settings rather than only the first, since the
+    interesting claim is that the two linkers make the same choice."""
+    source = os.path.join(tmp, "unused.c")
+    with open(source, "w") as f:
+        f.write("int main(void) { return 0; }\n")
+
+    for flags, wanted in (([], True), (["-Wl,--as-needed"], False)):
+        for how in ("-fuse-ld=internal", "-fuse-ld=external"):
+            if how.endswith("external") and not shutil.which("ld"):
+                continue
+            label = "%s%s" % (how.split("=")[1],
+                              " --as-needed" if flags else "")
+            program = os.path.join(tmp, "unused-" + label.replace(" ", ""))
+            linked = subprocess.run([compiler, "-oneline", how, "-o", program,
+                                     source, "-L" + directory, "-lroundtrip",
+                                     "-Wl,-rpath," + directory] + flags,
+                                    capture_output=True, text=True)
+            if linked.returncode != 0:
+                suite.check(False, "%s: the link failed: %s"
+                            % (label, linked.stderr.strip()))
+                continue
+
+            needed = [Dynamic(program).string(o)
+                      for o in Dynamic(program).tags(DT_NEEDED)]
+            suite.equal("libroundtrip.so" in needed, wanted,
+                        "%s: an unused library is%s recorded as needed: %s"
+                        % (label, "" if wanted else " not", needed))
+            suite.check("libc.so.6" in needed,
+                        "%s: libc is needed either way" % label)
+
+
 def testRefused(compiler, tmp, suite):
     """A flag the in-house linker cannot honour is named, not ignored: a
     silently dropped '-Wl,' is a link that succeeds and does the wrong thing."""
@@ -975,6 +1018,7 @@ def main():
                      for how in ("-fuse-ld=internal", "-fuse-ld=external")
                      if how == "-fuse-ld=internal" or shutil.which("ld")]
         library = testSharedObject(compiler, tmp, suite)
+        testAsNeeded(compiler, tmp, suite, os.path.join(tmp, "lib-internal"))
         testRefused(compiler, tmp, suite)
 
         outputs = [o for o in [called, compiled] + consumers if o is not None]
