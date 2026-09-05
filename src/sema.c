@@ -1186,6 +1186,10 @@ Boolean checkTypeIsCastable(ParserContext *ctx, Coordinates *coords, TypeRef *to
   if (isErrorType(from)) return TRUE;
   if (isErrorType(to)) return TRUE;
 
+  // 6.5.4p2 exempts a cast to void from the scalar-operand rule: '(void)x'
+  // discards x whatever it is, which is how a struct parameter is marked used.
+  if (isVoidType(to)) return TRUE;
+
   if (to->kind == TR_ARRAY) {
       if (report) {
         reportDiagnostic(ctx, DIAG_NON_CASTABLE_TYPE, coords, to);
