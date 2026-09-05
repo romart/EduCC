@@ -2,14 +2,15 @@
 
 [![CI](https://github.com/romart/EduCC/actions/workflows/ci.yml/badge.svg)](https://github.com/romart/EduCC/actions/workflows/ci.yml)
 
-An educational, from-scratch C compiler targeting `x86_64` and (in progress) `riscv64`. It has its own preprocessor, lexer, parser, semantic analysis, and native code generator, and drives the system linker (`ld`) directly to produce ELF executables — no LLVM/GCC backend. It can compile itself (see [Bootstrapping](#bootstrapping)).
+An educational, from-scratch C compiler targeting `x86_64` and (in progress) `riscv64`. It has its own preprocessor, lexer, parser, semantic analysis, native code generator and — since it stopped shelling out to `ld` — its own linker, so an ELF executable comes out of this process and nothing else. No LLVM/GCC backend, no assembler, no `ld`. It can compile *and link* itself (see [Bootstrapping](#bootstrapping)).
 
 ## Requirements
 
 - CMake >= 3.16
 - A host C compiler (gcc or clang)
 - Python 3 (for the test runner and the structural checkers under `test/checkers/`)
-- `ld` and a glibc/gcc toolchain on `PATH` (for linking compiled programs)
+- A glibc/gcc toolchain, for the CRT objects (`crt1.o`, `crtbegin.o`) and the libc every linked program is linked against
+- binutils, optionally: two of the structural checkers use `ld` and `objdump` as oracles and skip without them
 - Network access on the first `cmake` configure, which fetches [Zydis](https://github.com/zyantific/zydis) (used to disassemble `-S` output) into `.deps/`
 
 ## Build
@@ -64,6 +65,14 @@ ln -sf build/compile_commands.json compile_commands.json
 ```
 
 clangd (and most editor integrations) will pick up `compile_commands.json` from the project root automatically. Regenerate it whenever `CMakeLists.txt` or the source file list changes — re-running the `cmake -B build` command above is enough, no need to redo the symlink.
+
+## Linking
+
+There is no external linker. `src/link/` reads the objects, the archives, the shared objects and the GNU `ld` scripts a link names, resolves every symbol, lays the output out in `PT_LOAD` segments and writes the file — a dynamic non-PIE executable against the distribution's own libc, or a shared object under `-shared`. An object this run compiled never reaches the filesystem: the bytes go straight from the code generator to the linker.
+
+That means `-Wl,` and `-Xlinker` arguments are read here rather than forwarded, and a flag this linker cannot honour is refused by name instead of dropped. `-static`, `-nostdlib`, `-pie` and `-fuse-ld=` are refused for the same reason: each one asks for a layout or a linker that does not exist here, and a binary that links and does not run is the worse answer.
+
+Three modes drive it directly, without the CRT objects a compile puts around a link: `-Xlink-read` prints what the reader made of each input, and `-Xlink-static`/`-Xlink-dynamic` link exactly what they are named. `docs/ir-codegen-design.md` §12 is the design document; `test/link/` holds the three unit suites and the mutation sweep that says whether they would go red.
 
 ## Tests
 
@@ -200,7 +209,7 @@ The tcc EduCC's colouring allocator builds is 15% smaller than the one the host 
 
 Every IR configuration now passes the whole suite, the same as gcc and as tcc itself. `-legacy` fails two, and both stay failing on purpose: `abitest`, because the IR backend implements SysV's eightbyte classification for aggregates and the legacy backend passes every composite wider than a word on the stack — a disagreement recorded in `crossabi/aggregates.muted` rather than a bug to be fixed — and `dlltest`, because `-fPIC` needs a register to hold a GOT load and the legacy backend builds a global's address at the use site, where there is none to spare. It refuses the flag rather than quietly emitting an object that links into a shared library and crashes.
 
-Five sections were failing when this harness was first written and all five are fixed: an x87 conversion that stored its operand before defining it, the aggregate classifier above, a file-scope object declared in a header and defined in a `.c` file getting two addresses (which only a single-translation-unit build can expose), `-fPIC` itself, and a poison value EduCC left in the fields its relocations cover. ELF says a RELA field is unused and GNU `ld` agrees; tinycc's linker adds it to what it computes, so every relocated address in an EduCC object linked by tcc came out off by `0x7EADBEFF`. `dlltest` is the only place anything but `ld` links what EduCC emits.
+Five sections were failing when this harness was first written and all five are fixed: an x87 conversion that stored its operand before defining it, the aggregate classifier above, a file-scope object declared in a header and defined in a `.c` file getting two addresses (which only a single-translation-unit build can expose), `-fPIC` itself, and a poison value EduCC left in the fields its relocations cover. ELF says a RELA field is unused and GNU `ld` agrees; tinycc's linker adds it to what it computes, so every relocated address in an EduCC object linked by tcc came out off by `0x7EADBEFF`. `dlltest` is the only place anything but EduCC's own linker links what EduCC emits.
 
 ## Bootstrapping
 
