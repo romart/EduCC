@@ -69,8 +69,19 @@ def elfHash(name):
     return h
 
 
+# Where a library is on this machine. The driver has this list built in, but
+# '-Xlink-dynamic' searches only what it is given, so a hardcoded '/usr/lib'
+# here is a suite that finds libc on one distribution and not the next.
+LIBRARY_DIRECTORIES = ("/usr/lib/x86_64-linux-gnu", "/usr/lib64", "/lib64",
+                       "/usr/lib", "/lib")
+
+
+def libraryPath():
+    return ["-L" + d for d in LIBRARY_DIRECTORIES if os.path.isdir(d)]
+
+
 def crtDirectory():
-    for candidate in ("/usr/lib/x86_64-linux-gnu", "/usr/lib64", "/usr/lib"):
+    for candidate in LIBRARY_DIRECTORIES:
         if os.path.exists(os.path.join(candidate, "crt1.o")):
             return candidate
     return None
@@ -226,7 +237,7 @@ def testCallThroughPlt(link, suite):
 
     a = link.object(elf, "callsAbs.o")
     output = link.expectRuns([a, "-lc"], 5, "a call into libc runs",
-                             extra=["-L/usr/lib", "-L/usr/lib64"])
+                             extra=libraryPath())
     if output is None:
         return None
 
@@ -265,7 +276,7 @@ def testCopyRelocation(link, suite):
     # The copy holds what the library's own initializer put there, so a
     # non-NULL FILE* is proof ld.so wrote it rather than proof it was zeroed.
     output = link.expectRuns([a, "-lc"], 1, "a copied FILE* arrives non-NULL",
-                             extra=["-L/usr/lib", "-L/usr/lib64"])
+                             extra=libraryPath())
     if output is None:
         return
 
@@ -808,7 +819,7 @@ def testArchiveBehindALibrary(link, suite):
     caller = link.object(elf, "callsAbsAgain.o")
     output = link.expectRuns([caller, "-lc", "-lshadow"], 5,
                              "libc answers for 'abs', not the archive behind it",
-                             extra=["-L" + link.tmp, "-L/usr/lib", "-L/usr/lib64"])
+                             extra=["-L" + link.tmp] + libraryPath())
 
     if output is None:
         return
