@@ -725,7 +725,10 @@ size_t fillInitializer(GenerationContext *ctx, Section *section, AstInitializer 
 
       TypeRef *constType = expr->type;
       TypeRef *slotType = init->slotType;
-      switch (expr->constExpr.op) {
+      // The evaluated constant's kind, not the expression's: an initializer
+      // that is a cast - '(void*)1' - is an E_CAST node, and reading
+      // constExpr.op off one reads whatever the union holds there.
+      switch (cexpr->op) {
       case CK_INT_CONST: emitIntIntoSection(section, cexpr->i, computeTypeSize(constType)); break;
       case CK_FLOAT_CONST: emitFloatIntoSection(section, typeToId(constType), cexpr->f); break;
       case CK_STRING_LITERAL: {
