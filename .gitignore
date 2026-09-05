@@ -4,6 +4,10 @@ build/*
 build-asan/
 build-selfhost/
 build-tcc/
+build-mut/
+# What test/link/mutate.py leaves behind only if it was interrupted before it
+# could restore the file it was editing.
+*.mutate-backup
 bootstrap/*
 .deps/
 src/generated/*
