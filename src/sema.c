@@ -1056,6 +1056,9 @@ static Boolean checkFunctionPassingType(ParserContext *ctx, Coordinates *coords,
           argElementType = argType->arrayTypeDesc.elementType;
       }
       if (argElementType) {
+        // A parameter of array type is adjusted to a pointer, so void * - NULL
+        // among them - converts to it as it does to any object pointer.
+        if (isVoidType(argElementType) || isConstZero(arg)) return TRUE;
         TypeEqualityKind equality = typeEquality(argElementType, paramElementType);
         if (equality < TEK_NOT_EXATCLY_EQUAL) return TRUE;
         if (equality < TEK_NOT_EQUAL) {
