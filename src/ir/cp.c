@@ -590,10 +590,12 @@ static void processSwitchBranch(SCCPContext *cpCtx, IrInstruction *i) {
   assert(i->kind == IR_TBRANCH);
   IrInstruction *cond = getInstructionFromVector(&i->inputs, 0);
   LatticeValue *lvc = getLV(cpCtx, cond);
-  if (lvc->state != LS_CONSTANT)
+  // A condition already replaced by a constant folded during this walk has no
+  // lattice value of its own, being newer than initLattices.
+  Boolean isConst = lvc != NULL ? lvc->state == LS_CONSTANT : isConstantInstr(cond);
+  if (!isConst)
     return;
 
-  IrInstruction *value = lvc->constant;
   SwitchTable *table = i->info.switchTable;
   assert(table != NULL);
   IrBasicBlock *target = table->defaultBB;
