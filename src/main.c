@@ -104,50 +104,20 @@ static void runProcess(int argc, char **argv, int verbose) {
   }
 }
 
-static const char *libPath() {
-  if (access("/usr/lib/x86_64-linux-gnu/crti.o", F_OK) == 0) {
-      return "/usr/lib/x86_64-linux-gnu";
-  }
-  if (access("/usr/lib64/crti.o", F_OK) == 0) {
-      return "/usr/lib64";
-  }
+// Where the CRT objects live. Probed in src/link/, because the in-house
+// linker needs the same answer and two probes that could disagree is one
+// more than this driver has any use for.
+static const char *stdLibPaths[] = {
+  "/usr/lib/x86_64-linux-gnu",
+  "/usr/lib64",
+  "/lib64",
+  "/usr/lib/x86_64-pc-linux-gnu",
+  "/usr/lib/x86_64-redhat-linux",
+  "/usr/lib",
+  "/lib"
+};
 
-  unreachable("No library path found");
-  return NULL;
-}
-
-static char *find_file(char *pattern) {
-  char *path = NULL;
-  glob_t buf = {};
-  glob(pattern, 0, NULL, &buf);
-  if (buf.gl_pathc > 0)
-    path = strdup(buf.gl_pathv[buf.gl_pathc - 1]);
-  globfree(&buf);
-  return path;
-}
-
-static void gccLibPath(char *buffer) {
-  char *paths[] = {
-     "/usr/lib/gcc/x86_64-linux-gnu/*/crtbegin.o",
-     "/usr/lib/gcc/x86_64-pc-linux-gnu/*/crtbegin.o", // For Gentoo
-     "/usr/lib/gcc/x86_64-redhat-linux/*/crtbegin.o", // For Fedora
-   };
-
-   int i = 0;
-   for (; i < sizeof(paths) / sizeof(*paths); i++) {
-     char *path = find_file(paths[i]);
-     if (path) {
-       unsigned len = strlen(path);
-       static const char suffix[] = "/crtbegin.o";
-       unsigned dirLen = len - (sizeof suffix - 1);
-       memcpy(buffer, path, dirLen);
-       free(path);
-       return;
-     }
-   }
-
-   unreachable("No gcc library path found");
-}
+#define DYNAMIC_LINKER "/lib64/ld-linux-x86-64.so.2"
 
 static void runLinker(const char *outputFile, Boolean shared, StringList *compiledObjs, StringList *cliObjs, StringList *libs, StringList *libDirs, StringList *ldArgs) {
   unsigned argc = 1;
@@ -169,26 +139,12 @@ static void runLinker(const char *outputFile, Boolean shared, StringList *compil
   // that one holds _start, which a library must not carry a second copy of.
   argc += shared ? 2 : 3;
 
-  char gccLPath[256] = { 0 };
-
-  const char *lPath = libPath();
-  gccLibPath(gccLPath);
-
-  const char *stdLibPaths[] = {
-    gccLPath,
-    "/usr/lib/x86_64-linux-gnu",
-    "/usr/lib64",
-    "/lib64",
-    "/usr/lib/x86_64-linux-gnu",
-    "/usr/lib/x86_64-pc-linux-gnu",
-    "/usr/lib/x86_64-redhat-linux",
-    "/usr/lib",
-    "/lib"
-  };
+  const char *lPath = linkCrtPath();
+  const char *gccLPath = linkGccPath();
 
   StringList *n;
 
-  argc += sizeof stdLibPaths / sizeof stdLibPaths[0];
+  argc += sizeof stdLibPaths / sizeof stdLibPaths[0] + 1;
 
   for (n = libDirs; n; n = n->next) {
       ++argc;
@@ -236,7 +192,7 @@ static void runLinker(const char *outputFile, Boolean shared, StringList *compil
       argv[i++] = strdup("-shared");
   } else {
       argv[i++] = strdup("-dynamic-linker");
-      argv[i++] = strdup("/lib64/ld-linux-x86-64.so.2");
+      argv[i++] = strdup(DYNAMIC_LINKER);
 
       sprintf(buffer, "%s/crt1.o", lPath);
       argv[i++] = strdup(buffer);
@@ -251,8 +207,8 @@ static void runLinker(const char *outputFile, Boolean shared, StringList *compil
 
   unsigned j = 0;
 
-  for (; j < sizeof(stdLibPaths) / sizeof(stdLibPaths[0]); ++j) {
-      const char *p = stdLibPaths[j];
+  for (; j <= sizeof(stdLibPaths) / sizeof(stdLibPaths[0]); ++j) {
+      const char *p = j == 0 ? gccLPath : stdLibPaths[j - 1];
       unsigned len = strlen(p) + 3;
       char *arg = heapAllocate(len);
       sprintf(arg, "-L%s", p);
@@ -307,6 +263,129 @@ static void runLinker(const char *outputFile, Boolean shared, StringList *compil
   }
 
   releaseHeap(argv);
+}
+
+// The same link, without the subprocess. What the in-house linker is handed is
+// the input list ld would have been given, in the same order and with the same
+// CRT objects around it - the difference is that '-lc' is resolved, the
+// archives are searched and the dynamic sections are written in this process.
+static Boolean linkInternal(const char *outputFile, Boolean shared,
+                            StringList *compiledObjs, StringList *cliObjs,
+                            StringList *libs, StringList *libDirs,
+                            StringList *ldArgs) {
+  if (shared) {
+    fprintf(stderr, "error: ‘-shared’ needs ‘-fuse-ld=external’ for now\n");
+    return FALSE;
+  }
+
+  LinkOptions options;
+  initLinkOptions(&options);
+  options.outputFile = outputFile;
+  options.interpreter = DYNAMIC_LINKER;
+
+  StringList *n;
+  unsigned count = 0;
+
+  for (n = ldArgs; n; n = n->next) {
+    const char *arg = n->s;
+
+    if (strcmp(arg, "-s") == 0) {
+      options.stripSymbols = TRUE;
+    } else if (strcmp(arg, "-rpath") == 0 || strcmp(arg, "--rpath") == 0) {
+      if (n->next == NULL) {
+        fprintf(stderr, "error: missing argument to ‘%s’\n", arg);
+        return FALSE;
+      }
+      options.runpath = (n = n->next)->s;
+    } else if (strncmp(arg, "-rpath=", 7) == 0) {
+      options.runpath = &arg[7];
+    } else if (strncmp(arg, "--rpath=", 8) == 0) {
+      options.runpath = &arg[8];
+    } else if (strcmp(arg, "-e") == 0 || strcmp(arg, "--entry") == 0) {
+      if (n->next == NULL) {
+        fprintf(stderr, "error: missing argument to ‘%s’\n", arg);
+        return FALSE;
+      }
+      options.entrySymbol = (n = n->next)->s;
+    } else if (strcmp(arg, "--as-needed") == 0 ||
+               strcmp(arg, "--no-as-needed") == 0) {
+      // What this linker does anyway: a library it took nothing from is not
+      // recorded as needed.
+    } else if (strcmp(arg, "-z") == 0 && n->next != NULL) {
+      // '-z noexecstack' and its relatives describe a layout this linker
+      // already writes; none of them can ask for a different one.
+      n = n->next;
+    } else {
+      fprintf(stderr, "error: ‘%s’ is not understood by the in-house linker; "
+                      "use ‘-fuse-ld=external’\n", arg);
+      return FALSE;
+    }
+  }
+
+  for (n = compiledObjs; n; n = n->next) ++count;
+  for (n = cliObjs; n; n = n->next) ++count;
+  for (n = libs; n; n = n->next) ++count;
+  count += 9; // the CRT objects and the three implicit libraries
+
+  char **inputs = heapAllocate(sizeof(char *) * count);
+  unsigned at = 0;
+  char buffer[512];
+
+  const char *crtPath = linkCrtPath();
+  const char *gccPath = linkGccPath();
+
+#define INPUT(fmt, ...)                                                        \
+  do {                                                                         \
+    snprintf(buffer, sizeof buffer, fmt, __VA_ARGS__);                         \
+    inputs[at++] = strdup(buffer);                                             \
+  } while (0)
+
+  INPUT("%s/crt1.o", crtPath);
+  INPUT("%s/crti.o", crtPath);
+  INPUT("%s/crtbegin.o", gccPath);
+
+  for (n = compiledObjs; n; n = n->next) inputs[at++] = strdup(n->s);
+  for (n = cliObjs; n; n = n->next) inputs[at++] = strdup(n->s);
+
+  inputs[at++] = strdup("-lc");
+  for (n = libs; n; n = n->next) INPUT("-l%s", n->s);
+  inputs[at++] = strdup("-lc");
+  inputs[at++] = strdup("-lgcc");
+  // runLinker wraps this one in '--as-needed'. Here it needs no wrapping: a
+  // library this linker took nothing from is not recorded as needed anyway.
+  inputs[at++] = strdup("-lgcc_s");
+
+  INPUT("%s/crtend.o", gccPath);
+  INPUT("%s/crtn.o", crtPath);
+
+#undef INPUT
+
+  assert(at <= count);
+
+  unsigned dirCount = 0;
+  for (n = libDirs; n; n = n->next) ++dirCount;
+  dirCount += sizeof stdLibPaths / sizeof stdLibPaths[0] + 1;
+
+  char **dirs = heapAllocate(sizeof(char *) * dirCount);
+  unsigned dirAt = 0;
+
+  // A directory the user named comes first, which is what makes a program link
+  // against the library beside it rather than the one the system ships.
+  for (n = libDirs; n; n = n->next) dirs[dirAt++] = (char *)n->s;
+  dirs[dirAt++] = (char *)gccPath;
+
+  unsigned k;
+  for (k = 0; k < sizeof stdLibPaths / sizeof stdLibPaths[0]; ++k) {
+    dirs[dirAt++] = (char *)stdLibPaths[k];
+  }
+
+  Boolean ok = linkObjects(&options, (int)at, inputs, (int)dirAt, dirs);
+
+  for (k = 0; k < at; ++k) releaseHeap(inputs[k]);
+  releaseHeap(inputs);
+  releaseHeap(dirs);
+
+  return ok;
 }
 
 static StringList* compileFiles(StringList *files, Configuration *config, const char *tmpDir) {
@@ -396,11 +475,17 @@ int main(int argc, char** argv) {
       return dumpLinkInputs(argc - 2, argv + 2);
   }
 
-  // '-Xlink-static [-o out] [-e entry] <object>...': link without ld. Static
-  // and freestanding so far, which is why it is a mode of its own rather than
-  // something the driver reaches on its way to runLinker().
+  // Link exactly what is named, without ld and without the CRT objects the
+  // driver puts around a compile. A mode of its own rather than something the
+  // driver reaches on its way to runLinker(), because its arguments are paths
+  // of shapes the flag parser rejects - and because linking a bare object with
+  // its own '_start' is what a test can assert the exit code of.
   if (strcmp(argv[1], "-Xlink-static") == 0) {
       return linkStaticCommand(argc - 2, argv + 2);
+  }
+
+  if (strcmp(argv[1], "-Xlink-dynamic") == 0) {
+      return linkDynamicCommand(argc - 2, argv + 2);
   }
 
   argc--; argv++;
@@ -510,6 +595,11 @@ int main(int argc, char** argv) {
                 which);
         return 2;
       }
+    } else if (strncmp("-fuse-ld=", arg, 9) == 0) {
+      // Which linker runs. 'internal' is src/link/, in this process; every
+      // other spelling names a program to exec, and they all mean the one
+      // runLinker builds a command line for.
+      config.internalLinker = strcmp(&arg[9], "internal") == 0;
     } else if (strcmp("-experimental", arg) == 0) {
       // What it selected is the default now. Kept as a no-op rather than
       // removed: it is in every script, launch configuration and shell history
@@ -718,7 +808,15 @@ int main(int argc, char** argv) {
   // A file that did not compile left no object behind, so linking would only
   // report the same input missing a second time and in ld's words.
   if (!config.hadError && !config.objOutput && !config.ppOutput) {
-    runLinker(config.outputFile ? config.outputFile : "a.out", config.sharedOutput, compiledObjFiles, ohead.next, lhead.next, lDirHead.next, ldHead.next);
+    const char *output = config.outputFile ? config.outputFile : "a.out";
+
+    if (config.internalLinker) {
+      if (!linkInternal(output, config.sharedOutput, compiledObjFiles, ohead.next, lhead.next, lDirHead.next, ldHead.next)) {
+        config.hadError = 1;
+      }
+    } else {
+      runLinker(output, config.sharedOutput, compiledObjFiles, ohead.next, lhead.next, lDirHead.next, ldHead.next);
+    }
   }
 
   if (tmpDir) {

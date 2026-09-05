@@ -85,6 +85,11 @@ typedef struct _Configuration {
   // why runLinker has to know rather than ld being handed the flag.
   unsigned sharedOutput : 1;
 
+  // '-fuse-ld=internal' - link in this process with src/link/ instead of
+  // execing the system ld. Off by default while the in-house linker is being
+  // brought up to parity; '-fuse-ld=external' is the way to say so explicitly.
+  unsigned internalLinker : 1;
+
   // '-fPIC'. A shared object may not contain a PC-relative reference to a
   // preemptible symbol, so with this on a global's address is loaded out of
   // the GOT instead of computed - see selectConstant in isel_x86_64.c. Only

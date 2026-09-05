@@ -319,6 +319,21 @@ static Boolean attachRelocations(ElfReader *r, InputFile *file) {
   return TRUE;
 }
 
+// SHT_GNU_versym is an array of 16-bit indices running parallel to .dynsym,
+// whose top bit marks a definition the linker may not bind an unversioned
+// reference to. Absent in an unversioned library, where every name is default.
+static const uint16_t *findVersyms(const InputFile *file, unsigned symbolCount) {
+  unsigned i;
+  for (i = 0; i < file->sectionCount; ++i) {
+    const InputSection *s = &file->sections[i];
+    if (s->type != SHT_GNU_versym || s->data == NULL) continue;
+    if (s->size / sizeof(uint16_t) < symbolCount) return NULL;
+    return (const uint16_t *)s->data;
+  }
+
+  return NULL;
+}
+
 static Boolean readSymbols(ElfReader *r, InputFile *file, const uint8_t *image,
                            size_t size, uint32_t wantedType) {
   const InputSection *symtab = NULL;
@@ -368,10 +383,14 @@ static Boolean readSymbols(ElfReader *r, InputFile *file, const uint8_t *image,
   file->symbolCount = count;
   file->firstGlobal = symtab->info <= count ? symtab->info : count;
 
+  const uint16_t *versyms =
+      wantedType == SHT_DYNSYM ? findVersyms(file, count) : NULL;
+
   for (i = 0; i < count; ++i) {
     InputSymbol *sym = &file->symbols[i];
     const Elf64_Sym *h = &raw[i];
 
+    sym->defaultVersion = versyms == NULL || (versyms[i] & 0x8000) == 0;
     sym->file = file;
     sym->value = h->st_value;
     sym->size = h->st_size;

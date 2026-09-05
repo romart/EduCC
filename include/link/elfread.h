@@ -48,6 +48,11 @@ typedef struct _InputSymbol {
   uint8_t visibility;
   uint16_t shndx;
 
+  // A shared object's .dynsym holds every version of a name, and only one of
+  // them is what an unversioned reference binds to. TRUE for that one, and for
+  // everything in a relocatable object, which is never versioned.
+  Boolean defaultVersion;
+
   struct _InputFile *file;
 } InputSymbol;
 

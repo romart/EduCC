@@ -770,24 +770,27 @@ def testDiagnostics(link, suite):
 
 
 def testRefusedInputs(link, suite):
-    """Everything that is not a relocatable object says so by name, because
-    'undefined symbol' would be the wrong answer to all of them."""
+    """What a static link cannot make sense of says so by name, because
+    'undefined symbol' would be the wrong answer to all of them. Archives and
+    linker scripts are no longer on that list - both are read now, and only a
+    shared object still needs a loader this link will not have."""
     from reader_test import sharedObject, archive
 
     shared = link.object(sharedObject(), "libfixture.so")
-    link.expectFailure([shared], "a shared object", "a shared object is refused")
-
-    members = [("member.o", Elf().build())]
-    link.object(archive(members), "libfixture.a")
-    link.expectFailure([os.path.join(link.tmp, "libfixture.a")], "an archive",
-                       "an archive is refused")
-
-    script = link.object(b"GROUP ( /usr/lib/libc.so.6 )\n", "libc.so")
-    link.expectFailure([script], "a linker script", "a linker script is refused")
+    link.expectFailure([shared], "needs a dynamic linker",
+                       "a shared object is refused without a loader")
 
     link.expectFailure([os.path.join(link.tmp, "notthere.o")], "cannot open",
                        "a missing input is refused")
     link.expectFailure([], "no input files", "a link with no inputs is refused")
+
+    # An archive nothing indexed cannot be searched, and scanning every member
+    # instead would be a different linker's answer, not a cheaper one.
+    members = [("member.o", Elf().build())]
+    link.object(archive(members), "libnoindex.a")
+    link.expectFailure([os.path.join(link.tmp, "libnoindex.a")],
+                       "archive has no index",
+                       "an archive with no armap is refused")
 
 
 def testCompiledInput(link, suite, compiler):
