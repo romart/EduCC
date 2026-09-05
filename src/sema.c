@@ -2891,6 +2891,15 @@ Symbol *declareFunctionSymbol(ParserContext *ctx, const char *name, AstFunctionD
   return declareGenericSymbol(ctx, FunctionSymbol, name, declaration, existedFunctionProcessor, newFunctionProcessor);
 }
 
+// 6.2.7: an array of unknown size is compatible with one whose size is known,
+// so 'extern T x[];' is completed by a later 'T x[N]'.
+static Boolean completesArrayType(TypeRef *complete, TypeRef *incomplete) {
+  if (complete->kind != TR_ARRAY || incomplete->kind != TR_ARRAY) return FALSE;
+  if (incomplete->arrayTypeDesc.size != UNKNOWN_SIZE) return FALSE;
+  if (complete->arrayTypeDesc.size == UNKNOWN_SIZE) return FALSE;
+  return typesEquals(complete->arrayTypeDesc.elementType, incomplete->arrayTypeDesc.elementType);
+}
+
 static int existedValueProcessor(ParserContext *ctx, Symbol *s, void *value) {
   assert(s->kind == ValueSymbol);
 
@@ -2899,6 +2908,14 @@ static int existedValueProcessor(ParserContext *ctx, Symbol *s, void *value) {
 
   TypeRef *oldType = oldValue->type;
   TypeRef *newType = newValue->type;
+
+  // The composite type is the completed one, and it is what sizeof and the
+  // backends need, so the earlier declaration takes it. Only this direction:
+  // an array declared '[]' here has not had its size deduced from its own
+  // initializer yet, and must not be given the earlier declaration's.
+  if (completesArrayType(newType, oldType)) {
+      oldValue->type = oldType = newType;
+  }
 
   if (typesEquals(oldType, newType)) {
       if (oldValue->flags.bits.isLocal && oldValue->flags.bits.isLocal) {
