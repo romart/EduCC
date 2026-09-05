@@ -22,6 +22,11 @@ Three things come out of it, and only the last is a benchmark:
     configuration disagrees, and it names the file
   * how fast that tcc compiles, and how big it is
 
+Every EduCC column links in-house since step 53; 'external' is 'chaitin' with
+ld back in its place, and the pair is the widest thing this repo links either
+way: fifteen sections of a real test suite, a shared object in dlltest, and
+tcc's own -run resolving symbols out of what the link recorded as needed.
+
 The reference columns are the host compiler at -O0/-O1/-O2 and tinycc compiled
 by itself. The tcc column matters more than it looks: it is the control for
 everything that is a property of building tinycc with something that is not
@@ -47,11 +52,15 @@ TCC_URL = "https://github.com/TinyCC/tinycc.git"
 TCC_BRANCH = "dev"
 
 # gcc-O2 before tcc: the tcc column is tinycc compiled by the tinycc gcc built.
-CONFIGS = ["legacy", "trivial", "linear", "chaitin", "gcc-O0", "gcc-O1",
-           "gcc-O2", "tcc"]
+CONFIGS = ["legacy", "trivial", "linear", "chaitin", "external", "gcc-O0",
+           "gcc-O1", "gcc-O2", "tcc"]
 
+# 'external' is 'chaitin' linked by ld instead of by src/link/, so the two
+# differ in nothing but the linker: identical objects, and any disagreement
+# between the two tcc binaries belongs to whichever one placed them.
 EDUCC_FLAG = {"legacy": "-legacy", "trivial": "-Xregalloc=trivial",
-              "linear": "-Xregalloc=linear", "chaitin": ""}
+              "linear": "-Xregalloc=linear", "chaitin": "",
+              "external": "-fuse-ld=external"}
 
 # tinycc's own sources, as the "tcc compiling tcc" workload. ONE_SOURCE=0, so
 # these are the ten translation units its Makefile builds.

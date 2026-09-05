@@ -201,13 +201,13 @@ if(BUILD_TESTING)
   # compiled the other way and run. checker_pic asks whether the objects could
   # be a shared library; this asks whether they still compute the right answers.
   educc_add_test(codegen_pic codegen codegen 300 ssa --compiler-flag=-fPIC)
-  # And a sixth time linked in-house instead of by ld (the linker milestone M2).
-  # The same objects are linkable both ways, so the corpus is the differential:
-  # every fixture has to compile, link and return the same answer whichever
-  # linker placed it. checker_link asks whether the file is well formed; this
-  # asks whether the program in it still works.
-  educc_add_test(codegen_internal_ld codegen codegen 300 ssa
-                 --compiler-flag=-fuse-ld=internal)
+  # And a sixth time linked by ld rather than in-house, which since step 53 is
+  # the round that needs a flag. The same objects are linkable both ways, so
+  # the corpus is the differential: every fixture has to compile, link and
+  # return the same answer whichever linker placed it. checker_link asks
+  # whether the file is well formed; this asks whether the program still works.
+  educc_add_test(codegen_external_ld codegen codegen 300 ssa
+                 --compiler-flag=-fuse-ld=external)
   # The two backends inside one link: each fixture is a pair of files compiled
   # with a different backend each, linked and run, then swapped over. Every
   # other suite runs one backend at a time, so their ABI agreement is otherwise
@@ -355,16 +355,17 @@ if(BUILD_TESTING)
       LABELS checkers
       SKIP_RETURN_CODE 2)
 
-    # pic.py again, with the shared object and the program that loads it both
-    # built in-house (M3). Its round trip is the only place a '-shared' link
-    # this linker wrote is handed to the system loader over the whole corpus's
-    # worth of objects; the walk itself still asks ld, and is the same answer.
-    add_test(NAME checker_pic_internal
+    # pic.py again, with ld doing the round trip. The three rounds above build
+    # the shared object and the program that loads it in-house, which is where
+    # a '-shared' link this linker wrote meets the system loader over a whole
+    # corpus; this one is the control that says what ld makes of the same
+    # objects. The walk itself asks ld either way.
+    add_test(NAME checker_pic_external
       COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/test/checkers/pic.py"
-              "$<TARGET_FILE:main>" "-fuse-ld=internal" "test/testData/codegen"
+              "$<TARGET_FILE:main>" "-fuse-ld=external" "test/testData/codegen"
       WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     )
-    set_tests_properties(checker_pic_internal PROPERTIES
+    set_tests_properties(checker_pic_external PROPERTIES
       TIMEOUT 300
       LABELS checkers
       SKIP_RETURN_CODE 2)

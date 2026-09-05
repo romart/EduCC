@@ -609,10 +609,10 @@ int main(int argc, char** argv) {
         return 2;
       }
     } else if (strncmp("-fuse-ld=", arg, 9) == 0) {
-      // Which linker runs. 'internal' is src/link/, in this process; every
-      // other spelling names a program to exec, and they all mean the one
-      // runLinker builds a command line for.
-      config.internalLinker = strcmp(&arg[9], "internal") == 0;
+      // Which linker runs. 'internal' is src/link/, in this process, and is
+      // what happens without the flag; every other spelling names a program to
+      // exec, and they all mean the one runLinker builds a command line for.
+      config.externalLinker = strcmp(&arg[9], "internal") != 0;
     } else if (strcmp("-experimental", arg) == 0) {
       // What it selected is the default now. Kept as a no-op rather than
       // removed: it is in every script, launch configuration and shell history
@@ -823,12 +823,10 @@ int main(int argc, char** argv) {
   if (!config.hadError && !config.objOutput && !config.ppOutput) {
     const char *output = config.outputFile ? config.outputFile : "a.out";
 
-    if (config.internalLinker) {
-      if (!linkInternal(output, config.sharedOutput, compiledObjFiles, ohead.next, lhead.next, lDirHead.next, ldHead.next)) {
-        config.hadError = 1;
-      }
-    } else {
+    if (config.externalLinker) {
       runLinker(output, config.sharedOutput, compiledObjFiles, ohead.next, lhead.next, lDirHead.next, ldHead.next);
+    } else if (!linkInternal(output, config.sharedOutput, compiledObjFiles, ohead.next, lhead.next, lDirHead.next, ldHead.next)) {
+      config.hadError = 1;
     }
   }
 
