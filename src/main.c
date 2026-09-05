@@ -281,6 +281,7 @@ static Boolean linkInternal(const char *outputFile, Boolean shared,
 
   StringList *n;
   unsigned count = 0;
+  Boolean asNeeded = FALSE;
 
   for (n = ldArgs; n; n = n->next) {
     const char *arg = n->s;
@@ -316,8 +317,9 @@ static Boolean linkInternal(const char *outputFile, Boolean shared,
       options.entrySymbol = (n = n->next)->s;
     } else if (strcmp(arg, "--as-needed") == 0 ||
                strcmp(arg, "--no-as-needed") == 0) {
-      // What this linker does anyway: a library it took nothing from is not
-      // recorded as needed.
+      // Where it sits among the '-l's is lost by the time they reach here, so
+      // it says what the libraries this command line names are, all of them.
+      asNeeded = arg[2] == 'a';
     } else if (strcmp(arg, "-z") == 0 && n->next != NULL) {
       // '-z noexecstack' and its relatives describe a layout this linker
       // already writes; none of them can ask for a different one.
@@ -332,7 +334,7 @@ static Boolean linkInternal(const char *outputFile, Boolean shared,
   for (n = compiledObjs; n; n = n->next) ++count;
   for (n = cliObjs; n; n = n->next) ++count;
   for (n = libs; n; n = n->next) ++count;
-  count += 9; // the CRT objects and the three implicit libraries
+  count += 13; // the CRT objects, the implicit libraries, the as-needed pairs
 
   char **inputs = heapAllocate(sizeof(char *) * count);
   unsigned at = 0;
@@ -357,12 +359,14 @@ static Boolean linkInternal(const char *outputFile, Boolean shared,
   for (n = cliObjs; n; n = n->next) inputs[at++] = strdup(n->s);
 
   inputs[at++] = strdup("-lc");
+  if (asNeeded) inputs[at++] = strdup("--as-needed");
   for (n = libs; n; n = n->next) INPUT("-l%s", n->s);
+  if (asNeeded) inputs[at++] = strdup("--no-as-needed");
   inputs[at++] = strdup("-lc");
   inputs[at++] = strdup("-lgcc");
-  // runLinker wraps this one in '--as-needed'. Here it needs no wrapping: a
-  // library this linker took nothing from is not recorded as needed anyway.
+  inputs[at++] = strdup("--as-needed");
   inputs[at++] = strdup("-lgcc_s");
+  inputs[at++] = strdup("--no-as-needed");
 
   INPUT("%s/crtend%s.o", gccPath, shared ? "S" : "");
   INPUT("%s/crtn.o", crtPath);

@@ -232,6 +232,11 @@ typedef struct _Linker {
 
   Vector searchDirs; // const char *, in '-L' order
 
+  // '--no-as-needed' is ld's default and this linker's: a shared object named
+  // on the command line is recorded as needed whether anything used it or not,
+  // because what a program dlsyms out of it at run time is invisible here.
+  Boolean asNeeded;
+
   HashMap *globalMap;
   Vector globals; // LinkSymbol *, in the order the names were first seen
 
@@ -602,6 +607,11 @@ static Boolean parseLinkerScript(Linker *l, const char *path,
   size_t at = 0;
 
   Boolean inputContext[SCRIPT_MAX_DEPTH];
+  // AS_NEEDED is a group, so what it asks for lasts exactly as far as its
+  // closing parenthesis; everything else in the script inherits whatever the
+  // command line was in the middle of saying.
+  Boolean outerAsNeeded[SCRIPT_MAX_DEPTH];
+  Boolean entryAsNeeded = l->asNeeded;
   unsigned depth = 0;
   inputContext[0] = FALSE;
 
@@ -636,13 +646,15 @@ static Boolean parseLinkerScript(Linker *l, const char *path,
       ++depth;
       inputContext[depth] = scriptKeyword(pending) ||
                             (pending[0] == '\0' && inputContext[depth - 1]);
+      outerAsNeeded[depth] = l->asNeeded;
+      if (strcmp(pending, "AS_NEEDED") == 0) l->asNeeded = TRUE;
       pending[0] = '\0';
       ++at;
       continue;
     }
 
     if (c == ')') {
-      if (depth > 0) --depth;
+      if (depth > 0) l->asNeeded = outerAsNeeded[depth--];
       pending[0] = '\0';
       ++at;
       continue;
@@ -673,6 +685,7 @@ static Boolean parseLinkerScript(Linker *l, const char *path,
     pending[0] = '\0';
   }
 
+  l->asNeeded = entryAsNeeded;
   return TRUE;
 }
 
@@ -716,6 +729,12 @@ static const char *resolveInput(Linker *l, const char *path) {
 }
 
 static Boolean loadPath(Linker *l, const char *path) {
+  if (strcmp(path, "--as-needed") == 0 ||
+      strcmp(path, "--no-as-needed") == 0) {
+    l->asNeeded = path[2] == 'a';
+    return TRUE;
+  }
+
   if (path[0] == '-' && path[1] == 'l') {
     const char *found = findLibrary(l, path + 2);
     if (found == NULL) {
@@ -761,7 +780,18 @@ static Boolean loadPath(Linker *l, const char *path) {
         l->hadError = TRUE;
         return FALSE;
       }
-      collectSharedSymbols(l, addLinkFile(l, file, TRUE));
+      // '-lc' is named twice, so the same library arrives twice; ld loads one
+      // copy of a soname and so does this, or DT_NEEDED says it twice.
+      LinkFile *lf;
+      for (lf = l->files; lf != NULL; lf = lf->next) {
+        if (lf->shared && strcmp(lf->file->soname, file->soname) == 0) break;
+      }
+
+      if (lf == NULL) {
+        lf = addLinkFile(l, file, TRUE);
+        collectSharedSymbols(l, lf);
+      }
+      if (!l->asNeeded) lf->needed = TRUE;
       return TRUE;
     }
 
