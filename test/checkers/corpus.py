@@ -22,6 +22,10 @@ import os
 import subprocess
 import sys
 
+# See test/link/reader_test.py: a sanitized EduCC leaks its arenas at exit by
+# design, and a checker that links has to be able to run against one.
+os.environ.setdefault("ASAN_OPTIONS", "detect_leaks=0")
+
 
 # Flags '--' passed through to every compiler invocation, filled in by
 # parseArgs. A module global rather than a parameter threaded through each

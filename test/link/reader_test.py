@@ -30,6 +30,15 @@ import subprocess
 import sys
 import tempfile
 
+# For the compilers these suites run, when the binary under test is a
+# '-DEDUCC_SANITIZE=ON' one. EduCC is an arena allocator that frees nothing it
+# does not have to, so what LeakSanitizer reports at exit is the front end's
+# arenas and never a linker fault - and until '-fuse-ld=internal' existed no
+# link returned from main() for it to report at all. test/asan_sweep.sh takes
+# the same position for the same reason; everything asan is actually watched
+# for here still fails the run.
+os.environ.setdefault("ASAN_OPTIONS", "detect_leaks=0")
+
 # ELF constants. Spelled out rather than imported so this file states what it
 # is building and does not depend on the host's headers agreeing.
 ET_REL, ET_DYN, ET_EXEC = 1, 3, 2
