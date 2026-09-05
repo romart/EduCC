@@ -27,7 +27,11 @@ which of two versions of a name a library meant.
 The third, over '-shared', found none: all eight of its mutations were caught
 by the interposition round trip and the structural checks that went in with it.
 
-As of the last full run: 71 mutations, 69 caught, 2 equivalent, 0 missed.
+The fourth, over what a link records as needed, found one: nothing anywhere
+noticed a library named twice on one command line - which '-lc' is on every
+link - becoming two DT_NEEDED entries. testStructure asserts it now.
+
+As of the last full run: 75 mutations, 73 caught, 2 equivalent, 0 missed.
 
 **Not a CTest entry, and deliberately so.** It rebuilds the compiler once per
 mutation and edits a tracked source file to do it, which is not something to
@@ -381,6 +385,23 @@ MUTATIONS = [
      "        if (piece != NULL) shndx = (uint16_t)piece->output->index;",
      "        LinkPiece *piece = symbol->owner->pieces[definition->shndx];\n"
      "        if (piece != NULL) shndx = SHN_UNDEF;"),
+
+    # ------------------------------------------------------- what is needed
+    ("a library nobody used is not recorded as needed",
+     "      if (!l->asNeeded) lf->needed = TRUE;",
+     "      if (FALSE) lf->needed = TRUE;"),
+
+    ("'--as-needed' records the library anyway",
+     "    l->asNeeded = path[2] == 'a';",
+     "    l->asNeeded = FALSE;"),
+
+    ("AS_NEEDED in a linker script is a plain group",
+     "      if (strcmp(pending, \"AS_NEEDED\") == 0) l->asNeeded = TRUE;",
+     "      if (FALSE) l->asNeeded = TRUE;"),
+
+    ("the same soname is loaded twice",
+     "        if (lf->shared && strcmp(lf->file->soname, file->soname) == 0) break;",
+     "        if (FALSE) break;"),
 ]
 
 
