@@ -201,6 +201,13 @@ if(BUILD_TESTING)
   # compiled the other way and run. checker_pic asks whether the objects could
   # be a shared library; this asks whether they still compute the right answers.
   educc_add_test(codegen_pic codegen codegen 300 ssa --compiler-flag=-fPIC)
+  # And a sixth time linked in-house instead of by ld (the linker milestone M2).
+  # The same objects are linkable both ways, so the corpus is the differential:
+  # every fixture has to compile, link and return the same answer whichever
+  # linker placed it. checker_link asks whether the file is well formed; this
+  # asks whether the program in it still works.
+  educc_add_test(codegen_internal_ld codegen codegen 300 ssa
+                 --compiler-flag=-fuse-ld=internal)
   # The two backends inside one link: each fixture is a pair of files compiled
   # with a different backend each, linked and run, then swapped over. Every
   # other suite runs one backend at a time, so their ABI agreement is otherwise
@@ -283,6 +290,18 @@ if(BUILD_TESTING)
   )
   set_tests_properties(link_static PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 2)
 
+  # And the dynamic half, whose oracle is the system's own loader: a PLT stub
+  # six bytes out or a hash chain that cannot find a name is not a diff, it is
+  # a program that does not start. The inputs are still synthesized, but the
+  # library they link against is the host's real libc - there is no way to
+  # synthesize a useful one - so it skips where there is no C runtime.
+  add_test(NAME link_dynamic
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/test/link/dynamic_test.py"
+            "$<TARGET_FILE:main>"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+  set_tests_properties(link_dynamic PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 2)
+
   # The structural checkers (test/checkers/, docs/ir-codegen-design.md section
   # 9). A golden baseline says the output has not changed; these say it is
   # right, which is a different question and the only one that catches a bug
@@ -322,5 +341,18 @@ if(BUILD_TESTING)
           SKIP_RETURN_CODE 2)
       endforeach()
     endforeach()
+
+    # link.py is the exception to the round-per-allocator: it reads the linked
+    # executable, and which allocator filled the .text in changes nothing about
+    # the tables a loader consults. Registered once, with the same label.
+    add_test(NAME checker_link
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/test/checkers/link.py"
+              "$<TARGET_FILE:main>" "test/testData/codegen"
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+    set_tests_properties(checker_link PROPERTIES
+      TIMEOUT 300
+      LABELS checkers
+      SKIP_RETURN_CODE 2)
   endif()
 endif()

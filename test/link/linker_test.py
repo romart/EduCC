@@ -21,14 +21,14 @@ test/checkers/link.py will grow out of once there is more than one output kind.
 'ld' is used as an oracle where it is present, and only to agree about what a
 program does; it is skipped, not required.
 
-Every assertion here was verified by breaking the linker on purpose: 29
-mutations, 28 caught. The survivor - a weak definition allowed to displace a
-strong one - cannot be reached, because two strong definitions are reported and
-abandoned before the question is asked. Three of the six that survived the first
-sweep were real gaps and are closed here: a pointer whose upper four bytes were
-already zero, a tentative definition that would have been aligned by luck, and
-an sh_info of zero making its own check vacuous. A fourth was dead state in the
-linker rather than a missing test.
+Every assertion here was verified by breaking the linker on purpose, which is
+what test/link/mutate.py does and how five of the checks below came to exist:
+a pointer whose upper four bytes were already zero, a tentative definition that
+would have been aligned by luck, an sh_info of zero making its own check
+vacuous, an armap whose order let a single pass resolve a chain that was meant
+to need two, and an archive shadowing a library that nothing checked. Run it
+after changing anything here; a green suite is not evidence that it would go
+red.
 """
 import os
 import struct
@@ -53,6 +53,22 @@ PF_X, PF_W, PF_R = 1, 2, 4
 PAGE = 0x1000
 
 PHDR_SIZE, SHDR_SIZE = 56, 64
+
+# A linked program is the one thing here that can fail by not finishing rather
+# than by answering wrongly: a stub whose GOT slot points back at its own jump
+# is a two-instruction loop, not a wrong exit code. Nothing this suite links
+# does more than a few instructions of work, so a second would do.
+RUN_TIMEOUT = 20
+
+
+def runProgram(command):
+    """The result, or None if it never finished - which is a failed test and
+    not something to wait out."""
+    try:
+        return subprocess.run(command, capture_output=True,
+                              timeout=RUN_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return None
 
 
 # --------------------------------------------------------------- machine code
@@ -109,6 +125,11 @@ def statusFromResult():
 def returnImmediate(value):
     """mov $imm32,%eax; ret"""
     return b"\xb8" + struct.pack("<I", value) + b"\xc3"
+
+
+def loadSymbolImmediate(reg):
+    """mov $imm32,%e<reg> - reg 0 is eax, 1 is ecx. Relocation at +1."""
+    return bytes([0xb8 + reg]) + b"\0" * 4
 
 
 def addRela(elf, targetName, target, entries):
@@ -198,7 +219,12 @@ class Link:
                              % (description, result.stderr.strip()))
             return None
 
-        run = subprocess.run([output], capture_output=True)
+        run = runProgram([output])
+        if run is None:
+            self.suite.check(False, "%s: the program never finished"
+                             % description)
+            return None
+
         if run.returncode < 0:
             self.suite.check(False, "%s: the program died on signal %d"
                              % (description, -run.returncode))
@@ -350,7 +376,11 @@ def testHelloWorld(link, suite):
                     % result.stderr.strip())
         return
 
-    run = subprocess.run([output], capture_output=True)
+    run = runProgram([output])
+    if run is None:
+        suite.check(False, "the freestanding hello-world never finished")
+        return
+
     suite.equal(run.returncode, 0, "a freestanding hello-world exits cleanly")
     suite.equal(run.stdout, message, "and writes what is in its .rodata")
 
@@ -772,9 +802,9 @@ def testDiagnostics(link, suite):
 def testRefusedInputs(link, suite):
     """What a static link cannot make sense of says so by name, because
     'undefined symbol' would be the wrong answer to all of them. Archives and
-    linker scripts are no longer on that list - both are read now, and only a
-    shared object still needs a loader this link will not have."""
-    from reader_test import sharedObject, archive
+    linker scripts are no longer on that list - both are read here, and their
+    contents are what testArchives and testLinkerScripts assert."""
+    from reader_test import sharedObject
 
     shared = link.object(sharedObject(), "libfixture.so")
     link.expectFailure([shared], "needs a dynamic linker",
@@ -786,11 +816,160 @@ def testRefusedInputs(link, suite):
 
     # An archive nothing indexed cannot be searched, and scanning every member
     # instead would be a different linker's answer, not a cheaper one.
+    from reader_test import archive
     members = [("member.o", Elf().build())]
     link.object(archive(members), "libnoindex.a")
     link.expectFailure([os.path.join(link.tmp, "libnoindex.a")],
                        "archive has no index",
                        "an archive with no armap is refused")
+
+
+def memberObject(name, returns, calls=None):
+    """A relocatable object defining one function that returns a constant, or
+    that tail-calls another one and returns what it returned."""
+    elf = Elf()
+    if calls is None:
+        code = returnImmediate(returns)
+    else:
+        code = callRelative() + b"\xc3"
+
+    text = elf.addSection(".text", SHT_PROGBITS, SHF_ALLOC | SHF_EXECINSTR,
+                          code, align=16)
+    elf.addSymbol(name, STB_GLOBAL, STT_FUNC, text, 0, len(code))
+
+    if calls is not None:
+        elf.addSymbol(calls, STB_GLOBAL, STT_NOTYPE, SHN_UNDEF)
+        addRela(elf, ".text", text, [(1, calls, R_X86_64_PLT32, -4)])
+
+    return objectImage(elf)
+
+
+def callerObject(target):
+    """_start calls `target` and exits with what it returned."""
+    code = callRelative() + statusFromResult() + exitWithStatus()
+    elf = startObject(code, symbols=[(target, STB_GLOBAL, STT_NOTYPE,
+                                      SHN_UNDEF)],
+                      relocs=[(1, target, R_X86_64_PLT32, -4)])
+    return elf
+
+
+def testArchives(link, suite):
+    """An archive gives up a member when it resolves something and not
+    otherwise, and pulling one in can leave a further symbol undefined - so
+    the scan has to repeat until a pass takes nothing."""
+    from reader_test import archive
+
+    members = [("wanted.o", memberObject("wanted", 0, calls="deeper")),
+               ("deeper.o", memberObject("deeper", 21)),
+               ("unwanted.o", memberObject("neverCalled", 99))]
+
+    # 'deeper' is listed *before* the member that needs it, so the scan passes
+    # over it while nothing wants it yet and only reaches 'wanted' afterwards.
+    # One pass cannot resolve that, which is the whole point of repeating: with
+    # the two the other way round the armap order does the work and a linker
+    # that never repeated would look correct.
+    index = [("deeper", 1), ("neverCalled", 2), ("wanted", 0)]
+
+    link.object(archive(members, index), "libchain.a")
+    lib = os.path.join(link.tmp, "libchain.a")
+    caller = link.object(callerObject("wanted"), "wantsChain.o")
+
+    output = link.expectRuns([caller, lib], 21,
+                             "an archive member pulls in a second one")
+
+    if output is not None:
+        symbols = Executable(output).symbols
+        # The member nothing asked for stays where it was: an archive is not a
+        # set of objects to link, it is a set to choose from.
+        suite.check("neverCalled" not in symbols,
+                    "an unreferenced archive member is left behind")
+        suite.check("deeper" in symbols,
+                    "the member a member needed was pulled in")
+
+    # ld would refuse this order: an archive answers for what is undefined when
+    # it is reached, and nothing is yet. This linker asks every archive again
+    # once the inputs run out, which costs nothing and is one less way to hold
+    # a command line wrong.
+    link.expectRuns([lib, caller], 21,
+                    "an archive named before the object needing it still works")
+
+    searched = link.expectRuns([caller, "-lchain"], 21,
+                               "'-lname' finds the archive on the search path",
+                               extra=["-L" + link.tmp])
+    suite.check(searched is not None, "the searched link produced a program")
+
+    link.expectFailure([caller, "-lmissing"], "cannot find -lmissing",
+                       "a library that is not on the path is reported",
+                       extra=["-L" + link.tmp])
+
+
+def testLinkerScripts(link, suite):
+    """'-lc' finds a text file on every glibc system, so a linker that cannot
+    read one cannot link anything at all. Only the commands that name inputs
+    are understood, and the rest has to be skipped rather than guessed at."""
+    a = link.object(callerObject("wanted"), "scriptCaller.o")
+    b = link.object(memberObject("wanted", 17), "scriptWanted.o")
+
+    script = link.object(b"""/* GNU ld script
+   with a comment that names ) and ( and INPUT to be awkward */
+OUTPUT_FORMAT(elf64-x86-64)
+GROUP ( %s AS_NEEDED ( %s ) )
+""" % (a.encode(), b.encode()), "fixture.script")
+
+    link.expectRuns([script], 17,
+                    "a GROUP with a nested AS_NEEDED links both objects")
+
+    plain = link.object(b"INPUT ( %s )\n" % b.encode(), "plain.script")
+    link.expectRuns([a, plain], 17, "INPUT names an input")
+
+
+def testLinkerDefinedSymbols(link, suite):
+    """The names the linker answers for itself. '_end' and '__bss_start' are
+    the two the C library reaches for, and the difference between them is a
+    number this program can be made to return."""
+    elf = Elf()
+    code = (loadSymbolImmediate(0) +   # mov $_end,%eax
+            loadSymbolImmediate(1) +   # mov $__bss_start,%ecx
+            b"\x29\xc8" +              # sub %ecx,%eax
+            statusFromResult() + exitWithStatus())
+
+    text = elf.addSection(".text", SHT_PROGBITS, SHF_ALLOC | SHF_EXECINSTR,
+                          code, align=16)
+    elf.addSection(".bss", SHT_NOBITS, SHF_ALLOC | SHF_WRITE, b"\0" * 40,
+                   align=8)
+    elf.addSymbol("_start", STB_GLOBAL, STT_FUNC, text, 0, len(code))
+    elf.addSymbol("_end", STB_GLOBAL, STT_NOTYPE, SHN_UNDEF)
+    elf.addSymbol("__bss_start", STB_GLOBAL, STT_NOTYPE, SHN_UNDEF)
+    addRela(elf, ".text", text, [(1, "_end", R_X86_64_32S, 0),
+                                 (6, "__bss_start", R_X86_64_32S, 0)])
+
+    a = link.object(elf, "bounds.o")
+    output = link.expectRuns([a], 40,
+                             "'_end' minus '__bss_start' is the size of .bss")
+
+    if output is not None:
+        symbols = Executable(output).symbols
+        bss = [s for s in Executable(output).sections if s["name"] == ".bss"]
+        suite.equal(len(bss), 1, "the program has one .bss")
+        suite.equal(symbols["__bss_start"]["value"], bss[0]["addr"],
+                    "'__bss_start' is where .bss starts")
+        suite.equal(symbols["_end"]["value"], bss[0]["addr"] + bss[0]["size"],
+                    "'_end' is past everything mapped")
+
+    # A program that defines one of these names itself keeps its own, which is
+    # what makes them defaults rather than reservations.
+    own = Elf()
+    ownCode = statusFromAbsolute() + exitWithStatus()
+    ownText = own.addSection(".text", SHT_PROGBITS,
+                             SHF_ALLOC | SHF_EXECINSTR, ownCode, align=16)
+    ownData = own.addSection(".data", SHT_PROGBITS, SHF_ALLOC | SHF_WRITE,
+                             struct.pack("<I", 55), align=4)
+    own.addSymbol("_start", STB_GLOBAL, STT_FUNC, ownText, 0, len(ownCode))
+    own.addSymbol("_end", STB_GLOBAL, STT_OBJECT, ownData, 0, 4)
+    addRela(own, ".text", ownText, [(3, "_end", R_X86_64_32S, 0)])
+
+    b = link.object(own, "ownEnd.o")
+    link.expectRuns([b], 55, "a program's own '_end' wins over the linker's")
 
 
 def testCompiledInput(link, suite, compiler):
@@ -882,7 +1061,12 @@ def testAgainstLd(link, suite):
         suite.check(False, "ld refused the fixture: %s" % built.stderr.strip())
         return True
 
-    theirs = subprocess.run([reference], capture_output=True).returncode
+    reference = runProgram([reference])
+    if reference is None:
+        suite.check(False, "the program ld linked never finished")
+        return True
+
+    theirs = reference.returncode
     mine = link.expectRuns([a, b], theirs, "ld and EduCC agree about the result")
     return mine is not None
 
@@ -911,6 +1095,9 @@ def main():
         testAbsoluteSymbols(link, suite)
         testSectionMerging(link, suite)
         testStructure(link, suite)
+        testArchives(link, suite)
+        testLinkerScripts(link, suite)
+        testLinkerDefinedSymbols(link, suite)
         testDiagnostics(link, suite)
         testRefusedInputs(link, suite)
         testCompiledInput(link, suite, compiler)
