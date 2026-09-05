@@ -1554,6 +1554,14 @@ static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
   }
 
   if (fromFloat && toFloat) {
+    // A cast between two floats of one width - '(double)d' on a double - is a
+    // move. CVTF2F reads only the source width and assumes the destination is
+    // the other one, so emitting it here would convert a double to a float.
+    if (valueSize(value) == toSize) {
+      selectLoadInto(b, dst, value, toSize);
+      return;
+    }
+
     // float <-> double. Not a widening in the integer sense - the bits change
     // completely - so it is its own instruction rather than a move.
     MachineInstr *mi = buildMachineInstr(b, X86_CVTF2F, 1, 1);
