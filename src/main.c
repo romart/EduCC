@@ -273,15 +273,11 @@ static Boolean linkInternal(const char *outputFile, Boolean shared,
                             StringList *compiledObjs, StringList *cliObjs,
                             StringList *libs, StringList *libDirs,
                             StringList *ldArgs) {
-  if (shared) {
-    fprintf(stderr, "error: ‘-shared’ needs ‘-fuse-ld=external’ for now\n");
-    return FALSE;
-  }
-
   LinkOptions options;
   initLinkOptions(&options);
   options.outputFile = outputFile;
-  options.interpreter = DYNAMIC_LINKER;
+  options.shared = shared;
+  if (!shared) options.interpreter = DYNAMIC_LINKER;
 
   StringList *n;
   unsigned count = 0;
@@ -301,6 +297,17 @@ static Boolean linkInternal(const char *outputFile, Boolean shared,
       options.runpath = &arg[7];
     } else if (strncmp(arg, "--rpath=", 8) == 0) {
       options.runpath = &arg[8];
+    } else if (strcmp(arg, "-soname") == 0 || strcmp(arg, "--soname") == 0 ||
+               strcmp(arg, "-h") == 0) {
+      if (n->next == NULL) {
+        fprintf(stderr, "error: missing argument to ‘%s’\n", arg);
+        return FALSE;
+      }
+      options.soname = (n = n->next)->s;
+    } else if (strncmp(arg, "-soname=", 8) == 0) {
+      options.soname = &arg[8];
+    } else if (strncmp(arg, "--soname=", 9) == 0) {
+      options.soname = &arg[9];
     } else if (strcmp(arg, "-e") == 0 || strcmp(arg, "--entry") == 0) {
       if (n->next == NULL) {
         fprintf(stderr, "error: missing argument to ‘%s’\n", arg);
@@ -340,9 +347,11 @@ static Boolean linkInternal(const char *outputFile, Boolean shared,
     inputs[at++] = strdup(buffer);                                             \
   } while (0)
 
-  INPUT("%s/crt1.o", crtPath);
+  // crt1.o holds _start, which a library must not carry a second copy of, and
+  // the 'S' pair is the position-independent crtbegin/crtend.
+  if (!shared) INPUT("%s/crt1.o", crtPath);
   INPUT("%s/crti.o", crtPath);
-  INPUT("%s/crtbegin.o", gccPath);
+  INPUT("%s/crtbegin%s.o", gccPath, shared ? "S" : "");
 
   for (n = compiledObjs; n; n = n->next) inputs[at++] = strdup(n->s);
   for (n = cliObjs; n; n = n->next) inputs[at++] = strdup(n->s);
@@ -355,7 +364,7 @@ static Boolean linkInternal(const char *outputFile, Boolean shared,
   // library this linker took nothing from is not recorded as needed anyway.
   inputs[at++] = strdup("-lgcc_s");
 
-  INPUT("%s/crtend.o", gccPath);
+  INPUT("%s/crtend%s.o", gccPath, shared ? "S" : "");
   INPUT("%s/crtn.o", crtPath);
 
 #undef INPUT

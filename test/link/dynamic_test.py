@@ -779,10 +779,20 @@ def testRefused(compiler, tmp, suite):
     suite.contains(result.stderr, "--gc-sections",
                    "the refusal names the flag")
 
+    # A PC-relative reference to a name somebody else may define is what
+    # '-fPIC' exists to avoid, and a shared object built without it is one ld
+    # refuses too. Saying which symbol is the whole value of the message.
+    source = os.path.join(tmp, "notpic.c")
+    with open(source, "w") as f:
+        f.write("int counter = 1;\nint bump(void) { return ++counter; }\n")
+
     result = subprocess.run([compiler, "-oneline", "-fuse-ld=internal",
-                             "-shared", "-o", os.path.join(tmp, "tiny.so"),
+                             "-shared", "-o", os.path.join(tmp, "notpic.so"),
                              source], capture_output=True, text=True)
-    suite.check(result.returncode != 0, "'-shared' is refused for now")
+    suite.check(result.returncode != 0,
+                "'-shared' without '-fPIC' is refused")
+    suite.contains(result.stderr, "counter",
+                   "and the refusal names the symbol")
 
 
 def main():

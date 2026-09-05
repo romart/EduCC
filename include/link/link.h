@@ -4,16 +4,26 @@
 #include "link/elfread.h"
 
 // Writing side of the linker: objects in, an executable out, in place of the
-// 'ld' that runLinker() still shells out to. Two shapes of link exist: a
-// static, freestanding one with no dynamic machinery at all, and a dynamic
+// 'ld' that runLinker() still shells out to. Three shapes of link exist: a
+// static, freestanding one with no dynamic machinery at all, a dynamic
 // non-PIE executable that reaches the distribution's own libc through
-// ld.so - which is what the driver produces.
+// ld.so - which is what the driver produces - and a shared object.
 
 typedef struct _LinkOptions {
   const char *outputFile;
 
-  // The symbol e_entry is taken from, '_start' unless overridden.
+  // The symbol e_entry is taken from, '_start' unless overridden. A shared
+  // object has no entry point and does not look for one.
   const char *entrySymbol;
+
+  // '-shared': ET_DYN rather than ET_EXEC. Nothing in the output has a final
+  // address, so every place holding one is left for the loader to write, and
+  // a name this object defines may still be answered for by somebody else.
+  Boolean shared;
+
+  // DT_SONAME, from '-soname'. Absent by default, which makes whoever links
+  // against this object record the name they found it under.
+  const char *soname;
 
   // Where the first PT_LOAD is mapped. Page-aligned, and above the mmap floor
   // so that nothing the kernel places can land on top of it.

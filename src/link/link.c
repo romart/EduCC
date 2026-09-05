@@ -160,6 +160,11 @@ typedef struct _LinkSymbol {
 
   Boolean weakDefinition;
   Boolean strongReference;
+
+  // A shared object left this name to whoever loads it. If this link defines
+  // it, the definition has to be advertised, or the library gets its own idea
+  // of what the name means and interposition never happens.
+  Boolean sharedReference;
   Boolean linkerDefined;
   Boolean resolved;
 } LinkSymbol;
@@ -267,12 +272,24 @@ typedef struct _Linker {
   LinkPiece *gotPltPiece;
   LinkPiece *dynamicPiece;
 
+  // How many entries .rela.dyn needs, counted before layout because layout is
+  // what sizes the section. Only a shared object has any beyond its copies.
+  size_t dynRelocCount;
+  size_t relativeCount; // of those, the leading R_X86_64_RELATIVE run
+
   uint64_t relroStart;
   uint64_t relroEnd;
 
   uint64_t entry;
   Boolean hadError;
 } Linker;
+
+// What the loader has to be told about one place holding an address.
+enum DynAction {
+  DYN_NONE = 0,  // the link knows the answer and has written it
+  DYN_RELATIVE,  // the answer is this object's own, once it has been placed
+  DYN_SYMBOL     // the answer is a name, and may not be this object's at all
+};
 
 static void linkError(Linker *l, const char *fmt, ...) {
   va_list args;
@@ -790,6 +807,19 @@ static Boolean isSharedSymbol(const LinkSymbol *symbol) {
          !symbol->linkerDefined && symbol->shared != NULL;
 }
 
+// Whether somebody other than this object may end up answering for the name.
+// Only a shared object has the question at all: an executable's definitions
+// are final, and its references to a library are already bound to a stub or a
+// copy it owns. Hidden means the name is this object's own business, and a
+// linker-defined one describes this object and nothing else.
+static Boolean isPreemptible(const Linker *l, const LinkSymbol *symbol) {
+  if (!l->options->shared) return FALSE;
+  if (symbol->linkerDefined) return FALSE;
+  if (symbol->definition == NULL) return TRUE;
+
+  return symbol->definition->visibility == STV_DEFAULT;
+}
+
 static void collectSymbols(Linker *l, LinkFile *lf) {
   InputFile *file = lf->file;
 
@@ -848,8 +878,12 @@ static void collectSharedSymbols(Linker *l, LinkFile *lf) {
     InputSymbol *symbol = &file->symbols[i];
 
     if (symbol->bind == STB_LOCAL) continue;
-    if (symbol->shndx == SHN_UNDEF) continue;
     if (symbol->name == NULL || symbol->name[0] == '\0') continue;
+
+    if (symbol->shndx == SHN_UNDEF) {
+      lookupGlobal(l, symbol->name)->sharedReference = TRUE;
+      continue;
+    }
 
     // Hidden and internal names are the library's own business, and a
     // non-default version is not what an unversioned reference asks for.
@@ -925,6 +959,10 @@ static void allocateCommon(Linker *l) {
 }
 
 static Boolean checkUndefined(Linker *l) {
+  // A shared object is entitled to leave a name to whoever loads it, and ld
+  // allows the same thing for '-shared' without being asked.
+  if (l->options->shared) return TRUE;
+
   size_t i;
   for (i = 0; i < l->globals.size; ++i) {
     LinkSymbol *symbol = (LinkSymbol *)getFromVector(&l->globals, i);
@@ -1167,7 +1205,9 @@ static uint32_t segmentFlags(enum SectionClass class) {
 }
 
 static void layoutSections(Linker *l, Layout *layout) {
-  uint64_t base = l->options->imageBase;
+  // A shared object is mapped wherever the loader puts it, so it is written as
+  // though that were address zero and every address in it is really an offset.
+  uint64_t base = l->options->shared ? 0 : l->options->imageBase;
   uint64_t offset = 0;
 
   int class;
@@ -1360,6 +1400,40 @@ static Boolean isGotRelocation(uint32_t type) {
          type == R_X86_64_REX_GOTPCRELX;
 }
 
+// What an absolute 64-bit reference costs in a shared object. Asked twice -
+// once to size .rela.dyn and once to fill it - so the two cannot disagree
+// about how many entries there are.
+static enum DynAction absoluteAction(Linker *l, LinkFile *lf, uint32_t index) {
+  if (!l->options->shared) return DYN_NONE;
+  if (index == 0 || index >= lf->file->symbolCount) return DYN_RELATIVE;
+
+  const InputSymbol *symbol = &lf->file->symbols[index];
+  if (symbol->bind == STB_LOCAL) return DYN_RELATIVE;
+
+  LinkSymbol *global = lf->globals[index];
+  if (global == NULL) return DYN_RELATIVE;
+
+  return isPreemptible(l, global) ? DYN_SYMBOL : DYN_RELATIVE;
+}
+
+// A GOT slot in a shared object is never a constant: either the loader looks
+// the name up, or it adds the load address to what the link wrote.
+static enum DynAction gotSlotAction(Linker *l, const GotSlot *slot) {
+  if (!l->options->shared) return DYN_NONE;
+  if (slot->global != NULL && isPreemptible(l, slot->global)) return DYN_SYMBOL;
+  return DYN_RELATIVE;
+}
+
+// Somewhere the loader has to write, which it can only do to a section that is
+// still writable when it runs. Arranging otherwise means DT_TEXTREL, which
+// this linker does not emit and ld would not either without being asked.
+static void requireWritable(Linker *l, LinkFile *lf, const LinkPiece *piece) {
+  if (piece->flags & SHF_WRITE) return;
+
+  linkError(l, "%s: '%s' needs an address written into it at load time, which "
+               "a read-only section cannot have", fileName(lf), piece->name);
+}
+
 // One walk over every relocation in the link, before anything has an address,
 // asking only what each one will need to exist. Layout cannot start until the
 // answer is known: the sections that hold those answers are sized by it.
@@ -1382,9 +1456,23 @@ static void scanRelocations(Linker *l) {
         if (index == 0 || index >= lf->file->symbolCount) continue;
 
         const InputSymbol *symbol = &lf->file->symbols[index];
+        Boolean absolute32 = type == R_X86_64_32 || type == R_X86_64_32S;
+
+        // A 32-bit absolute field cannot hold an address that is not known
+        // until load time, and no dynamic relocation would fit in it either.
+        if (l->options->shared && absolute32 && symbol->shndx != SHN_ABS) {
+          linkError(l, "%s: a 32-bit absolute reference to '%s' in '%s' cannot "
+                       "be used when making a shared object", fileName(lf),
+                    symbol->name != NULL ? symbol->name : "", piece->name);
+          continue;
+        }
 
         if (symbol->bind == STB_LOCAL) {
           if (isGotRelocation(type)) needLocalGot(l, lf, index);
+          if (l->options->shared && type == R_X86_64_64) {
+            requireWritable(l, lf, piece);
+            ++l->dynRelocCount;
+          }
           continue;
         }
 
@@ -1392,6 +1480,40 @@ static void scanRelocations(Linker *l) {
         if (global == NULL) continue;
 
         if (isGotRelocation(type)) needGlobalGot(l, global);
+
+        if (l->options->shared) {
+          Boolean preempt = isPreemptible(l, global);
+
+          if (isGotRelocation(type) && preempt) addDynamicSymbol(l, global);
+
+          switch (type) {
+            case R_X86_64_PLT32:
+              // A call to a name somebody else may define goes through a stub
+              // even when this object defines it too - that is the whole of
+              // what makes an interposed definition take effect.
+              if (preempt) needPlt(l, global);
+              break;
+
+            case R_X86_64_64:
+              requireWritable(l, lf, piece);
+              if (preempt) addDynamicSymbol(l, global);
+              ++l->dynRelocCount;
+              break;
+
+            case R_X86_64_PC32:
+              if (preempt) {
+                linkError(l, "%s: a PC-relative reference to '%s' in '%s' "
+                             "cannot be used when making a shared object; "
+                             "recompile with '-fPIC'",
+                          fileName(lf), global->name, piece->name);
+              }
+              break;
+
+            default:
+              break;
+          }
+          continue;
+        }
 
         if (!isSharedSymbol(global)) continue;
 
@@ -1415,6 +1537,43 @@ static void scanRelocations(Linker *l) {
         }
       }
     }
+  }
+
+  // Every GOT slot in a shared object is one more thing for the loader to do,
+  // and the last of them was allocated by the walk that just finished.
+  if (l->options->shared) l->dynRelocCount += l->got.size;
+}
+
+// A shared object is linked against by name, so it has to advertise every
+// definition it is willing to answer for - not only the ones this link
+// happened to need itself.
+static void exportSymbols(Linker *l) {
+  size_t i;
+  for (i = 0; i < l->globals.size; ++i) {
+    LinkSymbol *symbol = (LinkSymbol *)getFromVector(&l->globals, i);
+
+    // An executable advertises only the names a library it loaded also knows
+    // about - whether the library references them or defines them itself.
+    // Either way the program's definition is the one that has to win, and it
+    // can only win by being in a table ld.so searches first. A shared object
+    // advertises everything it has.
+    if (!l->options->shared && symbol->shared == NULL &&
+        !symbol->sharedReference) {
+      continue;
+    }
+
+    if (symbol->definition != NULL) {
+      uint8_t visibility = symbol->definition->visibility;
+      if (visibility == STV_HIDDEN || visibility == STV_INTERNAL) continue;
+    } else if (!symbol->isCommon) {
+      // Undefined here: it belongs in .dynsym only when something in this
+      // object actually asks the loader about it, which the scan above said.
+      // A linker-defined name describes this object's own layout and would be
+      // a lie about anyone else's, so it is never exported either.
+      continue;
+    }
+
+    addDynamicSymbol(l, symbol);
   }
 }
 
@@ -1482,8 +1641,11 @@ static unsigned dynamicCapacity(Linker *l) {
 static void createDynamicSections(Linker *l) {
   const char *interpreter = l->options->interpreter;
 
-  l->interpPiece = addSynthetic(l, ".interp", SHT_PROGBITS, SHF_ALLOC, 1, 0,
-                                strlen(interpreter) + 1, &l->interpSection);
+  // A shared object has none: whoever loads it already has an interpreter.
+  if (interpreter != NULL) {
+    l->interpPiece = addSynthetic(l, ".interp", SHT_PROGBITS, SHF_ALLOC, 1, 0,
+                                  strlen(interpreter) + 1, &l->interpSection);
+  }
 
   unsigned chainCount = (unsigned)l->dynsyms.size + 1;
   unsigned bucketCount = hashBucketCount(chainCount);
@@ -1498,6 +1660,7 @@ static void createDynamicSections(Linker *l) {
                                 &l->dynsymSection);
 
   if (l->options->runpath != NULL) addDynString(l, l->options->runpath);
+  if (l->options->soname != NULL) addDynString(l, l->options->soname);
 
   LinkFile *lf;
   for (lf = l->files; lf != NULL; lf = lf->next) {
@@ -1507,10 +1670,15 @@ static void createDynamicSections(Linker *l) {
   l->dynstrPiece = addSynthetic(l, ".dynstr", SHT_STRTAB, SHF_ALLOC, 1, 0,
                                 l->dynstr.size, &l->dynstrSection);
 
-  if (l->copies.size != 0) {
+  // An executable's only dynamic relocations are its copies: everything else
+  // in it has an address the link already knows.
+  size_t relaDynCount =
+      l->options->shared ? l->dynRelocCount : l->copies.size;
+
+  if (relaDynCount != 0) {
     l->relaDynPiece = addSynthetic(l, ".rela.dyn", SHT_RELA, SHF_ALLOC, 8,
                                    sizeof(Elf64_Rela),
-                                   l->copies.size * sizeof(Elf64_Rela),
+                                   relaDynCount * sizeof(Elf64_Rela),
                                    &l->relaDynSection);
   }
 
@@ -1636,6 +1804,11 @@ static uint64_t linkerSymbolValue(Linker *l, const Layout *layout,
   return dataEnd; // '_edata' and 'edata'
 }
 
+static uint64_t pltEntryAddress(Linker *l, const LinkSymbol *symbol) {
+  return l->pltSection->address +
+         (uint64_t)(symbol->pltIndex + 1) * PLT_ENTRY_SIZE;
+}
+
 static Boolean resolveSymbolAddresses(Linker *l, const Layout *layout) {
   size_t i;
   for (i = 0; i < l->globals.size; ++i) {
@@ -1691,8 +1864,7 @@ static Boolean resolveSymbolAddresses(Linker *l, const Layout *layout) {
     }
 
     if (symbol->needsPlt) {
-      symbol->address = l->pltSection->address +
-                        (uint64_t)(symbol->pltIndex + 1) * PLT_ENTRY_SIZE;
+      symbol->address = pltEntryAddress(l, symbol);
       symbol->resolved = TRUE;
       continue;
     }
@@ -1812,19 +1984,53 @@ static void fillDynamicSymbols(Linker *l) {
     LinkSymbol *symbol = (LinkSymbol *)getFromVector(&l->dynsyms, i);
     Elf64_Sym *entry = &symbols[symbol->dynIndex];
 
-    entry->st_name = addDynString(l, symbol->name);
-    entry->st_info = (uint8_t)((STB_GLOBAL << 4) | symbol->shared->type);
-    entry->st_other = STV_DEFAULT;
+    uint8_t bind = STB_GLOBAL;
+    uint8_t type = STT_NOTYPE;
+    uint16_t shndx = SHN_UNDEF;
+    uint64_t value = 0;
+    uint64_t size = 0;
 
-    if (symbol->needsCopy) {
+    if (symbol->definition != NULL) {
+      const InputSymbol *definition = symbol->definition;
+
+      bind = symbol->weakDefinition ? STB_WEAK : STB_GLOBAL;
+      type = definition->type;
+      value = symbol->address;
+      size = symbol->size;
+      shndx = SHN_ABS;
+
+      if (definition->shndx != SHN_ABS) {
+        LinkPiece *piece = symbol->owner->pieces[definition->shndx];
+        if (piece != NULL) shndx = (uint16_t)piece->output->index;
+      }
+    } else if (symbol->isCommon) {
+      type = STT_OBJECT;
+      shndx = (uint16_t)l->commonPiece->output->index;
+      value = symbol->address;
+      size = symbol->size;
+    } else if (symbol->needsCopy) {
       // A copied object is defined *here* now, and has to be advertised that
       // way: the library binds its own references to this address too.
-      entry->st_shndx = (uint16_t)l->copyPiece->output->index;
-      entry->st_value = symbol->address;
-      entry->st_size = symbol->copySize;
+      type = symbol->shared->type;
+      shndx = (uint16_t)l->copyPiece->output->index;
+      value = symbol->address;
+      size = symbol->copySize;
+    } else if (symbol->linkerDefined) {
+      shndx = SHN_ABS;
+      value = symbol->address;
     } else {
-      entry->st_shndx = SHN_UNDEF;
+      // Left to the loader. A name only weakly referenced has to say so, or
+      // ld.so refuses to start a program that never needed it.
+      if (symbol->shared != NULL) type = symbol->shared->type;
+      if (!symbol->strongReference) bind = STB_WEAK;
     }
+
+    entry->st_name = addDynString(l, symbol->name);
+    entry->st_info = (uint8_t)((bind << 4) | type);
+    entry->st_other = STV_DEFAULT;
+    entry->st_shndx = shndx;
+    entry->st_value = value;
+    entry->st_size = size;
   }
 
   uint32_t *hash = (uint32_t *)l->hashPiece->data;
@@ -1850,6 +2056,95 @@ static void fillDynamicSymbols(Linker *l) {
   }
 }
 
+static void addDynRela(Elf64_Rela *entries, size_t *at, uint64_t offset,
+                       uint64_t info, int64_t addend) {
+  entries[*at].r_offset = offset;
+  entries[*at].r_info = info;
+  entries[*at].r_addend = addend;
+  ++*at;
+}
+
+// Everything a shared object leaves for the loader. Walked twice, RELATIVE
+// first: DT_RELACOUNT says how many of those there are rather than which,
+// so they are only skippable if they come first.
+static void emitDynamicRelocations(Linker *l, Boolean relative,
+                                   Elf64_Rela *entries, size_t *at) {
+  size_t i;
+  for (i = 0; i < l->got.size; ++i) {
+    GotSlot *slot = (GotSlot *)getFromVector(&l->got, i);
+    uint64_t where = l->gotPiece->address + slot->offset;
+
+    if (gotSlotAction(l, slot) == DYN_SYMBOL) {
+      if (!relative) {
+        addDynRela(entries, at, where,
+                   ELF64_R_INFO(slot->global->dynIndex, R_X86_64_GLOB_DAT), 0);
+      }
+      continue;
+    }
+
+    if (!relative) continue;
+
+    uint64_t value = 0;
+    if (slot->global != NULL) {
+      value = slot->global->address;
+    } else {
+      const InputSymbol *symbol = &slot->file->file->symbols[slot->index];
+      if (!localSymbolAddress(l, slot->file, symbol, &value)) continue;
+    }
+
+    addDynRela(entries, at, where, ELF64_R_INFO(0, R_X86_64_RELATIVE),
+               (int64_t)value);
+  }
+
+  LinkFile *lf;
+  for (lf = l->files; lf != NULL; lf = lf->next) {
+    if (lf->shared) continue;
+
+    unsigned s;
+    for (s = 0; s < lf->file->sectionCount; ++s) {
+      LinkPiece *piece = lf->pieces[s];
+      if (piece == NULL || piece->input == NULL) continue;
+
+      size_t j;
+      for (j = 0; j < piece->input->relocCount; ++j) {
+        const Elf64_Rela *rela = &piece->input->relocs[j];
+        if ((uint32_t)ELF64_R_TYPE(rela->r_info) != R_X86_64_64) continue;
+
+        uint32_t index = (uint32_t)ELF64_R_SYM(rela->r_info);
+        uint64_t where = piece->address + rela->r_offset;
+
+        if (absoluteAction(l, lf, index) == DYN_SYMBOL) {
+          if (relative) continue;
+
+          LinkSymbol *global = lf->globals[index];
+          addDynRela(entries, at, where,
+                     ELF64_R_INFO(global->dynIndex, R_X86_64_64),
+                     rela->r_addend);
+          continue;
+        }
+
+        if (!relative) continue;
+
+        // The loader adds where the object landed, so what goes in the addend
+        // is the whole answer the link would have written into an executable.
+        uint64_t S = 0;
+        if (index != 0 && index < lf->file->symbolCount) {
+          const InputSymbol *symbol = &lf->file->symbols[index];
+
+          if (symbol->bind == STB_LOCAL) {
+            if (!localSymbolAddress(l, lf, symbol, &S)) continue;
+          } else if (lf->globals[index] != NULL) {
+            S = lf->globals[index]->address;
+          }
+        }
+
+        addDynRela(entries, at, where, ELF64_R_INFO(0, R_X86_64_RELATIVE),
+                   (int64_t)(S + (uint64_t)rela->r_addend));
+      }
+    }
+  }
+}
+
 static void fillDynamicRelocations(Linker *l) {
   if (l->relaPltPiece != NULL) {
     Elf64_Rela *entries = (Elf64_Rela *)l->relaPltPiece->data;
@@ -1865,17 +2160,31 @@ static void fillDynamicRelocations(Linker *l) {
     }
   }
 
-  if (l->relaDynPiece != NULL) {
-    Elf64_Rela *entries = (Elf64_Rela *)l->relaDynPiece->data;
+  if (l->relaDynPiece == NULL) return;
 
+  Elf64_Rela *entries = (Elf64_Rela *)l->relaDynPiece->data;
+  size_t capacity = (size_t)(l->relaDynPiece->size / sizeof(Elf64_Rela));
+  size_t at = 0;
+
+  if (l->options->shared) {
+    emitDynamicRelocations(l, TRUE, entries, &at);
+    l->relativeCount = at;
+    emitDynamicRelocations(l, FALSE, entries, &at);
+  } else {
     size_t i;
     for (i = 0; i < l->copies.size; ++i) {
       LinkSymbol *symbol = (LinkSymbol *)getFromVector(&l->copies, i);
-
-      entries[i].r_offset = symbol->address;
-      entries[i].r_info = ELF64_R_INFO(symbol->dynIndex, R_X86_64_COPY);
-      entries[i].r_addend = 0;
+      addDynRela(entries, &at, symbol->address,
+                 ELF64_R_INFO(symbol->dynIndex, R_X86_64_COPY), 0);
     }
+  }
+
+  assert(at <= capacity);
+
+  // Short only when something above already failed, and a link that reported
+  // an error writes nothing - but a half-filled table must still parse.
+  while (at < capacity) {
+    addDynRela(entries, &at, 0, ELF64_R_INFO(0, R_X86_64_NONE), 0);
   }
 }
 
@@ -1897,6 +2206,10 @@ static void fillDynamicSection(Linker *l) {
     if (lf->shared && lf->needed) {
       DYN(DT_NEEDED, addDynString(l, lf->file->soname));
     }
+  }
+
+  if (l->options->soname != NULL) {
+    DYN(DT_SONAME, addDynString(l, l->options->soname));
   }
 
   if (l->options->runpath != NULL) {
@@ -1933,6 +2246,10 @@ static void fillDynamicSection(Linker *l) {
     DYN(DT_RELA, l->relaDynPiece->address);
     DYN(DT_RELASZ, l->relaDynPiece->size);
     DYN(DT_RELAENT, sizeof(Elf64_Rela));
+
+    // The leading run the loader can apply without looking at a symbol, which
+    // is why they were sorted to the front.
+    if (l->relativeCount != 0) DYN(DT_RELACOUNT, l->relativeCount);
   }
 
   if (l->relaPltPiece != NULL) {
@@ -1964,8 +2281,10 @@ static void fillDynamicContents(Linker *l) {
   fillDynamicRelocations(l);
   fillDynamicSection(l);
 
-  memcpy((void *)l->interpPiece->data, l->options->interpreter,
-         (size_t)l->interpPiece->size);
+  if (l->interpPiece != NULL) {
+    memcpy((void *)l->interpPiece->data, l->options->interpreter,
+           (size_t)l->interpPiece->size);
+  }
 
   // Every name above was interned before .dynstr was sized, so asking for one
   // again cannot have grown it - and the section reserved exactly this much.
@@ -2010,6 +2329,7 @@ static void applyRelocation(Linker *l, LinkPiece *piece,
   uint64_t S = 0;
   Boolean haveGot = FALSE;
   uint64_t G = 0;
+  LinkSymbol *global = NULL;
 
   if (index != 0) {
     if (index >= lf->file->symbolCount) {
@@ -2028,7 +2348,7 @@ static void applyRelocation(Linker *l, LinkPiece *piece,
         G = l->gotPiece->address + lf->localGot[index] - 1;
       }
     } else {
-      LinkSymbol *global = lf->globals[index];
+      global = lf->globals[index];
       if (global == NULL || !global->resolved) {
         linkError(l, "%s: '%s' is not resolved", fileName(lf), name);
         return;
@@ -2055,7 +2375,15 @@ static void applyRelocation(Linker *l, LinkPiece *piece,
     // stub's address and they stay the same arithmetic.
     case R_X86_64_PC32:
     case R_X86_64_PLT32: {
-      int64_t value = (int64_t)(S + (uint64_t)A) - (int64_t)P;
+      // In a shared object a name this object defines may still be answered
+      // for by somebody else, and the stub is where that gets decided - so a
+      // call goes there rather than straight at the local definition.
+      uint64_t target = S;
+      if (type == R_X86_64_PLT32 && global != NULL && global->needsPlt) {
+        target = pltEntryAddress(l, global);
+      }
+
+      int64_t value = (int64_t)(target + (uint64_t)A) - (int64_t)P;
       if (value < RELOC_S32_MIN || value > RELOC_S32_MAX) {
         linkError(l, "%s: '%s' is too far from '%s' for a 32-bit displacement",
                   fileName(lf), name, piece->name);
@@ -2302,7 +2630,9 @@ static unsigned writeProgramHeaders(Linker *l, const Layout *layout,
 
   const Segment *first = &layout->segments[CLASS_RODATA];
 
-  if (l->dynamic) {
+  // Both of these describe how the program is started, which is a question
+  // only an executable is asked: a shared object has neither.
+  if (l->interpPiece != NULL) {
     // PT_PHDR has to come first and has to be inside a PT_LOAD; the read-only
     // segment starts at file offset zero for exactly that reason.
     phdrs[count].p_type = PT_PHDR;
@@ -2453,7 +2783,7 @@ static Boolean writeImage(Linker *l, const Layout *layout, Boolean *wrote) {
   header->e_ident[EI_DATA] = ELFDATA2LSB;
   header->e_ident[EI_VERSION] = EV_CURRENT;
   header->e_ident[EI_OSABI] = ELFOSABI_SYSV;
-  header->e_type = ET_EXEC;
+  header->e_type = l->options->shared ? ET_DYN : ET_EXEC;
   header->e_machine = EM_X86_64;
   header->e_version = EV_CURRENT;
   header->e_entry = l->entry;
@@ -2562,6 +2892,8 @@ void initLinkOptions(LinkOptions *options) {
   options->interpreter = NULL;
   options->runpath = NULL;
   options->stripSymbols = FALSE;
+  options->shared = FALSE;
+  options->soname = NULL;
 }
 
 // Once the inputs are in order, the archives are asked one last time about
@@ -2593,7 +2925,8 @@ static unsigned countProgramHeaders(Linker *l) {
   ++phnum; // PT_GNU_STACK
 
   if (l->dynamic) {
-    phnum += 4; // PT_PHDR, PT_INTERP, PT_DYNAMIC, PT_GNU_RELRO
+    phnum += 2; // PT_DYNAMIC and PT_GNU_RELRO
+    if (l->interpPiece != NULL) phnum += 2; // PT_PHDR and PT_INTERP
   }
 
   return phnum;
@@ -2605,7 +2938,7 @@ Boolean linkObjects(const LinkOptions *options, int inputCount, char **inputs,
   linker.arena = createArena("linker", DEFAULT_CHUNCK_SIZE);
   linker.reader.arena = linker.arena;
   linker.options = options;
-  linker.dynamic = options->interpreter != NULL;
+  linker.dynamic = options->interpreter != NULL || options->shared;
   linker.globalMap = createHashMap(DEFAULT_MAP_CAPACITY, &nameHash,
                                    &nameCompare);
   initVector(&linker.globals, 64);
@@ -2650,6 +2983,7 @@ Boolean linkObjects(const LinkOptions *options, int inputCount, char **inputs,
     scanRelocations(&linker);
     if (linker.hadError) goto done;
 
+    exportSymbols(&linker);
     allocateCopies(&linker);
     createDynamicSections(&linker);
   }
@@ -2662,15 +2996,19 @@ Boolean linkObjects(const LinkOptions *options, int inputCount, char **inputs,
 
   if (!resolveSymbolAddresses(&linker, &layout)) goto done;
 
-  LinkSymbol *entry =
-      (LinkSymbol *)getFromHashMap(linker.globalMap,
-                                   (intptr_t)options->entrySymbol);
-  if (entry == NULL || entry->definition == NULL) {
-    linkError(&linker, "entry symbol '%s' is not defined",
-              options->entrySymbol);
-    goto done;
+  // A shared object is not started, it is loaded, and ld leaves e_entry at
+  // zero for one rather than inventing something to put there.
+  if (!options->shared) {
+    LinkSymbol *entry =
+        (LinkSymbol *)getFromHashMap(linker.globalMap,
+                                     (intptr_t)options->entrySymbol);
+    if (entry == NULL || entry->definition == NULL) {
+      linkError(&linker, "entry symbol '%s' is not defined",
+                options->entrySymbol);
+      goto done;
+    }
+    linker.entry = entry->address;
   }
-  linker.entry = entry->address;
 
   ok = writeImage(&linker, &layout, &wrote);
 
@@ -2708,6 +3046,14 @@ int linkCommand(int argc, char **argv, Boolean dynamic) {
       options.entrySymbol = argv[++i];
     } else if (strcmp(arg, "-s") == 0) {
       options.stripSymbols = TRUE;
+    } else if (strcmp(arg, "-shared") == 0) {
+      // A shared object is loaded by whoever needs it, so it names no
+      // interpreter even when '-Xlink-dynamic' has just supplied one.
+      options.shared = TRUE;
+      options.interpreter = NULL;
+    } else if ((strcmp(arg, "-soname") == 0 || strcmp(arg, "-h") == 0) &&
+               i + 1 < argc) {
+      options.soname = argv[++i];
     } else if (strcmp(arg, "-rpath") == 0 && i + 1 < argc) {
       options.runpath = argv[++i];
     } else if (strcmp(arg, "-dynamic-linker") == 0 && i + 1 < argc) {
