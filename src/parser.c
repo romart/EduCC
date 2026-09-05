@@ -2827,6 +2827,14 @@ static AstStatement *parseStatementImpl(ParserContext *ctx, Boolean asExpr) {
         consume(ctx, SWITCH);
         consume(ctx, '(');
         expr = parseExpression(ctx);
+        // The controlling expression is promoted, so a bit field is a legal one
+        // and reaches the jump table at its storage unit's width, not its own.
+        if (expr->type->kind == TR_BITFIELD) {
+            TypeRef *storage = expr->type->bitFieldDesc.storageType;
+            TypeRef *promoted = computeTypeSize(storage) < computeTypeSize(makePrimitiveType(ctx, T_S4, 0))
+                              ? makePrimitiveType(ctx, T_S4, 0) : storage;
+            expr = createCastExpression(ctx, &expr->coordinates, promoted, expr);
+        }
         if (!isIntegerType(expr->type)) {
             reportDiagnostic(ctx, DIAG_SWITCH_ARG_NOT_INTEGER, &expr->coordinates, expr->type);
         }
