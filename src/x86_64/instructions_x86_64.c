@@ -1060,36 +1060,16 @@ static void emitByte_pc(address p, uint8_t b) {
    *(uint8_t*)p = b;
 }
 
-static void emitWord_pc(address p, uint16_t w) {
-   emitByte_pc(p, (uint8_t)w);
-
-   if ((uint16_t)(uint8_t)w != w) {
-       emitByte_pc(p + sizeof (uint8_t), (uint8_t)(w >> 8));
-   }
-}
-
-
-static void emitDouble_pc(address p, uint32_t w) {
-    emitWord_pc(p, (uint16_t) w);
-
-    if ((uint32_t)(uint16_t)w != w) {
-        emitWord_pc(p + sizeof (uint16_t), (uint16_t)(w >> 16));
-    }
-}
-
+// All four bytes, every time: this writes over a reserved 0xDEADBEEF and not
+// into fresh space, so a high byte left unwritten because the displacement did
+// not need it keeps the placeholder's instead. A jump whose displacement has a
+// zero top byte and a non-zero third one - a forward jump of more than 64K,
+// which only a very large function has - jumped 0xDE000000 bytes away.
 static void emitDisp32_pc(address p, uint32_t w) {
-  if ((uint32_t)(uint16_t)w != w) {
-      emitDouble_pc(p, w);
-  } else {
-      if ((uint32_t)(uint8_t)w != w) {
-          emitWord_pc(p, w);
-      } else {
-          emitByte_pc(p, (uint8_t)w);
-          emitByte_pc(p + sizeof (uint8_t), 0);
-      }
-      emitByte_pc(p + sizeof (uint16_t), 0);
-      emitByte_pc(p + sizeof (uint16_t) + sizeof (uint8_t), 0);
-  }
+  emitByte_pc(p + 0, (uint8_t)(w >> 0));
+  emitByte_pc(p + 1, (uint8_t)(w >> 8));
+  emitByte_pc(p + 2, (uint8_t)(w >> 16));
+  emitByte_pc(p + 3, (uint8_t)(w >> 24));
 }
 
 void emitCondJump(GeneratedFunction *f, struct Label *l, enum JumpCondition cond, Boolean isNear) {
