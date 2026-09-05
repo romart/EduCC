@@ -354,5 +354,19 @@ if(BUILD_TESTING)
       TIMEOUT 300
       LABELS checkers
       SKIP_RETURN_CODE 2)
+
+    # pic.py again, with the shared object and the program that loads it both
+    # built in-house (M3). Its round trip is the only place a '-shared' link
+    # this linker wrote is handed to the system loader over the whole corpus's
+    # worth of objects; the walk itself still asks ld, and is the same answer.
+    add_test(NAME checker_pic_internal
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/test/checkers/pic.py"
+              "$<TARGET_FILE:main>" "-fuse-ld=internal" "test/testData/codegen"
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+    set_tests_properties(checker_pic_internal PROPERTIES
+      TIMEOUT 300
+      LABELS checkers
+      SKIP_RETURN_CODE 2)
   endif()
 endif()

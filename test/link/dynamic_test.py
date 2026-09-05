@@ -45,12 +45,15 @@ from linker_test import (Link, Executable, addRela, objectImage, runProgram,
 PT_PHDR, PT_INTERP, PT_DYNAMIC = 6, 3, 2
 PT_GNU_RELRO = 0x6474e552
 
-R_X86_64_JUMP_SLOT, R_X86_64_COPY = 7, 5
+ET_EXEC, ET_DYN = 2, 3
+
+R_X86_64_64, R_X86_64_GLOB_DAT, R_X86_64_JUMP_SLOT = 1, 6, 7
+R_X86_64_COPY, R_X86_64_RELATIVE = 5, 8
 
 DT_NEEDED, DT_HASH, DT_STRTAB, DT_SYMTAB = 1, 4, 5, 6
 DT_STRSZ, DT_SYMENT, DT_PLTGOT, DT_PLTRELSZ = 10, 11, 3, 2
 DT_JMPREL, DT_RELA, DT_RELASZ, DT_DEBUG, DT_NULL = 23, 7, 8, 21, 0
-DT_RUNPATH = 29
+DT_SONAME, DT_RUNPATH, DT_RELACOUNT = 14, 29, 0x6ffffff9
 
 INTERPRETER = "/lib64/ld-linux-x86-64.so.2"
 
@@ -522,61 +525,65 @@ int main(void) {
 """
 
 
-def testSharedLibrary(compiler, tmp, suite):
+def testSharedLibrary(compiler, tmp, suite, how):
     """A library that is not libc, found the way a user's would be. Everything
     the C runtime exercises is glibc's shape; this one is EduCC's own, and its
     sizes are known here rather than read off the host.
 
-    The library itself is built through ld ('-shared' is the next milestone),
-    which is also what makes this a test of *consuming* a shared object rather
-    than of producing one."""
-    if shutil.which("ld") is None:
-        return None
-
+    Run once per linker on the *producing* side, with the consumer always
+    linked in-house: the executable's tables have to come out the same whoever
+    wrote the library, which is what makes ld an oracle for '-shared' rather
+    than only for the program."""
+    tag = how.split("=")[1]
     source = os.path.join(tmp, "roundtrip.c")
     consumer = os.path.join(tmp, "consumer.c")
-    library = os.path.join(tmp, "libroundtrip.so")
-    program = os.path.join(tmp, "consumer")
+    directory = os.path.join(tmp, "lib-" + tag)
+    library = os.path.join(directory, "libroundtrip.so")
+    program = os.path.join(tmp, "consumer-" + tag)
 
+    os.makedirs(directory, exist_ok=True)
     with open(source, "w") as f:
         f.write(LIBRARY)
     with open(consumer, "w") as f:
         f.write(CONSUMER)
 
-    built = subprocess.run([compiler, "-oneline", "-fPIC", "-shared",
+    built = subprocess.run([compiler, "-oneline", how, "-fPIC", "-shared",
                             "-o", library, source],
                            capture_output=True, text=True)
     if built.returncode != 0:
-        suite.check(False, "the shared object could not be built: %s"
-                    % built.stderr.strip())
+        suite.check(False, "%s: the shared object could not be built: %s"
+                    % (tag, built.stderr.strip()))
         return None
 
     linked = subprocess.run([compiler, "-oneline", "-fuse-ld=internal",
-                             "-o", program, consumer, "-L" + tmp,
-                             "-lroundtrip", "-Wl,-rpath," + tmp],
+                             "-o", program, consumer, "-L" + directory,
+                             "-lroundtrip", "-Wl,-rpath," + directory],
                             capture_output=True, text=True)
     if linked.returncode != 0:
-        suite.check(False, "linking against the shared object failed: %s"
-                    % linked.stderr.strip())
+        suite.check(False, "%s: linking against the shared object failed: %s"
+                    % (tag, linked.stderr.strip()))
         return None
 
     run = runProgram([program])
     if run is None:
-        suite.check(False, "the program against its own library never finished")
+        suite.check(False,
+                    "%s: the program against its own library never finished"
+                    % tag)
         return None
 
-    suite.equal(run.returncode, 0, "a program against its own library runs")
+    suite.equal(run.returncode, 0,
+                "%s: a program against its own library runs" % tag)
 
     exe = Dynamic(program)
 
     needed = [exe.string(o) for o in exe.tags(DT_NEEDED)]
     suite.check("libroundtrip.so" in needed,
-                "the library is recorded as needed: %s" % needed)
-    suite.check("libc.so.6" in needed, "so is libc")
+                "%s: the library is recorded as needed: %s" % (tag, needed))
+    suite.check("libc.so.6" in needed, "%s: so is libc" % tag)
 
     runpath = exe.tag(DT_RUNPATH)
-    suite.check(runpath is not None and exe.string(runpath) == tmp,
-                "'-Wl,-rpath' becomes DT_RUNPATH")
+    suite.check(runpath is not None and exe.string(runpath) == directory,
+                "%s: '-Wl,-rpath' becomes DT_RUNPATH" % tag)
 
     copies = {exe.dynsyms[r[1]]["name"]: exe.dynsyms[r[1]]
               for r in exe.relocations(".rela.dyn") if r[2] == R_X86_64_COPY}
@@ -584,18 +591,162 @@ def testSharedLibrary(compiler, tmp, suite):
     # Sizes this test chose, rather than whatever the host's libc happens to
     # use - which is the whole reason for having a library of its own.
     suite.equal(sorted(copies), ["libraryBuffer", "libraryData"],
-                "both data objects are copied and the function is not")
+                "%s: both data objects are copied and the function is not" % tag)
     if "libraryData" in copies:
         suite.equal(copies["libraryData"]["size"], 4,
-                    "an int is copied as four bytes")
+                    "%s: an int is copied as four bytes" % tag)
     if "libraryBuffer" in copies:
         suite.equal(copies["libraryBuffer"]["size"], 24,
-                    "an array is copied whole")
+                    "%s: an array is copied whole" % tag)
 
     plt = [exe.dynsyms[r[1]]["name"] for r in exe.relocations(".rela.plt")]
-    suite.check("libraryValue" in plt, "the function is reached through a stub")
+    suite.check("libraryValue" in plt,
+                "%s: the function is reached through a stub" % tag)
 
     return program
+
+
+# A library whose own call to 'reading' has to be answerable by somebody else:
+# that is the whole of what preemption is, and it is the one thing a shared
+# object cannot get right by binding everything it can see locally.
+INTERPOSED = """
+int counter = 7;
+static int internal = 3;
+const char *label = "inside";
+
+int reading(void) { return 1; }
+int viaGlobal(void) { return reading() + internal + (counter - 7); }
+const char *labelOf(void) { return label; }
+"""
+
+INTERPOSER = """
+extern int counter;
+extern int reading(void);
+extern int viaGlobal(void);
+extern const char *labelOf(void);
+
+int reading(void) { return 100; }      // the library must see this one
+
+static int strEq(const char *a, const char *b) {
+  while (*a && *a == *b) { ++a; ++b; }
+  return *a == *b;
+}
+
+int main(void) {
+  if (viaGlobal() != 103) return 1;    // 100 from here, 3 from its own static
+  if (counter != 7) return 2;
+  counter = 9;
+  if (viaGlobal() != 105) return 3;    // and the library reads the same copy
+  if (!strEq(labelOf(), "inside")) return 4;
+  return 0;
+}
+"""
+
+
+def testSharedObject(compiler, tmp, suite):
+    """The producing side on its own: what '-shared' writes, and whether the
+    loader does what it says. The program deliberately defines a name the
+    library also defines and calls itself through - so a library that bound
+    that call to its own definition passes every structural check here and
+    still returns 1."""
+    directory = os.path.join(tmp, "interpose")
+    os.makedirs(directory, exist_ok=True)
+
+    source = os.path.join(directory, "inside.c")
+    consumer = os.path.join(directory, "outside.c")
+    library = os.path.join(directory, "libinside.so")
+    program = os.path.join(directory, "outside")
+
+    with open(source, "w") as f:
+        f.write(INTERPOSED)
+    with open(consumer, "w") as f:
+        f.write(INTERPOSER)
+
+    built = subprocess.run([compiler, "-oneline", "-fuse-ld=internal", "-fPIC",
+                            "-shared", "-Wl,-soname,libinside.so.1",
+                            "-o", library, source],
+                           capture_output=True, text=True)
+    if built.returncode != 0:
+        suite.check(False, "'-shared' failed: %s" % built.stderr.strip())
+        return None
+
+    so = Dynamic(library)
+
+    suite.equal(so.type, ET_DYN, "'-shared' writes ET_DYN")
+    suite.equal(so.entry, 0, "and no entry point")
+    suite.check(so.segment(PT_INTERP) is None,
+                "a shared object names no interpreter")
+    suite.check(so.segment(PT_DYNAMIC) is not None, "PT_DYNAMIC is there")
+
+    soname = so.tag(DT_SONAME)
+    suite.check(soname is not None and so.string(soname) == "libinside.so.1",
+                "'-Wl,-soname' becomes DT_SONAME")
+
+    relocs = so.relocations(".rela.dyn")
+    kinds = [r[2] for r in relocs]
+
+    relative = so.tag(DT_RELACOUNT) or 0
+    suite.check(relative > 0, "there are RELATIVE relocations: %d" % relative)
+    suite.equal(kinds[:relative], [R_X86_64_RELATIVE] * relative,
+                "DT_RELACOUNT counts a run that really is at the front")
+    suite.equal(kinds.count(R_X86_64_RELATIVE), relative,
+                "and there are no others behind it")
+
+    # An addend the loader adds its own load address to, so it has to be an
+    # offset into this object rather than an address anywhere else.
+    span = max(s["vaddr"] + s["memsz"] for s in so.loads())
+    strays = [hex(r[3]) for r in relocs[:relative] if not 0 < r[3] < span]
+    suite.check(not strays, "every RELATIVE addend is inside the object: %s"
+                % strays[:3])
+
+    byName = {so.dynsyms[r[1]]["name"]: r for r in relocs
+              if r[2] == R_X86_64_GLOB_DAT}
+    suite.check("counter" in byName or "label" in byName,
+                "a global reached through the GOT gets GLOB_DAT: %s"
+                % sorted(byName))
+
+    exported = {s["name"]: s for s in so.dynsyms if s["shndx"] != SHN_UNDEF}
+    for name in ("counter", "reading", "viaGlobal", "labelOf"):
+        suite.check(name in exported, "'%s' is exported" % name)
+        suite.check(so.hashLookup(name) is not None,
+                    "and '%s' is findable through .hash" % name)
+
+    suite.check("internal" not in exported, "a static is not exported")
+
+    # The call the library makes to its own global. It must be a stub, because
+    # the program below defines the same name.
+    stubs = [so.dynsyms[r[1]]["name"] for r in so.relocations(".rela.plt")]
+    suite.check("reading" in stubs,
+                "a call to a preemptible name goes through a stub: %s" % stubs)
+
+    # What DT_NEEDED will say, so it has to be a name that resolves.
+    versioned = os.path.join(directory, "libinside.so.1")
+    if not os.path.exists(versioned):
+        os.symlink("libinside.so", versioned)
+
+    linked = subprocess.run([compiler, "-oneline", "-fuse-ld=internal",
+                             "-o", program, consumer, "-L" + directory,
+                             "-linside", "-Wl,-rpath," + directory],
+                            capture_output=True, text=True)
+    if linked.returncode != 0:
+        suite.check(False, "linking against it failed: %s"
+                    % linked.stderr.strip())
+        return None
+
+    # DT_SONAME wins over the name the library was found under, which is the
+    # only reason a versioned filename works at all.
+    needed = [Dynamic(program).string(o) for o in Dynamic(program).tags(DT_NEEDED)]
+    suite.check("libinside.so.1" in needed,
+                "the soname is what gets recorded as needed: %s" % needed)
+
+    run = runProgram([program])
+    if run is None:
+        suite.check(False, "the interposing program never finished")
+        return None
+
+    suite.equal(run.returncode, 0,
+                "the program's definition wins inside the library too")
+    return library
 
 
 def testAgainstReadelf(suite, outputs):
@@ -819,14 +970,22 @@ def main():
         testDefaultVersionWins(link, suite)
 
         compiled = testDriver(compiler, tmp, suite)
-        shared = testSharedLibrary(compiler, tmp, suite)
+
+        consumers = [testSharedLibrary(compiler, tmp, suite, how)
+                     for how in ("-fuse-ld=internal", "-fuse-ld=external")
+                     if how == "-fuse-ld=internal" or shutil.which("ld")]
+        library = testSharedObject(compiler, tmp, suite)
         testRefused(compiler, tmp, suite)
 
-        outputs = [o for o in (called, compiled, shared) if o is not None]
+        outputs = [o for o in [called, compiled] + consumers if o is not None]
         for output in outputs:
             testStructure(link, suite, output)
 
-        oracle = testAgainstReadelf(suite, outputs)
+        # The shared object is read by readelf but not by testStructure: half
+        # of what that asserts is about how a program is started, which is the
+        # one thing a library is not.
+        oracle = testAgainstReadelf(suite,
+                                    outputs + ([library] if library else []))
 
     print("== %d checks over dynamically linked and executed programs%s"
           % (suite.checks,
