@@ -117,6 +117,12 @@ IrInstruction *evaluateBitCast(IrInstruction *i, IrInstruction *arg) {
   enum IrTypeKind fromT = i->info.fromCastType;
   enum IrTypeKind toT = i->type;
 
+  // '(void)0' discards its operand rather than converting it, and void has no
+  // width to make a constant of. Nothing reads the result, so leaving the cast
+  // for dead code elimination is the whole of the answer.
+  if (toT == IR_VOID)
+    return i;
+
   // A cast of a link-time address folds only when it changes nothing but the
   // label; anything narrowing or reinterpreting would have to know the bits.
   if (!isComputableConstant(arg))
