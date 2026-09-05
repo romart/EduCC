@@ -11,8 +11,8 @@ a PT_PHDR outside every PT_LOAD or a hash chain that loops are all invisible
 until the day something consults them.
 
 So this is the same corpus walk the other checkers do, over the linked
-executable rather than over a dump: link each fixture with '-fuse-ld=internal'
-and assert what a loader is entitled to assume. The invariants themselves live
+executable rather than over a dump: link each fixture and assert what a loader
+is entitled to assume. The invariants themselves live
 in test/link/dynamic_test.py, which asserts them over two hand-built programs;
 this runs the same ones over three hundred real ones.
 
@@ -192,7 +192,7 @@ def main():
 
             result = subprocess.run(
                 [compiler] + corpus.flags +
-                ["-oneline", "-fuse-ld=internal", "-o", output, source,
+                ["-oneline", "-o", output, source,
                  "-lm"],  # what test/testRunner.py links every fixture with
                 capture_output=True)
 

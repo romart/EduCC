@@ -33,7 +33,7 @@ import tempfile
 # For the compilers these suites run, when the binary under test is a
 # '-DEDUCC_SANITIZE=ON' one. EduCC is an arena allocator that frees nothing it
 # does not have to, so what LeakSanitizer reports at exit is the front end's
-# arenas and never a linker fault - and until '-fuse-ld=internal' existed no
+# arenas and never a linker fault - and until the link came in-process no
 # link returned from main() for it to report at all. test/asan_sweep.sh takes
 # the same position for the same reason; everything asan is actually watched
 # for here still fails the run.

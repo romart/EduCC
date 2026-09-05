@@ -468,48 +468,33 @@ int main(int argc, char **argv) {
 """
 
 
-def compileAndLink(compiler, tmp, source, output, how):
-    result = subprocess.run([compiler, "-oneline", how, "-o", output, source],
-                            capture_output=True, text=True)
-    return result
-
-
 def testDriver(compiler, tmp, suite):
-    """The same source through both linkers. Nothing below is about ELF: it
-    is about a program that allocates, prints and unwinds its atexit handlers
-    behaving the same way whoever linked it."""
+    """Nothing below is about ELF: it is about a program that allocates, prints
+    and unwinds its atexit handlers arriving at the right answer. ld used to be
+    the oracle - the same source linked both ways had to behave the same - and
+    what replaces it is the answer itself, written down here."""
     source = os.path.join(tmp, "program.c")
     with open(source, "w") as f:
         f.write(PROGRAM)
 
-    outputs = {}
-    for how in ("-fuse-ld=internal", "-fuse-ld=external"):
-        path = os.path.join(tmp, "prog-" + how.split("=")[1])
-        result = compileAndLink(compiler, tmp, source, path, how)
-        if result.returncode != 0:
-            suite.check(False, "%s: the link failed: %s"
-                        % (how, result.stderr.strip()))
-            return None
-        outputs[how] = path
+    path = os.path.join(tmp, "prog")
+    result = subprocess.run([compiler, "-oneline", "-o", path, source],
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        suite.check(False, "the link failed: %s" % result.stderr.strip())
+        return None
 
-    runs = {}
-    for how, path in outputs.items():
-        run = runProgram([path])
-        if run is None:
-            suite.check(False, "%s: the program never finished" % how)
-            continue
-        suite.check(run.returncode >= 0,
-                    "%s: the program died on signal %d" % (how, -run.returncode))
-        runs[how] = (run.returncode, run.stdout, run.stderr)
+    run = runProgram([path])
+    if run is None:
+        suite.check(False, "the program never finished")
+        return path
 
-    mine = runs.get("-fuse-ld=internal")
-    theirs = runs.get("-fuse-ld=external")
-    if mine and theirs:
-        suite.equal(mine[0], theirs[0], "both linkers agree about the status")
-        suite.equal(mine[1], theirs[1], "both linkers agree about stdout")
-        suite.equal(mine[2], theirs[2], "both linkers agree about stderr")
+    # 0 + 1 + 4 + 9 + 16 + 25, and the exit status is that modulo seven.
+    suite.equal(run.returncode, 6, "the program's exit status")
+    suite.equal(run.stdout, b"total=55 argc=1 named=1\n", "and its stdout")
+    suite.equal(run.stderr, b"done\n", "and its stderr")
 
-    return outputs.get("-fuse-ld=internal")
+    return path
 
 
 LIBRARY = """
@@ -531,16 +516,13 @@ int main(void) {
 """
 
 
-def testSharedLibrary(compiler, tmp, suite, how):
+def testSharedLibrary(compiler, tmp, suite):
     """A library that is not libc, found the way a user's would be. Everything
     the C runtime exercises is glibc's shape; this one is EduCC's own, and its
-    sizes are known here rather than read off the host.
-
-    Run once per linker on the *producing* side, with the consumer always
-    linked in-house: the executable's tables have to come out the same whoever
-    wrote the library, which is what makes ld an oracle for '-shared' rather
-    than only for the program."""
-    tag = how.split("=")[1]
+    sizes are known here rather than read off the host - which is what this
+    asserts about the copies, where the libc round trip can only assert that
+    whatever glibc chose was copied."""
+    tag = "roundtrip"
     source = os.path.join(tmp, "roundtrip.c")
     consumer = os.path.join(tmp, "consumer.c")
     directory = os.path.join(tmp, "lib-" + tag)
@@ -553,7 +535,7 @@ def testSharedLibrary(compiler, tmp, suite, how):
     with open(consumer, "w") as f:
         f.write(CONSUMER)
 
-    built = subprocess.run([compiler, "-oneline", how, "-fPIC", "-shared",
+    built = subprocess.run([compiler, "-oneline", "-fPIC", "-shared",
                             "-o", library, source],
                            capture_output=True, text=True)
     if built.returncode != 0:
@@ -561,7 +543,7 @@ def testSharedLibrary(compiler, tmp, suite, how):
                     % (tag, built.stderr.strip()))
         return None
 
-    linked = subprocess.run([compiler, "-oneline", "-fuse-ld=internal",
+    linked = subprocess.run([compiler, "-oneline",
                              "-o", program, consumer, "-L" + directory,
                              "-lroundtrip", "-Wl,-rpath," + directory],
                             capture_output=True, text=True)
@@ -668,7 +650,7 @@ def testSharedObject(compiler, tmp, suite):
     with open(consumer, "w") as f:
         f.write(INTERPOSER)
 
-    built = subprocess.run([compiler, "-oneline", "-fuse-ld=internal", "-fPIC",
+    built = subprocess.run([compiler, "-oneline", "-fPIC",
                             "-shared", "-Wl,-soname,libinside.so.1",
                             "-o", library, source],
                            capture_output=True, text=True)
@@ -730,8 +712,7 @@ def testSharedObject(compiler, tmp, suite):
     if not os.path.exists(versioned):
         os.symlink("libinside.so", versioned)
 
-    linked = subprocess.run([compiler, "-oneline", "-fuse-ld=internal",
-                             "-o", program, consumer, "-L" + directory,
+    linked = subprocess.run([compiler, "-oneline",                              "-o", program, consumer, "-L" + directory,
                              "-linside", "-Wl,-rpath," + directory],
                             capture_output=True, text=True)
     if linked.returncode != 0:
@@ -925,37 +906,30 @@ def testAsNeeded(compiler, tmp, suite, directory):
     """A library named on the command line and never referenced. ld records it
     all the same - '--no-as-needed' is its default - and so must this: what a
     program looks up out of one at run time is invisible to the link, which is
-    how tcc's '-run' finds 'sin' after nothing in tcc itself called it.
-
-    ld is the oracle on both settings rather than only the first, since the
-    interesting claim is that the two linkers make the same choice."""
+    how tcc's '-run' finds 'sin' after nothing in tcc itself called it."""
     source = os.path.join(tmp, "unused.c")
     with open(source, "w") as f:
         f.write("int main(void) { return 0; }\n")
 
     for flags, wanted in (([], True), (["-Wl,--as-needed"], False)):
-        for how in ("-fuse-ld=internal", "-fuse-ld=external"):
-            if how.endswith("external") and not shutil.which("ld"):
-                continue
-            label = "%s%s" % (how.split("=")[1],
-                              " --as-needed" if flags else "")
-            program = os.path.join(tmp, "unused-" + label.replace(" ", ""))
-            linked = subprocess.run([compiler, "-oneline", how, "-o", program,
-                                     source, "-L" + directory, "-lroundtrip",
-                                     "-Wl,-rpath," + directory] + flags,
-                                    capture_output=True, text=True)
-            if linked.returncode != 0:
-                suite.check(False, "%s: the link failed: %s"
-                            % (label, linked.stderr.strip()))
-                continue
+        label = "--as-needed" if flags else "default"
+        program = os.path.join(tmp, "unused-" + label.strip("-"))
+        linked = subprocess.run([compiler, "-oneline", "-o", program,
+                                 source, "-L" + directory, "-lroundtrip",
+                                 "-Wl,-rpath," + directory] + flags,
+                                capture_output=True, text=True)
+        if linked.returncode != 0:
+            suite.check(False, "%s: the link failed: %s"
+                        % (label, linked.stderr.strip()))
+            continue
 
-            needed = [Dynamic(program).string(o)
-                      for o in Dynamic(program).tags(DT_NEEDED)]
-            suite.equal("libroundtrip.so" in needed, wanted,
-                        "%s: an unused library is%s recorded as needed: %s"
-                        % (label, "" if wanted else " not", needed))
-            suite.check("libc.so.6" in needed,
-                        "%s: libc is needed either way" % label)
+        needed = [Dynamic(program).string(o)
+                  for o in Dynamic(program).tags(DT_NEEDED)]
+        suite.equal("libroundtrip.so" in needed, wanted,
+                    "%s: an unused library is%s recorded as needed: %s"
+                    % (label, "" if wanted else " not", needed))
+        suite.check("libc.so.6" in needed,
+                    "%s: libc is needed either way" % label)
 
 
 def testRefused(compiler, tmp, suite):
@@ -965,8 +939,7 @@ def testRefused(compiler, tmp, suite):
     with open(source, "w") as f:
         f.write("int main(void) { return 0; }\n")
 
-    result = subprocess.run([compiler, "-oneline", "-fuse-ld=internal",
-                             "-Wl,--gc-sections", "-o",
+    result = subprocess.run([compiler, "-oneline",                              "-Wl,--gc-sections", "-o",
                              os.path.join(tmp, "tiny"), source],
                             capture_output=True, text=True)
     suite.check(result.returncode != 0, "an unknown ld flag is refused")
@@ -980,8 +953,7 @@ def testRefused(compiler, tmp, suite):
     with open(source, "w") as f:
         f.write("int counter = 1;\nint bump(void) { return ++counter; }\n")
 
-    result = subprocess.run([compiler, "-oneline", "-fuse-ld=internal",
-                             "-shared", "-o", os.path.join(tmp, "notpic.so"),
+    result = subprocess.run([compiler, "-oneline",                              "-shared", "-o", os.path.join(tmp, "notpic.so"),
                              source], capture_output=True, text=True)
     suite.check(result.returncode != 0,
                 "'-shared' without '-fPIC' is refused")
@@ -1014,11 +986,10 @@ def main():
 
         compiled = testDriver(compiler, tmp, suite)
 
-        consumers = [testSharedLibrary(compiler, tmp, suite, how)
-                     for how in ("-fuse-ld=internal", "-fuse-ld=external")
-                     if how == "-fuse-ld=internal" or shutil.which("ld")]
+        consumers = [c for c in [testSharedLibrary(compiler, tmp, suite)]
+                     if c is not None]
         library = testSharedObject(compiler, tmp, suite)
-        testAsNeeded(compiler, tmp, suite, os.path.join(tmp, "lib-internal"))
+        testAsNeeded(compiler, tmp, suite, os.path.join(tmp, "lib-roundtrip"))
         testRefused(compiler, tmp, suite)
 
         outputs = [o for o in [called, compiled] + consumers if o is not None]
