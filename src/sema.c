@@ -372,11 +372,14 @@ Boolean isCharType(const TypeRef *type) {
 }
 
 Boolean is_va_list_Type(const TypeRef *type) {
-  if (type->kind != TR_ARRAY) return FALSE;
+  // A va_list parameter has decayed to a pointer; both spell the same address.
+  if (type->kind == TR_ARRAY) {
+    if (type->arrayTypeDesc.size != 1) return FALSE;
+  } else if (type->kind != TR_POINTED) {
+    return FALSE;
+  }
 
-  if (type->arrayTypeDesc.size != 1) return FALSE;
-
-  TypeRef * elementType = type->arrayTypeDesc.elementType;
+  TypeRef * elementType = type->pointed;
 
   if (elementType->kind != TR_VALUE) return FALSE;
 
