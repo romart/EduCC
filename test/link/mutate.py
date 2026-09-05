@@ -24,7 +24,10 @@ whose order let a single pass resolve a chain that was supposed to need two,
 an archive shadowing a library that nothing checked, and no test at all for
 which of two versions of a name a library meant.
 
-As of the last full run: 63 mutations, 61 caught, 2 equivalent, 0 missed.
+The third, over '-shared', found none: all eight of its mutations were caught
+by the interposition round trip and the structural checks that went in with it.
+
+As of the last full run: 71 mutations, 69 caught, 2 equivalent, 0 missed.
 
 **Not a CTest entry, and deliberately so.** It rebuilds the compiler once per
 mutation and edits a tracked source file to do it, which is not something to
@@ -100,8 +103,8 @@ MUTATIONS = [
 
     # ------------------------------------------------------------ relocations
     ("PC32 forgets the program counter",
-     "      int64_t value = (int64_t)(S + (uint64_t)A) - (int64_t)P;",
-     "      int64_t value = (int64_t)(S + (uint64_t)A);"),
+     "      int64_t value = (int64_t)(target + (uint64_t)A) - (int64_t)P;",
+     "      int64_t value = (int64_t)(target + (uint64_t)A);"),
 
     ("PC32 range check dropped",
      "      if (value < RELOC_S32_MIN || value > RELOC_S32_MAX) {\n"
@@ -260,20 +263,20 @@ MUTATIONS = [
      "                            GOT_ENTRY_SIZE * i;"),
 
     ("a stub's address is not the symbol's address",
-     "      symbol->address = l->pltSection->address +\n"
-     "                        (uint64_t)(symbol->pltIndex + 1) * PLT_ENTRY_SIZE;",
-     "      symbol->address = l->pltSection->address;"),
+     "  return l->pltSection->address +\n"
+     "         (uint64_t)(symbol->pltIndex + 1) * PLT_ENTRY_SIZE;",
+     "  return l->pltSection->address;"),
 
     # ------------------------------------------------------------ copied data
     ("a COPY relocation writes into the library",
-     "      entries[i].r_offset = symbol->address;\n"
-     "      entries[i].r_info = ELF64_R_INFO(symbol->dynIndex, R_X86_64_COPY);",
-     "      entries[i].r_offset = symbol->shared->value;\n"
-     "      entries[i].r_info = ELF64_R_INFO(symbol->dynIndex, R_X86_64_COPY);"),
+     "      addDynRela(entries, &at, symbol->address,",
+     "      addDynRela(entries, &at, symbol->shared->value,"),
 
     ("a copied symbol is left undefined",
-     "      entry->st_shndx = (uint16_t)l->copyPiece->output->index;",
-     "      entry->st_shndx = SHN_UNDEF;"),
+     "      shndx = (uint16_t)l->copyPiece->output->index;\n"
+     "      value = symbol->address;",
+     "      shndx = SHN_UNDEF;\n"
+     "      value = symbol->address;"),
 
     ("a copy is one byte long",
      "  symbol->copySize = shared->size;",
@@ -338,6 +341,46 @@ MUTATIONS = [
     ("PT_GNU_RELRO seals .got.plt too",
      "      if (class == CLASS_DATA && output->rank < RANK_GOT_PLT) {",
      "      if (class == CLASS_DATA && output->rank <= RANK_GOT_PLT) {"),
+
+    # -------------------------------------------------------- shared objects
+    ("'-shared' writes an executable",
+     "  header->e_type = l->options->shared ? ET_DYN : ET_EXEC;",
+     "  header->e_type = ET_EXEC;"),
+
+    ("a RELATIVE addend forgets the symbol it names",
+     "        addDynRela(entries, at, where, ELF64_R_INFO(0, R_X86_64_RELATIVE),\n"
+     "                   (int64_t)(S + (uint64_t)rela->r_addend));",
+     "        addDynRela(entries, at, where, ELF64_R_INFO(0, R_X86_64_RELATIVE),\n"
+     "                   rela->r_addend);"),
+
+    ("DT_RELACOUNT counts every relocation",
+     "    if (l->relativeCount != 0) DYN(DT_RELACOUNT, l->relativeCount);",
+     "    if (l->relativeCount != 0) DYN(DT_RELACOUNT, l->dynRelocCount);"),
+
+    ("a GOT slot in a shared object is never looked up by name",
+     "  if (slot->global != NULL && isPreemptible(l, slot->global)) return DYN_SYMBOL;",
+     "  return DYN_RELATIVE;\n  if (slot->global != NULL) return DYN_SYMBOL;"),
+
+    ("a shared object binds its own calls locally",
+     "              if (preempt) needPlt(l, global);",
+     "              if (global->definition == NULL) needPlt(l, global);"),
+
+    ("a PC-relative reference to a preemptible name is allowed",
+     "              if (preempt) {\n"
+     "                linkError(l, \"%s: a PC-relative reference to '%s' in '%s' \"",
+     "              if (preempt && FALSE) {\n"
+     "                linkError(l, \"%s: a PC-relative reference to '%s' in '%s' \""),
+
+    ("an executable advertises none of its own definitions",
+     "    if (!l->options->shared && symbol->shared == NULL &&\n"
+     "        !symbol->sharedReference) {",
+     "    if (!l->options->shared) {"),
+
+    ("an exported definition says it is defined nowhere",
+     "        LinkPiece *piece = symbol->owner->pieces[definition->shndx];\n"
+     "        if (piece != NULL) shndx = (uint16_t)piece->output->index;",
+     "        LinkPiece *piece = symbol->owner->pieces[definition->shndx];\n"
+     "        if (piece != NULL) shndx = SHN_UNDEF;"),
 ]
 
 
