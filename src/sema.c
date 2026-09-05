@@ -633,6 +633,12 @@ TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* co
   if (isErrorType(ifTrue)) return ifTrue;
   if (isErrorType(ifFalse)) return ifFalse;
 
+  // The usual arithmetic conversions promote a bit field to its storage unit,
+  // and nothing below counts one as primitive: 'p ? s->bit : 1' fell through to
+  // the error type at the end.
+  if (ifTrue->kind == TR_BITFIELD) ifTrue = ifTrue->bitFieldDesc.storageType;
+  if (ifFalse->kind == TR_BITFIELD) ifFalse = ifFalse->bitFieldDesc.storageType;
+
   // C99 6.5.15p3: two void operands give a void result. Without this the checks
   // below - none of which count 'void' as primitive - fall through to the error
   // type at the end, which the IR backend meets as an abort rather than as a
@@ -699,7 +705,11 @@ TypeRef *computeTernaryType(ParserContext *ctx, Coordinates *coords, TypeRef* co
       }
   }
 
-  return makeErrorRef(ctx); // Unknown situation
+  // Every other error type here is paired with a diagnostic, and this one has
+  // to be too: an error type reported to nobody still stops the compiler, in
+  // the backend, as an abort with no source location on it.
+  reportDiagnostic(ctx, DIAG_INCOMPATIBLE_OPERANDS, coords, ifTrue, ifFalse);
+  return makeErrorRef(ctx);
 }
 
 TypeRef *elementType(TypeRef *type) {
