@@ -170,7 +170,19 @@ void buildElfFile(GenerationContext *ctx, AstFile *astFile, GeneratedFile *genFi
 
   uint8_t *elfFileBytes = generateElfFile(elfFile, genFile, &elfFileSize);
 
-  writeObjFile(astFile->fileName, ctx->parserContext->config->outputFile, elfFileBytes, elfFileSize);
+  Configuration *config = ctx->parserContext->config;
+
+  if (config->keepObjects) {
+    ObjectImage *object = heapAllocate(sizeof(ObjectImage));
+    object->sourceFile = astFile->fileName;
+    object->image = elfFileBytes;
+    object->size = elfFileSize;
+    if (config->lastObject) config->lastObject->next = object;
+    else config->objects = object;
+    config->lastObject = object;
+  } else {
+    writeObjFile(astFile->fileName, config->outputFile, elfFileBytes, elfFileSize);
+  }
 
   releaseHeap(elfFile->sections.asStruct.nullSection->start);
   releaseHeap(elfFile->sections.asStruct.text->start);
@@ -186,7 +198,8 @@ void buildElfFile(GenerationContext *ctx, AstFile *astFile, GeneratedFile *genFi
   releaseHeap(elfFile->sections.asStruct.strtab->start);
   releaseHeap(elfFile->sections.asStruct.shstrtab->start);
 
-  releaseHeap(elfFileBytes);
+  // The collected image is the linker's input and outlives this function.
+  if (!config->keepObjects) releaseHeap(elfFileBytes);
 }
 
 // The MachineFunction the IR pipeline built for this definition, or NULL if

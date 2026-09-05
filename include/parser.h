@@ -18,6 +18,16 @@ typedef struct _StringList {
   struct _StringList *next;
 } StringList;
 
+// An object this process compiled and is also going to link, so the bytes go
+// straight to the linker and are never written anywhere. What a temporary
+// directory was for when the link was a subprocess.
+typedef struct _ObjectImage {
+  const char *sourceFile;
+  uint8_t *image;
+  size_t size;
+  struct _ObjectImage *next;
+} ObjectImage;
+
 enum Arch {
     X86_64,
     RISCV64
@@ -66,6 +76,9 @@ typedef struct _Configuration {
   IncludePath *includePath;
   StringList *macroses;
 
+  // What 'keepObjects' collects, in the order the files were compiled.
+  ObjectImage *objects, *lastObject;
+
   enum Arch arch;
 
   unsigned irDumpPhases; // bitmask of enum IrDumpPhase values; 0 == legacy final-only dump
@@ -81,14 +94,12 @@ typedef struct _Configuration {
   unsigned objOutput : 1;
 
   // '-shared' - link a shared object rather than an executable. It changes
-  // which CRT objects the link needs and drops the dynamic linker, which is
-  // why runLinker has to know rather than ld being handed the flag.
+  // which CRT objects the link needs and drops the dynamic linker.
   unsigned sharedOutput : 1;
 
-  // '-fuse-ld=external' - exec the system ld instead of linking in this
-  // process with src/link/, which is the default since roadmap step 53. Kept
-  // for one cycle as the differential oracle the corpus is run against.
-  unsigned externalLinker : 1;
+  // A link follows in this process, so a compiled object is appended to
+  // 'objects' below instead of being written out.
+  unsigned keepObjects : 1;
 
   // '-fPIC'. A shared object may not contain a PC-relative reference to a
   // preemptible symbol, so with this on a global's address is loaded out of

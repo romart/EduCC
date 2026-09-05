@@ -90,12 +90,12 @@ static const char *stdLibPaths[] = {
 
 #define DYNAMIC_LINKER "/lib64/ld-linux-x86-64.so.2"
 
-// The link, in this process. The input list is the one ld used to be given, in
-// the same order and with the same CRT objects around it - the difference is
-// that '-lc' is resolved, the archives are searched and the dynamic sections
-// are written here.
+// The link, in this process. The input list is the one ld used to be given,
+// in the same order and with the same CRT objects around it, except that the
+// objects this run compiled are handed over as bytes: nothing wrote them down,
+// so there is nothing to name.
 static Boolean linkInternal(const char *outputFile, Boolean shared,
-                            StringList *compiledObjs, StringList *cliObjs,
+                            ObjectImage *compiledObjs, StringList *cliObjs,
                             StringList *libs, StringList *libDirs,
                             StringList *ldArgs) {
   LinkOptions options;
@@ -155,22 +155,30 @@ static Boolean linkInternal(const char *outputFile, Boolean shared,
     }
   }
 
-  for (n = compiledObjs; n; n = n->next) ++count;
+  ObjectImage *o;
+  for (o = compiledObjs; o; o = o->next) ++count;
   for (n = cliObjs; n; n = n->next) ++count;
   for (n = libs; n; n = n->next) ++count;
   count += 13; // the CRT objects, the implicit libraries, the as-needed pairs
 
-  char **inputs = heapAllocate(sizeof(char *) * count);
+  LinkInput *inputs = heapAllocate(sizeof(LinkInput) * count);
   unsigned at = 0;
   char buffer[512];
 
   const char *crtPath = linkCrtPath();
   const char *gccPath = linkGccPath();
 
+#define PATH(p)                                                                \
+  do {                                                                         \
+    inputs[at].name = (p);                                                     \
+    inputs[at].image = NULL;                                                   \
+    inputs[at++].size = 0;                                                     \
+  } while (0)
+
 #define INPUT(fmt, ...)                                                        \
   do {                                                                         \
     snprintf(buffer, sizeof buffer, fmt, __VA_ARGS__);                         \
-    inputs[at++] = strdup(buffer);                                             \
+    PATH(strdup(buffer));                                                      \
   } while (0)
 
   // crt1.o holds _start, which a library must not carry a second copy of, and
@@ -179,23 +187,28 @@ static Boolean linkInternal(const char *outputFile, Boolean shared,
   INPUT("%s/crti.o", crtPath);
   INPUT("%s/crtbegin%s.o", gccPath, shared ? "S" : "");
 
-  for (n = compiledObjs; n; n = n->next) inputs[at++] = strdup(n->s);
-  for (n = cliObjs; n; n = n->next) inputs[at++] = strdup(n->s);
+  for (o = compiledObjs; o; o = o->next) {
+    inputs[at].name = o->sourceFile;
+    inputs[at].image = o->image;
+    inputs[at++].size = o->size;
+  }
+  for (n = cliObjs; n; n = n->next) PATH(strdup(n->s));
 
-  inputs[at++] = strdup("-lc");
-  if (asNeeded) inputs[at++] = strdup("--as-needed");
+  PATH(strdup("-lc"));
+  if (asNeeded) PATH(strdup("--as-needed"));
   for (n = libs; n; n = n->next) INPUT("-l%s", n->s);
-  if (asNeeded) inputs[at++] = strdup("--no-as-needed");
-  inputs[at++] = strdup("-lc");
-  inputs[at++] = strdup("-lgcc");
-  inputs[at++] = strdup("--as-needed");
-  inputs[at++] = strdup("-lgcc_s");
-  inputs[at++] = strdup("--no-as-needed");
+  if (asNeeded) PATH(strdup("--no-as-needed"));
+  PATH(strdup("-lc"));
+  PATH(strdup("-lgcc"));
+  PATH(strdup("--as-needed"));
+  PATH(strdup("-lgcc_s"));
+  PATH(strdup("--no-as-needed"));
 
   INPUT("%s/crtend%s.o", gccPath, shared ? "S" : "");
   INPUT("%s/crtn.o", crtPath);
 
 #undef INPUT
+#undef PATH
 
   assert(at <= count);
 
@@ -218,48 +231,27 @@ static Boolean linkInternal(const char *outputFile, Boolean shared,
 
   Boolean ok = linkObjects(&options, (int)at, inputs, (int)dirAt, dirs);
 
-  for (k = 0; k < at; ++k) releaseHeap(inputs[k]);
+  // Every path was strdup'd; an in-memory object's name belongs to the AST.
+  for (k = 0; k < at; ++k) {
+    if (inputs[k].image == NULL) releaseHeap((void *)inputs[k].name);
+  }
   releaseHeap(inputs);
   releaseHeap(dirs);
 
   return ok;
 }
 
-static StringList* compileFiles(StringList *files, Configuration *config, const char *tmpDir) {
-  StringList coHead = { 0 }, *coCur = &coHead;
-
-  const char *outputFile = config->outputFile;
-
+// Each object either lands on disk under its own name ('-c') or is collected
+// in config->objects for the link below; '-o' names the final output in the
+// second case, so it is not touched here.
+static void compileFiles(StringList *files, Configuration *config) {
   while (files) {
-    if (tmpDir) {
-        const char *fileName = files->s;
-        unsigned l = strlen(fileName);
-
-        int j;
-        for (j = l - 1; j >= 0; --j) {
-            if (fileName[j] == '/') break;
-        }
-        if (j) ++j;
-        unsigned l1 = strlen(tmpDir);
-        unsigned l2 = (l - j);
-        unsigned len = l1 + 1 + l2 + 1;
-        char *b = heapAllocate(len);
-
-        sprintf(b, "%s/%s", tmpDir, &fileName[j]);
-        b[len - 2] = 'o';
-        config->outputFile = b;
-        coCur = coCur->next = newStringNode(b);
-    }
     void *m = files;
     config->fileToCompile = files->s;
     compileFile(config);
     files = files->next;
     releaseHeap(m);
   }
-
-  config->outputFile = outputFile;
-
-  return coHead.next;
 }
 
 // Parses a comma-separated phase list from '-irDump:phase[,phase...]' (spec
@@ -624,31 +616,25 @@ int main(int argc, char** argv) {
       return 2;
   }
 
-  char *tmpDir = NULL;
-  char template[] = "/tmp/tmpdir.XXXXXX";
-  if (!(config.objOutput || config.ppOutput)) {
-      tmpDir = mkdtemp(template);
-  }
+  // A link follows unless this run stops at an object or at preprocessed
+  // source, so the objects are kept rather than written.
+  config.keepObjects = !(config.objOutput || config.ppOutput);
 
   config.macroses = mhead.next;
 
-  StringList *compiledObjFiles = compileFiles(chead.next, &config, tmpDir);
+  compileFiles(chead.next, &config);
 
   if (config.skipCodegen) return config.hadError ? 1 : 0;
 
   // A file that did not compile left no object behind, so linking would only
   // report the same input missing a second time and in the linker's words.
-  if (!config.hadError && !config.objOutput && !config.ppOutput) {
+  if (!config.hadError && config.keepObjects) {
     const char *output = config.outputFile ? config.outputFile : "a.out";
 
-    if (!linkInternal(output, config.sharedOutput, compiledObjFiles, ohead.next,
+    if (!linkInternal(output, config.sharedOutput, config.objects, ohead.next,
                       lhead.next, lDirHead.next, ldHead.next)) {
       config.hadError = 1;
     }
-  }
-
-  if (tmpDir) {
-      rmdir(tmpDir);
   }
 
   return config.hadError ? 1 : 0;

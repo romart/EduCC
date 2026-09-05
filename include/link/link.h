@@ -3,11 +3,11 @@
 
 #include "link/elfread.h"
 
-// Writing side of the linker: objects in, an executable out, in place of the
-// 'ld' that runLinker() still shells out to. Three shapes of link exist: a
-// static, freestanding one with no dynamic machinery at all, a dynamic
-// non-PIE executable that reaches the distribution's own libc through
-// ld.so - which is what the driver produces - and a shared object.
+// Writing side of the linker: objects in, an executable out, and nothing is
+// exec'd to do it. Three shapes of link exist: a static, freestanding one with
+// no dynamic machinery at all, a dynamic non-PIE executable that reaches the
+// distribution's own libc through ld.so - which is what the driver produces -
+// and a shared object.
 
 typedef struct _LinkOptions {
   const char *outputFile;
@@ -43,14 +43,23 @@ typedef struct _LinkOptions {
 
 void initLinkOptions(LinkOptions *options);
 
-// Inputs are paths, or '-lname' for a library to be looked for in
-// 'searchDirs'; the order is ld's, and an archive only gives up the members
-// that resolve something undefined at the point it is reached.
-Boolean linkObjects(const LinkOptions *options, int inputCount, char **inputs,
-                    int dirCount, char **searchDirs);
+// One link input: a path, or '-lname' for a library to be looked for in
+// 'searchDirs', or - when 'image' is set - an object this process compiled and
+// never wrote anywhere, in which case 'name' is only what a diagnostic calls
+// it.
+typedef struct _LinkInput {
+  const char *name;
+  const uint8_t *image;
+  size_t size;
+} LinkInput;
+
+// The order is ld's, and an archive only gives up the members that resolve
+// something undefined at the point it is reached.
+Boolean linkObjects(const LinkOptions *options, int inputCount,
+                    LinkInput *inputs, int dirCount, char **searchDirs);
 
 Boolean linkStaticExecutable(const LinkOptions *options, int inputCount,
-                             char **inputs);
+                             LinkInput *inputs);
 
 // '-Xlink-static' and '-Xlink-dynamic': link exactly what they are given and
 // report, the second one against shared libraries and through a loader. Both

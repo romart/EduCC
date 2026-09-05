@@ -728,32 +728,11 @@ static const char *resolveInput(Linker *l, const char *path) {
   return path; // report it by the name the caller used
 }
 
-static Boolean loadPath(Linker *l, const char *path) {
-  if (strcmp(path, "--as-needed") == 0 ||
-      strcmp(path, "--no-as-needed") == 0) {
-    l->asNeeded = path[2] == 'a';
-    return TRUE;
-  }
-
-  if (path[0] == '-' && path[1] == 'l') {
-    const char *found = findLibrary(l, path + 2);
-    if (found == NULL) {
-      linkError(l, "cannot find -l%s", path + 2);
-      return FALSE;
-    }
-    path = found;
-  } else {
-    path = resolveInput(l, path);
-  }
-
-  size_t size = 0;
-  const uint8_t *image = mapAndRemember(l, path, &size);
-
-  if (image == NULL) {
-    linkError(l, "cannot open '%s': %s", path, strerror(errno));
-    return FALSE;
-  }
-
+// What every input becomes once its bytes are somewhere: a file that was
+// mapped, or an object the compiler in this process has just built and never
+// wrote down. 'path' is what a diagnostic calls it either way.
+static Boolean loadImage(Linker *l, const char *path, const uint8_t *image,
+                         size_t size) {
   enum InputKind kind = classifyImage(image, size);
 
   if (kind == INPUT_DYN && !l->dynamic) {
@@ -809,6 +788,35 @@ static Boolean loadPath(Linker *l, const char *path) {
       linkError(l, "%s: unrecognized file format", path);
       return FALSE;
   }
+}
+
+static Boolean loadPath(Linker *l, const char *path) {
+  if (strcmp(path, "--as-needed") == 0 ||
+      strcmp(path, "--no-as-needed") == 0) {
+    l->asNeeded = path[2] == 'a';
+    return TRUE;
+  }
+
+  if (path[0] == '-' && path[1] == 'l') {
+    const char *found = findLibrary(l, path + 2);
+    if (found == NULL) {
+      linkError(l, "cannot find -l%s", path + 2);
+      return FALSE;
+    }
+    path = found;
+  } else {
+    path = resolveInput(l, path);
+  }
+
+  size_t size = 0;
+  const uint8_t *image = mapAndRemember(l, path, &size);
+
+  if (image == NULL) {
+    linkError(l, "cannot open '%s': %s", path, strerror(errno));
+    return FALSE;
+  }
+
+  return loadImage(l, path, image, size);
 }
 
 /* ------------------------------------------------------------- resolution */
@@ -2962,8 +2970,8 @@ static unsigned countProgramHeaders(Linker *l) {
   return phnum;
 }
 
-Boolean linkObjects(const LinkOptions *options, int inputCount, char **inputs,
-                    int dirCount, char **searchDirs) {
+Boolean linkObjects(const LinkOptions *options, int inputCount,
+                    LinkInput *inputs, int dirCount, char **searchDirs) {
   Linker linker = { 0 };
   linker.arena = createArena("linker", DEFAULT_CHUNCK_SIZE);
   linker.reader.arena = linker.arena;
@@ -2996,7 +3004,12 @@ Boolean linkObjects(const LinkOptions *options, int inputCount, char **inputs,
   }
 
   for (i = 0; i < inputCount; ++i) {
-    if (!loadPath(&linker, inputs[i])) break;
+    const LinkInput *input = &inputs[i];
+    Boolean loaded =
+        input->image != NULL
+            ? loadImage(&linker, input->name, input->image, input->size)
+            : loadPath(&linker, input->name);
+    if (!loaded) break;
   }
   if (linker.hadError) goto done;
 
@@ -3051,7 +3064,7 @@ done:
 }
 
 Boolean linkStaticExecutable(const LinkOptions *options, int inputCount,
-                             char **inputs) {
+                             LinkInput *inputs) {
   return linkObjects(options, inputCount, inputs, 0, NULL);
 }
 
@@ -3060,9 +3073,9 @@ int linkCommand(int argc, char **argv, Boolean dynamic) {
   initLinkOptions(&options);
   if (dynamic) options.interpreter = DEFAULT_INTERPRETER;
 
-  size_t room = sizeof(char *) * (argc > 0 ? argc : 1);
-  char **inputs = heapAllocate(room);
-  char **dirs = heapAllocate(room);
+  int room = argc > 0 ? argc : 1;
+  LinkInput *inputs = heapAllocate(sizeof(LinkInput) * room);
+  char **dirs = heapAllocate(sizeof(char *) * room);
   int inputCount = 0;
   int dirCount = 0;
 
@@ -3093,7 +3106,10 @@ int linkCommand(int argc, char **argv, Boolean dynamic) {
     } else {
       // '-lname' included: the order libraries and objects are named in is
       // what decides which archive member answers for what.
-      inputs[inputCount++] = arg;
+      inputs[inputCount].name = arg;
+      inputs[inputCount].image = NULL;
+      inputs[inputCount].size = 0;
+      ++inputCount;
     }
   }
 
