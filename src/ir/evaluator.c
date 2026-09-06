@@ -20,14 +20,25 @@ static Boolean isComputableConstant(const IrInstruction *c) {
          c->info.constant.kind == IR_CK_FLOAT;
 }
 
+static int64_const_t convertIntegerConstant(int64_const_t v, enum IrTypeKind toT);
+
+// A constant always holds the mathematical value it has in its own type, so a
+// result that overflowed the operation's width has to be reduced to it before
+// it becomes one. At uint32 '0x80000000u << 1' is zero, not 2^32, and the
+// wider value survived into every use of the fold - which is what mbedtls'
+// bignum tests caught.
+static IrInstruction *createIntegerResult(enum IrTypeKind type, int64_const_t v) {
+  return createIntegerConstant(type, convertIntegerConstant(v, type));
+}
+
 IrInstruction *evaluateUnary(IrInstruction *i, IrInstruction *arg) {
   if (!isComputableConstant(arg))
     return i;
 
   if (i->kind == IR_U_NOT) {
-    return createIntegerConstant(i->type, !arg->info.constant.data.i);
+    return createIntegerResult(i->type, !arg->info.constant.data.i);
   } else if (i->kind == IR_U_BNOT) {
-    return createIntegerConstant(i->type, ~arg->info.constant.data.i);
+    return createIntegerResult(i->type, ~arg->info.constant.data.i);
   } else {
     unreachable("Unexpected unary operand");
   }
@@ -207,7 +218,7 @@ IrInstruction *evaluateBinary(IrInstruction *i, IrInstruction *lhs, IrInstructio
   // which is the only thing worth folding about an address: 'a == b' with both
   // sides the same string literal is one IR_DEF_CONST twice over.
   if (lhs == rhs && (i->kind == IR_E_EQ || i->kind == IR_E_NE))
-    return createIntegerConstant(i->type, i->kind == IR_E_EQ);
+    return createIntegerResult(i->type, i->kind == IR_E_EQ);
 
   if (!isComputableConstant(lhs) || !isComputableConstant(rhs))
     return i;
@@ -220,9 +231,9 @@ IrInstruction *evaluateBinary(IrInstruction *i, IrInstruction *lhs, IrInstructio
   Boolean isUnsignedCmp = isUnsignedIrOperand(lhs->type);
 
   switch (i->kind) {
-  case IR_E_ADD: return createIntegerConstant(i->type, lhs->info.constant.data.i + rhs->info.constant.data.i);
-  case IR_E_SUB: return createIntegerConstant(i->type, lhs->info.constant.data.i - rhs->info.constant.data.i);
-  case IR_E_MUL: return createIntegerConstant(i->type, lhs->info.constant.data.i * rhs->info.constant.data.i);
+  case IR_E_ADD: return createIntegerResult(i->type, lhs->info.constant.data.i + rhs->info.constant.data.i);
+  case IR_E_SUB: return createIntegerResult(i->type, lhs->info.constant.data.i - rhs->info.constant.data.i);
+  case IR_E_MUL: return createIntegerResult(i->type, lhs->info.constant.data.i * rhs->info.constant.data.i);
   case IR_E_DIV:
   case IR_E_MOD:
    if (rhs->info.constant.data.i != 0) {
@@ -236,36 +247,36 @@ IrInstruction *evaluateBinary(IrInstruction *i, IrInstruction *lhs, IrInstructio
        v = isUnsigned ? l % r : SIGNED_OP(l, %, r);
      }
 
-     return createIntegerConstant(i->type, v);
+     return createIntegerResult(i->type, v);
    } else {
      return i;
    }
-  case IR_E_OR: return createIntegerConstant(i->type, lhs->info.constant.data.i | rhs->info.constant.data.i);
-  case IR_E_XOR: return createIntegerConstant(i->type, lhs->info.constant.data.i ^ rhs->info.constant.data.i);
-  case IR_E_AND: return createIntegerConstant(i->type, lhs->info.constant.data.i & rhs->info.constant.data.i);
-  case IR_E_SHL: return createIntegerConstant(i->type, lhs->info.constant.data.i << rhs->info.constant.data.i);
+  case IR_E_OR: return createIntegerResult(i->type, lhs->info.constant.data.i | rhs->info.constant.data.i);
+  case IR_E_XOR: return createIntegerResult(i->type, lhs->info.constant.data.i ^ rhs->info.constant.data.i);
+  case IR_E_AND: return createIntegerResult(i->type, lhs->info.constant.data.i & rhs->info.constant.data.i);
+  case IR_E_SHL: return createIntegerResult(i->type, lhs->info.constant.data.i << rhs->info.constant.data.i);
   // An arithmetic shift for a signed value and a logical one otherwise, which
   // is the same split IR_E_SHR gets at selection - sar against shr.
   case IR_E_SHR:
-    return createIntegerConstant(i->type, isUnsigned
+    return createIntegerResult(i->type, isUnsigned
         ? lhs->info.constant.data.i >> rhs->info.constant.data.i
         : SIGNED_OP(lhs->info.constant.data.i, >>, rhs->info.constant.data.i));
-  case IR_E_EQ: return createIntegerConstant(i->type, lhs->info.constant.data.i == rhs->info.constant.data.i);
-  case IR_E_NE: return createIntegerConstant(i->type, lhs->info.constant.data.i != rhs->info.constant.data.i);
+  case IR_E_EQ: return createIntegerResult(i->type, lhs->info.constant.data.i == rhs->info.constant.data.i);
+  case IR_E_NE: return createIntegerResult(i->type, lhs->info.constant.data.i != rhs->info.constant.data.i);
   case IR_E_LT:
-    return createIntegerConstant(i->type, isUnsignedCmp
+    return createIntegerResult(i->type, isUnsignedCmp
         ? lhs->info.constant.data.i < rhs->info.constant.data.i
         : SIGNED_OP(lhs->info.constant.data.i, <, rhs->info.constant.data.i));
   case IR_E_LE:
-    return createIntegerConstant(i->type, isUnsignedCmp
+    return createIntegerResult(i->type, isUnsignedCmp
         ? lhs->info.constant.data.i <= rhs->info.constant.data.i
         : SIGNED_OP(lhs->info.constant.data.i, <=, rhs->info.constant.data.i));
   case IR_E_GT:
-    return createIntegerConstant(i->type, isUnsignedCmp
+    return createIntegerResult(i->type, isUnsignedCmp
         ? lhs->info.constant.data.i > rhs->info.constant.data.i
         : SIGNED_OP(lhs->info.constant.data.i, >, rhs->info.constant.data.i));
   case IR_E_GE:
-    return createIntegerConstant(i->type, isUnsignedCmp
+    return createIntegerResult(i->type, isUnsignedCmp
         ? lhs->info.constant.data.i >= rhs->info.constant.data.i
         : SIGNED_OP(lhs->info.constant.data.i, >=, rhs->info.constant.data.i));
   case IR_E_FADD: return createFloatConstant(i->type, lhs->info.constant.data.f + rhs->info.constant.data.f);
@@ -273,12 +284,12 @@ IrInstruction *evaluateBinary(IrInstruction *i, IrInstruction *lhs, IrInstructio
   case IR_E_FMUL: return createFloatConstant(i->type, lhs->info.constant.data.f * rhs->info.constant.data.f);
   case IR_E_FDIV: return createFloatConstant(i->type, lhs->info.constant.data.f / rhs->info.constant.data.f);
   case IR_E_FMOD: return createFloatConstant(i->type, fmod(lhs->info.constant.data.f, rhs->info.constant.data.f));
-  case IR_E_FEQ: return createIntegerConstant(i->type, lhs->info.constant.data.f == rhs->info.constant.data.f);
-  case IR_E_FNE: return createIntegerConstant(i->type, lhs->info.constant.data.f != rhs->info.constant.data.f);
-  case IR_E_FLT: return createIntegerConstant(i->type, lhs->info.constant.data.f < rhs->info.constant.data.f);
-  case IR_E_FLE: return createIntegerConstant(i->type, lhs->info.constant.data.f <= rhs->info.constant.data.f);
-  case IR_E_FGT: return createIntegerConstant(i->type, lhs->info.constant.data.f > rhs->info.constant.data.f);
-  case IR_E_FGE: return createIntegerConstant(i->type, lhs->info.constant.data.f >= rhs->info.constant.data.f);
+  case IR_E_FEQ: return createIntegerResult(i->type, lhs->info.constant.data.f == rhs->info.constant.data.f);
+  case IR_E_FNE: return createIntegerResult(i->type, lhs->info.constant.data.f != rhs->info.constant.data.f);
+  case IR_E_FLT: return createIntegerResult(i->type, lhs->info.constant.data.f < rhs->info.constant.data.f);
+  case IR_E_FLE: return createIntegerResult(i->type, lhs->info.constant.data.f <= rhs->info.constant.data.f);
+  case IR_E_FGT: return createIntegerResult(i->type, lhs->info.constant.data.f > rhs->info.constant.data.f);
+  case IR_E_FGE: return createIntegerResult(i->type, lhs->info.constant.data.f >= rhs->info.constant.data.f);
   default:
     unreachable("Unexpected binary op");
   }
