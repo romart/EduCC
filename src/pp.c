@@ -1780,22 +1780,27 @@ static Token* expandArguments(ParserContext *ctx, MacroDefinition *def, MacroArg
       if (body->isMacroParam) {
           MacroArg *arg = findArgument(body, args);
           if (arg->value) {
-            if (needExpansion(ctx, arg->value)) {
-              Token *expanded = expandArgument(ctx, def, arg, macro);
-              cur = cur->next = copySequence(ctx, expanded);
-            } else {
-              cur = cur->next = copySequence(ctx, arg->value);
+            Token *value = arg->value;
+            if (needExpansion(ctx, value)) {
+              value = expandArgument(ctx, def, arg, macro);
             }
 
-            cur->hasLeadingSpace = body->hasLeadingSpace;
-            cur->startOfLine = body->startOfLine;
+            // The argument was tokens but expands to none of them, so the
+            // parameter contributes nothing: '#define E' then 'ID(E)'.
+            Token *copied = copySequence(ctx, value);
+            if (copied) {
+              cur = cur->next = copied;
 
-            for (; cur->next; cur = cur->next) {
-                if (cur->rawCode == DSHARP) {
-                    // #define x(y) y
-                    // x(a##b) expands into 'a##b', not 'ab'
-                    cur->rawCode = cur->code = BAD_CHARACTER;
-                }
+              cur->hasLeadingSpace = body->hasLeadingSpace;
+              cur->startOfLine = body->startOfLine;
+
+              for (; cur->next; cur = cur->next) {
+                  if (cur->rawCode == DSHARP) {
+                      // #define x(y) y
+                      // x(a##b) expands into 'a##b', not 'ab'
+                      cur->rawCode = cur->code = BAD_CHARACTER;
+                  }
+              }
             }
           }
 

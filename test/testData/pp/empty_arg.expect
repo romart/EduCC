@@ -1,0 +1,4 @@
+int one = 1 + 2;
+int two = 3;
+int three = 4;
+char *s = "";
