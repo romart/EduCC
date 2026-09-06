@@ -1995,7 +1995,12 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
 
     Coordinates coords = { ctx->token };
 
+    // A struct/union/enum specifier consumes its own tag and body, so the loop
+    // must not advance again after one.
+    Boolean advance = TRUE;
+
     do {
+        advance = TRUE;
         coords.right = ctx->token;
         Coordinates c2 = { ctx->token, ctx->token };
         switch (ctx->token->code) {
@@ -2150,7 +2155,10 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
 
             specifiers->basicType = typeDescriptor != NULL ? makeBasicType(ctx, typeDescriptor, specifiers->flags.storage) : makeErrorRef(ctx);
 
-            goto almost_done;
+            // 'struct S const x;' is as good an order as 'const struct S x;',
+            // so the specifier list goes on rather than ending here.
+            advance = FALSE;
+            break;
         }
         case TYPE_NAME:
         {
@@ -2198,7 +2206,7 @@ static void parseDeclarationSpecifiers(ParserContext *ctx, DeclarationSpecifiers
             return;
         }
       }
-    } while (nextToken(ctx));
+    } while (advance ? nextToken(ctx) != NULL : TRUE);
 }
 
 /**
