@@ -25,3 +25,5 @@ ast.canon.dump
 *.o
 a.out
 __pycache__/
+.codex
+.claude
