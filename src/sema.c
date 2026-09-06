@@ -1428,6 +1428,15 @@ static AstExpression *parenIfNeeded(ParserContext *ctx, AstExpression *expr) {
 static AstInitializer *typeInitializer(ParserContext *ctx, TypeRef *valueType, int32_t offset, unsigned flexible);
 static ParsedInitializer *finalizeInitializerInternal(ParserContext *ctx, ParsedInitializer *initializer, AstInitializer *semaInit, Boolean isTopLevel);
 
+static void resetInitializer(ParserContext *ctx, AstInitializer *init) {
+  AstInitializer *fresh = typeInitializer(ctx, init->slotType, init->offset, init->isFlexible);
+  init->kind = fresh->kind;
+  init->state = IS_CLEAR;
+  init->isIncomplete = fresh->isIncomplete;
+  init->slotType = fresh->slotType;
+  init->initializerList = fresh->initializerList;
+}
+
 static void fillInitializer(ParserContext *ctx, AstInitializer *semaInit) {
 
   if (semaInit->state != IS_CLEAR) return;
@@ -1459,7 +1468,6 @@ static void fillInitializer(ParserContext *ctx, AstInitializer *semaInit) {
 
 
   AstInitializerList *initList = semaInit->initializerList;
-  assert(initList);
 
   for (; initList; initList = initList->next) {
       AstInitializer *init = initList->initializer;
@@ -2161,6 +2169,13 @@ static ParsedInitializer *finalizeInitializerInternal(ParserContext *ctx, Parsed
       semaInit->expression = createErrorExpression(ctx, coords);
       semaInit->state = IS_INIT;
       return skipIncorrectDesignation(initializer->next);
+  }
+
+  if (initializer->loc == PL_OPEN && (isCompositeType(valueType) || valueType->kind == TR_ARRAY)) {
+      if (semaInit->state == IS_INIT) {
+          reportDiagnostic(ctx, DIAG_INITIALIZER_OVERRIDE, coords);
+      }
+      if (semaInit->state != IS_CLEAR) resetInitializer(ctx, semaInit);
   }
 
   if (isStructualType(valueType)) {

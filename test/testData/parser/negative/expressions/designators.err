@@ -21,8 +21,7 @@ test/testData/parser/negative/expressions/designators.c:27:41: warning: initiali
 test/testData/parser/negative/expressions/designators.c:27:47: warning: initializer overrides prior initialization of this subobject
 test/testData/parser/negative/expressions/designators.c:27:50: warning: initializer overrides prior initialization of this subobject
 test/testData/parser/negative/expressions/designators.c:27:60: warning: initializer overrides prior initialization of this subobject
-test/testData/parser/negative/expressions/designators.c:28:31: warning: initializer overrides prior initialization of this subobject
-test/testData/parser/negative/expressions/designators.c:28:33: warning: initializer overrides prior initialization of this subobject
+test/testData/parser/negative/expressions/designators.c:28:30: warning: initializer overrides prior initialization of this subobject
 test/testData/parser/negative/expressions/designators.c:28:36: warning: initializer overrides prior initialization of this subobject
 test/testData/parser/negative/expressions/designators.c:28:38: warning: initializer overrides prior initialization of this subobject
 test/testData/parser/negative/expressions/designators.c:31:31: warning: initializer overrides prior initialization of this subobject
