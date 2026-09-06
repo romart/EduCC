@@ -1630,57 +1630,33 @@ static ParsedInitializer *finalizeStructInitializer(ParserContext *ctx, ParsedIn
 }
 
 
-static AstInitializer *createSymbolInitNode(ParserContext *ctx, Coordinates *_coords, TypeRef *type, int64_t c, int32_t offset) {
-
-  AstExpression *expr = createAstConst(ctx, _coords, CK_INT_CONST, &c, 0);
-  expr->type = type;
-
-  AstInitializer *init = createAstInitializer(ctx, _coords, IK_EXPRESSION);
-  init->expression = expr;
-  init->slotType = type;
-  init->offset = offset;
-
-   return init;
-}
-
 static void stringLiteralToInitializer(ParserContext *ctx, AstInitializer *semaInit, Coordinates *coords, const char *s, size_t length) {
-
-  TypeRef *charType = makePrimitiveType(ctx, T_S1, 0);
   TypeRef *arrayType = semaInit->slotType;
+  TypeRef *charType = arrayType->arrayTypeDesc.elementType;
   int32_t arraySize = arrayType->arrayTypeDesc.size;
-  int32_t offset = semaInit->offset;
-
   assert(semaInit->kind == IK_LIST);
-
   semaInit->coordinates = *coords;
 
-  unsigned i = 0;
   if (arraySize < 0) {
-    AstInitializerList head = { 0 }, *current = &head;
-
-    for (; i < length; ++i) {
-      current = current->next = createAstInitializerList(ctx);
-      current->initializer = createSymbolInitNode(ctx, coords, charType, s[i], offset + i);
-    }
-
     arrayType->arrayTypeDesc.size = length;
-    semaInit->initializerList = head.next;
-  } else {
-    AstInitializerList *current = semaInit->initializerList;
+    AstInitializer *complete = typeInitializer(ctx, arrayType, semaInit->offset, FALSE);
+    semaInit->initializerList = complete->initializerList;
+    semaInit->isIncomplete = FALSE;
+    arraySize = length;
+  }
 
-    for (i = 0; i < arraySize && current; ++i, current = current->next) {
-      current->initializer = createSymbolInitNode(ctx, coords, charType, s[i], offset + i);
-    }
+  unsigned i = 0;
+  for (AstInitializerList *current = semaInit->initializerList; current; current = current->next, ++i) {
+    AstInitializer *init = current->initializer;
+    int64_t c = i < length ? (unsigned char)s[i] : 0;
+    init->expression = createAstConst(ctx, coords, CK_INT_CONST, &c, 0);
+    init->expression->type = charType;
+    init->coordinates = *coords;
+    init->state = i < length ? IS_INIT : IS_FILLED;
+  }
 
-    if (arraySize < length) {
-      if (arraySize + 1 != length || s[arraySize]) {
-        reportDiagnostic(ctx, DIAG_STRING_INIT_TOO_LONG, coords);
-      }
-    }
-
-    for (; current; current = current->next) {
-      current->initializer = createSymbolInitNode(ctx, coords, charType, 0, offset + i);
-    }
+  if (arraySize < length && (arraySize + 1 != length || s[arraySize])) {
+    reportDiagnostic(ctx, DIAG_STRING_INIT_TOO_LONG, coords);
   }
 }
 
