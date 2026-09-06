@@ -1,0 +1,4 @@
+int f(struct S *local) { return local->Ap; }
+int g(struct S local) { return local.Ap; }
+int h(void) { return x + yz; }
+int i(void) { return Ap; }

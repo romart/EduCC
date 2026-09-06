@@ -229,7 +229,10 @@ Token *concatTokens(ParserContext *ctx, Token *macro, Token *l, Token *r) {
 
   l->next = r->next;
 
-  return s;
+  // Only the last token of the left sequence takes part in the paste; whatever
+  // came before it stays put, so the sequence's own head is the result -
+  // 'local.A ## p' is 'local.Ap' and not 'Ap'.
+  return pl ? left : s;
 }
 
 static MacroArg *findArgument(const Token *arg, MacroArg *args) {
