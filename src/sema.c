@@ -2937,7 +2937,15 @@ static int existedValueProcessor(ParserContext *ctx, Symbol *s, void *value) {
       oldValue->type = oldType = newType;
   }
 
-  if (typesEquals(oldType, newType)) {
+  // The same rule the other way up - 'extern T x[N];' then 'T x[] = {...}',
+  // which is how mbedtls declares its error tables. The new declaration keeps
+  // its own type: the initializer it is about to be given deduces the size.
+  // Only over a declaration that initialized nothing, so that two initialized
+  // definitions of one array stay the redefinition they are.
+  Boolean completedByInitializer =
+      oldValue->initializer == NULL && completesArrayType(oldType, newType);
+
+  if (completedByInitializer || typesEquals(oldType, newType)) {
       if (oldValue->flags.bits.isLocal && oldValue->flags.bits.isLocal) {
           reportDiagnostic(ctx, DIAG_MEMBER_REDEFINITION, &newValue->coordinates, s->name, newType, oldType);
       } else {
