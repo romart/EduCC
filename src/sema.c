@@ -2315,6 +2315,15 @@ AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, Pars
       return init;
   }
 
+  if (isCompositeType(valueType) && expr && !typesEquals(valueType, expr->type)) {
+      reportDiagnostic(ctx, DIAG_INVALID_INITIALIZER, &parsed->coords);
+      AstInitializer *init = createAstInitializer(ctx, &parsed->coords, IK_EXPRESSION);
+      init->offset = -1;
+      init->expression = createErrorExpression(ctx, &parsed->coords);
+      init->slotType = makeErrorRef(ctx);
+      return init;
+  }
+
   if (valueType->kind == TR_ARRAY && expr) {
       TypeRef *elementType = valueType->arrayTypeDesc.elementType;
       enum DiagnosticId diag = -1;

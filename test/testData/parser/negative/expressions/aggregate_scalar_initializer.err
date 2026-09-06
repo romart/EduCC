@@ -1,0 +1,4 @@
+test/testData/parser/negative/expressions/aggregate_scalar_initializer.c:3:26: error: invalid initializer
+test/testData/parser/negative/expressions/aggregate_scalar_initializer.c:4:24: error: invalid initializer
+test/testData/parser/negative/expressions/aggregate_scalar_initializer.c:7:27: error: invalid initializer
+test/testData/parser/negative/expressions/aggregate_scalar_initializer.c:8:25: error: invalid initializer

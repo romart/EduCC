@@ -1,0 +1,24 @@
+FILE test/testData/parser/negative/expressions/aggregate_scalar_initializer.c
+  STRUCT S
+    signed int a #0
+    signed int b #4
+  STRUCT_END
+----
+  UNION U
+    signed int a #0
+    signed int b #0
+  UNION_END
+----
+  STRUCT S global_struct = \
+    ERROR EXPR
+----
+  UNION U global_union = \
+    ERROR EXPR
+----
+  FUN void test 
+  BEGIN
+    STRUCT S local_struct = \
+      ERROR EXPR
+    UNION U local_union = \
+      ERROR EXPR    
+  END
