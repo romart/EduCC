@@ -405,7 +405,14 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx) {
               coords.right = ctx->token;
               consume(ctx, ')');
               return va_arg_expression(ctx, &coords, valist, vatype);
-            } else if (strcmp("__FUNCTION__", ctx->token->id) == 0) {
+            } else if (ctx->parsingFunction != NULL &&
+                       (strcmp("__func__", ctx->token->id) == 0 ||
+                        strcmp("__FUNCTION__", ctx->token->id) == 0 ||
+                        strcmp("__PRETTY_FUNCTION__", ctx->token->id) == 0)) {
+              // C99 6.4.2.2: every function body declares '__func__' as a
+              // static array holding the function's name. The two GNU
+              // spellings are the same thing. Outside a function none of them
+              // is declared, which is what the guard leaves to name lookup.
               nextToken(ctx);
               const char *funName = ctx->parsingFunction->name;
               result = createAstConst(ctx, &coords, CK_STRING_LITERAL, &funName, strlen(funName) + 1);
