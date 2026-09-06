@@ -1518,7 +1518,7 @@ static AstInitializerList *findStructDesignatorWithFilling(ParserContext *ctx, A
 }
 
 static ParsedInitializer *skipIncorrectDesignation(ParsedInitializer *parsed) {
-  while (parsed->loc != PL_SEPARATOR && parsed->loc != PL_CLOSE) {
+  while (parsed && parsed->loc != PL_SEPARATOR && parsed->loc != PL_CLOSE) {
       parsed = parsed->next;
   }
 
@@ -2002,83 +2002,85 @@ static ParsedInitializer *finalizeArrayInitializer(ParserContext *ctx, ParsedIni
 
 static ParsedInitializer *finalizeUnionInitializer(ParserContext *ctx, ParsedInitializer *initializer, AstInitializer *semaInit, Boolean isTopLevel) {
   TypeRef *type = semaInit->slotType;
-
   assert(isUnionType(type));
-
   AstExpression *expr = initializer->expression;
 
-  if (expr) {
-      if (isTopLevel && !isCompileTimeConstant(expr)) {
-        reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, &initializer->coords);
-        semaInit->coordinates = initializer->coords;
-        semaInit->expression = createErrorExpression(ctx, &expr->coordinates);
-        semaInit->state = IS_INIT;
-
-        return initializer->next;
-      }
-
-      if (typesEquals(type, expr->type)) {
-          semaInit->coordinates = initializer->coords;
-          semaInit->kind = IK_EXPRESSION;
-          semaInit->expression = expr;
-          semaInit->state = IS_INIT;
-
-          return initializer->next;
-      }
+  if (expr && typesEquals(type, expr->type)) {
+    if (isTopLevel && !isCompileTimeConstant(expr)) {
+      reportDiagnostic(ctx, DIAG_INITIALIZER_IS_NOT_COMPILE_TIME_CONSTANT, &initializer->coords);
+      expr = createErrorExpression(ctx, &expr->coordinates);
+    }
+    if (semaInit->state == IS_INIT) {
+      reportDiagnostic(ctx, DIAG_INITIALIZER_OVERRIDE, &initializer->coords);
+    }
+    semaInit->coordinates = initializer->coords;
+    semaInit->kind = IK_EXPRESSION;
+    semaInit->expression = expr;
+    semaInit->state = IS_INIT;
+    return initializer->next;
   }
-
-  AstInitializerList *list = semaInit->initializerList;
 
   int32_t level = initializer->level;
   Boolean embraced = initializer->loc == PL_OPEN;
+  if (embraced) initializer = initializer->next;
 
-  if (embraced) {
+  AstInitializerList *selected = NULL;
+  for (AstInitializerList *i = semaInit->initializerList; i; i = i->next) {
+    i->initializer->coordinates = initializer->coords;
+    if (i->initializer->state == IS_INIT) selected = i;
+    fillInitializer(ctx, i->initializer);
+  }
+  AstInitializerList *current = semaInit->initializerList;
+
+  while (initializer) {
+    if (initializer->loc == PL_CLOSE) break;
+    if (initializer->loc == PL_SEPARATOR) {
+      if (!embraced) break;
+      initializer = initializer->next;
+      continue;
+    }
+    if (initializer->loc == PL_DESIGNATOR) {
+      current = findStructDesignatorWithFilling(ctx, semaInit, current, initializer);
+      if (!current) {
+        initializer = skipIncorrectDesignation(initializer);
+        if (!embraced) break;
+        continue;
+      }
+      initializer = initializer->next;
+    }
+    if (current) {
+      if (selected && selected != current) {
+        reportDiagnostic(ctx, DIAG_INITIALIZER_OVERRIDE, &initializer->coords);
+        resetInitializer(ctx, selected->initializer);
+        fillInitializer(ctx, selected->initializer);
+      }
+      selected = current;
+      initializer = finalizeInitializerInternal(ctx, initializer, current->initializer, isTopLevel);
+      current = NULL;
+      if (!embraced) break;
+    } else {
+      // Consume a complete excess initializer without swallowing the closing brace.
+      int32_t excessLevel = initializer->level;
+      Boolean excessBraces = initializer->loc == PL_OPEN;
+      do {
+        if (initializer->expression) {
+          reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &initializer->coords, "union");
+        }
+        Boolean end = initializer->loc == PL_CLOSE && initializer->level == excessLevel;
+        initializer = initializer->next;
+        if (end) break;
+      } while (initializer && excessBraces);
+    }
+  }
+
+  if (!selected && semaInit->initializerList) {
+    semaInit->initializerList->initializer->state = IS_INIT;
+  }
+  if (initializer) semaInit->coordinates.right = initializer->coords.right;
+  if (embraced && initializer && initializer->level == level && initializer->loc == PL_CLOSE) {
     initializer = initializer->next;
   }
-
-  if (list) {
-      for (; list; list = list->next) {
-          AstInitializer *init = list->initializer;
-          init->coordinates = initializer->coords;
-          fillInitializer(ctx, init);
-      }
-
-      list = semaInit->initializerList;
-
-      if (initializer->loc == PL_DESIGNATOR) {
-          AstInitializerList *designated = findStructDesignatorWithFilling(ctx, semaInit, list, initializer);
-          if (designated) {
-              initializer = finalizeInitializerInternal(ctx, initializer->next, designated->initializer, isTopLevel);
-              list = designated;
-          } else {
-              initializer = skipIncorrectDesignation(initializer);
-          }
-      } else {
-        initializer = finalizeInitializerInternal(ctx, initializer, list->initializer, isTopLevel);
-      }
-  }
-
-  if (initializer) {
-      if (initializer->level >= level && initializer->loc != PL_CLOSE) {
-        while (initializer) {
-          ParsedInitializer *prev = initializer;
-
-          if (initializer->expression) {
-            reportDiagnostic(ctx, DIAG_W_EXCESS_ELEMENTS_INIT, &initializer->expression->coordinates, "union");
-          }
-
-          if (initializer->level == level && initializer->loc == PL_CLOSE) break;
-          initializer = initializer->next;
-        }
-      }
-  }
-
-  if (embraced) {
-      initializer = initializer->next;
-  }
-
   semaInit->state = IS_INIT;
-
   return initializer;
 }
 

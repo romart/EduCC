@@ -1,5 +1,5 @@
-test/testData/parser/negative/expressions/designators.c:10:19: warning: excess elements in union initializer
-test/testData/parser/negative/expressions/designators.c:10:22: warning: excess elements in union initializer
+test/testData/parser/negative/expressions/designators.c:10:19: warning: excess elements in struct initializer
+test/testData/parser/negative/expressions/designators.c:10:22: warning: excess elements in struct initializer
 test/testData/parser/negative/expressions/designators.c:12:18: error: expected a field designator, such as '.field = 4'
 test/testData/parser/negative/expressions/designators.c:14:35: error: array designator value '-1' is negative
 test/testData/parser/negative/expressions/designators.c:15:33: error: array designator value '-1' is negative
