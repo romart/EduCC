@@ -8,6 +8,7 @@
 
 #include <alloca.h>
 #include <assert.h>
+#include <string.h>
 
 GeneratedFile *allocateGenFile(GenerationContext *ctx) {
   return areanAllocate(ctx->codegenArena, sizeof (GeneratedFile));
@@ -132,26 +133,22 @@ void releaseConstCache(GenerationContext *ctx) {
 }
 
 static void writeObjFile(const char *sourceFileName, const char *outputFile, uint8_t *buffer, size_t bufferSize) {
+  char *derived = NULL;
+
   if (outputFile == NULL) {
-      size_t len = strlen(sourceFileName);
-      unsigned j;
-      for (j = len - 1; j >= 0; --j) {
-          if (sourceFileName[j] == '/') break;
-      }
-      ++j;
-      char *buffer = alloca(len - j + 1);
+      // gcc's rule for a '-c' with no '-o': the source's basename in the
+      // current directory, with its extension replaced by '.o'. A name with
+      // no '.' simply gains one.
+      const char *slash = strrchr(sourceFileName, '/');
+      const char *base = slash ? slash + 1 : sourceFileName;
+      const char *dot = strrchr(base, '.');
+      size_t stem = dot ? (size_t)(dot - base) : strlen(base);
 
-      unsigned i = 0;
+      derived = heapAllocate(stem + sizeof(".o"));
+      memcpy(derived, base, stem);
+      memcpy(derived + stem, ".o", sizeof(".o"));
 
-      while (sourceFileName[j] != '.') {
-        buffer[i++] = sourceFileName[j++];
-      }
-
-      buffer[i++] = '.';
-      buffer[i++] = 'o';
-      buffer[i++] = '\0';
-
-      outputFile = buffer;
+      outputFile = derived;
   }
 
   remove(outputFile);
@@ -162,6 +159,8 @@ static void writeObjFile(const char *sourceFileName, const char *outputFile, uin
   } else {
     fprintf(stderr, "Fatal error: can't create %s: No such file or directory", outputFile);
   }
+
+  releaseHeap(derived);
 }
 
 void buildElfFile(GenerationContext *ctx, AstFile *astFile, GeneratedFile *genFile, ElfFile *elfFile) {
