@@ -314,8 +314,12 @@ FILE test/testData/parser/negative/expressions/designators.c
 ----
   STRUCT <anon$11> l = \
     INIT_BEGIN
-      signed int #0 <--- 1
-      signed int #4 <--- 4
+      INIT_BEGIN
+        signed int #0 <--- 1
+        INIT_BEGIN
+          signed int #4 <--- 4
+        INIT_END
+      INIT_END
       signed int #8 <--- 5
     INIT_END
 ----

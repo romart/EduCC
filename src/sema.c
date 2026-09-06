@@ -1478,6 +1478,16 @@ static void fillInitializer(ParserContext *ctx, AstInitializer *semaInit) {
   semaInit->state = IS_FILLED;
 }
 
+static AstInitializerList *findInitializerMember(AstInitializer *init, const char *name) {
+  if (init->kind != IK_LIST) return NULL;
+  for (AstInitializerList *i = init->initializerList; i; i = i->next) {
+    AstInitializer *member = i->initializer;
+    if (strcmp(name, member->designator.member) == 0) return i;
+    if (member->designator.member[0] == '$' && findInitializerMember(member, name)) return i;
+  }
+  return NULL;
+}
+
 static AstInitializerList *findStructDesignatorWithFilling(ParserContext *ctx, AstInitializer *semaInit, AstInitializerList *current, ParsedInitializer *parsed) {
   AstInitializerList *inits = semaInit->initializerList;
 
@@ -1493,12 +1503,12 @@ static AstInitializerList *findStructDesignatorWithFilling(ParserContext *ctx, A
 
   if (name == NULL) return NULL;
 
-  for (; inits; inits = inits->next) {
-      AstInitializer *current = inits->initializer;
-      assert(current->designation == DK_STRUCT);
-      if (strcmp(name, current->designator.member) == 0) {
-          break;
-      }
+  inits = findInitializerMember(semaInit, name);
+  if (inits && inits->initializer->designator.member[0] == '$') {
+      // Resolve promoted names one anonymous aggregate at a time.
+      ParsedInitializer *nested = areanAllocate(ctx->memory.astArena, sizeof(ParsedInitializer));
+      *nested = *parsed;
+      parsed->next = nested;
   }
 
   if (inits == NULL) {
@@ -2252,18 +2262,9 @@ AstInitializer *typeInitializer(ParserContext *ctx, TypeRef *valueType, int32_t 
           int32_t memberOffset = offset + member->offset;
           AstInitializer *memberInit = typeInitializer(ctx, member->type, memberOffset, flexible && member->isFlexible && member->next == NULL);
           memberInit->designation = DK_STRUCT;
-          if (member->name[0] == '$') {
-            assert(memberInit->kind == IK_LIST);
-            AstInitializerList *inits = memberInit->initializerList;
-            for (; inits; inits = inits->next) {
-                AstInitializer *init = inits->initializer;
-                current = current->next = inits;
-            }
-          } else {
-            memberInit->designator.member = member->name;
-            current = current->next = createAstInitializerList(ctx);
-            current->initializer = memberInit;
-          }
+          memberInit->designator.member = member->name;
+          current = current->next = createAstInitializerList(ctx);
+          current->initializer = memberInit;
       }
 
       AstInitializer *init = createEmptyInitializer(ctx);
