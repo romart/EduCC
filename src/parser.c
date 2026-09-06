@@ -3504,7 +3504,7 @@ static AstStatementList *allocVLASizes(ParserContext *ctx, Coordinates *coords, 
 static AstDeclaration *parseDeclaration(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator, TypeRef *type, AstStatementList **extra, Boolean isTopLevel, DeclaratorScope scope) {
   Coordinates coords = { specifiers->coordinates.left, declarator->coordinates.right };
 
-  Boolean isTypeOk = verifyValueType(ctx, &coords, type);
+  Boolean isTypeOk = verifyValueType(ctx, &coords, type, specifiers->flags.bits.isExternal);
 
   if (!isTypeOk) type = makeErrorRef(ctx);
 

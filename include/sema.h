@@ -31,7 +31,7 @@ TypeRef *computeAssignmentTypes(ParserContext *ctx, Coordinates *coords, Express
 
 AstInitializer *finalizeInitializer(ParserContext *ctx, TypeRef *valueType, ParsedInitializer *parsed, Boolean isTopLevel);
 
-Boolean verifyValueType(ParserContext *ctx, Coordinates *coords, TypeRef *valueType);
+Boolean verifyValueType(ParserContext *ctx, Coordinates *coords, TypeRef *valueType, Boolean allowIncomplete);
 void verifyAndTransformCallAruments(ParserContext *ctx, Coordinates *coords, TypeRef *functionType, AstExpressionList *aruments);
 
 Boolean isErrorType(const TypeRef *type);

@@ -2563,13 +2563,16 @@ void verifyStatementLevelExpression(ParserContext *ctx, AstExpression *expr) {
   }
 }
 
-// true if everything is OK
-Boolean verifyValueType(ParserContext *ctx, Coordinates *coords, TypeRef *valueType) {
+// true if everything is OK. 'allowIncomplete' is for an 'extern' declaration,
+// which reserves no storage and so needs no size - the type only has to be
+// complete where the object is defined and where it is used.
+Boolean verifyValueType(ParserContext *ctx, Coordinates *coords, TypeRef *valueType, Boolean allowIncomplete) {
   if (isErrorType(valueType)) return TRUE;
 
   if (valueType->kind == TR_VALUE) {
       TypeDesc *desc = valueType->descriptorDesc;
-      if (desc->typeId == T_VOID || desc->size == UNKNOWN_SIZE) {
+      Boolean isVoid = desc->typeId == T_VOID;
+      if (isVoid || (desc->size == UNKNOWN_SIZE && !allowIncomplete)) {
           reportDiagnostic(ctx, DIAG_VAR_INCOMPLETE_TYPE, coords, desc);
           return FALSE;
       }
