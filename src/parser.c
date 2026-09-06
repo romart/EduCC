@@ -3422,12 +3422,17 @@ static void trasnformAndCheckParameters(ParserContext *ctx, AstValueDeclaration 
 }
 
 static AstTranslationUnit *parseFunctionDeclaration(ParserContext *ctx, DeclarationSpecifiers *specifiers, Declarator *declarator, TypeRef *functionalType) {
+  // 'typedef int cb(int); cb f;' declares a function whose declarator never
+  // spells a parameter list out, so there is no functional part to read the
+  // parameters off - the type has them. mbedtls declares its cookie and ticket
+  // callbacks this way.
   DeclaratorPart *functionalPart = findFunctionalPart(declarator);
-  assert(functionalPart != NULL);
   TypeRef *returnType = functionalType->functionTypeDesc.returnType;
   const char *funName = declarator->identificator;
   Coordinates coords = { specifiers->coordinates.left, declarator->coordinates.right };
-  AstValueDeclaration *params = functionalPart->parameters.parameters;
+  AstValueDeclaration *params = functionalPart ? functionalPart->parameters.parameters : NULL;
+  Boolean isVariadic = functionalPart ? functionalPart->parameters.isVariadic
+                                      : functionalType->functionTypeDesc.isVariadic;
 
   if (ctx->token->code == '=') {
       Coordinates eqCoords = { ctx->token, ctx->token };
@@ -3438,9 +3443,16 @@ static AstTranslationUnit *parseFunctionDeclaration(ParserContext *ctx, Declarat
 
   Boolean isDefinition = ctx->token->code == '{';
 
+  if (isDefinition && functionalPart == NULL) {
+      // 6.9.1: a definition's own declarator has to be the function one, so a
+      // body after a typedef'd declaration is not one.
+      reportDiagnostic(ctx, DIAG_EXPECTED_FUNCTION_DECLARATOR, &coords);
+      isDefinition = FALSE;
+  }
+
   trasnformAndCheckParameters(ctx, params, isDefinition);
 
-  AstFunctionDeclaration *declaration = createFunctionDeclaration(ctx, &coords, functionalType, returnType, funName, specifiers->flags.storage, params, functionalPart->parameters.isVariadic);
+  AstFunctionDeclaration *declaration = createFunctionDeclaration(ctx, &coords, functionalType, returnType, funName, specifiers->flags.storage, params, isVariadic);
   declaration->symbol = declareFunctionSymbol(ctx, funName, declaration);
 
   if (!isDefinition) {
