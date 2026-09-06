@@ -1688,21 +1688,20 @@ static StructualMember *parseStructDeclarationList(ParserContext *ctx, unsigned 
     return head.next;
 }
 
+// A member's alignment, not its size: the two part company for a union - which
+// isStructualType() answers no about, so one contributed its whole size and
+// gave the enclosing struct an alignment that need not even be a power of two -
+// and for an array of them. sizeof(struct { unsigned a; union { int i; char
+// c[16]; } u; }) was 32 rather than 20, which is what mbedtls' PSA MAC contexts
+// are made of.
 static int32_t computeStructAlignment(StructualMember *members) {
-  int32_t biggestSize = 1;
+  int32_t biggestAlign = 1;
 
   for (; members; members = members->next) {
-      TypeRef *memberType = members->type;
-      if (isStructualType(memberType)) {
-          biggestSize = max(biggestSize, memberType->descriptorDesc->typeDefinition->align);
-      } else if (memberType->kind == TR_ARRAY) {
-          biggestSize = max(biggestSize, computeTypeSize(memberType->arrayTypeDesc.elementType));
-      } else {
-          biggestSize = max(biggestSize, computeTypeSize(memberType));
-      }
+      biggestAlign = max(biggestAlign, typeAlignment(members->type));
   }
 
-  return biggestSize;
+  return biggestAlign;
 }
 
 /**
