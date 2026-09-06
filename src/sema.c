@@ -1684,7 +1684,7 @@ static void stringLiteralToInitializer(ParserContext *ctx, AstInitializer *semaI
   }
 }
 
-static AstInitializerList *findIncompleteArrayDesignatorWithFilling(ParserContext *ctx, AstInitializer *semaInit, AstInitializerList *start, ParsedInitializer *parsed, int32_t offset) {
+static AstInitializerList *findIncompleteArrayDesignatorWithFilling(ParserContext *ctx, AstInitializer *semaInit, AstInitializerList *start, ParsedInitializer *parsed) {
   if (parsed->kind != DK_ARRAY) {
       // int a[] = { .x = 10 };
       reportDiagnostic(ctx, DIAG_STRUCT_DESIGNATOR_IN_ARRAY, &parsed->coords, semaInit->slotType);
@@ -1714,11 +1714,17 @@ static AstInitializerList *findIncompleteArrayDesignatorWithFilling(ParserContex
   AstInitializerList *n = start;
   AstInitializerList head = { 0 }, *current = &head;
 
+  // Where the next element goes. The elements already in the list carry their
+  // own offsets, so walking them reads the last one rather than adding a
+  // second element's worth on top of the caller's running offset - which put
+  // every designator after the first one element too far along per element
+  // already present, and mbedtls' cipher_wrap.c indexes its tables by name.
+  int32_t offset = semaInit->offset;
+
   for (; n; n = n->next, ++idx) {
       if (n->initializer->designator.index == index) return n;
-      offset = ALIGN_SIZE(offset, align);
       current = current->next = n;
-      offset += elementSize;
+      offset = ALIGN_SIZE(n->initializer->offset, align) + elementSize;
   }
 
   for (; idx < index; ++idx) {
@@ -1787,7 +1793,7 @@ static ParsedInitializer *initializeIncompleteArray(ParserContext *ctx, ParsedIn
       AstInitializer *init = NULL;
       if (initializer->loc == PL_DESIGNATOR) {
           if (embraced) {
-              AstInitializerList *designated = findIncompleteArrayDesignatorWithFilling(ctx, semaInit, semaInit->initializerList, initializer, offset);
+              AstInitializerList *designated = findIncompleteArrayDesignatorWithFilling(ctx, semaInit, semaInit->initializerList, initializer);
               if (designated) {
                   current = designated;
                   init = designated->initializer;
@@ -1977,7 +1983,7 @@ static ParsedInitializer *finalizeArrayInitializer(ParserContext *ctx, ParsedIni
 
   if (initializer->loc == PL_DESIGNATOR) {
       AstInitializerList *designated = semaInit->isIncomplete
-          ? findIncompleteArrayDesignatorWithFilling(ctx, semaInit, semaInit->initializerList, initializer, 0)
+          ? findIncompleteArrayDesignatorWithFilling(ctx, semaInit, semaInit->initializerList, initializer)
           : findCompleteArrayDesignatorWithFilling(ctx, semaInit, semaInit->initializerList, initializer);
       if (designated) {
           initializer = finalizeInitializerInternal(ctx, initializer->next, designated->initializer, isTopLevel);
