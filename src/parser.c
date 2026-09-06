@@ -437,6 +437,12 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx) {
           goto iconst;
         case UL_CONSTANT: typeId = T_U8; goto iconst;
         iconst: {
+            // 6.10.1p4: inside '#if' every integer constant has the widest
+            // type there is, so '~0U' is sixty-four bits of ones and not
+            // thirty-two - which is exactly what libpng's png.h asks.
+            if (ctx->stateFlags.inPP) {
+              typeId = (typeId == T_U4 || typeId == T_U8) ? T_U8 : T_S8;
+            }
             int64_t l = ctx->token->value.iv;
             result = createAstConst(ctx, &coords, CK_INT_CONST, &l, 0);
             result->type = makePrimitiveType(ctx, typeId, flags.storage);

@@ -447,6 +447,13 @@ AstConst* eval(ParserContext *ctx, AstExpression* expression) {
   Boolean isU = isUnsignedType(expression->type);
   Boolean isDiv = FALSE;
 
+  // A comparison's own type is 'int' whatever it compares, so its signedness
+  // has to be read off an operand - sema has already converted both to the one
+  // common type. Without this '-1 > 0xffffffffffffffffUL' folded to 0.
+  if (EB_LT <= op && op <= EB_GE) {
+    isU = isUnsignedType(expression->binaryExpr.left->type);
+  }
+
   switch (op) {
     case E_CONST: return &expression->constExpr;
     case EB_COMMA:

@@ -1,0 +1,6 @@
+int wide = 1;
+int tilde_is_minus_one = 1;
+int wrap_is_minus_one = 1;
+int promoted = 1;
+int plain = 1;
+int still_signed = 1;
