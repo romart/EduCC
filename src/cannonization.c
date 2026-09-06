@@ -63,7 +63,10 @@ static AstExpression *cannonizeArrayAccess(ParserContext *ctx, AstExpression *ex
   int32_t indexOrigSize = computeTypeSize(index->type);
   TypeRef *indexType = makePrimitiveType(ctx, isUnsignedType(index->type) ? T_U8 : T_S8, 0);
 
-  Boolean isFlat = (base->type->kind == TR_ARRAY /*|| base->type->kind == TR_VLA*/) && base->op != E_CONST;
+  // A string literal's value is already the address, so there is no deref to
+  // strip - and parentheses do not change that. mbedtls subscripts one as
+  // '(STRINGIFY(macro) "")[0]'.
+  Boolean isFlat = (base->type->kind == TR_ARRAY /*|| base->type->kind == TR_VLA*/) && deparen(base)->op != E_CONST;
 
   base = transformExpression(ctx, base);
   index = transformExpression(ctx, index);
