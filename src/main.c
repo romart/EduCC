@@ -10,11 +10,55 @@
 #include "link/elfread.h"
 #include "link/link.h"
 
+// The system directories go *after* whatever '-I' put on the list, so they are
+// appended rather than pushed: a '-I' names a place to look first, which is the
+// whole reason to pass one.
+static void appendIncludePath(Configuration *config, const char *path);
+
 static IncludePath *allocIncludePath(const char *path, IncludePath *next) {
   IncludePath *ip = heapAllocate(sizeof(IncludePath));
   ip->path = path;
   ip->next = next;
   return ip;
+}
+
+static void appendIncludePath(Configuration *config, const char *path) {
+  IncludePath *node = allocIncludePath(path, NULL);
+
+  if (config->includePath == NULL) {
+    config->includePath = node;
+    return;
+  }
+
+  IncludePath *last = config->includePath;
+  while (last->next != NULL) {
+    last = last->next;
+  }
+  last->next = node;
+}
+
+// Where the target's system headers live. This cannot be decided before the
+// arguments are read: glibc's headers pick a <bits/> layout off the predefined
+// macros, so compiling for riscv64 against the host's /usr/include gets the
+// wrong everything - and, since __x86_64__ is no longer defined there, gets it
+// as 'gnu/stubs-32.h not found' rather than as anything informative.
+static void addSystemIncludePaths(Configuration *config, const char *sdkDir) {
+  if (sdkDir) {
+    appendIncludePath(config, sdkDir);
+  }
+
+  if (config->arch == RISCV64) {
+    // The cross sysroot, as the distribution lays it out. No triple
+    // subdirectory: a sysroot holds one architecture's headers and has no
+    // reason to disambiguate them.
+    appendIncludePath(config, "/usr/riscv64-linux-gnu/usr/include");
+    appendIncludePath(config, "/usr/riscv64-linux-gnu/include");
+    return;
+  }
+
+  appendIncludePath(config, "/usr/local/include");
+  appendIncludePath(config, "/usr/include/x86_64-linux-gnu");
+  appendIncludePath(config, "/usr/include");
 }
 
 static StringList *newStringNode(const char *s) {
@@ -323,13 +367,6 @@ int main(int argc, char** argv) {
 
   const char *sdkDir = sdkIncludePath();
 
-  config.includePath = allocIncludePath("/usr/include", NULL);
-  config.includePath = allocIncludePath("/usr/local/include", config.includePath);
-  if (sdkDir) {
-    config.includePath = allocIncludePath(sdkDir, config.includePath);
-  }
-  config.includePath = allocIncludePath("/usr/include/x86_64-linux-gnu", config.includePath);
-
   config.verbose = 1;
   config.arch = X86_64;
   config.irBackend = 1;
@@ -575,6 +612,8 @@ int main(int argc, char** argv) {
         return 2;
     }
   }
+
+  addSystemIncludePaths(&config, sdkDir);
 
   // A second target is the IR backend's job, where a target is a selector and
   // a descriptor rather than a second copy of the whole code generator - so
