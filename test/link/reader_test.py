@@ -685,6 +685,28 @@ def testMalformed(reader, suite):
     suite.contains(dump.out, "linker script", "a linker script is recognized")
 
 
+def isHostMachine(path):
+    """Whether this file is for the architecture the reader under test accepts.
+
+    /usr/lib/gcc/*/* is one directory per installed target, not per version, so
+    the globs below start matching another architecture's crtbegin.o the moment
+    a cross toolchain is installed - and the reader is right to refuse one. The
+    machine is read out of the file rather than guessed from the path, which
+    also covers an archive, whose members carry the header instead."""
+    try:
+        with open(path, "rb") as f:
+            head = f.read(4096)
+    except OSError:
+        return False
+
+    magic = head.find(b"\x7fELF")
+    if magic < 0:
+        return not head.startswith(b"!<arch>")  # a linker script, say
+
+    machine = head[magic + 18] | (head[magic + 19] << 8)
+    return machine == EM_X86_64
+
+
 def hostInputs(compiler):
     """Real objects, archives and shared libraries on this machine. Whatever is
     present - the point is to be a second opinion, not a fixed list."""
@@ -697,7 +719,8 @@ def hostInputs(compiler):
     candidates += glob.glob("/usr/lib/gcc/*/*/libgcc.a")
     candidates += glob.glob("build*/libzydis.a")
     candidates += glob.glob("build/CMakeFiles/main.dir/src/*.o")[:5]
-    return [c for c in candidates if os.path.exists(c)]
+    return [c for c in candidates
+            if os.path.exists(c) and isHostMachine(c)]
 
 
 def testAgainstBinutils(compiler, suite):
