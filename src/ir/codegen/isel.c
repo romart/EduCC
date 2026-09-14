@@ -437,10 +437,14 @@ static void foldValue(FoldContext *fc, const IrInstruction *value) {
   AddressFold f = { base, -1, NULL, 0, 0 };
 
   // A base and one term always fit on a target with a scaled-index mode. One
-  // without would have to spell a GEP as an add, and this is where its
-  // selector would find that out.
-  Boolean fits = addOffsetTerm(fc, &f, offset);
-  assert(fits && "the target cannot address a pointer plus an offset");
+  // without has to spell the GEP as an add: riscv64 addresses a single
+  // register plus a twelve-bit displacement and nothing else, so a variable
+  // offset - or a constant too large to be a displacement - is not part of an
+  // address at all. Recording no fold is what says so; the GEP is then
+  // selected in its own right and its uses read the register it defines.
+  if (!addOffsetTerm(fc, &f, offset)) {
+    return;
+  }
 
   recordFold(fc, value, &f);
 }
