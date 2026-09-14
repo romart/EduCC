@@ -95,47 +95,12 @@ enum FRegister {
   F_FP_PARAM_COUNT = 8
 };
 
-enum VRegister {
-  V_BAD = -1,
-
-  V0 = 0,  // V0, argument 0
-  V1 = 1,  // V1, callee-saved 0
-  V2 = 2,  // V2, callee-saved 1
-  V3 = 3,  // V3, callee-saved 2
-  V4 = 4,  // V4, callee-saved 3
-  V5 = 5,  // V5, callee-saved 4
-  V6 = 6,  // V6, callee-saved 5
-  V7 = 7,  // V7, callee-saved 6
-
-  V8 = 8,    // V8, argument 1
-  V9 = 9,    // V9, argument 2
-  V10 = 10,  // V10, argument 3
-  V11 = 11,  // V11, argument 4
-  V12 = 12,  // V12, argument 5
-  V13 = 13,  // V13, argument 6
-  V14 = 14,  // V14, argument 7
-  V15 = 15,  // V15, argument 8
-
-  V16 = 16,  // V16, argument 9
-  V17 = 17,  // V17, argument 10
-  V18 = 18,  // V18, argument 11
-  V19 = 19,  // V19, argument 12
-  V20 = 20,  // V20, argument 13
-  V21 = 21,  // V21, argument 14
-  V22 = 22,  // V22, argument 15
-  V23 = 23,  // V23, argument 16
-
-  V24 = 24,  // V24, callee-saved 7
-  V25 = 25,  // V25, callee-saved 8
-  V26 = 26,  // V26, callee-saved 9
-  V27 = 27,  // V27, callee-saved 10
-  V28 = 28,  // V28, callee-saved 11
-  V29 = 29,  // V29, callee-saved 12
-  V30 = 30,  // V30, callee-saved 13
-  V31 = 31,  // V31, callee-saved 14
-
-  V_COUNT
-};
+// There is no vector register file here on purpose. RV64G is the target -
+// IMAFD and nothing else - and the V extension is a different machine model
+// rather than more registers: a runtime vector length, vsetvli, and a type
+// system in <riscv_vector.h> that the front end has no notion of. src/pp.c
+// defines none of __riscv_v, __riscv_vector or __riscv_v_intrinsic, so no
+// header reaches for any of it.
 
 struct _GeneratedFunction;
 
