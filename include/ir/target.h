@@ -146,6 +146,13 @@ typedef struct _TargetDescriptor {
   uint32_t sp;  // stack pointer
   uint32_t fp;  // frame pointer
 
+  // Where the first stack-passed argument sits relative to the frame pointer.
+  // x86-64 answers 16 - the saved rbp and the return address are in between -
+  // and riscv64 answers 0, keeping its return address in a register and
+  // pointing s0 at the top of the frame. A constant either way, but not the
+  // same constant, and the incoming-parameter offsets are wrong by exactly it.
+  int32_t incomingStackParamOffset;
+
   // The condition-flags register, or IR_NO_PHYS_REG for a target that has
   // none - riscv64 compares and branches in one instruction and keeps no
   // flags at all, which is why this is a target's answer and not a constant.

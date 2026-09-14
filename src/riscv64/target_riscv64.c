@@ -85,6 +85,11 @@ const TargetDescriptor targetRiscv64 = {
   .sp = X_SP,
   .fp = X_S0,  // s0/fp is the frame pointer in the standard ABI
 
+  // s0 points at the *top* of the frame and the return address lives in ra
+  // rather than on the stack, so an argument the caller pushed is at s0 + 0.
+  // x86-64 has a saved rbp and a return address in between and answers 16.
+  .incomingStackParamOffset = 0,
+
   // riscv64 has no condition flags at all - a compare and a branch are one
   // instruction, and a materialized boolean comes out of 'slt' into an
   // ordinary register - so there is nothing here to name.

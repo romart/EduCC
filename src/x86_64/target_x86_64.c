@@ -231,6 +231,9 @@ const TargetDescriptor targetX86_64 = {
   .fp = R_EBP,
   .flagsReg = X86_EFLAGS,
 
+  // The saved rbp and the return address the call pushed.
+  .incomingStackParamOffset = sizeof(intptr_t) + sizeof(intptr_t),
+
   .intArgRegs = x86IntArgRegs,
   .intArgRegCount = sizeof(x86IntArgRegs) / sizeof(x86IntArgRegs[0]),
   .fpArgRegs = x86FpArgRegs,

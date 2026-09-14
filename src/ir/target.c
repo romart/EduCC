@@ -198,9 +198,11 @@ void classifyParametersGeneric(const TargetDescriptor *target,
     intRegParams += 1;
   }
 
-  // The first stack parameter sits above the saved frame pointer and the
-  // return address that the call itself pushed.
-  int32_t stackParamOffset = sizeof(intptr_t) + sizeof(intptr_t);
+  // Where the first stack parameter sits relative to the frame pointer - above
+  // the saved frame pointer and the pushed return address on x86-64, and at the
+  // frame pointer itself on a target that pushes neither. The target's answer,
+  // because it is not the same constant on both.
+  int32_t stackParamOffset = target->incomingStackParamOffset;
 
   uint32_t idx = 0;
   for (AstValueDeclaration *param = declaration->parameters; param != NULL;
