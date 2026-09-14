@@ -433,32 +433,258 @@ void EmitCJ(GeneratedFunction *f, uint32_t funct3, int32_t offset, uint32_t opco
 
 
 
-void emitLiu(GeneratedFunction *f, enum XRegister rd, uint32_t imm20) {
-  // TODO: C
-  EmitU(f, imm20, rd, 0x37);
+// -------------------------------------------------------------------------
+// The mnemonic layer.
+//
+// Everything above encodes a *format*; everything below names an instruction.
+// The split is the same one instructions_x86_64.h makes, and it is what lets
+// stage 3 be a switch whose every arm is one call.
+//
+// The names carry a 'riscv' prefix because both assemblers are linked into one
+// binary and share a namespace - x86-64 owns the plain emit* spelling.
+// -------------------------------------------------------------------------
+
+#define OP_LOAD     0x03
+#define OP_LOAD_FP  0x07
+#define OP_IMM      0x13
+#define OP_AUIPC    0x17
+#define OP_IMM_32   0x1b
+#define OP_STORE    0x23
+#define OP_STORE_FP 0x27
+#define OP_REG      0x33
+#define OP_LUI      0x37
+#define OP_REG_32   0x3b
+#define OP_BRANCH   0x63
+#define OP_JALR     0x67
+#define OP_JAL      0x6f
+
+void riscvLui(GeneratedFunction *f, enum XRegister rd, uint32_t imm20) {
+  EmitU(f, imm20, rd, OP_LUI);
 }
 
-void emitAuipc(GeneratedFunction *f, enum XRegister rd, uint32_t imm20) {
-  EmitU(f, imm20, rd, 0x17);
+void riscvAuipc(GeneratedFunction *f, enum XRegister rd, uint32_t imm20) {
+  EmitU(f, imm20, rd, OP_AUIPC);
 }
 
-void emitAddi(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12) {
-  EmitI(f, imm12, rs1, 0x0, rd, 0x13);
+void riscvAddi(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12) {
+  EmitI(f, imm12, rs1, 0x0, rd, OP_IMM);
 }
 
-void emitAddiw(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12) {
-  EmitI(f, imm12, rs1, 0x0, rd, 0x1b);
+void riscvAddiw(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12) {
+  EmitI(f, imm12, rs1, 0x0, rd, OP_IMM_32);
 }
 
-void emitSlli(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t shamt) {
-  // TODO: C
-  EmitI6(f, 0x0, shamt, rs1, 0x1, rd, 0x13);
+void riscvSlti(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12) {
+  EmitI(f, imm12, rs1, 0x2, rd, OP_IMM);
 }
 
-static Boolean isSimpleLiValue(int64_t value) {
-  return value >= INT64_C(-0x80000800) && value <= INT64_C(0x7fffffff);
+void riscvSltiu(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12) {
+  EmitI(f, imm12, rs1, 0x3, rd, OP_IMM);
 }
 
-void emitLoadImmediate(GeneratedFunction *f, int64_t c, enum XRegister to) {
+void riscvXori(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12) {
+  EmitI(f, imm12, rs1, 0x4, rd, OP_IMM);
+}
 
+void riscvOri(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12) {
+  EmitI(f, imm12, rs1, 0x6, rd, OP_IMM);
+}
+
+void riscvAndi(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12) {
+  EmitI(f, imm12, rs1, 0x7, rd, OP_IMM);
+}
+
+void riscvSlli(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t shamt) {
+  EmitI6(f, 0x0, shamt, rs1, 0x1, rd, OP_IMM);
+}
+
+void riscvSrli(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t shamt) {
+  EmitI6(f, 0x0, shamt, rs1, 0x5, rd, OP_IMM);
+}
+
+void riscvSrai(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t shamt) {
+  EmitI6(f, 0x10, shamt, rs1, 0x5, rd, OP_IMM);
+}
+
+// The 32-bit shift-immediates take a five-bit amount, not six, so they are
+// R-type with the shift where rs2 goes rather than EmitI6.
+void riscvSlliw(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t shamt) {
+  assert(isUint(shamt, 5));
+  EmitR(f, 0x00, shamt, rs1, 0x1, rd, OP_IMM_32);
+}
+
+void riscvSrliw(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t shamt) {
+  assert(isUint(shamt, 5));
+  EmitR(f, 0x00, shamt, rs1, 0x5, rd, OP_IMM_32);
+}
+
+void riscvSraiw(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t shamt) {
+  assert(isUint(shamt, 5));
+  EmitR(f, 0x20, shamt, rs1, 0x5, rd, OP_IMM_32);
+}
+
+// Register-register arithmetic. A named wrapper per instruction over one entry
+// point, so a typo shows up as a wrong funct rather than a wrong mnemonic.
+#define RISCV_REG_OP(name, opcode, funct7, funct3)                             \
+  void riscv##name(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, \
+                   enum XRegister rs2) {                                       \
+    EmitR(f, funct7, rs2, rs1, funct3, rd, opcode);                            \
+  }
+
+RISCV_REG_OP(Add,   OP_REG,    0x00, 0x0)
+RISCV_REG_OP(Sub,   OP_REG,    0x20, 0x0)
+RISCV_REG_OP(Sll,   OP_REG,    0x00, 0x1)
+RISCV_REG_OP(Slt,   OP_REG,    0x00, 0x2)
+RISCV_REG_OP(Sltu,  OP_REG,    0x00, 0x3)
+RISCV_REG_OP(Xor,   OP_REG,    0x00, 0x4)
+RISCV_REG_OP(Srl,   OP_REG,    0x00, 0x5)
+RISCV_REG_OP(Sra,   OP_REG,    0x20, 0x5)
+RISCV_REG_OP(Or,    OP_REG,    0x00, 0x6)
+RISCV_REG_OP(And,   OP_REG,    0x00, 0x7)
+
+// The M extension. Present by definition - the target is RV64G.
+RISCV_REG_OP(Mul,   OP_REG,    0x01, 0x0)
+RISCV_REG_OP(Mulh,  OP_REG,    0x01, 0x1)
+RISCV_REG_OP(Mulhu, OP_REG,    0x01, 0x3)
+RISCV_REG_OP(Div,   OP_REG,    0x01, 0x4)
+RISCV_REG_OP(Divu,  OP_REG,    0x01, 0x5)
+RISCV_REG_OP(Rem,   OP_REG,    0x01, 0x6)
+RISCV_REG_OP(Remu,  OP_REG,    0x01, 0x7)
+
+// The 'w' forms: 32-bit operations whose result is sign-extended through the
+// whole register, which is what keeps a C 'int' canonically represented.
+RISCV_REG_OP(Addw,  OP_REG_32, 0x00, 0x0)
+RISCV_REG_OP(Subw,  OP_REG_32, 0x20, 0x0)
+RISCV_REG_OP(Sllw,  OP_REG_32, 0x00, 0x1)
+RISCV_REG_OP(Srlw,  OP_REG_32, 0x00, 0x5)
+RISCV_REG_OP(Sraw,  OP_REG_32, 0x20, 0x5)
+RISCV_REG_OP(Mulw,  OP_REG_32, 0x01, 0x0)
+RISCV_REG_OP(Divw,  OP_REG_32, 0x01, 0x4)
+RISCV_REG_OP(Divuw, OP_REG_32, 0x01, 0x5)
+RISCV_REG_OP(Remw,  OP_REG_32, 0x01, 0x6)
+RISCV_REG_OP(Remuw, OP_REG_32, 0x01, 0x7)
+
+#undef RISCV_REG_OP
+
+// Loads and stores. 'width' is in bytes and 'isUnsigned' picks between the
+// sign- and zero-extending load; there is no unsigned store, a store writing
+// exactly its width.
+void riscvLoad(GeneratedFunction *f, enum XRegister rd, enum XRegister base, int32_t off,
+               uint32_t width, Boolean isUnsigned) {
+  uint32_t funct3;
+
+  switch (width) {
+    case 1: funct3 = isUnsigned ? 0x4 : 0x0; break;
+    case 2: funct3 = isUnsigned ? 0x5 : 0x1; break;
+    case 4: funct3 = isUnsigned ? 0x6 : 0x2; break;
+    case 8: funct3 = 0x3; break;
+    default: unreachable("no load of this width");
+  }
+
+  EmitI(f, off, base, funct3, rd, OP_LOAD);
+}
+
+void riscvStore(GeneratedFunction *f, enum XRegister src, enum XRegister base, int32_t off,
+                uint32_t width) {
+  uint32_t funct3;
+
+  switch (width) {
+    case 1: funct3 = 0x0; break;
+    case 2: funct3 = 0x1; break;
+    case 4: funct3 = 0x2; break;
+    case 8: funct3 = 0x3; break;
+    default: unreachable("no store of this width");
+  }
+
+  EmitS(f, off, src, base, funct3, OP_STORE);
+}
+
+void riscvFLoad(GeneratedFunction *f, enum FRegister rd, enum XRegister base, int32_t off,
+                uint32_t width) {
+  assert(width == 4 || width == 8);
+  EmitI(f, off, base, width == 4 ? 0x2 : 0x3, rd, OP_LOAD_FP);
+}
+
+void riscvFStore(GeneratedFunction *f, enum FRegister src, enum XRegister base, int32_t off,
+                 uint32_t width) {
+  assert(width == 4 || width == 8);
+  EmitS(f, off, src, base, width == 4 ? 0x2 : 0x3, OP_STORE_FP);
+}
+
+void riscvBranch(GeneratedFunction *f, uint32_t funct3, enum XRegister rs1, enum XRegister rs2,
+                 int32_t offset) {
+  EmitB(f, offset, rs2, rs1, funct3, OP_BRANCH);
+}
+
+void riscvJal(GeneratedFunction *f, enum XRegister rd, int32_t offset) {
+  EmitJ(f, offset, rd, OP_JAL);
+}
+
+void riscvJalr(GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t off) {
+  EmitI(f, off, rs1, 0x0, rd, OP_JALR);
+}
+
+// 'ret' is 'jalr x0, 0(ra)' - jump to the return address and keep no link.
+void riscvRet(GeneratedFunction *f) {
+  riscvJalr(f, X_ZERO, X_RA, 0);
+}
+
+// The signed low twelve bits of a value, as the number an I- or S-type field
+// will be read back as. Every split of a constant into a high and a low half
+// starts here, because the low half is added sign-extended and the high half
+// has to be pre-compensated for it.
+static int64_t signExtend12(int64_t v) {
+  return (int64_t)((uint64_t)v << 52) >> 52;
+}
+
+static uint32_t trailingZeros64(uint64_t v) {
+  uint32_t n = 0;
+  while ((v & 1) == 0) {
+    v >>= 1;
+    ++n;
+  }
+  return n;
+}
+
+// 'li' - a constant into a register, in as many instructions as it takes.
+//
+// Up to 32 bits that is lui plus addiw, with the lui rounded up by 0x800 so
+// that the sign-extended addiw lands on the value rather than 4096 below it.
+// Beyond that the value is built from the top down: construct everything above
+// the low twelve bits, shift it up, and add them back. The shift absorbs the
+// run of zeros under the high part, which is what keeps a value like
+// 0x1000000000000 to three instructions rather than six.
+void riscvLoadImmediate(GeneratedFunction *f, int64_t c, enum XRegister to) {
+  if (isInt(c, 12)) {
+    riscvAddi(f, to, X_ZERO, (int32_t)c);
+    return;
+  }
+
+  if (isInt(c, 32)) {
+    int64_t lo12 = signExtend12(c);
+    uint32_t hi20 = (uint32_t)(((uint64_t)c - (uint64_t)lo12) >> 12) & 0xfffffu;
+
+    riscvLui(f, to, hi20);
+    if (lo12 != 0) {
+      riscvAddiw(f, to, to, (int32_t)lo12);
+    }
+    return;
+  }
+
+  int64_t lo12 = signExtend12(c);
+  int64_t rest = (int64_t)((uint64_t)c - (uint64_t)lo12) >> 12;
+  assert(rest != 0 && "a value whose high part is zero fits in twelve bits");
+
+  // Arithmetic, so that a negative high part stays negative: shifting it back
+  // up is what reconstructs the value, and the bits discarded here are the
+  // zeros the shift will put back.
+  uint32_t shift = 12 + trailingZeros64((uint64_t)rest);
+  rest >>= (shift - 12);
+
+  riscvLoadImmediate(f, rest, to);
+  riscvSlli(f, to, to, shift);
+
+  if (lo12 != 0) {
+    riscvAddi(f, to, to, (int32_t)lo12);
+  }
 }

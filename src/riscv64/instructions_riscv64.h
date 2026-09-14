@@ -104,13 +104,77 @@ enum FRegister {
 
 struct _GeneratedFunction;
 
-void emitLoadImmediate(struct _GeneratedFunction *f, int64_t c, enum XRegister to);
+// Whether a value fits a signed / unsigned field of this many bits. Exposed
+// because selection asks the same question the encoders assert - a twelve-bit
+// immediate is the whole of ArchSelector.isLegalImmediate on this target.
+int isInt(int64_t v, size_t bits);
+int isUint(uint64_t v, size_t bits);
 
-void emitAuipc(struct _GeneratedFunction *f, enum XRegister rd, uint32_t imm20);
-void emitLiu(struct _GeneratedFunction *f, enum XRegister rd, uint32_t imm20);
+// Whether an address or displacement is a multiple of 'align' bytes. The
+// branch encodings drop the low bit of their offset, so emission asserts it.
+int isAligned(uint64_t v, size_t align);
 
-void emitAddi(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12);
-void emitAddiw(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12);
-void emitSlli(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t shamt);
+void riscvLoadImmediate(struct _GeneratedFunction *f, int64_t c, enum XRegister to);
+
+void riscvAuipc(struct _GeneratedFunction *f, enum XRegister rd, uint32_t imm20);
+void riscvLui(struct _GeneratedFunction *f, enum XRegister rd, uint32_t imm20);
+
+// I-type arithmetic. There is no 'subi' because RV64 has none; the selector
+// turns a subtraction of a constant into an addition of its negation.
+void riscvAddi(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12);
+void riscvAddiw(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12);
+void riscvSlti(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12);
+void riscvSltiu(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12);
+void riscvXori(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12);
+void riscvOri(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12);
+void riscvAndi(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t imm12);
+
+void riscvSlli(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t shamt);
+void riscvSrli(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t shamt);
+void riscvSrai(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t shamt);
+void riscvSlliw(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t shamt);
+void riscvSrliw(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t shamt);
+void riscvSraiw(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t shamt);
+
+// Register-register arithmetic, RV64I plus M. The 'w' forms are the 32-bit
+// ones, whose answer is sign-extended through the whole register.
+#define RISCV_REG_OPS(X)                                                       \
+  X(Add) X(Sub) X(Sll) X(Slt) X(Sltu) X(Xor) X(Srl) X(Sra) X(Or) X(And)        \
+  X(Mul) X(Mulh) X(Mulhu) X(Div) X(Divu) X(Rem) X(Remu)                        \
+  X(Addw) X(Subw) X(Sllw) X(Srlw) X(Sraw)                                      \
+  X(Mulw) X(Divw) X(Divuw) X(Remw) X(Remuw)
+
+#define RISCV_DECLARE_REG_OP(name)                                             \
+  void riscv##name(struct _GeneratedFunction *f, enum XRegister rd,            \
+                   enum XRegister rs1, enum XRegister rs2);
+RISCV_REG_OPS(RISCV_DECLARE_REG_OP)
+#undef RISCV_DECLARE_REG_OP
+
+// 'width' is in bytes. A load says whether it extends with the sign or with
+// zeroes; a store writes exactly its width and has no such choice.
+void riscvLoad(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister base,
+               int32_t off, uint32_t width, Boolean isUnsigned);
+void riscvStore(struct _GeneratedFunction *f, enum XRegister src, enum XRegister base,
+                int32_t off, uint32_t width);
+void riscvFLoad(struct _GeneratedFunction *f, enum FRegister rd, enum XRegister base,
+                int32_t off, uint32_t width);
+void riscvFStore(struct _GeneratedFunction *f, enum FRegister src, enum XRegister base,
+                 int32_t off, uint32_t width);
+
+// The branch's funct3 rather than one entry point per condition: the selector
+// already holds the condition as a machine opcode, and six wrappers would only
+// be six more places to mistype a number.
+#define RISCV_BR_EQ  0x0
+#define RISCV_BR_NE  0x1
+#define RISCV_BR_LT  0x4
+#define RISCV_BR_GE  0x5
+#define RISCV_BR_LTU 0x6
+#define RISCV_BR_GEU 0x7
+
+void riscvBranch(struct _GeneratedFunction *f, uint32_t funct3, enum XRegister rs1,
+                 enum XRegister rs2, int32_t offset);
+void riscvJal(struct _GeneratedFunction *f, enum XRegister rd, int32_t offset);
+void riscvJalr(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t off);
+void riscvRet(struct _GeneratedFunction *f);
 
 #endif // __INSTR_RISCV64_H__

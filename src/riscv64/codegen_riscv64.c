@@ -249,7 +249,7 @@ static void emitConst(GeneratedFunction *f, AstConst *_const, TypeId tid) {
         break;
       }
   case CK_INT_CONST:
-      emitLoadImmediate(f, _const->i, X_ACC);
+      riscvLoadImmediate(f, _const->i, X_ACC);
       break;
   case CK_STRING_LITERAL: {
 //        GenerationContext *ctx = f->context;
