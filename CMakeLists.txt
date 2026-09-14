@@ -202,6 +202,31 @@ if(BUILD_TESTING)
   # compiled the other way and run. checker_pic asks whether the objects could
   # be a shared library; this asks whether they still compute the right answers.
   educc_add_test(codegen_pic codegen codegen 300 ssa --compiler-flag=-fPIC)
+
+  # And a sixth time for the *other target*. This is the only suite that says
+  # riscv64 code computes the right answers rather than merely assembling, and
+  # it is the same corpus for the same reason -fPIC reuses it: a target is a
+  # selector and a descriptor, and the cheapest honest test of one is every
+  # fixture there already is, compiled for it and run.
+  #
+  # Registered only when the cross toolchain is installed, since it is not a
+  # build dependency: qemu to run what comes out, and the cross driver to link
+  # it until the in-house linker learns EM_RISCV. A fixture that is about one
+  # target and no other carries a '<name>.x86_64' or '<name>.riscv64' marker
+  # and is skipped here or there, the way '.ir' and '.legacy' already scope one
+  # to a backend.
+  find_program(QEMU_RISCV64 qemu-riscv64)
+  find_program(RISCV64_GCC riscv64-linux-gnu-gcc)
+
+  if(QEMU_RISCV64 AND RISCV64_GCC)
+    educc_add_test(codegen_riscv64 codegen codegen 600 ssa
+                   --compiler-flag=-march --compiler-flag=riscv64
+                   --run-prefix=${QEMU_RISCV64}
+                   --run-prefix=-L --run-prefix=/usr/riscv64-linux-gnu
+                   --link-with=${RISCV64_GCC} --link-with=-no-pie)
+  else()
+    message(STATUS "riscv64 codegen suite not registered: need qemu-riscv64 and riscv64-linux-gnu-gcc")
+  endif()
   # The two backends inside one link: each fixture is a pair of files compiled
   # with a different backend each, linked and run, then swapped over. Every
   # other suite runs one backend at a time, so their ABI agreement is otherwise
