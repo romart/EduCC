@@ -256,6 +256,18 @@ static Boolean serializeRiscvTextReloc(Elf64_Rela *rela, const Relocation *reloc
     break;
   }
 
+  // Against the section, with the offset into it as the addend. Set below
+  // from reloc->addend, which the emitter has already added the literal's
+  // offset into.
+  case RK_RISCV_SEC_HI20:
+  case RK_RISCV_SEC_LO12_I: {
+    Elf64_Xword type = reloc->kind == RK_RISCV_SEC_HI20 ? R_RISCV_HI20 : R_RISCV_LO12_I;
+    rela->r_info = ELF64_R_INFO(reloc->sectionData.dataSection->symbolIndex, type);
+    rela->r_addend = reloc->addend + reloc->sectionData.dataSectionOffset;
+    rela->r_offset = reloc->applySectionOffset;
+    return TRUE;
+  }
+
   default:
     return FALSE;
   }

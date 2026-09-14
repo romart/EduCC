@@ -28,6 +28,13 @@ enum RelocKind {
   RK_RISCV_HI20,   // the lui: bits 31:12 of the address, rounded for the low half
   RK_RISCV_LO12_I, // the I-type half - addi, a load
   RK_RISCV_LO12_S, // the S-type half, whose immediate is split across two fields
+
+  // The same pair against a *section* and an offset into it rather than a
+  // named symbol - a string literal, which has no name. x86-64 makes the same
+  // distinction between RK_SYMBOL and RK_RIP and for the same reason: the two
+  // halves of Relocation's union are not interchangeable.
+  RK_RISCV_SEC_HI20,
+  RK_RISCV_SEC_LO12_I,
 };
 
 struct _GeneratedFunction;
