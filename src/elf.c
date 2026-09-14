@@ -422,7 +422,18 @@ static uint8_t *serializeSections(ElfFile *elfFile, unsigned sectionCount, uint8
 // the in-memory section keeps the poison, so '-S' still shows it, and a
 // displacement no relocation covers - the failure the poison exists to make
 // visible - still reaches the object file as 0x7EADBEFF.
-static void clearRelocatedFields(Relocation *reloc, uint8_t *buffer) {
+// x86-64 relocates a four-byte field that holds nothing else, so the bytes are
+// blanked here and the link writes the whole of them. riscv64 relocates an
+// *instruction* - the immediate is a few scattered bits of it and the opcode
+// and registers are the rest - so blanking four bytes there would leave the
+// linker patching the immediate of a word that decodes as nothing. The
+// instruction is emitted with a zero immediate already, which is what a
+// relocated field is supposed to start as.
+static void clearRelocatedFields(ElfFile *elfFile, Relocation *reloc, uint8_t *buffer) {
+  if (elfFile->machine == EM_RISCV) {
+    return;
+  }
+
   while (reloc) {
       address applyAddress = buffer + reloc->applySection->offset + reloc->applySectionOffset;
 
@@ -508,7 +519,7 @@ uint8_t *generateElfFile(ElfFile *elfFile, GeneratedFile *genFile, size_t *elfFi
   ptrdiff_t sectionHeaderOffset = sectionHeaderAddress - buffer;
   assert(sectionHeaderOffset == h_s_size);
 
-  clearRelocatedFields(elfFile->sections.asStruct.text->reloc, buffer);
+  clearRelocatedFields(elfFile, elfFile->sections.asStruct.text->reloc, buffer);
 
   finalizeSectionHeaders(elfFile, sectionHeadersLen, lastLocalIndex);
 
