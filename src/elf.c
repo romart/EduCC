@@ -230,14 +230,53 @@ static unsigned serializeSymbolTable(ElfFile *elfFile, GeneratedFile *file, unsi
 }
 
 
-static unsigned serializeTextRelocs(Section *section, Relocation *relocs) {
+// The riscv64 half of the table below. Split out rather than folded into the
+// chain of 'if's because the two targets agree about almost nothing here: a
+// call is one relocation covering two instructions, an address is two
+// relocations over two instructions, and there is no pc-relative form of
+// either that this backend emits.
+static Boolean serializeRiscvTextReloc(Elf64_Rela *rela, const Relocation *reloc) {
+  switch (reloc->kind) {
+  case RK_SYMBOL: {
+    // R_RISCV_CALL_PLT covers the auipc and the jalr as one entry, so unlike
+    // x86-64 there is no separate answer for a call to data.
+    const Symbol *s = reloc->symbolData.symbol;
+    rela->r_info = ELF64_R_INFO(s->symbolTableIndex, R_RISCV_CALL_PLT);
+    break;
+  }
+
+  case RK_RISCV_HI20:
+  case RK_RISCV_LO12_I:
+  case RK_RISCV_LO12_S: {
+    const Symbol *s = reloc->symbolData.symbol;
+    Elf64_Xword type = reloc->kind == RK_RISCV_HI20   ? R_RISCV_HI20
+                     : reloc->kind == RK_RISCV_LO12_I ? R_RISCV_LO12_I
+                                                      : R_RISCV_LO12_S;
+    rela->r_info = ELF64_R_INFO(s->symbolTableIndex, type);
+    break;
+  }
+
+  default:
+    return FALSE;
+  }
+
+  rela->r_addend = reloc->addend;
+  rela->r_offset = reloc->applySectionOffset;
+  return TRUE;
+}
+
+static unsigned serializeTextRelocs(ElfFile *elfFile, Section *section, Relocation *relocs) {
 
   unsigned count = 0;
 
   while (relocs) {
       Elf64_Rela rela =  { 0 };
 
-      if (relocs->kind == RK_SYMBOL) {
+      if (elfFile->machine == EM_RISCV) {
+          if (!serializeRiscvTextReloc(&rela, relocs)) {
+            unreachable("Unexpected relocation kind in riscv64 text section");
+          }
+      } else if (relocs->kind == RK_SYMBOL) {
           const Symbol *s = relocs->symbolData.symbol;
 
           Elf64_Xword type = s->kind == ValueSymbol ? R_X86_64_PC32 : R_X86_64_PLT32;
@@ -276,13 +315,15 @@ static unsigned serializeTextRelocs(Section *section, Relocation *relocs) {
   return count;
 }
 
-static unsigned serializeDataReloc(Section *section, Relocation *relocs) {
+static unsigned serializeDataReloc(ElfFile *elfFile, Section *section, Relocation *relocs) {
   unsigned count = 0;
 
   while (relocs) {
 
       Elf64_Rela rela = { 0 };
-      Elf64_Xword type = R_X86_64_64;
+      // An eight-byte absolute address, which is the one thing both targets
+      // spell the same way apart from the number.
+      Elf64_Xword type = elfFile->machine == EM_RISCV ? R_RISCV_64 : R_X86_64_64;
       Elf64_Xword sym;
 
       if (relocs->kind == RK_REF) {
@@ -437,13 +478,13 @@ uint8_t *generateElfFile(ElfFile *elfFile, GeneratedFile *genFile, size_t *elfFi
   unsigned symbolCount = serializeSymbolTable(elfFile, genFile, &lastLocalIndex);
 
   Section *textReloc = elfFile->sections.asStruct.reText;
-  unsigned textRelocCount = serializeTextRelocs(textReloc, elfFile->sections.asStruct.text->reloc);
+  unsigned textRelocCount = serializeTextRelocs(elfFile, textReloc, elfFile->sections.asStruct.text->reloc);
 
   Section *rodataLocalReloc = elfFile->sections.asStruct.reRodataLocal;
-  unsigned rodataLocalRelocCount = serializeDataReloc(rodataLocalReloc, elfFile->sections.asStruct.rodataLocal->reloc);
+  unsigned rodataLocalRelocCount = serializeDataReloc(elfFile, rodataLocalReloc, elfFile->sections.asStruct.rodataLocal->reloc);
 
   Section *dataLocalReloc = elfFile->sections.asStruct.reDataLocal;
-  unsigned dataLocalRelocCount = serializeDataReloc(dataLocalReloc, elfFile->sections.asStruct.dataLocal->reloc);
+  unsigned dataLocalRelocCount = serializeDataReloc(elfFile, dataLocalReloc, elfFile->sections.asStruct.dataLocal->reloc);
 
   Section *symtab = elfFile->sections.asStruct.symtab;
   size_t symbolTableSectionSize = symtab->pc - symtab->start;
@@ -490,7 +531,7 @@ uint8_t *generateElfFile(ElfFile *elfFile, GeneratedFile *genFile, size_t *elfFi
 
   header->e_type = ET_REL;
 
-  header->e_machine = EM_X86_64;
+  header->e_machine = elfFile->machine;
 
   header->e_version = EV_CURRENT;
 
@@ -499,7 +540,13 @@ uint8_t *generateElfFile(ElfFile *elfFile, GeneratedFile *genFile, size_t *elfFi
   header->e_phoff = 0;
   header->e_shoff = sectionHeaderOffset;
 
-  header->e_flags = 0x00;
+  // x86-64 defines no flags. riscv64 records the float ABI here, and a linker
+  // refuses to mix two - a zero reads as soft-float, and merging that with a
+  // double-float libc is "can't link soft-float modules with double-float
+  // modules" rather than anything about the code. EF_RISCV_RVC is deliberately
+  // absent: no compressed instruction is emitted, and claiming otherwise would
+  // be a claim about the bytes rather than about the ABI.
+  header->e_flags = elfFile->machine == EM_RISCV ? EF_RISCV_FLOAT_ABI_DOUBLE : 0x00;
 
   header->e_ehsize = sizeof(Elf64_Ehdr);
 

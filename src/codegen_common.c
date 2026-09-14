@@ -224,9 +224,14 @@ void buildElfFile(GenerationContext *ctx, AstFile *astFile, GeneratedFile *genFi
 
   size_t elfFileSize = 0;
 
-  uint8_t *elfFileBytes = generateElfFile(elfFile, genFile, &elfFileSize);
-
   Configuration *config = ctx->parserContext->config;
+
+  // The writer needs this for two things at once - the header's e_machine and
+  // which relocation types the arch-neutral RelocKinds become - so it is set
+  // here, where the configuration is in hand, rather than read from a global.
+  elfFile->machine = config->arch == RISCV64 ? EM_RISCV : EM_X86_64;
+
+  uint8_t *elfFileBytes = generateElfFile(elfFile, genFile, &elfFileSize);
 
   if (config->keepObjects) {
     ObjectImage *object = heapAllocate(sizeof(ObjectImage));

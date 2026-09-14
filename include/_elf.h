@@ -62,6 +62,11 @@ typedef struct _ElfFile {
     struct ElfFileSection asStruct;
   } sections;
 
+  // EM_X86_64 or EM_RISCV. It goes in the header, and it also picks which
+  // relocation types the arch-neutral RelocKinds are written out as - the two
+  // have to be the same answer, which is why this is one field and not a
+  // machine here and an arch somewhere else.
+  uint16_t machine;
 
 } ElfFile;
 
