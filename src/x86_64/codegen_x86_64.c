@@ -614,58 +614,6 @@ static Symbol *extractSymbol(AstExpression *expr) {
   }
 }
 
-// Whether the object itself may be written, which is a question about the type
-// and not about the 'const' in the declaration: in 'static const char *p' the
-// const belongs to what p points at, and p is assignable. Reading the
-// specifier flag put it in .rodata and made the first assignment a fault.
-static Boolean isReadOnlyObject(const TypeRef *type) {
-  while (type->kind == TR_ARRAY) {
-    type = type->arrayTypeDesc.elementType;
-  }
-
-  return type->flags.bits.isConst;
-}
-
-static GeneratedVariable *generateVaribale_x86_64(GenerationContext *ctx, AstValueDeclaration *d) {
-  if (d->flags.bits.isExternal) return NULL; // no declaration is needed
-
-  Section *section = NULL;
-  Boolean readOnly = isReadOnlyObject(d->type);
-
-  if (d->initializer) {
-      if (hasRelocationsInit(d->initializer)) {
-          section = readOnly ? ctx->rodataLocal : ctx->dataLocal;
-      } else {
-          section = readOnly ? ctx->rodata : ctx->data;
-      }
-  } else {
-      section = ctx->bss;
-  }
-
-  int32_t align = typeAlignment(d->type);
-  alignSection(section, align);
-
-  size_t objectSize = computeTypeSize(d->type);
-
-  ptrdiff_t offset = section->pc - section->start;
-
-  if (d->initializer) {
-    fillInitializer(ctx, section, d->initializer, offset, objectSize);
-  } else {
-    size_t filled = 0;
-    while (filled < objectSize) {
-        emitSectionByte(section, 0x00);
-        ++filled;
-    }
-  }
-
-  GeneratedVariable *v = allocateGenVarialbe(ctx, d);
-  v->section = section;
-  v->sectionOffset = offset;
-  v->size = objectSize;
-  return v;
-}
-
 static void generateBitExtend(GeneratedFunction *f, AstExpression *extend) {
   unsigned w = extend->extendExpr.w;
   Boolean isU = extend->extendExpr.isUnsigned;
@@ -3055,7 +3003,7 @@ static Boolean generateStatement(GeneratedFunction *f, AstStatement *stmt) {
             }
         } else {
           assert(v->flags.bits.isStatic);
-          GeneratedVariable *gv = generateVaribale_x86_64(ctx, v);
+          GeneratedVariable *gv = generateVariable(ctx, v);
           v->gen = gv;
           gv->next = ctx->file->staticVariables;
           ctx->file->staticVariables = gv;
@@ -3421,6 +3369,6 @@ static GeneratedFunction *generateFunction_x86_64(GenerationContext *ctx, AstFun
 
 void initArchCodegen_x86_64(ArchCodegen *cg) {
   cg->generateFunction = &generateFunction_x86_64;
-  cg->generateVaribale = &generateVaribale_x86_64;
+  cg->generateVaribale = &generateVariable;
   cg->generateFunctionFromIr = &emitMachineFunction_x86_64;
 }

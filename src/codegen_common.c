@@ -36,6 +36,63 @@ Relocation *allocateRelocation(GenerationContext *ctx) {
   return areanAllocate(ctx->codegenArena, sizeof (Relocation));
 }
 
+// Whether the object itself may be written, which is a question about the type
+// and not about the 'const' in the declaration: in 'static const char *p' the
+// const belongs to what p points at, and p is assignable. Reading the
+// specifier flag put it in .rodata and made the first assignment a fault.
+static Boolean isReadOnlyObject(const TypeRef *type) {
+  while (type->kind == TR_ARRAY) {
+    type = type->arrayTypeDesc.elementType;
+  }
+
+  return type->flags.bits.isConst;
+}
+
+// Static data is an AST-level concern and has nothing architecture-specific in
+// it - which section the object belongs in, how wide it is, and what bytes go
+// there. It sat in codegen_x86_64.c with a second copy in the riscv64 one, and
+// the copy had gone stale: it still read the declaration's 'const' flag, which
+// is the bug the function above exists to describe.
+GeneratedVariable *generateVariable(GenerationContext *ctx, AstValueDeclaration *d) {
+  if (d->flags.bits.isExternal) return NULL; // no declaration is needed
+
+  Section *section = NULL;
+  Boolean readOnly = isReadOnlyObject(d->type);
+
+  if (d->initializer) {
+      if (hasRelocationsInit(d->initializer)) {
+          section = readOnly ? ctx->rodataLocal : ctx->dataLocal;
+      } else {
+          section = readOnly ? ctx->rodata : ctx->data;
+      }
+  } else {
+      section = ctx->bss;
+  }
+
+  int32_t align = typeAlignment(d->type);
+  alignSection(section, align);
+
+  size_t objectSize = computeTypeSize(d->type);
+
+  ptrdiff_t offset = section->pc - section->start;
+
+  if (d->initializer) {
+    fillInitializer(ctx, section, d->initializer, offset, objectSize);
+  } else {
+    size_t filled = 0;
+    while (filled < objectSize) {
+        emitSectionByte(section, 0x00);
+        ++filled;
+    }
+  }
+
+  GeneratedVariable *v = allocateGenVarialbe(ctx, d);
+  v->section = section;
+  v->sectionOffset = offset;
+  v->size = objectSize;
+  return v;
+}
+
 static int f4HashCode(intptr_t pf) {
   float v = (float)(*(long double*)pf);
   return *(int*)&v;

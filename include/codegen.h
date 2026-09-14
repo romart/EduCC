@@ -179,6 +179,11 @@ void emitQuadOrDouble(GeneratedFunction *f, uint64_t w);
 ptrdiff_t emitStringWithEscaping(GenerationContext *ctx, Section *section, AstConst *_const);
 ptrdiff_t emitLiteralBytes(GenerationContext *ctx, Section *section, const char *bytes, size_t length);
 
+// Emits one file-scope or static object into whichever section it belongs in.
+// Shared: nothing about static data is architecture-specific, so both targets'
+// ArchCodegen.generateVaribale points here.
+GeneratedVariable *generateVariable(GenerationContext *ctx, AstValueDeclaration *d);
+
 Boolean hasRelocationsInit(AstInitializer *init);
 size_t fillInitializer(GenerationContext *ctx, Section *section, AstInitializer *init, int32_t startOffset, size_t size);
 
