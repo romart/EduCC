@@ -202,6 +202,80 @@ static void emitAddConst(EmitContext *e, enum XRegister rd, enum XRegister rs, i
   riscvAdd(e->gen, rd, rs, X_T0);
 }
 
+// Whether this width is a 32-bit operation - the 'w' instruction forms.
+static Boolean isWordWidth(uint8_t size) {
+  return size <= 4;
+}
+
+// -============================ Symbol addresses ==========================-
+//
+// medlow: a global's address is an absolute constant the link knows, built by
+// 'lui rd, %hi(sym)' then 'addi rd, rd, %lo(sym)'. Each half is its own
+// relocation over its own four bytes, and both name the symbol - there is no
+// label pairing here, which is what the pc-relative auipc form would need and
+// what '-fPIC' is refused for.
+
+static Relocation *newSectionRelocation(GeneratedFunction *f) {
+  Relocation *reloc = allocateRelocation(f->context);
+
+  reloc->applySection = f->section;
+  reloc->next = f->section->reloc;
+  f->section->reloc = reloc;
+
+  return reloc;
+}
+
+static void addSymbolRelocation(EmitContext *e, enum RelocKind kind, struct _Symbol *symbol) {
+  Relocation *reloc = newSectionRelocation(e->gen);
+
+  reloc->kind = kind;
+  reloc->symbolData.symbol = symbol;
+  reloc->symbolData.symbolName = symbol->name;
+  reloc->addend = 0;
+  // The instruction the linker patches is the one about to be emitted.
+  reloc->applySectionOffset = here(e);
+}
+
+// A string literal: bytes that do not exist yet. They go into .rodata and the
+// address is relocated against the *section*, since the literal has no name.
+static void addSectionRelocation(EmitContext *e, enum RelocKind kind, Section *section,
+                                 ptrdiff_t offset) {
+  Relocation *reloc = newSectionRelocation(e->gen);
+
+  reloc->kind = kind;
+  reloc->sectionData.dataSection = section;
+  reloc->sectionData.dataSectionOffset = offset;
+  reloc->addend = 0;
+  reloc->applySectionOffset = here(e);
+}
+
+static void emitSymbolAddress(EmitContext *e, enum XRegister rd, const MachineAddress *m) {
+  assert(m->disp == 0 && "a displacement off a symbol belongs in the relocation's addend");
+
+  if (m->kind == MAK_CONSTANT) {
+    GenerationContext *ctx = e->gen->context;
+    const MachineConstant *c = machineConstantAt(e->mf, m->anchor.constantIdx);
+    assert(c->kind == MCK_BYTES);
+
+    ptrdiff_t offset = emitLiteralBytes(ctx, ctx->rodata, c->bytes, c->size);
+
+    addSectionRelocation(e, RK_RISCV_SEC_HI20, ctx->rodata, offset);
+    riscvLui(e->gen, rd, 0);
+
+    addSectionRelocation(e, RK_RISCV_SEC_LO12_I, ctx->rodata, offset);
+    riscvAddi(e->gen, rd, rd, 0);
+    return;
+  }
+
+  assert(m->kind == MAK_SYMBOL && "this address kind has no rule yet");
+
+  addSymbolRelocation(e, RK_RISCV_HI20, m->anchor.symbol);
+  riscvLui(e->gen, rd, 0);
+
+  addSymbolRelocation(e, RK_RISCV_LO12_I, m->anchor.symbol);
+  riscvAddi(e->gen, rd, rd, 0);
+}
+
 // -============================ The frame =================================-
 
 static int32_t layoutCalleeSaved(EmitContext *e) {
@@ -412,6 +486,168 @@ static void emitReload(EmitContext *e, const MachineInstr *mi) {
   }
 }
 
+// The address an MO_MEM operand denotes, as a base register and a
+// displacement. A frame slot is s0-relative, and a symbol or a constant-pool
+// entry has no register at all until the lui below puts one there.
+static enum XRegister memBase(EmitContext *e, const MachineOperand *op, int32_t *disp) {
+  const MachineAddress *m = &op->info.mem;
+
+  assert(m->index == NO_REG && "riscv64 has no index register in an address");
+
+  switch (m->kind) {
+  case MAK_REG:
+    *disp = m->disp;
+    return xReg(e, m->base);
+
+  case MAK_FRAME:
+    *disp = m->disp + frameOffset(e, m->anchor.frameIdx);
+    return X_S0;
+
+  default:
+    unreachable("this address kind needs its own rule");
+  }
+}
+
+static const MachineOperand *memOperand(const MachineInstr *mi, uint16_t idx) {
+  const MachineOperand *op = machineOperandAt((MachineInstr *)mi, idx);
+  assert(op->kind == MO_MEM);
+  return op;
+}
+
+// 'la rd, <address>' - the address itself, not what is at it. A frame slot or
+// a based address is one addi; a symbol is the medlow lui/addi pair, whose two
+// halves are two relocations over two instructions.
+static void emitAddress(EmitContext *e, const MachineInstr *mi) {
+  const MachineOperand *op = memOperand(mi, 1);
+  enum XRegister rd = xReg(e, regIdOperand(mi, 0));
+  const MachineAddress *m = &op->info.mem;
+
+  if (m->kind == MAK_SYMBOL || m->kind == MAK_CONSTANT) {
+    emitSymbolAddress(e, rd, m);
+    return;
+  }
+
+  int32_t disp = 0;
+  enum XRegister base = memBase(e, op, &disp);
+  emitAddConst(e, rd, base, disp);
+}
+
+// srcSize is how many bytes come out of memory; opSize is what the register
+// ends up holding, and every RV64 load writes all of it.
+static void emitLoadInstr(EmitContext *e, const MachineInstr *mi, Boolean isUnsigned) {
+  int32_t disp = 0;
+  enum XRegister base = memBase(e, memOperand(mi, 1), &disp);
+  emitLoadWide(e, xReg(e, regIdOperand(mi, 0)), base, disp, machineInstrSrcSize(mi), isUnsigned);
+}
+
+static void emitStoreInstr(EmitContext *e, const MachineInstr *mi) {
+  int32_t disp = 0;
+  enum XRegister base = memBase(e, memOperand(mi, 0), &disp);
+  emitStoreWide(e, xReg(e, regIdOperand(mi, 1)), base, disp, mi->opSize);
+}
+
+static void emitFLoadInstr(EmitContext *e, const MachineInstr *mi) {
+  int32_t disp = 0;
+  enum XRegister base = memBase(e, memOperand(mi, 1), &disp);
+  emitFLoadWide(e, fReg(e, regIdOperand(mi, 0)), base, disp, mi->opSize);
+}
+
+static void emitFStoreInstr(EmitContext *e, const MachineInstr *mi) {
+  int32_t disp = 0;
+  enum XRegister base = memBase(e, memOperand(mi, 0), &disp);
+  emitFStoreWide(e, fReg(e, regIdOperand(mi, 1)), base, disp, mi->opSize);
+}
+
+// A register-register instruction whose right operand may have arrived as an
+// immediate instead, in which case the 'i' form encodes it. Only the
+// operations that have one reach here with an MO_IMM - isLegalImmediate is
+// what guarantees that.
+static void emitArith(EmitContext *e, const MachineInstr *mi) {
+  enum XRegister rd = xReg(e, regIdOperand(mi, 0));
+  enum XRegister rs1 = xReg(e, regIdOperand(mi, 1));
+  const MachineOperand *rhs = machineOperandAt((MachineInstr *)mi, 2);
+  GeneratedFunction *f = e->gen;
+
+  if (rhs->kind == MO_IMM) {
+    int32_t imm = (int32_t)rhs->info.imm;
+
+    switch (mi->opcode) {
+    case RISCV_ADD:  riscvAddi(f, rd, rs1, imm); return;
+    case RISCV_ADDW: riscvAddiw(f, rd, rs1, imm); return;
+    case RISCV_AND:  riscvAndi(f, rd, rs1, imm); return;
+    case RISCV_OR:   riscvOri(f, rd, rs1, imm); return;
+    case RISCV_XOR:  riscvXori(f, rd, rs1, imm); return;
+    case RISCV_SLT:  riscvSlti(f, rd, rs1, imm); return;
+    case RISCV_SLTU: riscvSltiu(f, rd, rs1, imm); return;
+    case RISCV_SLL:  riscvSlli(f, rd, rs1, imm); return;
+    case RISCV_SRL:  riscvSrli(f, rd, rs1, imm); return;
+    case RISCV_SRA:  riscvSrai(f, rd, rs1, imm); return;
+    case RISCV_SLLW: riscvSlliw(f, rd, rs1, imm); return;
+    case RISCV_SRLW: riscvSrliw(f, rd, rs1, imm); return;
+    case RISCV_SRAW: riscvSraiw(f, rd, rs1, imm); return;
+    default:
+      unreachable("this operation has no immediate form");
+    }
+  }
+
+  enum XRegister rs2 = xReg(e, rhs->info.reg);
+
+  switch (mi->opcode) {
+#define RISCV_ARITH_ARM(name, opcode) case opcode: riscv##name(f, rd, rs1, rs2); return;
+  RISCV_ARITH_ARM(Add,   RISCV_ADD)
+  RISCV_ARITH_ARM(Addw,  RISCV_ADDW)
+  RISCV_ARITH_ARM(Sub,   RISCV_SUB)
+  RISCV_ARITH_ARM(Subw,  RISCV_SUBW)
+  RISCV_ARITH_ARM(Mul,   RISCV_MUL)
+  RISCV_ARITH_ARM(Mulw,  RISCV_MULW)
+  RISCV_ARITH_ARM(Div,   RISCV_DIV)
+  RISCV_ARITH_ARM(Divu,  RISCV_DIVU)
+  RISCV_ARITH_ARM(Divw,  RISCV_DIVW)
+  RISCV_ARITH_ARM(Divuw, RISCV_DIVUW)
+  RISCV_ARITH_ARM(Rem,   RISCV_REM)
+  RISCV_ARITH_ARM(Remu,  RISCV_REMU)
+  RISCV_ARITH_ARM(Remw,  RISCV_REMW)
+  RISCV_ARITH_ARM(Remuw, RISCV_REMUW)
+  RISCV_ARITH_ARM(And,   RISCV_AND)
+  RISCV_ARITH_ARM(Or,    RISCV_OR)
+  RISCV_ARITH_ARM(Xor,   RISCV_XOR)
+  RISCV_ARITH_ARM(Sll,   RISCV_SLL)
+  RISCV_ARITH_ARM(Srl,   RISCV_SRL)
+  RISCV_ARITH_ARM(Sra,   RISCV_SRA)
+  RISCV_ARITH_ARM(Sllw,  RISCV_SLLW)
+  RISCV_ARITH_ARM(Srlw,  RISCV_SRLW)
+  RISCV_ARITH_ARM(Sraw,  RISCV_SRAW)
+  RISCV_ARITH_ARM(Slt,   RISCV_SLT)
+  RISCV_ARITH_ARM(Sltu,  RISCV_SLTU)
+#undef RISCV_ARITH_ARM
+
+  default:
+    unreachable(targetOpcodeName(e->mf->target, mi->opcode));
+  }
+}
+
+// Sign- or zero-extend a narrower value to 'opSize'. RV64G has no byte or
+// halfword extension instruction, so both are a shift pair - except a signed
+// 4-to-8, which is what 'addiw rd, rs, 0' already means.
+static void emitExtend(EmitContext *e, const MachineInstr *mi, Boolean isUnsigned) {
+  enum XRegister rd = xReg(e, regIdOperand(mi, 0));
+  enum XRegister rs = xReg(e, regIdOperand(mi, 1));
+  uint32_t srcBits = (uint32_t)machineInstrSrcSize(mi) * 8;
+
+  if (!isUnsigned && srcBits == 32) {
+    riscvAddiw(e->gen, rd, rs, 0);
+    return;
+  }
+
+  uint32_t shift = 64 - srcBits;
+  riscvSlli(e->gen, rd, rs, shift);
+  if (isUnsigned) {
+    riscvSrli(e->gen, rd, rd, shift);
+  } else {
+    riscvSrai(e->gen, rd, rd, shift);
+  }
+}
+
 static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
   switch (mi->opcode) {
   case MOP_COPY:   emitCopy(e, mi); return;
@@ -425,17 +661,72 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
     riscvLoadImmediate(e->gen, immOperand(mi, 1), xReg(e, regIdOperand(mi, 0)));
     return;
 
+  case RISCV_LA:     emitAddress(e, mi); return;
+  case RISCV_LOAD:   emitLoadInstr(e, mi, FALSE); return;
+  case RISCV_LOADU:  emitLoadInstr(e, mi, TRUE); return;
+  case RISCV_STORE:  emitStoreInstr(e, mi); return;
+  case RISCV_FLOAD:  emitFLoadInstr(e, mi); return;
+  case RISCV_FSTORE: emitFStoreInstr(e, mi); return;
+
+  case RISCV_SEXT: emitExtend(e, mi, FALSE); return;
+  case RISCV_ZEXT: emitExtend(e, mi, TRUE); return;
+
+  // 'neg rd, rs' is 'sub rd, x0, rs'; 'not rd, rs' is 'xori rd, rs, -1'.
+  case RISCV_NEG:
+    if (isWordWidth(mi->opSize)) {
+      riscvSubw(e->gen, xReg(e, regIdOperand(mi, 0)), X_ZERO, xReg(e, regIdOperand(mi, 1)));
+    } else {
+      riscvSub(e->gen, xReg(e, regIdOperand(mi, 0)), X_ZERO, xReg(e, regIdOperand(mi, 1)));
+    }
+    return;
+
+  case RISCV_NOT:
+    riscvXori(e->gen, xReg(e, regIdOperand(mi, 0)), xReg(e, regIdOperand(mi, 1)), -1);
+    return;
+
   case RISCV_J:
     recordJump(e, blockOperand(mi, 0), FALSE);
     riscvJal(e->gen, X_ZERO, 0);
     return;
+
+  case RISCV_BEQ:
+  case RISCV_BNE:
+  case RISCV_BLT:
+  case RISCV_BGE:
+  case RISCV_BLTU:
+  case RISCV_BGEU: {
+    static const uint32_t funct3[] = {
+      RISCV_BR_EQ, RISCV_BR_NE, RISCV_BR_LT, RISCV_BR_GE, RISCV_BR_LTU, RISCV_BR_GEU
+    };
+    recordJump(e, blockOperand(mi, 2), TRUE);
+    riscvBranch(e->gen, funct3[mi->opcode - RISCV_BEQ],
+                xReg(e, regIdOperand(mi, 0)), xReg(e, regIdOperand(mi, 1)), 0);
+    return;
+  }
+
+  // 'call sym' is auipc+jalr with one R_RISCV_CALL_PLT covering the pair, and
+  // an indirect call is the jalr alone. Both leave the return address in ra,
+  // which the prologue has already made room to save.
+  case RISCV_CALL: {
+    const MachineOperand *callee = machineOperandAt((MachineInstr *)mi, mi->numDefs);
+
+    if (callee->kind == MO_SYMBOL) {
+      addSymbolRelocation(e, RK_SYMBOL, callee->info.symbol);
+      riscvAuipc(e->gen, X_RA, 0);
+      riscvJalr(e->gen, X_RA, X_RA, 0);
+    } else {
+      riscvJalr(e->gen, X_RA, xReg(e, callee->info.reg), 0);
+    }
+    return;
+  }
 
   case RISCV_RET:
     emitEpilogue(e);
     return;
 
   default:
-    unreachable(targetOpcodeName(e->mf->target, mi->opcode));
+    emitArith(e, mi);
+    return;
   }
 }
 

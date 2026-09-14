@@ -2,6 +2,7 @@
 
 #include "ir/ir.h"
 #include "ir/isel.h"
+#include "instructions_riscv64.h"
 #include "machine_riscv64.h"
 
 // -============================ Stage 1: instruction selection ============-
@@ -11,10 +12,19 @@
 // the operand bookkeeping - is in src/ir/codegen/isel.c and is shared with
 // x86-64 unchanged; what is here is what an IR instruction becomes.
 //
-// Nothing is selected yet. This file exists so that '-march riscv64' fails
-// where the gap actually is, naming the instruction it has no rule for, rather
-// than by returning NULL from archSelectorFor() and asserting a hundred lines
-// later that this target has no selector at all.
+// Three things shape this file, and all three are RV64 being a load/store
+// three-address machine with no flags:
+//
+//   * No instruction reads its own destination, so there is no 'dst <- lhs'
+//     copy before an arithmetic instruction the way x86 needs one.
+//   * A comparison's answer is an ordinary register (slt) or is the branch
+//     itself (blt), so there is no setcc/jcc pair and nothing to keep live
+//     between a compare and its reader.
+//   * Arithmetic is either 64-bit or 32-bit-sign-extending ('w' forms), and
+//     the second is what a C 'int' uses. Keeping every 32-bit value
+//     sign-extended in its register is what makes one representation of it,
+//     and it is why a narrower type is widened at its definition rather than
+//     masked at each use.
 
 static uint8_t valueSize(const IrInstruction *i) {
   return irTypeMachineSize(i->type);
@@ -24,22 +34,55 @@ static const IrInstruction *inputAt(const IrInstruction *i, size_t idx) {
   return getInstructionFromVector(&i->inputs, idx);
 }
 
-static uint32_t retRegOf(const TargetDescriptor *target, enum RegClass rc) {
-  return rc == RC_FP ? target->fpRetReg : target->intRetReg;
+// Whether this width uses the 32-bit 'w' instructions. Anything narrower than
+// a word is computed at word width too - RV64 has no byte or halfword
+// arithmetic - and the integer promotions mean sema has already made almost
+// every arithmetic operand an int or wider.
+static Boolean isWordOp(uint8_t size) {
+  return size <= 4;
 }
 
-static void selectConstant(MachineBuilder *b, const IrInstruction *i) {
-  // Only the constants no use could take as an immediate reach here; the
-  // driver dropped the rest (see decideConstants in src/ir/codegen/isel.c).
-  assert(i->info.constant.kind == IR_CK_INTEGER && "only integer constants are selected yet");
-
-  MachineInstr *mi = buildMachineInstr(b, RISCV_LI, 1, 1);
-  setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
-  setImmediateOperand(mi, 1, i->info.constant.data.i);
-  mi->opSize = valueSize(i);
+static Boolean isAddressableIrType(enum IrTypeKind t) {
+  return t != IR_VOID;
 }
 
-// Move a value into a named physical register - the one thing a return needs.
+// -============================ Addresses =================================-
+//
+// One base register plus a signed twelve-bit displacement, and nothing else:
+// no index, no scale. isLegalAddressMode says so, which makes the shared GEP
+// walk stop one term earlier here than it does on x86-64, so an index term
+// arrives as arithmetic that has already been selected.
+
+static void setFrameAddressOperand(MachineInstr *mi, uint16_t idx, int32_t frameIdx) {
+  MachineAddress addr = { MAK_FRAME, NO_REG, NO_REG, 0, 0 };
+  addr.anchor.frameIdx = frameIdx;
+  setMemoryOperand(mi, idx, &addr);
+}
+
+static MachineAddress addressFor(MachineBuilder *b, const IrInstruction *ptr, int32_t disp) {
+  const AddressFold *f = machineBuilderAddressFold(b, ptr);
+  MachineAddress addr = { MAK_REG, NO_REG, NO_REG, 0, disp };
+
+  if (f == NULL) {
+    addr.base = machineBuilderVreg(b, ptr);
+    return addr;
+  }
+
+  addr.disp = disp + f->disp;
+  assert(f->index == NULL && "riscv64 has no index register in an address");
+
+  if (f->base != NULL) {
+    addr.base = machineBuilderVreg(b, f->base);
+  } else {
+    addr.kind = MAK_FRAME;
+    addr.anchor.frameIdx = f->frameIdx;
+  }
+
+  return addr;
+}
+
+// -============================ Moves and widths ==========================-
+
 static void selectLoadInto(MachineBuilder *b, uint32_t dst, const IrInstruction *value,
                            uint8_t size) {
   if (machineBuilderIsFolded(b, value)) {
@@ -56,6 +99,365 @@ static void selectLoadInto(MachineBuilder *b, uint32_t dst, const IrInstruction 
   mi->opSize = size;
 }
 
+static uint32_t widenRegister(MachineBuilder *b, uint32_t src, uint8_t srcSize, uint8_t size,
+                              Boolean isUnsigned) {
+  uint32_t dst = createVirtualRegister(b->mf, RC_GP, size);
+
+  MachineInstr *mi = buildMachineInstr(b, isUnsigned ? RISCV_ZEXT : RISCV_SEXT, 1, 1);
+  setRegisterOperand(mi, 0, dst);
+  setRegisterOperand(mi, 1, src);
+  mi->opSize = size;
+  mi->srcSize = srcSize;
+
+  machineNoteRegisterExtension(b->mf, dst, size, isUnsigned);
+  return dst;
+}
+
+static uint32_t selectWidened(MachineBuilder *b, const IrInstruction *value, uint8_t size) {
+  uint32_t src = machineBuilderVreg(b, value);
+  uint8_t srcSize = valueSize(value);
+
+  if (srcSize >= size || isFloatIrType(value->type)) {
+    return src;
+  }
+
+  const Boolean isUnsigned = isUnsignedIrOperand(value->type);
+
+  if (machineTakeRegisterExtension(b->mf, src, size, isUnsigned)) {
+    return src;
+  }
+
+  return widenRegister(b, src, srcSize, size, isUnsigned);
+}
+
+// -============================ Arithmetic ================================-
+
+// Which of a pair of opcodes this width wants: the 'w' form for a 32-bit
+// operation, the full-width one for a 64-bit.
+static uint32_t widthOpcode(uint8_t size, uint32_t wordOp, uint32_t wideOp) {
+  return isWordOp(size) ? wordOp : wideOp;
+}
+
+static void selectBinaryWith(MachineBuilder *b, const IrInstruction *i, uint32_t opcode,
+                             Boolean rhsMayBeImmediate) {
+  uint8_t size = valueSize(i);
+  uint32_t dst = machineBuilderVreg(b, i);
+
+  const IrInstruction *lhs = inputAt(i, 0);
+  const IrInstruction *rhs = inputAt(i, 1);
+
+  uint32_t lhsReg = selectWidened(b, lhs, size);
+  Boolean folded = rhsMayBeImmediate && machineBuilderIsFolded(b, rhs);
+  uint32_t rhsReg = folded ? NO_REG : selectWidened(b, rhs, size);
+
+  MachineInstr *mi = buildMachineInstr(b, opcode, 1, 2);
+  setRegisterOperand(mi, 0, dst);
+  setRegisterOperand(mi, 1, lhsReg);
+  if (folded) {
+    setValueOperand(b, mi, 2, rhs);
+  } else {
+    setRegisterOperand(mi, 2, rhsReg);
+  }
+  mi->opSize = size;
+}
+
+// add/sub/and/or/xor and the multiply-divide family, picking the 'w' form for
+// a 32-bit result. 'sub' has no immediate form on RV64 and neither has any of
+// the M extension, which is what the flag says.
+static void selectBinary(MachineBuilder *b, const IrInstruction *i, uint32_t wordOp,
+                         uint32_t wideOp, Boolean rhsMayBeImmediate) {
+  selectBinaryWith(b, i, widthOpcode(valueSize(i), wordOp, wideOp), rhsMayBeImmediate);
+}
+
+static void selectShift(MachineBuilder *b, const IrInstruction *i, uint32_t wordOp,
+                        uint32_t wideOp) {
+  // A shift's count is its own operand and not widened to the result's width:
+  // RV64 reads the low five or six bits of it and C has already made anything
+  // wider undefined.
+  uint8_t size = valueSize(i);
+  uint32_t dst = machineBuilderVreg(b, i);
+
+  uint32_t lhsReg = selectWidened(b, inputAt(i, 0), size);
+  const IrInstruction *rhs = inputAt(i, 1);
+  Boolean folded = machineBuilderIsFolded(b, rhs);
+  uint32_t rhsReg = folded ? NO_REG : machineBuilderVreg(b, rhs);
+
+  MachineInstr *mi = buildMachineInstr(b, widthOpcode(size, wordOp, wideOp), 1, 2);
+  setRegisterOperand(mi, 0, dst);
+  setRegisterOperand(mi, 1, lhsReg);
+  if (folded) {
+    setValueOperand(b, mi, 2, rhs);
+  } else {
+    setRegisterOperand(mi, 2, rhsReg);
+  }
+  mi->opSize = size;
+}
+
+// '-x' is 'sub rd, x0, x', and '~x' is 'xori rd, x, -1'. Both are pseudo-
+// instructions the assembler spells out; here they are opcodes of their own so
+// that the operand count says one input rather than two.
+static void selectUnary(MachineBuilder *b, const IrInstruction *i, uint32_t opcode) {
+  uint8_t size = valueSize(i);
+
+  MachineInstr *mi = buildMachineInstr(b, opcode, 1, 1);
+  setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+  setRegisterOperand(mi, 1, selectWidened(b, inputAt(i, 0), size));
+  mi->opSize = size;
+}
+
+// '!x' is 'x == 0', which is 'sltiu rd, x, 1' - one instruction, and the only
+// use of an unsigned compare against a constant this backend makes.
+static void selectLogicalNot(MachineBuilder *b, const IrInstruction *i) {
+  const IrInstruction *operand = inputAt(i, 0);
+  uint8_t size = valueSize(operand);
+
+  MachineInstr *mi = buildMachineInstr(b, RISCV_SLTU, 1, 2);
+  setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+  setRegisterOperand(mi, 1, selectWidened(b, operand, size));
+  setImmediateOperand(mi, 2, 1);
+  mi->opSize = size;
+}
+
+// -============================ Conversions ===============================-
+//
+// The extension a value of this type carries in its register. This is the
+// invariant the whole integer side rests on: a 32-bit value is kept *sign*-
+// extended whatever its own signedness, because that is what lw produces and
+// what every 'w' instruction produces, so there is one representation of it
+// and `slt` compares two of them correctly. Narrower values follow their own
+// signedness, which is what lb/lbu and lh/lhu produce.
+static Boolean canonicalIsUnsigned(enum IrTypeKind t, uint8_t size) {
+  return size < 4 && isUnsignedIrOperand(t);
+}
+
+static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
+  enum IrTypeKind fromType = i->info.fromCastType;
+  enum IrTypeKind toType = i->type;
+  uint8_t toSize = valueSize(i);
+  const IrInstruction *value = inputAt(i, 0);
+  uint32_t dst = machineBuilderVreg(b, i);
+
+  assert(!isFloatIrType(fromType) && !isFloatIrType(toType) &&
+         "float conversions have their own rules");
+  assert(fromType != IR_P_AGG && toType != IR_P_AGG &&
+         "a conversion to or from an aggregate");
+
+  // A conversion to _Bool is the one that is not a change of width: C defines
+  // it as 'x != 0', so (_Bool)0x100 is 1 rather than the low byte of 0x100.
+  if (toType == IR_BOOL) {
+    MachineInstr *mi = buildMachineInstr(b, RISCV_SLTU, 1, 2);
+    setRegisterOperand(mi, 0, dst);
+    setRegisterOperand(mi, 1, X_ZERO);
+    setRegisterOperand(mi, 2, machineBuilderVreg(b, value));
+    mi->opSize = sizeof(intptr_t);
+    return;
+  }
+
+  // Nothing sits above a 64-bit value, so a conversion to one is a move; a
+  // narrower source is widened by its own signedness on the way, which is what
+  // C says a conversion does.
+  if (toSize >= sizeof(intptr_t)) {
+    uint32_t src = selectWidened(b, value, toSize);
+
+    MachineInstr *mi = buildMachineInstr(b, MOP_COPY, 1, 1);
+    setRegisterOperand(mi, 0, dst);
+    setRegisterOperand(mi, 1, src);
+    mi->opSize = toSize;
+    return;
+  }
+
+  // Everything else re-establishes the destination type's canonical form. That
+  // covers narrowing - where the bits above the result are the source's and
+  // would otherwise be read by the next compare - and a same-width change of
+  // signedness, where 'char' and 'unsigned char' disagree about what the bits
+  // above the byte should be.
+  Boolean isUnsigned = canonicalIsUnsigned(toType, toSize);
+  uint32_t src = machineBuilderIsFolded(b, value) ? NO_REG : machineBuilderVreg(b, value);
+
+  if (src == NO_REG) {
+    // A folded constant is already the value; materializing it writes the
+    // whole register and needs no extension after it.
+    MachineInstr *li = buildMachineInstr(b, RISCV_LI, 1, 1);
+    setRegisterOperand(li, 0, dst);
+    setValueOperand(b, li, 1, value);
+    li->opSize = toSize;
+    return;
+  }
+
+  if (machineTakeRegisterExtension(b->mf, src, toSize, isUnsigned)) {
+    MachineInstr *mi = buildMachineInstr(b, MOP_COPY, 1, 1);
+    setRegisterOperand(mi, 0, dst);
+    setRegisterOperand(mi, 1, src);
+    mi->opSize = toSize;
+    return;
+  }
+
+  MachineInstr *mi = buildMachineInstr(b, isUnsigned ? RISCV_ZEXT : RISCV_SEXT, 1, 1);
+  setRegisterOperand(mi, 0, dst);
+  setRegisterOperand(mi, 1, src);
+  mi->opSize = toSize;
+  mi->srcSize = toSize;
+
+  machineNoteRegisterExtension(b->mf, dst, toSize, isUnsigned);
+}
+
+// -============================ Comparisons ===============================-
+//
+// RV64 has two of the six orderings - 'less than', signed and unsigned - and
+// everything else comes from swapping the operands or inverting the answer.
+// Equality has neither form and is a subtraction tested against zero.
+
+typedef struct _CompareForm {
+  uint32_t opcode;   // RISCV_SLT or RISCV_SLTU
+  Boolean swap;      // compare the operands the other way round
+  Boolean invert;    // and then flip the answer
+} CompareForm;
+
+static CompareForm compareFormFor(enum IrIntructionKind kind, Boolean isUnsigned) {
+  uint32_t slt = isUnsigned ? RISCV_SLTU : RISCV_SLT;
+  CompareForm f = { slt, FALSE, FALSE };
+
+  switch (kind) {
+  case IR_E_LT: break;
+  case IR_E_GT: f.swap = TRUE; break;
+  case IR_E_LE: f.swap = TRUE; f.invert = TRUE; break;
+  case IR_E_GE: f.invert = TRUE; break;
+  default: unreachable("not an ordered integer comparison");
+  }
+
+  return f;
+}
+
+// The width both operands are compared at. A 32-bit value is kept sign-
+// extended in its register, and sign extension preserves unsigned order among
+// 32-bit values as well as signed order, so the comparison is done at 64 bits
+// either way and needs no masking.
+static uint8_t compareOperandSize(const IrInstruction *i) {
+  uint8_t size = valueSize(inputAt(i, 0));
+  uint8_t rhsSize = valueSize(inputAt(i, 1));
+  return size > rhsSize ? size : rhsSize;
+}
+
+static void selectCompare(MachineBuilder *b, const IrInstruction *i) {
+  const IrInstruction *lhs = inputAt(i, 0);
+  const IrInstruction *rhs = inputAt(i, 1);
+  uint8_t size = compareOperandSize(i);
+  uint32_t dst = machineBuilderVreg(b, i);
+
+  uint32_t l = selectWidened(b, lhs, size);
+  uint32_t r = selectWidened(b, rhs, size);
+
+  if (i->kind == IR_E_EQ || i->kind == IR_E_NE) {
+    // The difference is zero exactly when they are equal, so 'sltiu d, 1'
+    // answers == and 'sltu d, x0, d' answers !=.
+    uint32_t diff = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
+    MachineInstr *sub = buildMachineInstr(b, RISCV_SUB, 1, 2);
+    setRegisterOperand(sub, 0, diff);
+    setRegisterOperand(sub, 1, l);
+    setRegisterOperand(sub, 2, r);
+    sub->opSize = sizeof(intptr_t);
+
+    MachineInstr *test = buildMachineInstr(b, RISCV_SLTU, 1, 2);
+    setRegisterOperand(test, 0, dst);
+    if (i->kind == IR_E_EQ) {
+      setRegisterOperand(test, 1, diff);
+      setImmediateOperand(test, 2, 1);
+    } else {
+      setRegisterOperand(test, 1, X_ZERO);
+      setRegisterOperand(test, 2, diff);
+    }
+    test->opSize = sizeof(intptr_t);
+    return;
+  }
+
+  CompareForm f = compareFormFor(i->kind, isUnsignedIrOperand(lhs->type));
+  uint32_t answer = f.invert ? createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t)) : dst;
+
+  MachineInstr *slt = buildMachineInstr(b, f.opcode, 1, 2);
+  setRegisterOperand(slt, 0, answer);
+  setRegisterOperand(slt, 1, f.swap ? r : l);
+  setRegisterOperand(slt, 2, f.swap ? l : r);
+  slt->opSize = size;
+
+  if (f.invert) {
+    MachineInstr *flip = buildMachineInstr(b, RISCV_XOR, 1, 2);
+    setRegisterOperand(flip, 0, dst);
+    setRegisterOperand(flip, 1, answer);
+    setImmediateOperand(flip, 2, 1);
+    flip->opSize = sizeof(intptr_t);
+  }
+}
+
+// -============================ Branches ==================================-
+
+typedef struct _BranchForm {
+  uint32_t opcode;
+  Boolean swap;
+} BranchForm;
+
+static uint32_t invertedBranch(uint32_t opcode) {
+  switch (opcode) {
+  case RISCV_BEQ: return RISCV_BNE;
+  case RISCV_BNE: return RISCV_BEQ;
+  case RISCV_BLT: return RISCV_BGE;
+  case RISCV_BGE: return RISCV_BLT;
+  case RISCV_BLTU: return RISCV_BGEU;
+  case RISCV_BGEU: return RISCV_BLTU;
+  default: unreachable("not a conditional branch");
+  }
+}
+
+static BranchForm branchFormFor(enum IrIntructionKind kind, Boolean isUnsigned) {
+  BranchForm f = { RISCV_BEQ, FALSE };
+
+  switch (kind) {
+  case IR_E_EQ: f.opcode = RISCV_BEQ; break;
+  case IR_E_NE: f.opcode = RISCV_BNE; break;
+  case IR_E_LT: f.opcode = isUnsigned ? RISCV_BLTU : RISCV_BLT; break;
+  case IR_E_GE: f.opcode = isUnsigned ? RISCV_BGEU : RISCV_BGE; break;
+  // No 'greater' branch exists, so the operands go the other way round.
+  case IR_E_GT: f.opcode = isUnsigned ? RISCV_BLTU : RISCV_BLT; f.swap = TRUE; break;
+  case IR_E_LE: f.opcode = isUnsigned ? RISCV_BGEU : RISCV_BGE; f.swap = TRUE; break;
+  default: unreachable("not an integer comparison");
+  }
+
+  return f;
+}
+
+static Boolean isIntegerComparison(const IrInstruction *i) {
+  switch (i->kind) {
+  case IR_E_EQ: case IR_E_NE: case IR_E_LT:
+  case IR_E_LE: case IR_E_GT: case IR_E_GE:
+    return TRUE;
+  default:
+    return FALSE;
+  }
+}
+
+// The two registers a conditional branch compares, and which branch to use.
+// When the condition is a comparison the driver placed for folding, this is
+// the comparison's own operands and no boolean is ever materialized; otherwise
+// it is 'the value against x0', which is what C means by a condition.
+static BranchForm branchOperands(MachineBuilder *b, const IrInstruction *cond,
+                                 uint32_t *lhs, uint32_t *rhs) {
+  if (machineBuilderIsAbsorbed(b, cond)) {
+    uint8_t size = compareOperandSize(cond);
+    uint32_t l = selectWidened(b, inputAt(cond, 0), size);
+    uint32_t r = selectWidened(b, inputAt(cond, 1), size);
+
+    BranchForm f = branchFormFor(cond->kind, isUnsignedIrOperand(inputAt(cond, 0)->type));
+    *lhs = f.swap ? r : l;
+    *rhs = f.swap ? l : r;
+    return f;
+  }
+
+  BranchForm f = { RISCV_BNE, FALSE };
+  *lhs = machineBuilderVreg(b, cond);
+  *rhs = X_ZERO;
+  return f;
+}
+
 static void selectJumpTo(MachineBuilder *b, const IrBasicBlock *target) {
   // A jump to the block that comes next is not a jump.
   if (machineBuilderFallsThroughTo(b, target)) {
@@ -65,6 +467,453 @@ static void selectJumpTo(MachineBuilder *b, const IrBasicBlock *target) {
   MachineInstr *mi = buildMachineInstr(b, RISCV_J, 0, 1);
   setBlockOperand(mi, 0, machineBuilderBlock(b, target));
 }
+
+static void buildBranch(MachineBuilder *b, uint32_t opcode, uint32_t lhs, uint32_t rhs,
+                        const IrBasicBlock *target) {
+  MachineInstr *mi = buildMachineInstr(b, opcode, 0, 3);
+  setRegisterOperand(mi, 0, lhs);
+  setRegisterOperand(mi, 1, rhs);
+  setBlockOperand(mi, 2, machineBuilderBlock(b, target));
+}
+
+static void selectCondBranch(MachineBuilder *b, const IrInstruction *i) {
+  const IrInstruction *cond = inputAt(i, 0);
+  const IrBasicBlock *taken = i->info.branch.taken;
+  const IrBasicBlock *notTaken = i->info.branch.notTaken;
+
+  uint32_t lhs = NO_REG, rhs = NO_REG;
+  BranchForm f = branchOperands(b, cond, &lhs, &rhs);
+
+  if (machineBuilderFallsThroughTo(b, notTaken)) {
+    buildBranch(b, f.opcode, lhs, rhs, taken);
+    return;
+  }
+
+  if (machineBuilderFallsThroughTo(b, taken)) {
+    // Branch on the condition being false and fall into the taken block.
+    // Inverting is free; jumping over a jump is not.
+    buildBranch(b, invertedBranch(f.opcode), lhs, rhs, notTaken);
+    return;
+  }
+
+  buildBranch(b, f.opcode, lhs, rhs, taken);
+
+  MachineInstr *jmp = buildMachineInstr(b, RISCV_J, 0, 1);
+  setBlockOperand(jmp, 0, machineBuilderBlock(b, notTaken));
+}
+
+// -============================ Memory ====================================-
+
+static void selectFrameAddress(MachineBuilder *b, const IrInstruction *i, int32_t frameIdx) {
+  const MachineFrameObject *obj = machineFrameObjectAt(b->mf, frameIdx);
+  assert(!obj->isDynamic && "a dynamic alloca needs its own rule");
+
+  // The slot's address, not what is in it - 'addi rd, s0, off'.
+  MachineInstr *mi = buildMachineInstr(b, RISCV_LA, 1, 1);
+  setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+  setFrameAddressOperand(mi, 1, frameIdx);
+  mi->opSize = sizeof(intptr_t);
+}
+
+static void selectGep(MachineBuilder *b, const IrInstruction *i) {
+  // A GEP the driver could not turn into an addressing mode - a variable
+  // offset, or a constant too big for a displacement - is arithmetic, and on
+  // this target that is the common case rather than the exception: there is no
+  // index register for the walk to put a term in. See foldValue in
+  // src/ir/codegen/isel.c for where it gives up.
+  if (machineBuilderAddressFold(b, i) == NULL) {
+    const IrInstruction *base = inputAt(i, 0);
+    const IrInstruction *offset = inputAt(i, 1);
+
+    uint32_t baseReg = machineBuilderVreg(b, base);
+    Boolean folded = machineBuilderIsFolded(b, offset);
+    uint32_t offsetReg = folded ? NO_REG : selectWidened(b, offset, sizeof(intptr_t));
+
+    MachineInstr *add = buildMachineInstr(b, RISCV_ADD, 1, 2);
+    setRegisterOperand(add, 0, machineBuilderVreg(b, i));
+    setRegisterOperand(add, 1, baseReg);
+    if (folded) {
+      setValueOperand(b, add, 2, offset);
+    } else {
+      setRegisterOperand(add, 2, offsetReg);
+    }
+    add->opSize = sizeof(intptr_t);
+    return;
+  }
+
+  MachineAddress addr = addressFor(b, i, 0);
+
+  MachineInstr *mi = buildMachineInstr(b, RISCV_LA, 1, 1);
+  setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+  setMemoryOperand(mi, 1, &addr);
+  mi->opSize = sizeof(intptr_t);
+}
+
+static void selectMemoryLoad(MachineBuilder *b, const IrInstruction *i) {
+  enum IrTypeKind t = i->info.memory.opType;
+  assert(isAddressableIrType(t) && "a load of a value with no register class");
+
+  MachineAddress addr = addressFor(b, inputAt(i, 0), 0);
+  const uint8_t size = irTypeMachineSize(t);
+  const uint32_t dst = machineBuilderVreg(b, i);
+
+  if (isFloatIrType(t)) {
+    MachineInstr *mi = buildMachineInstr(b, RISCV_FLOAD, 1, 1);
+    setRegisterOperand(mi, 0, dst);
+    setMemoryOperand(mi, 1, &addr);
+    mi->opSize = size;
+    return;
+  }
+
+  // A narrow load extends as it loads - lb/lh sign-extend and lbu/lhu do not -
+  // so the register holds the value at full width and nothing has to widen it
+  // afterwards. lw always sign-extends, which is the canonical form for a
+  // 32-bit value; an unsigned int wanted at 64 bits is widened by the cast
+  // the IR spells out.
+  //
+  // The two widths are therefore different things and both are said: srcSize is
+  // how many bytes come out of memory, and opSize is the whole register,
+  // because that is what the load writes. Saying the value's own width instead
+  // would make this a *partial* def the moment a later use accepted the
+  // extension noted below - machineTakeRegisterExtension grows the register to
+  // the width it was extended to, and the def would then be narrower than the
+  // register it wholly wrote. On x86 the same load really is partial unless it
+  // is spelled movzx/movsx; here there is no such form because there is no
+  // such thing.
+  Boolean isUnsigned = isUnsignedIrOperand(t);
+  MachineInstr *mi = buildMachineInstr(b, isUnsigned && size < 8 ? RISCV_LOADU : RISCV_LOAD, 1, 1);
+  setRegisterOperand(mi, 0, dst);
+  setMemoryOperand(mi, 1, &addr);
+  mi->opSize = sizeof(intptr_t);
+  mi->srcSize = size;
+
+  if (size < sizeof(intptr_t)) {
+    machineNoteRegisterExtension(b->mf, dst, sizeof(intptr_t), isUnsigned && size < 4);
+  }
+}
+
+static void selectMemoryStore(MachineBuilder *b, const IrInstruction *i) {
+  enum IrTypeKind t = i->info.memory.opType;
+  assert(isAddressableIrType(t) && "a store of a value with no register class");
+
+  uint8_t size = irTypeMachineSize(t);
+  const IrInstruction *value = inputAt(i, 1);
+  MachineAddress addr;
+
+  if (isFloatIrType(t)) {
+    uint32_t src = machineBuilderVreg(b, value);
+    addr = addressFor(b, inputAt(i, 0), 0);
+
+    MachineInstr *mi = buildMachineInstr(b, RISCV_FSTORE, 0, 2);
+    setMemoryOperand(mi, 0, &addr);
+    setRegisterOperand(mi, 1, src);
+    mi->opSize = size;
+    return;
+  }
+
+  // A store writes exactly its own width, so nothing has to be widened first -
+  // unlike x86, where the same is true but the value may arrive in a register
+  // whose upper bytes are the previous value's.
+  uint32_t src = machineBuilderIsFolded(b, value)
+                     ? NO_REG
+                     : machineBuilderVreg(b, value);
+
+  if (src == NO_REG) {
+    // A folded constant has no register and a store has no immediate form, so
+    // it is materialized here rather than at every use.
+    src = createVirtualRegister(b->mf, RC_GP, size);
+    MachineInstr *li = buildMachineInstr(b, RISCV_LI, 1, 1);
+    setRegisterOperand(li, 0, src);
+    setValueOperand(b, li, 1, value);
+    li->opSize = size;
+  }
+
+  addr = addressFor(b, inputAt(i, 0), 0);
+
+  MachineInstr *mi = buildMachineInstr(b, RISCV_STORE, 0, 2);
+  setMemoryOperand(mi, 0, &addr);
+  setRegisterOperand(mi, 1, src);
+  mi->opSize = size;
+}
+
+// -============================ Constants and registers ===================-
+
+static void selectConstant(MachineBuilder *b, const IrInstruction *i) {
+  // Only the constants no use could take as an immediate reach here; the
+  // driver dropped the rest (see decideConstants in src/ir/codegen/isel.c).
+  if (i->info.constant.kind == IR_CK_SYMBOL) {
+    // A global's address. Under medlow that is an absolute lui/addi pair, and
+    // the linker fills both halves in - see RK_RISCV_HI20 in instructions.h.
+    MachineAddress addr = { MAK_SYMBOL, NO_REG, NO_REG, 0, 0,
+                            { i->info.constant.data.s } };
+    MachineInstr *mi = buildMachineInstr(b, RISCV_LA, 1, 1);
+    setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+    setMemoryOperand(mi, 1, &addr);
+    mi->opSize = sizeof(intptr_t);
+    return;
+  }
+
+  if (i->info.constant.kind == IR_CK_LITERAL) {
+    uint32_t constantIdx = addMachineConstant(b->mf, MCK_BYTES, i->info.constant.data.l.s,
+                                              i->info.constant.data.l.length, 1);
+
+    MachineAddress addr = { MAK_CONSTANT, NO_REG, NO_REG, 0, 0 };
+    addr.anchor.constantIdx = constantIdx;
+
+    MachineInstr *mi = buildMachineInstr(b, RISCV_LA, 1, 1);
+    setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+    setMemoryOperand(mi, 1, &addr);
+    mi->opSize = sizeof(intptr_t);
+    return;
+  }
+
+  assert(i->info.constant.kind == IR_CK_INTEGER && "no rule for this constant kind");
+
+  MachineInstr *mi = buildMachineInstr(b, RISCV_LI, 1, 1);
+  setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+  setImmediateOperand(mi, 1, i->info.constant.data.i);
+  mi->opSize = valueSize(i);
+}
+
+static void selectPhysReg(MachineBuilder *b, const IrInstruction *i) {
+  // Read out of the fixed register the ABI put the value in, into one the
+  // allocator is free to move.
+  MachineInstr *mi = buildMachineInstr(b, MOP_COPY, 1, 1);
+  setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+  setRegisterOperand(mi, 1, i->info.physReg);
+  mi->opSize = valueSize(i);
+}
+
+static uint32_t retRegOf(const TargetDescriptor *target, enum RegClass rc) {
+  return rc == RC_FP ? target->fpRetReg : target->intRetReg;
+}
+
+// -============================ Calls =====================================-
+//
+// LP64D: a0..a7 and fa0..fa7, then the stack, with each stack argument
+// occupying a whole eightbyte. Two things differ from SysV and both are here
+// rather than in the shared classification:
+//
+//   * A *variadic* call passes floating-point arguments in integer registers.
+//     That is the ABI, and it is why a float argument to one goes through
+//     fmv.x.d on its way. This treats every argument of a variadic call that
+//     way, where the ABI says only the unnamed ones - the named parameters of
+//     a variadic function are a prototype this IR does not carry, and nothing
+//     in the corpus declares a variadic function whose named parameter is a
+//     float.
+//   * There is no register holding a count of float arguments; nothing
+//     corresponds to x86's 'mov al, N'.
+
+static size_t firstCallArgIndex(void) {
+  // Input 0 is the callee; everything after it is an argument.
+  return 1;
+}
+
+// Which register file an argument travels in. A variadic call sends everything
+// through the integer one - see above.
+static enum RegClass callArgClass(const IrInstruction *call, const IrInstruction *arg) {
+  if (call->info.call.isVariadic) {
+    return RC_GP;
+  }
+
+  return isFloatIrType(arg->type) ? RC_FP : RC_GP;
+}
+
+// Where one argument goes, or NO_REG when it goes on the stack. Walked from
+// the start each time rather than tabulated: a call has few enough arguments
+// that walking again is cheaper than the array, which is the same reasoning
+// §6.8 gives for x86.
+static uint32_t callArgLocation(const TargetDescriptor *target, const IrInstruction *call,
+                                size_t inputIdx) {
+  uint32_t used[RC_CLASS_COUNT] = {0};
+
+  for (size_t idx = firstCallArgIndex(); idx < call->inputs.size; ++idx) {
+    enum RegClass rc = callArgClass(call, inputAt(call, idx));
+    uint32_t count = rc == RC_FP ? target->fpArgRegCount : target->intArgRegCount;
+    const uint32_t *regs = rc == RC_FP ? target->fpArgRegs : target->intArgRegs;
+
+    uint32_t reg = used[rc] < count ? regs[used[rc]] : NO_REG;
+    if (reg != NO_REG) {
+      used[rc] += 1;
+    }
+
+    if (idx == inputIdx) {
+      return reg;
+    }
+  }
+
+  unreachable("every input past the callee is an argument");
+  return NO_REG;
+}
+
+// The outgoing area this call needs, and where one stack argument sits in it.
+static uint32_t callStackArea(const TargetDescriptor *target, const IrInstruction *call,
+                              size_t wantedIdx, int32_t *wantedOffset) {
+  int32_t offset = 0;
+
+  for (size_t idx = firstCallArgIndex(); idx < call->inputs.size; ++idx) {
+    if (callArgLocation(target, call, idx) != NO_REG) {
+      continue;
+    }
+
+    if (idx == wantedIdx) {
+      *wantedOffset = offset;
+    }
+
+    // A stack argument occupies a whole eightbyte however narrow it is.
+    offset += (int32_t)sizeof(intptr_t);
+  }
+
+  // LP64D wants sp sixteen-byte aligned at the call, and the frame size stage
+  // 3 subtracts is rounded to 16, so rounding the area is the whole of it.
+  return (uint32_t)ALIGN_SIZE(offset, 2 * sizeof(intptr_t));
+}
+
+static void riscvReserveFrame(MachineFunction *mf) {
+  uint32_t widest = 0;
+
+  for (const MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
+    for (const IrInstruction *i = mbb->ir->instrunctions.head; i != NULL; i = i->next) {
+      if (i->kind != IR_CALL && i->kind != IR_ICALL) {
+        continue;
+      }
+
+      uint32_t bytes = callStackArea(mf->target, i, SIZE_MAX, NULL);
+
+      if (bytes > widest) {
+        widest = bytes;
+      }
+    }
+  }
+
+  mf->frame.outgoingSize = widest;
+}
+
+// The bits of a float in an integer register, for a variadic call.
+static uint32_t floatBitsInGpRegister(MachineBuilder *b, const IrInstruction *arg) {
+  uint8_t size = valueSize(arg);
+  uint32_t bits = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
+  MachineInstr *mv = buildMachineInstr(b, RISCV_FMV_X, 1, 1);
+  setRegisterOperand(mv, 0, bits);
+  setRegisterOperand(mv, 1, machineBuilderVreg(b, arg));
+  mv->opSize = size;
+
+  return bits;
+}
+
+// The value an argument contributes, in the register file it travels in.
+static uint32_t callArgRegister(MachineBuilder *b, const IrInstruction *call,
+                                const IrInstruction *arg) {
+  if (call->info.call.isVariadic && isFloatIrType(arg->type)) {
+    return floatBitsInGpRegister(b, arg);
+  }
+
+  uint8_t size = valueSize(arg);
+
+  // Widened to the full register: LP64D says a narrow argument arrives
+  // sign- or zero-extended to the register's width according to its own type,
+  // which is stricter than SysV and is why this is not the argument's own
+  // width the way x86 passes it.
+  if (!isFloatIrType(arg->type) && size < sizeof(intptr_t)) {
+    return selectWidened(b, arg, sizeof(intptr_t));
+  }
+
+  return machineBuilderVreg(b, arg);
+}
+
+static void selectCall(MachineBuilder *b, const IrInstruction *i) {
+  const TargetDescriptor *target = b->mf->target;
+
+  uint32_t numRegArgs = 0;
+
+  // Stack arguments first, in the list's own order. The area was reserved for
+  // the whole function before anything was selected, so nothing here moves the
+  // stack pointer and there is nothing to give back afterwards.
+  for (size_t idx = firstCallArgIndex(); idx < i->inputs.size; ++idx) {
+    const IrInstruction *arg = inputAt(i, idx);
+
+    if (callArgLocation(target, i, idx) != NO_REG) {
+      numRegArgs += 1;
+      continue;
+    }
+
+    int32_t offset = 0;
+    callStackArea(target, i, idx, &offset);
+
+    Boolean asFloat = !i->info.call.isVariadic && isFloatIrType(arg->type);
+    uint32_t src = callArgRegister(b, i, arg);
+
+    MachineAddress to = { MAK_REG, target->sp, NO_REG, 0, offset };
+
+    MachineInstr *store = buildMachineInstr(b, asFloat ? RISCV_FSTORE : RISCV_STORE, 0, 2);
+    setMemoryOperand(store, 0, &to);
+    setRegisterOperand(store, 1, src);
+    store->opSize = asFloat ? valueSize(arg) : (uint8_t)sizeof(intptr_t);
+  }
+
+  for (size_t idx = firstCallArgIndex(); idx < i->inputs.size; ++idx) {
+    uint32_t reg = callArgLocation(target, i, idx);
+
+    if (reg == NO_REG) {
+      continue;
+    }
+
+    const IrInstruction *arg = inputAt(i, idx);
+    uint32_t src = callArgRegister(b, i, arg);
+
+    MachineInstr *copy = buildMachineInstr(b, MOP_COPY, 1, 1);
+    setRegisterOperand(copy, 0, reg);
+    setRegisterOperand(copy, 1, src);
+    copy->opSize = isFloatIrType(arg->type) && !i->info.call.isVariadic
+                       ? valueSize(arg)
+                       : (uint8_t)sizeof(intptr_t);
+  }
+
+  // Defs: the return register, when the call produces something. Uses: the
+  // callee, then every argument register the copies above filled in - implicit
+  // because the instruction does not name them, but in the operand list all the
+  // same, or nothing connects the copies to the call and liveness is free to
+  // conclude they are dead.
+  Boolean hasResult = i->type != IR_VOID;
+  uint16_t numDefs = hasResult ? 1 : 0;
+
+  MachineInstr *call = buildMachineInstr(b, RISCV_CALL, numDefs, 1 + (uint16_t)numRegArgs);
+  uint16_t op = 0;
+
+  if (hasResult) {
+    setRegisterOperand(call, op, retRegOf(target, isFloatIrType(i->type) ? RC_FP : RC_GP));
+    machineOperandAt(call, op)->flags.isImplicit = 1;
+    op += 1;
+  }
+
+  // A folded symbol constant becomes the relocated call target; anything else
+  // is a register holding the address, and the call goes through it.
+  setValueOperand(b, call, op++, inputAt(i, 0));
+
+  for (size_t idx = firstCallArgIndex(); idx < i->inputs.size; ++idx) {
+    uint32_t reg = callArgLocation(target, i, idx);
+
+    if (reg != NO_REG) {
+      setRegisterOperand(call, op, reg);
+      machineOperandAt(call, op)->flags.isImplicit = 1;
+      op += 1;
+    }
+  }
+
+  assert(op == call->numOperands);
+  call->flags.isCall = 1;
+
+  if (hasResult) {
+    // Out of the fixed return register into one the allocator can move.
+    MachineInstr *copy = buildMachineInstr(b, MOP_COPY, 1, 1);
+    setRegisterOperand(copy, 0, machineBuilderVreg(b, i));
+    setRegisterOperand(copy, 1, retRegOf(target, isFloatIrType(i->type) ? RC_FP : RC_GP));
+    copy->opSize = valueSize(i);
+  }
+}
+
+// -============================ Returns ===================================-
 
 static void selectReturn(MachineBuilder *b, const IrInstruction *i) {
   if (i->inputs.size != 0) {
@@ -76,15 +925,93 @@ static void selectReturn(MachineBuilder *b, const IrInstruction *i) {
     selectLoadInto(b, retRegOf(b->mf->target, rc), value, valueSize(value));
   }
 
-  // Just the return. The prologue and epilogue around it are stage 3's, which
-  // is the first point at which the frame size and the callee-saved registers
-  // actually used are both known.
   buildMachineInstr(b, RISCV_RET, 0, 0);
 }
 
+// -============================ The dispatch ==============================-
+
 static void selectInstruction_riscv64(MachineBuilder *b, const IrInstruction *i) {
+  int32_t frameIdx = machineFrameIndexForValue(b->mf, i);
+
+  if (frameIdx >= 0) {
+    selectFrameAddress(b, i, frameIdx);
+    return;
+  }
+
   switch (i->kind) {
   case IR_DEF_CONST: selectConstant(b, i); break;
+  case IR_P_REG: selectPhysReg(b, i); break;
+
+  case IR_E_ADD: selectBinary(b, i, RISCV_ADDW, RISCV_ADD, TRUE); break;
+  case IR_E_SUB: selectBinary(b, i, RISCV_SUBW, RISCV_SUB, FALSE); break;
+  case IR_E_MUL: selectBinary(b, i, RISCV_MULW, RISCV_MUL, FALSE); break;
+  case IR_E_AND: selectBinaryWith(b, i, RISCV_AND, TRUE); break;
+  case IR_E_OR:  selectBinaryWith(b, i, RISCV_OR, TRUE); break;
+  case IR_E_XOR: selectBinaryWith(b, i, RISCV_XOR, TRUE); break;
+
+  case IR_E_DIV:
+    if (isUnsignedIrOperand(i->type)) {
+      selectBinary(b, i, RISCV_DIVUW, RISCV_DIVU, FALSE);
+    } else {
+      selectBinary(b, i, RISCV_DIVW, RISCV_DIV, FALSE);
+    }
+    break;
+
+  case IR_E_MOD:
+    if (isUnsignedIrOperand(i->type)) {
+      selectBinary(b, i, RISCV_REMUW, RISCV_REMU, FALSE);
+    } else {
+      selectBinary(b, i, RISCV_REMW, RISCV_REM, FALSE);
+    }
+    break;
+
+  case IR_E_SHL: selectShift(b, i, RISCV_SLLW, RISCV_SLL); break;
+
+  // Right shift is where signedness stops being cosmetic: an arithmetic shift
+  // keeps the sign bit, a logical one does not.
+  case IR_E_SHR:
+    if (isUnsignedIrOperand(i->type)) {
+      selectShift(b, i, RISCV_SRLW, RISCV_SRL);
+    } else {
+      selectShift(b, i, RISCV_SRAW, RISCV_SRA);
+    }
+    break;
+
+  case IR_U_BNOT: selectUnary(b, i, RISCV_NOT); break;
+  case IR_U_NOT: selectLogicalNot(b, i); break;
+  case IR_E_BITCAST: selectConversion(b, i); break;
+
+  // Both spellings reach the same rule: what distinguishes a direct call from
+  // an indirect one is whether the callee operand came out a symbol or a
+  // register, and setValueOperand decides that from the value itself.
+  case IR_CALL:
+  case IR_ICALL:
+    selectCall(b, i);
+    break;
+
+  case IR_GET_ELEMENT_PTR: selectGep(b, i); break;
+  case IR_M_LOAD: selectMemoryLoad(b, i); break;
+  case IR_M_STORE: selectMemoryStore(b, i); break;
+
+  case IR_E_EQ:
+  case IR_E_NE:
+  case IR_E_LT:
+  case IR_E_LE:
+  case IR_E_GT:
+  case IR_E_GE:
+    selectCompare(b, i);
+    break;
+
+  // The placeholder buildSSA leaves where a promoted local is read on a path
+  // that never wrote it. Its value is whatever C says an uninitialized object
+  // holds; zero is the one that makes the resulting misbehaviour reproducible.
+  case IR_BAD: {
+    MachineInstr *mi = buildMachineInstr(b, RISCV_LI, 1, 1);
+    setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+    setImmediateOperand(mi, 1, 0);
+    mi->opSize = valueSize(i);
+    break;
+  }
 
   default:
     unreachable(irInstructionMnemonic(i->kind));
@@ -94,6 +1021,7 @@ static void selectInstruction_riscv64(MachineBuilder *b, const IrInstruction *i)
 static void selectTerminator_riscv64(MachineBuilder *b, const IrInstruction *term) {
   switch (term->kind) {
   case IR_BRANCH: selectJumpTo(b, term->info.branch.taken); break;
+  case IR_CBRANCH: selectCondBranch(b, term); break;
   case IR_RET: selectReturn(b, term); break;
 
   default:
@@ -101,13 +1029,49 @@ static void selectTerminator_riscv64(MachineBuilder *b, const IrInstruction *ter
   }
 }
 
-// RV64's I-type immediate is twelve bits, signed. Every arithmetic and logical
-// 'i' form takes exactly that, so one answer covers all of them; the
-// operations with no immediate form at all - mul, div, rem, sub - are the
-// reason this is asked per use rather than per constant.
+// -============================ The target's answers ======================-
+
+// RV64's I-type immediate is twelve bits, signed, and that is the whole of it.
+// The operations with no immediate form at all - sub, mul, div, rem - are why
+// this is asked per use rather than per constant.
 static Boolean riscvIsLegalImmediate(const IrInstruction *use, size_t operandIdx,
                                      const IrInstruction *cnst) {
-  return FALSE;
+  Boolean isCall = use->kind == IR_CALL || use->kind == IR_ICALL;
+
+  // The address of a directly called function, which the call encodes as a
+  // relocated auipc/jalr pair rather than reading out of a register. Input 0
+  // of a call and nowhere else: every other use of a function's address needs
+  // it materialized, which selectConstant does.
+  if (cnst->info.constant.kind == IR_CK_SYMBOL) {
+    return isCall && operandIdx == 0;
+  }
+
+  if (cnst->info.constant.kind != IR_CK_INTEGER) {
+    return FALSE;
+  }
+
+  // Only the right-hand operand of the few instructions that have an 'i' form,
+  // and only a shift count that the shift itself can encode.
+  if (operandIdx != 1) {
+    return FALSE;
+  }
+
+  switch (use->kind) {
+  case IR_E_ADD:
+  case IR_E_AND:
+  case IR_E_OR:
+  case IR_E_XOR:
+    return isInt(cnst->info.constant.data.i, 12);
+
+  case IR_E_SHL:
+  case IR_E_SHR: {
+    int64_t v = cnst->info.constant.data.i;
+    return 0 <= v && v < (isWordOp(irTypeMachineSize(use->type)) ? 32 : 64);
+  }
+
+  default:
+    return FALSE;
+  }
 }
 
 // There is no scaled-index addressing mode: an address is one base register
@@ -115,21 +1079,29 @@ static Boolean riscvIsLegalImmediate(const IrInstruction *use, size_t operandIdx
 // selector has to emit. So every non-zero scale is refused, and the GEP walk
 // in isel.c stops one term earlier here than it does on x86-64.
 static Boolean riscvIsLegalAddressMode(uint32_t scale, int64_t disp) {
-  return scale == 0 && -2048 <= disp && disp <= 2047;
+  return scale == 0 && isInt(disp, 12);
 }
 
 static uint32_t riscvAddressOperands(const IrInstruction *i) {
-  return 0;
+  switch (i->kind) {
+  case IR_M_LOAD: return 1u << 0;        // the pointer
+  case IR_M_STORE: return 1u << 0;
+  case IR_GET_ELEMENT_PTR: return 1u << 0;
+  default: return 0;
+  }
 }
 
+// A comparison is the branch itself on this target, so every integer one is
+// worth folding - unlike x86, where the question is whether the flags survive.
 static Boolean riscvFoldsIntoCondition(const IrInstruction *cond) {
-  return FALSE;
+  return isIntegerComparison(cond);
 }
 
 const ArchSelector riscvSelector = {
-  // Nothing to settle about the whole function yet; the outgoing-argument
-  // area arrives with call selection.
-  .reserveFrame = NULL,
+  // The outgoing-argument area: how wide it is is a fact about every call in
+  // the function at once, and it has to be known before any of them is
+  // selected.
+  .reserveFrame = &riscvReserveFrame,
   .selectInstruction = &selectInstruction_riscv64,
   .selectTerminator = &selectTerminator_riscv64,
   .isLegalImmediate = &riscvIsLegalImmediate,
