@@ -613,8 +613,14 @@ Boolean machineInstrUsesFlags(const MachineFunction *mf, const MachineInstr *mi)
 // under is caught too. Either failure is what reordering instructions without
 // consulting this model does, which is the whole reason the model is here.
 void verifyFlagsDependencies(const MachineFunction *mf) {
-  assert(mf->target->flagsReg != IR_NO_PHYS_REG &&
-         "a target whose selector emits instructions has to say where its flags are");
+  // A target with no flags register has nothing here to get wrong: riscv64
+  // compares into an ordinary register and branches on two of them, so a
+  // comparison's answer is a value like any other and liveness already says
+  // everything there is to say about it. Skipping is the honest answer rather
+  // than a uniform MFE_NONE table being walked to no purpose.
+  if (mf->target->flagsReg == IR_NO_PHYS_REG) {
+    return;
+  }
 
   for (const MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
     const MachineInstr *producer = NULL;
