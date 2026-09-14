@@ -584,12 +584,48 @@ void initializeProprocessor(ParserContext *ctx) {
     defineBuiltinMacro(ctx, "__STRICT_ANSI__", constToken(ctx, 1, NULL));
   }
 
+  // Both targets are LP64; which one names itself is what '-march' decides.
+  // Defining the x86 four unconditionally was harmless while there was one
+  // target and is not: glibc's headers pick a <bits/> layout off exactly these,
+  // so a riscv64 compile that claims to be x86-64 gets the wrong jmp_buf, the
+  // wrong stat and the wrong syscall numbers.
   defineBuiltinMacro(ctx, "_LP64", constToken(ctx, 1, NULL));
   defineBuiltinMacro(ctx, "__LP64__", constToken(ctx, 1, NULL));
-  defineBuiltinMacro(ctx, "__x86_64", constToken(ctx, 1, NULL));
-  defineBuiltinMacro(ctx, "__x86_64__", constToken(ctx, 1, NULL));
-  defineBuiltinMacro(ctx, "__amd64", constToken(ctx, 1, NULL));
-  defineBuiltinMacro(ctx, "__amd64__", constToken(ctx, 1, NULL));
+
+  if (ctx->config->arch == RISCV64) {
+    // The target is RV64G - IMAFD, and nothing else. Every macro here names
+    // one of those, and what is *absent* is as much a part of the answer:
+    //
+    //   __riscv_v, __riscv_vector, __riscv_v_intrinsic, __riscv_zve*
+    //       the vector extension. A header that sees one of these reaches for
+    //       <riscv_vector.h>, vsetvli and a register file with a runtime
+    //       length, none of which this backend has any notion of. It is not
+    //       "not done yet" - it is a different machine model, and it stays out
+    //       until there is a reason to let it in.
+    //   __riscv_c, __riscv_compressed
+    //       the compressed encodings. The emitter writes RV64G only, which is
+    //       what keeps every instruction four bytes and jump relaxation out of
+    //       stage 3 entirely.
+    //   __riscv_zba, __riscv_zbb, __riscv_zbs
+    //       the bit-manipulation extensions, which is why a zero-extension
+    //       here is a shift pair and not 'zext.w'.
+    //
+    // __riscv_xlen is not one of these. It is the register width - 64 against
+    // RV32's 32 - and glibc's riscv headers do not compile without it.
+    defineBuiltinMacro(ctx, "__riscv", constToken(ctx, 1, NULL));
+    defineBuiltinMacro(ctx, "__riscv_xlen", constToken(ctx, 64, NULL));
+    // LP64D: the D extension is present and doubles travel in f registers.
+    defineBuiltinMacro(ctx, "__riscv_flen", constToken(ctx, 64, NULL));
+    defineBuiltinMacro(ctx, "__riscv_float_abi_double", constToken(ctx, 1, NULL));
+    defineBuiltinMacro(ctx, "__riscv_mul", constToken(ctx, 1, NULL));
+    defineBuiltinMacro(ctx, "__riscv_div", constToken(ctx, 1, NULL));
+    defineBuiltinMacro(ctx, "__riscv_muldiv", constToken(ctx, 1, NULL));
+  } else {
+    defineBuiltinMacro(ctx, "__x86_64", constToken(ctx, 1, NULL));
+    defineBuiltinMacro(ctx, "__x86_64__", constToken(ctx, 1, NULL));
+    defineBuiltinMacro(ctx, "__amd64", constToken(ctx, 1, NULL));
+    defineBuiltinMacro(ctx, "__amd64__", constToken(ctx, 1, NULL));
+  }
   defineBuiltinMacro(ctx, "__linux", constToken(ctx, 1, NULL));
   defineBuiltinMacro(ctx, "__linux__", constToken(ctx, 1, NULL));
   defineBuiltinMacro(ctx, "__unix", constToken(ctx, 1, NULL));
