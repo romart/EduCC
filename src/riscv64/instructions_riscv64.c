@@ -22,17 +22,35 @@ uint32_t bitFieldInsert(uint32_t value, uint32_t data, size_t lsb, size_t width)
   return (value & ~(mask << lsb)) | ((data & mask) << lsb);
 }
 
+// Whether 'v' fits in a signed field of this many bits. The bound is computed
+// at int64_t and not at unsigned int: '-(1u << (bits - 1))' wraps to a large
+// positive value, which then widens to int64_t rather than going negative, so
+// the old test rejected every value it was asked about - including zero, and
+// including every register number the formats below check.
 int isInt(int64_t v, size_t bits) {
-    return (bits == sizeof(v) * 8u) || ((-(1u << (bits - 1)) <= v) && (v < (1u << (bits - 1))));
+  if (bits >= 64) return 1;
+
+  int64_t bound = INT64_C(1) << (bits - 1);
+  return -bound <= v && v < bound;
 }
 
+// And in an unsigned field. '(1u << (bits - 1)) * 2u - 1u' is one short: at
+// five bits it admitted 0..30 and refused x31, which is a register RV64 very
+// much has.
 int isUint(uint64_t v, size_t bits) {
-    return (bits == sizeof(v) * 8u) || (v < ((1u << (bits - 1)) * 2u - 1u));
+  if (bits >= 64) return 1;
+
+  return v < (UINT64_C(1) << bits);
 }
 
+// 'align' is a *byte* count, and a power of two. It used to be read as a bit
+// count - '(1U << align) - 1' - so the two callers that pass 2 meaning "an
+// even address", which is what the B- and J-type encodings drop the low bit
+// of, were checking four-byte alignment instead. With no compressed
+// instructions emitted every target happens to be four-byte aligned, so this
+// was a check that passed for the wrong reason.
 int isAligned(uint64_t v, size_t align) {
-    uint64_t mask = (1U << align) - 1;
-    return (v & ~mask) == v;
+  return (v & (align - 1)) == 0;
 }
 
 int isShortReg(enum XRegister reg) {
@@ -52,8 +70,9 @@ void EmitI(GeneratedFunction *f, int32_t imm12, uint32_t rs1, uint32_t funct3, u
   assert(isUint((uint32_t)(rs1), 5));
   assert(isUint(funct3, 3));
   assert(isUint((uint32_t)(rd), 5));
-  assert(isUint(opcode, 5));
-  uint32_t encoding = (uint32_t)(imm12) << 20 | rs1 << 15 | funct3 << 12 | rd << 7 | opcode;
+  // Seven, as every other format has it. At five this refused jalr's 0x67.
+  assert(isUint(opcode, 7));
+  uint32_t encoding = ((uint32_t)(imm12) & 0xfffu) << 20 | rs1 << 15 | funct3 << 12 | rd << 7 | opcode;
   emit32(f, encoding);
 }
 
