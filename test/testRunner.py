@@ -37,6 +37,20 @@ baselineTag = None
 # default.
 compilerFlags = []
 
+# Prepended to every produced binary before it is run ('--run-prefix',
+# repeatable). Empty on a native build; on a cross target it is the emulator
+# and its sysroot - 'qemu-riscv64 -L /usr/riscv64-linux-gnu'. Without it a
+# codegen fixture for another architecture compiles and then cannot be run at
+# all, and running what it compiles is the whole of what a codegen fixture
+# asserts.
+runPrefix = []
+
+# How to turn an object into an executable ('--link-with', repeatable). Empty
+# means the compiler links it itself, which is what it does natively. A cross
+# target names the cross toolchain's driver here until the in-house linker
+# learns that architecture, and this option goes away when it does.
+linkWith = []
+
 # A test is muted by putting a '<name>.muted' file next to its '<name>.c'; the
 # file's contents are the reason, printed whenever the test runs. Muted tests
 # still run - they are known-broken fixtures kept in the repo so a bug stays
@@ -68,6 +82,15 @@ mutedPasses = set()     # muted tests that passed - candidates for unmuting
 # and neither of those is true here. The file's contents are the reason.
 ONLY_MARKER_EXTS = {'ir': '.ir', 'legacy': '.legacy'}
 
+# The same idea on the other axis. A '<name>.x86_64' or '<name>.riscv64'
+# sibling means the fixture is about one target and no other - a long double,
+# which x86-64 computes at eighty bits and riscv64 has no hardware for at all -
+# and every other target skips it. Two axes rather than one because a fixture
+# can be specific to a backend, to a target, or to neither, and folding them
+# into a single name would make 'the IR backend on riscv64' a third
+# configuration that has to be spelled out everywhere.
+TARGET_MARKER_EXTS = {'x86_64': '.x86_64', 'riscv64': '.riscv64'}
+
 skippedTests = set()
 
 # The second half of a 'crossabi' fixture: '<name>.c' is the driver and
@@ -89,6 +112,13 @@ def currentConfiguration():
     return 'legacy' if '-legacy' in compilerFlags else 'ir'
 
 
+def currentTarget():
+    """Which architecture this run is compiling for, read off the compiler
+    flags the way currentConfiguration() reads the backend. '-march riscv64'
+    arrives as two separate words, so the value is what is looked for."""
+    return 'riscv64' if 'riscv64' in compilerFlags else 'x86_64'
+
+
 def readMarker(markerPath):
     if not path.exists(markerPath):
         return None
@@ -105,6 +135,11 @@ def muteMarkerPath(dirname, name):
     unqualified = dirname + '/' + name + MUTE_MARKER_EXT
     if path.exists(unqualified):
         return unqualified
+
+    perTarget = unqualified + '.' + currentTarget()
+    if path.exists(perTarget):
+        return perTarget
+
     return unqualified + '.' + currentConfiguration()
 
 
@@ -122,6 +157,14 @@ def readOtherConfigurationReason(dirname, name):
         reason = readMarker(dirname + '/' + name + ext)
         if reason is not None:
             return configuration, reason
+
+    for target, ext in TARGET_MARKER_EXTS.items():
+        if target == currentTarget():
+            continue
+        reason = readMarker(dirname + '/' + name + ext)
+        if reason is not None:
+            return target, reason
+
     return None
 
 
@@ -290,10 +333,26 @@ def runCodegenTest(compiler, workingDir, dirname, name):
         args.append("")
 
     err = open(errFilePath, 'w+')
-    compilationCommand = [compiler] + compilerFlags \
-                       + ["-oneline", "-o", binFileName, testFilePath, "-lm"]
+    if linkWith:
+        # The compiler stops at an object and the named driver links it. Only
+        # a cross target needs this; natively the compiler links what it
+        # compiled, which is what the in-house linker is for.
+        objFileName = binFileName + '.o'
+        compilationCommand = [compiler] + compilerFlags \
+                           + ["-oneline", "-c", "-o", objFileName, testFilePath]
+    else:
+        objFileName = None
+        compilationCommand = [compiler] + compilerFlags \
+                           + ["-oneline", "-o", binFileName, testFilePath, "-lm"]
+
     compilation = Popen(compilationCommand, stdout=sys.stdout, stderr=err)
     exit_code = compilation.wait()
+
+    if exit_code == 0 and objFileName is not None:
+        link = Popen(linkWith + [objFileName, "-o", binFileName, "-lm"],
+                     stdout=sys.stdout, stderr=err)
+        exit_code = link.wait()
+
     err.close()
 
     # Codegen fixtures are expected to compile cleanly - a nonzero exit
@@ -316,7 +375,7 @@ def runCodegenTest(compiler, workingDir, dirname, name):
             print(f.read())
 
     for arg in args:
-        runCommand = [binFileName]
+        runCommand = runPrefix + [binFileName]
         if arg:
             runCommand.extend(arg.split())
         execution = Popen(runCommand, stdout=sys.stdout, stderr=sys.stderr)
@@ -395,7 +454,7 @@ def runCrossAbiTest(compiler, workingDir, dirname, name):
             printFileIfNotEmpty(errPath)
             continue
 
-        exitCode = Popen([binPath], stdout=sys.stdout, stderr=sys.stderr).wait()
+        exitCode = Popen(runPrefix + [binPath], stdout=sys.stdout, stderr=sys.stderr).wait()
         if exitCode != 0:
             failTest(driverPath, f"{direction}: execution exit code is not 0 ({exitCode})")
         else:
@@ -572,6 +631,15 @@ def parseArguments():
                          help='extra flag passed to the compiler on every invocation, repeatable '
                               '(e.g. --compiler-flag=-legacy to compile the fixtures through '
                               'the old AST walker instead of the IR pipeline)')
+    parser.add_argument('--run-prefix', type=str, action='append', default=[],
+                         help='word prepended to every produced binary before running it, '
+                              'repeatable (e.g. --run-prefix=qemu-riscv64 --run-prefix=-L '
+                              '--run-prefix=/usr/riscv64-linux-gnu to run a cross target '
+                              'under an emulator)')
+    parser.add_argument('--link-with', type=str, action='append', default=[],
+                         help='word of the command that links an object into an executable, '
+                              'repeatable; the compiler stops at -c when this is given. For a '
+                              'cross target whose linking the in-house linker does not do yet')
     parser.add_argument('--update-baselines', action='store_true',
                          help='write actual output as the new expected baseline for every test instead of comparing '
                               '(use after an intentional behavior change to regenerate golden files)')
@@ -584,6 +652,8 @@ def main():
     global irPhase
     global compilerFlags
     global baselineTag
+    global runPrefix
+    global linkWith
 
     args = parseArguments()
     compilerFlags = args.compiler_flag
@@ -594,6 +664,8 @@ def main():
     updateBaselines = args.update_baselines
     irPhase = args.ir_phase
     baselineTag = args.baseline_tag
+    runPrefix = args.run_prefix
+    linkWith = args.link_with
 
     for testPath in testPaths:
         p = Path(testPath)
