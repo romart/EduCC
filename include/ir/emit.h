@@ -31,4 +31,7 @@ struct _GeneratedFunction;
 struct _GeneratedFunction *emitMachineFunction_x86_64(struct _GenerationContext *ctx,
                                                      MachineFunction *mf);
 
+struct _GeneratedFunction *emitMachineFunction_riscv64(struct _GenerationContext *ctx,
+                                                      MachineFunction *mf);
+
 #endif // __IR_EMIT_H__

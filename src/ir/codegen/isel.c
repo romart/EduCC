@@ -17,7 +17,10 @@ static const ArchSelector *archSelectorFor(const TargetDescriptor *target) {
     return &x86Selector;
   }
 
-  // riscv64 has no selector yet.
+  if (target == &targetRiscv64) {
+    return &riscvSelector;
+  }
+
   return NULL;
 }
 

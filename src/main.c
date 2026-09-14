@@ -576,15 +576,26 @@ int main(int argc, char** argv) {
     }
   }
 
-  // x86_64 is the only target this compiler can generate code for, under
-  // either backend. The legacy backend's riscv64 half is unfinished and is not
-  // going to be finished - a second target is the IR backend's job, where a
-  // target is a selector and a descriptor rather than a second copy of the
-  // whole code generator - so sending '-march riscv64' here is not a fallback
-  // and nothing below should read it as one. It is where that arch's code
-  // already was, kept reachable so the in-progress files stay exercisable.
-  if (config.arch != X86_64) {
-      config.irBackend = 0;
+  // A second target is the IR backend's job, where a target is a selector and
+  // a descriptor rather than a second copy of the whole code generator - so
+  // riscv64 has one backend and not two, and asking for the other is refused
+  // by name rather than silently answered with the one that exists. The
+  // half-written AST walker that used to make '-legacy' mean something here
+  // went with step 59; it emitted empty function bodies or asserted.
+  if (config.arch != X86_64 && !config.irBackend) {
+      fprintf(stderr, "error: '-legacy' has no %s backend\n",
+              config.arch == RISCV64 ? "riscv64" : "non-x86_64");
+      return 2;
+  }
+
+  // Refused for the same reason, and for one more: under medlow a global is
+  // reached with an absolute lui/addi pair, and position-independent code
+  // wants the auipc-relative form with its paired relocations instead. Neither
+  // the selector nor the linker has those yet, so the honest answer is the
+  // error - see section 13 of docs/ir-codegen-design.md.
+  if (config.arch == RISCV64 && config.pic) {
+      fprintf(stderr, "error: '-fPIC' is not supported on riscv64\n");
+      return 2;
   }
 
   // Refused rather than ignored, for the same reason the four flags above are:

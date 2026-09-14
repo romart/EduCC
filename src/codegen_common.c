@@ -362,8 +362,14 @@ GeneratedFile *generateCodeForFile(ParserContext *pctx, ArchCodegen *archCodegen
 
     AstTranslationUnit *unit = astFile->units;
 
-    assert(archCodegen->generateFunction != NULL);
     assert(archCodegen->generateVaribale != NULL);
+
+    // A target may have only the IR backend. riscv64 does, its half-written
+    // AST walker having gone with step 59, so the legacy entry point is
+    // required only where there is no machine function to emit from - which
+    // '-legacy' on such a target is refused by name for, in main.c.
+    assert((irFunctions != NULL || archCodegen->generateFunction != NULL) &&
+           "this target has no legacy backend to fall back to");
 
     while (unit) {
       if (unit->kind == TU_FUNCTION_DEFINITION) {

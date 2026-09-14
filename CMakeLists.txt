@@ -54,9 +54,9 @@ set(SOURCES
   src/x86_64/codegen_x86_64.c
   src/x86_64/target_x86_64.c
   src/x86_64/isel_x86_64.c
-  src/riscv64/codegen_riscv64.c
   src/riscv64/instructions_riscv64.c
   src/riscv64/target_riscv64.c
+  src/riscv64/isel_riscv64.c
   src/ir/ir.c
   src/ir/target.c
   src/ir/irdump.c
@@ -78,6 +78,7 @@ set(SOURCES
   src/ir/codegen/regalloc_linear.c
   src/ir/codegen/regalloc_colour.c
   src/x86_64/emit_x86_64.c
+  src/riscv64/emit_riscv64.c
   src/link/elfread.c
   src/link/link.c
 )

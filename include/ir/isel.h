@@ -183,5 +183,6 @@ Boolean isPreemptibleSymbol(const MachineFunction *mf, const struct _Symbol *s);
 void selectInstructions(MachineFunction *mf);
 
 extern const ArchSelector x86Selector;
+extern const ArchSelector riscvSelector;
 
 #endif // __IR_ISEL_H__
