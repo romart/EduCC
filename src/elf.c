@@ -128,7 +128,12 @@ static unsigned serializeExternalSymbols(Section *symtab, Section *strtab, Reloc
   while (reloc) {
       // RK_GOT names a symbol the same way RK_SYMBOL does and needs the same
       // entry: 'extern int x;' read through the GOT is still undefined here.
-      if (reloc->kind == RK_SYMBOL || reloc->kind == RK_GOT) {
+      // So do riscv64's three split-immediate kinds, which are how that target
+      // reaches a global at all - the RK_RISCV_SEC_* pair name a section
+      // instead and are deliberately not here.
+      if (reloc->kind == RK_SYMBOL || reloc->kind == RK_GOT ||
+          reloc->kind == RK_RISCV_HI20 || reloc->kind == RK_RISCV_LO12_I ||
+          reloc->kind == RK_RISCV_LO12_S) {
           Symbol *s = reloc->symbolData.symbol;
           if (s->symbolTableIndex == 0) {
               if (s->kind == ValueSymbol && s->variableDesc->gen == NULL) {
