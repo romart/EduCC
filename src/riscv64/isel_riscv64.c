@@ -98,9 +98,7 @@ static Boolean canonicalIsUnsigned(enum IrTypeKind t, uint8_t size) {
 // materialized as the 64-bit 4294967295 while the identical value loaded out
 // of memory is -1, and the two compare unequal - which is the one way an
 // invariant about representations can be got wrong.
-static int64_t canonicalConstant(const IrInstruction *cnst, uint8_t size) {
-  int64_t v = cnst->info.constant.data.i;
-
+static int64_t canonicalValue(int64_t v, uint8_t size, Boolean isUnsigned) {
   if (size >= (uint8_t)sizeof(intptr_t)) {
     return v;
   }
@@ -108,11 +106,16 @@ static int64_t canonicalConstant(const IrInstruction *cnst, uint8_t size) {
   uint32_t bits = (uint32_t)size * 8;
   uint64_t masked = (uint64_t)v & ((UINT64_C(1) << bits) - 1);
 
-  if (canonicalIsUnsigned(cnst->type, size)) {
+  if (isUnsigned) {
     return (int64_t)masked;
   }
 
   return (int64_t)(masked << (64 - bits)) >> (64 - bits);
+}
+
+static int64_t canonicalConstant(const IrInstruction *cnst, uint8_t size) {
+  return canonicalValue(cnst->info.constant.data.i, size,
+                        canonicalIsUnsigned(cnst->type, size));
 }
 
 // 'li dst, <constant>', in the canonical form for the constant's own type.
@@ -699,6 +702,45 @@ static void selectCondBranch(MachineBuilder *b, const IrInstruction *i) {
 
   MachineInstr *jmp = buildMachineInstr(b, RISCV_J, 0, 1);
   setBlockOperand(jmp, 0, machineBuilderBlock(b, notTaken));
+}
+
+// -============================ Switches ==================================-
+//
+// A chain of compare-and-branch, and no jump table. A table would want the
+// addresses of this function's own blocks in .rodata, an indirect jump through
+// one of them, and a bounds test around the pair; the chain is correct for
+// every switch and costs only time, so the table is a quality item rather than
+// a missing rule. x86 builds one when the cases are dense enough - see
+// switchTableRange there.
+static void selectCaseTest(MachineBuilder *b, uint32_t condReg, uint8_t size,
+                           Boolean isUnsigned, int64_t caseConst,
+                           const IrBasicBlock *target) {
+  // RV64 branches compare two registers and no immediate, so the case value
+  // needs one - in the same canonical form the switch operand is in, or a
+  // negative int would compare unequal to itself.
+  uint32_t k = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
+  MachineInstr *li = buildMachineInstr(b, RISCV_LI, 1, 1);
+  setRegisterOperand(li, 0, k);
+  setImmediateOperand(li, 1, canonicalValue(caseConst, size, isUnsigned));
+  li->opSize = sizeof(intptr_t);
+
+  buildBranch(b, RISCV_BEQ, condReg, k, target);
+}
+
+static void selectTableBranch(MachineBuilder *b, const IrInstruction *i) {
+  const SwitchTable *table = i->info.switchTable;
+  const IrInstruction *cond = inputAt(i, 0);
+  uint8_t size = valueSize(cond);
+  Boolean isUnsigned = canonicalIsUnsigned(cond->type, size);
+  uint32_t condReg = machineBuilderVreg(b, cond);
+
+  for (uint32_t c = 0; c < table->caseCount; ++c) {
+    selectCaseTest(b, condReg, size, isUnsigned, table->caseBlocks[c].caseConst,
+                   table->caseBlocks[c].block);
+  }
+
+  selectJumpTo(b, table->defaultBB);
 }
 
 // -============================ Memory ====================================-
@@ -1370,6 +1412,7 @@ static void selectTerminator_riscv64(MachineBuilder *b, const IrInstruction *ter
   case IR_BRANCH: selectJumpTo(b, term->info.branch.taken); break;
   case IR_CBRANCH: selectCondBranch(b, term); break;
   case IR_RET: selectReturn(b, term); break;
+  case IR_TBRANCH: selectTableBranch(b, term); break;
 
   default:
     unreachable(irInstructionMnemonic(term->kind));
