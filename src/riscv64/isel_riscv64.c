@@ -252,6 +252,10 @@ static void selectUnary(MachineBuilder *b, const IrInstruction *i, uint32_t opco
 
 // '!x' is 'x == 0', which is 'sltiu rd, x, 1' - one instruction, and the only
 // use of an unsigned compare against a constant this backend makes.
+//
+// '!' answers int whatever it was applied to, so the operand's width is not
+// the answer's. sltiu writes the whole register either way, so opSize says the
+// register and srcSize the width the test is made at.
 static void selectLogicalNot(MachineBuilder *b, const IrInstruction *i) {
   const IrInstruction *operand = inputAt(i, 0);
   uint8_t size = valueSize(operand);
@@ -260,7 +264,8 @@ static void selectLogicalNot(MachineBuilder *b, const IrInstruction *i) {
   setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
   setRegisterOperand(mi, 1, selectWidened(b, operand, size));
   setImmediateOperand(mi, 2, 1);
-  mi->opSize = size;
+  mi->opSize = sizeof(intptr_t);
+  mi->srcSize = size;
 }
 
 // -============================ Floats ====================================-
@@ -580,7 +585,10 @@ static void selectCompare(MachineBuilder *b, const IrInstruction *i) {
   setRegisterOperand(slt, 0, answer);
   setRegisterOperand(slt, 1, f.swap ? r : l);
   setRegisterOperand(slt, 2, f.swap ? l : r);
-  slt->opSize = size;
+  // A comparison answers int however narrow its operands are, and slt writes
+  // the whole register - so the operand width is srcSize, not opSize.
+  slt->opSize = sizeof(intptr_t);
+  slt->srcSize = size;
 
   if (f.invert) {
     MachineInstr *flip = buildMachineInstr(b, RISCV_XOR, 1, 2);
