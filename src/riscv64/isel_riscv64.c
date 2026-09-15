@@ -804,6 +804,30 @@ static void selectCaseTest(MachineBuilder *b, uint32_t condReg, uint8_t size,
   buildBranch(b, RISCV_BEQ, condReg, k, target);
 }
 
+// -============================ Computed goto =============================-
+//
+// '&&label' is the address of a block of this same function, which is a thing
+// only the emitter can put a number on - so it is carried to stage 3 as the
+// block itself and resolved there, exactly as a branch target is. It arrives
+// as an ordinary address, which is what makes the result a real pointer: it
+// survives being stored, passed and returned.
+
+static void selectBlockAddress(MachineBuilder *b, const IrInstruction *i) {
+  MachineAddress addr = { MAK_BLOCK, NO_REG, NO_REG, 0, 0 };
+  addr.anchor.block = machineBuilderBlock(b, i->info.block);
+
+  MachineInstr *mi = buildMachineInstr(b, RISCV_LA, 1, 1);
+  setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+  setMemoryOperand(mi, 1, &addr);
+  mi->opSize = sizeof(intptr_t);
+}
+
+static void selectIndirectBranch(MachineBuilder *b, const IrInstruction *i) {
+  MachineInstr *mi = buildMachineInstr(b, RISCV_JR, 0, 1);
+  setRegisterOperand(mi, 0, machineBuilderVreg(b, inputAt(i, 0)));
+  mi->opSize = sizeof(intptr_t);
+}
+
 static void selectTableBranch(MachineBuilder *b, const IrInstruction *i) {
   const SwitchTable *table = i->info.switchTable;
   const IrInstruction *cond = inputAt(i, 0);
@@ -1675,6 +1699,7 @@ static void selectInstruction_riscv64(MachineBuilder *b, const IrInstruction *i)
     }
     break;
 
+  case IR_CFG_LABEL: selectBlockAddress(b, i); break;
   case IR_STACK_SAVE: selectStackSave(b, i); break;
   case IR_STACK_RESTORE: selectStackRestore(b, i); break;
 
@@ -1754,6 +1779,7 @@ static void selectTerminator_riscv64(MachineBuilder *b, const IrInstruction *ter
   case IR_CBRANCH: selectCondBranch(b, term); break;
   case IR_RET: selectReturn(b, term); break;
   case IR_TBRANCH: selectTableBranch(b, term); break;
+  case IR_IBRANCH: selectIndirectBranch(b, term); break;
 
   default:
     unreachable(irInstructionMnemonic(term->kind));

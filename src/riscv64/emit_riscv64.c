@@ -77,6 +77,12 @@ typedef struct _EmitContext {
   size_t numJumps;
   size_t nextJump;
 
+  // '&&label' can name a block this pass has not reached yet, so a block
+  // address reads the *previous* pass's offsets and the loop keeps going until
+  // the two agree. See emitMachineFunction_riscv64.
+  ptrdiff_t *prevBlockOffset;
+  Boolean usedBlockOffsets;
+
   // Where each saved callee-saved register lives, indexed as the two tables
   // above are; 0 for the ones this function does not use.
   int32_t calleeSavedOffset[CALLEE_SAVED_COUNT];
@@ -254,6 +260,34 @@ static void addSectionRelocation(EmitContext *e, enum RelocKind kind, Section *s
   reloc->sectionData.dataSectionOffset = offset;
   reloc->addend = 0;
   reloc->applySectionOffset = here(e);
+}
+
+// The address of a block of this same function. Under medlow that is the same
+// lui/addi pair a global gets - against the *function's own symbol*, which a
+// block has no equivalent of, with the block's offset inside it as the addend.
+// Both halves carry the same addend, so %hi and %lo agree about which address
+// they are two halves of.
+//
+// Where the block is comes from the last pass, which is why taking a block's
+// address costs a second one. Nothing here changes a size, so the two passes
+// agree and the second is the last.
+static void emitBlockAddress(EmitContext *e, enum XRegister rd, uint32_t block) {
+  ptrdiff_t offset = e->prevBlockOffset[block];
+
+  e->usedBlockOffsets = TRUE;
+  if (offset < 0) {
+    offset = e->gen->sectionOffset; // no pass has placed it yet
+  }
+
+  int64_t addend = offset - e->gen->sectionOffset;
+
+  addSymbolRelocation(e, RK_RISCV_HI20, e->gen->symbol);
+  e->gen->section->reloc->addend = addend;
+  riscvLui(e->gen, rd, 0);
+
+  addSymbolRelocation(e, RK_RISCV_LO12_I, e->gen->symbol);
+  e->gen->section->reloc->addend = addend;
+  riscvAddi(e->gen, rd, rd, 0);
 }
 
 static void emitSymbolAddress(EmitContext *e, enum XRegister rd, const MachineAddress *m) {
@@ -574,6 +608,11 @@ static void emitAddress(EmitContext *e, const MachineInstr *mi) {
     return;
   }
 
+  if (m->kind == MAK_BLOCK) {
+    emitBlockAddress(e, rd, m->anchor.block->id);
+    return;
+  }
+
   int32_t disp = 0;
   enum XRegister base = memBase(e, op, &disp);
   emitAddConst(e, rd, base, disp);
@@ -846,6 +885,11 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
     return;
   }
 
+  // 'jr rs' is 'jalr x0, rs, 0': jump and discard the return address.
+  case RISCV_JR:
+    riscvJalr(e->gen, X_ZERO, xReg(e, regIdOperand(mi, 0)), 0);
+    return;
+
   case RISCV_RET:
     emitEpilogue(e);
     return;
@@ -915,14 +959,25 @@ GeneratedFunction *emitMachineFunction_riscv64(GenerationContext *ctx, MachineFu
   Section *section = gen->section;
   Relocation *relocationsBefore = section->reloc;
 
+  e.prevBlockOffset = areanAllocate(ctx->codegenArena, mf->numBlocks * sizeof(ptrdiff_t));
+  memset(e.prevBlockOffset, -1, mf->numBlocks * sizeof(ptrdiff_t));
+
   for (;;) {
     section->pc = section->start + gen->sectionOffset;
     section->reloc = relocationsBefore;
+    memcpy(e.prevBlockOffset, e.blockOffset, mf->numBlocks * sizeof(ptrdiff_t));
     memset(e.blockOffset, -1, mf->numBlocks * sizeof(ptrdiff_t));
+    e.usedBlockOffsets = FALSE;
 
     emitFunctionBody(&e);
 
-    if (!relaxBranches(&e)) {
+    // A block address that named a block where the last pass put it and this
+    // one did not is out of date, and nothing but another pass will fix it.
+    Boolean moved = e.usedBlockOffsets &&
+                    memcmp(e.prevBlockOffset, e.blockOffset,
+                           mf->numBlocks * sizeof(ptrdiff_t)) != 0;
+
+    if (!relaxBranches(&e) && !moved) {
       break;
     }
   }
