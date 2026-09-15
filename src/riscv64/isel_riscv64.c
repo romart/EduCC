@@ -183,10 +183,57 @@ static uint32_t widthOpcode(uint8_t size, uint32_t wordOp, uint32_t wideOp) {
   return isWordOp(size) ? wordOp : wideOp;
 }
 
+// RV64 has no instruction narrower than a word, so an operation on a one- or
+// two-byte value - which is what the bit-field lowering builds - computes in
+// all 64 bits and can leave some above the value's own width. Every register
+// here is canonically extended, so those bits have to be put back.
+//
+// and/or/xor and the two right shifts are the exception and need nothing: they
+// take canonically extended operands to a canonically extended answer, an
+// unsigned one staying zero above the value and a signed one staying its sign.
+static Boolean narrowAnswerEscapes(const IrInstruction *i) {
+  if (valueSize(i) >= 4) {
+    return FALSE; // a 'w' form sign-extends its answer, which is canonical
+  }
+
+  switch (i->kind) {
+  case IR_E_AND:
+  case IR_E_OR:
+  case IR_E_XOR:
+  case IR_E_SHR:
+    return FALSE;
+  default:
+    return TRUE;
+  }
+}
+
+// Where such an operation writes: a temporary, so that the extension below is
+// what defines the value's own register.
+static uint32_t narrowAnswerRegister(MachineBuilder *b, const IrInstruction *i,
+                                     Boolean escapes) {
+  return escapes ? createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t))
+                 : machineBuilderVreg(b, i);
+}
+
+static void canonicalizeNarrowAnswer(MachineBuilder *b, const IrInstruction *i,
+                                     uint32_t answer, uint8_t size) {
+  Boolean isUnsigned = canonicalIsUnsigned(i->type, size);
+  uint32_t dst = machineBuilderVreg(b, i);
+
+  MachineInstr *mi = buildMachineInstr(b, isUnsigned ? RISCV_ZEXT : RISCV_SEXT, 1, 1);
+  setRegisterOperand(mi, 0, dst);
+  setRegisterOperand(mi, 1, answer);
+  mi->opSize = sizeof(intptr_t);
+  mi->srcSize = size;
+
+  machineNoteRegisterExtension(b->mf, dst, sizeof(intptr_t), isUnsigned);
+}
+
 static void selectBinaryWith(MachineBuilder *b, const IrInstruction *i, uint32_t opcode,
                              Boolean rhsMayBeImmediate) {
   uint8_t size = valueSize(i);
-  uint32_t dst = machineBuilderVreg(b, i);
+  Boolean escapes = narrowAnswerEscapes(i);
+  uint32_t dst = narrowAnswerRegister(b, i, escapes);
 
   const IrInstruction *lhs = inputAt(i, 0);
   const IrInstruction *rhs = inputAt(i, 1);
@@ -203,7 +250,11 @@ static void selectBinaryWith(MachineBuilder *b, const IrInstruction *i, uint32_t
   } else {
     setRegisterOperand(mi, 2, rhsReg);
   }
-  mi->opSize = size;
+  mi->opSize = escapes ? (uint8_t)sizeof(intptr_t) : size;
+
+  if (escapes) {
+    canonicalizeNarrowAnswer(b, i, dst, size);
+  }
 }
 
 // add/sub/and/or/xor and the multiply-divide family, picking the 'w' form for
@@ -220,7 +271,8 @@ static void selectShift(MachineBuilder *b, const IrInstruction *i, uint32_t word
   // RV64 reads the low five or six bits of it and C has already made anything
   // wider undefined.
   uint8_t size = valueSize(i);
-  uint32_t dst = machineBuilderVreg(b, i);
+  Boolean escapes = narrowAnswerEscapes(i);
+  uint32_t dst = narrowAnswerRegister(b, i, escapes);
 
   uint32_t lhsReg = selectWidened(b, inputAt(i, 0), size);
   const IrInstruction *rhs = inputAt(i, 1);
@@ -235,7 +287,11 @@ static void selectShift(MachineBuilder *b, const IrInstruction *i, uint32_t word
   } else {
     setRegisterOperand(mi, 2, rhsReg);
   }
-  mi->opSize = size;
+  mi->opSize = escapes ? (uint8_t)sizeof(intptr_t) : size;
+
+  if (escapes) {
+    canonicalizeNarrowAnswer(b, i, dst, size);
+  }
 }
 
 // '-x' is 'sub rd, x0, x', and '~x' is 'xori rd, x, -1'. Both are pseudo-
@@ -243,11 +299,17 @@ static void selectShift(MachineBuilder *b, const IrInstruction *i, uint32_t word
 // that the operand count says one input rather than two.
 static void selectUnary(MachineBuilder *b, const IrInstruction *i, uint32_t opcode) {
   uint8_t size = valueSize(i);
+  Boolean escapes = narrowAnswerEscapes(i);
+  uint32_t dst = narrowAnswerRegister(b, i, escapes);
 
   MachineInstr *mi = buildMachineInstr(b, opcode, 1, 1);
-  setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+  setRegisterOperand(mi, 0, dst);
   setRegisterOperand(mi, 1, selectWidened(b, inputAt(i, 0), size));
-  mi->opSize = size;
+  mi->opSize = escapes ? (uint8_t)sizeof(intptr_t) : size;
+
+  if (escapes) {
+    canonicalizeNarrowAnswer(b, i, dst, size);
+  }
 }
 
 // '!x' is 'x == 0', which is 'sltiu rd, x, 1' - one instruction, and the only
