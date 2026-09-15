@@ -714,6 +714,32 @@ static void selectFrameAddress(MachineBuilder *b, const IrInstruction *i, int32_
   mi->opSize = sizeof(intptr_t);
 }
 
+// A register holding a pointer's value.
+//
+// Not simply its virtual register: a pointer whose address folded into an
+// addressing mode may have been *absorbed*, and an absorbed value computes
+// nothing and defines no register - every use was supposed to have taken it
+// over. On a target with a scaled-index mode every use can, which is why this
+// question does not arise on x86-64. Here a GEP with a variable offset cannot,
+// so the address it was going to fold has to be computed after all.
+static uint32_t addressIntoRegister(MachineBuilder *b, const IrInstruction *ptr) {
+  const AddressFold *f = machineBuilderAddressFold(b, ptr);
+
+  if (f == NULL) {
+    return machineBuilderVreg(b, ptr);
+  }
+
+  MachineAddress addr = addressFor(b, ptr, 0);
+  uint32_t dst = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
+  MachineInstr *la = buildMachineInstr(b, RISCV_LA, 1, 1);
+  setRegisterOperand(la, 0, dst);
+  setMemoryOperand(la, 1, &addr);
+  la->opSize = sizeof(intptr_t);
+
+  return dst;
+}
+
 static void selectGep(MachineBuilder *b, const IrInstruction *i) {
   // A GEP the driver could not turn into an addressing mode - a variable
   // offset, or a constant too big for a displacement - is arithmetic, and on
@@ -724,7 +750,7 @@ static void selectGep(MachineBuilder *b, const IrInstruction *i) {
     const IrInstruction *base = inputAt(i, 0);
     const IrInstruction *offset = inputAt(i, 1);
 
-    uint32_t baseReg = machineBuilderVreg(b, base);
+    uint32_t baseReg = addressIntoRegister(b, base);
     Boolean folded = machineBuilderIsFolded(b, offset);
     uint32_t offsetReg = folded ? NO_REG : selectWidened(b, offset, sizeof(intptr_t));
 
