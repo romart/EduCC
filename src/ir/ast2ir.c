@@ -682,6 +682,14 @@ static IrInstruction *translateCall(AstExpression *expr) {
   callInstr->meta.astExpr = expr;
   callInstr->info.call.isVariadic = calleeType->functionTypeDesc.isVariadic;
 
+  // How many arguments the prototype names, so that the inputs past them can
+  // be recognised as the unnamed ones. Counted here because the prototype is
+  // in hand here and nowhere later.
+  size_t namedArgs = 0;
+  for (const TypeList *p = calleeType->functionTypeDesc.parameters; p != NULL; p = p->next) {
+    namedArgs += 1;
+  }
+
   IrInstruction *returnSlotOp = NULL;
 
   // TODO: save and restore stack after series of alloca's
@@ -693,8 +701,15 @@ static IrInstruction *translateCall(AstExpression *expr) {
     callInstr->info.call.returnBuffer = returnSlotOp;
   }
 
+  size_t argIdx = 0;
+  callInstr->info.call.firstUnnamedInput = callInstr->inputs.size;
+
   for (AstExpressionList *args = expr->callExpr.arguments; args != NULL;
-       args = args->next) {
+       args = args->next, ++argIdx) {
+    if (argIdx == namedArgs) {
+      callInstr->info.call.firstUnnamedInput = callInstr->inputs.size;
+    }
+
     AstExpression *argExpr = args->expression;
     TypeRef *argType = argExpr->type;
     unsigned alignent = max(8, typeAlignment(argType));
@@ -759,6 +774,10 @@ static IrInstruction *translateCall(AstExpression *expr) {
     }
 
     addInstructionInput(callInstr, realArgOp);
+  }
+
+  if (argIdx <= namedArgs) {
+    callInstr->info.call.firstUnnamedInput = callInstr->inputs.size;
   }
 
   addInstruction(callInstr);

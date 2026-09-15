@@ -225,6 +225,14 @@ struct _IrInstruction {
           // and by then the function type it comes from is several
           // translations away. Recorded here at the one point it is in hand.
           Boolean isVariadic;
+
+          // The first input that is an *unnamed* argument, or inputs.size when
+          // there is none. LP64D needs it: a variadic call passes an unnamed
+          // float in an integer register and a named one in a float register,
+          // so the two halves of one argument list follow different rules.
+          // Recorded here for the same reason isVariadic is - the prototype
+          // that says where the ellipsis starts is gone by the backend.
+          size_t firstUnnamedInput;
           // Bit i is set when input i is an aggregate the ABI passes as bytes
           // on the stack, rather than the pointer this IR names it by.
           //

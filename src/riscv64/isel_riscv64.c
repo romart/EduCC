@@ -1256,14 +1256,22 @@ static size_t firstCallArgIndex(void) {
   return 1;
 }
 
-// Which register file an argument travels in. A variadic call sends everything
-// through the integer one - see above.
-static enum RegClass callArgClass(const IrInstruction *call, const IrInstruction *arg) {
-  if (call->info.call.isVariadic) {
+// Whether this input is one of the arguments past the prototype's last named
+// parameter - which is the half of a variadic call that travels differently.
+static Boolean isUnnamedCallArg(const IrInstruction *call, size_t inputIdx) {
+  return call->info.call.isVariadic && inputIdx >= call->info.call.firstUnnamedInput;
+}
+
+// Which register file an argument travels in. An *unnamed* argument of a
+// variadic call goes through the integer one whatever its type; a named one
+// follows the ordinary rule, which is why this needs the input's position and
+// not only its type.
+static enum RegClass callArgClass(const IrInstruction *call, size_t inputIdx) {
+  if (isUnnamedCallArg(call, inputIdx)) {
     return RC_GP;
   }
 
-  return isFloatIrType(arg->type) ? RC_FP : RC_GP;
+  return isFloatIrType(inputAt(call, inputIdx)->type) ? RC_FP : RC_GP;
 }
 
 static uint32_t argRegCountOf(const TargetDescriptor *target, enum RegClass rc) {
@@ -1317,7 +1325,7 @@ static uint32_t callArgLocation(const TargetDescriptor *target, const IrInstruct
     if (!isCallMemoryArg(call, idx)) {
       uint32_t want[RC_CLASS_COUNT] = {0};
       for (size_t p = 0; p < parts; ++p) {
-        want[callArgClass(call, inputAt(call, idx + p))] += 1;
+        want[callArgClass(call, idx + p)] += 1;
       }
 
       // All of it or none of it, the way classifyParametersGeneric decides it
@@ -1329,7 +1337,7 @@ static uint32_t callArgLocation(const TargetDescriptor *target, const IrInstruct
 
       if (fits) {
         for (size_t p = 0; p < parts; ++p) {
-          enum RegClass rc = callArgClass(call, inputAt(call, idx + p));
+          enum RegClass rc = callArgClass(call, idx + p);
           reg[p] = argRegOf(target, rc, used[rc]++);
         }
       }
@@ -1428,8 +1436,10 @@ static uint32_t floatBitsInGpRegister(MachineBuilder *b, const IrInstruction *ar
 
 // The value an argument contributes, in the register file it travels in.
 static uint32_t callArgRegister(MachineBuilder *b, const IrInstruction *call,
-                                const IrInstruction *arg) {
-  if (call->info.call.isVariadic && isFloatIrType(arg->type)) {
+                                size_t inputIdx) {
+  const IrInstruction *arg = inputAt(call, inputIdx);
+
+  if (isUnnamedCallArg(call, inputIdx) && isFloatIrType(arg->type)) {
     return floatBitsInGpRegister(b, arg);
   }
 
@@ -1544,8 +1554,8 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
       continue;
     }
 
-    Boolean asFloat = !i->info.call.isVariadic && isFloatIrType(arg->type);
-    uint32_t src = callArgRegister(b, i, arg);
+    Boolean asFloat = callArgClass(i, idx) == RC_FP;
+    uint32_t src = callArgRegister(b, i, idx);
 
     MachineAddress to = outgoingArgAddress(b->mf, offset);
 
@@ -1563,14 +1573,13 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
     }
 
     const IrInstruction *arg = inputAt(i, idx);
-    uint32_t src = callArgRegister(b, i, arg);
+    uint32_t src = callArgRegister(b, i, idx);
 
     MachineInstr *copy = buildMachineInstr(b, MOP_COPY, 1, 1);
     setRegisterOperand(copy, 0, reg);
     setRegisterOperand(copy, 1, src);
-    copy->opSize = isFloatIrType(arg->type) && !i->info.call.isVariadic
-                       ? valueSize(arg)
-                       : (uint8_t)sizeof(intptr_t);
+    copy->opSize = callArgClass(i, idx) == RC_FP ? valueSize(arg)
+                                                 : (uint8_t)sizeof(intptr_t);
   }
 
   // Defs: the return register, when the call produces something. Uses: the
