@@ -17,11 +17,13 @@
 // Two things are simpler here than on x86-64, and both follow from a
 // fixed-width ISA:
 //
-//   * There is no jump relaxation and no second emission pass. Every RV64G
-//     instruction is four bytes, so a branch's displacement is the only thing
-//     a forward reference leaves unknown, and patching it afterwards cannot
-//     change any address. x86's emit-measure-emit loop exists because a
-//     shorter jump moves everything after it; nothing moves here.
+//   * Almost nothing is relaxed. Every RV64G instruction is four bytes, so a
+//     branch's displacement is the only thing a forward reference leaves
+//     unknown and patching it afterwards cannot change any address. The one
+//     exception is a conditional branch further than a B-type's +-4KiB, which
+//     has to become two instructions - so the body is emitted again with that
+//     branch spelled the long way. x86 relaxes the other direction, shrinking
+//     jumps until they stop shrinking; here the set only grows.
 //   * Labels are patched in place rather than through struct Label. A RISC-V
 //     branch displacement is scattered across five fields of the word, so
 //     "write the displacement" is a re-encode either way, and the block
@@ -56,6 +58,11 @@ typedef struct _JumpSite {
   ptrdiff_t offset;     // where the instruction starts in the section
   uint32_t block;       // the block it names
   Boolean isBranch;     // B-type if so, J-type otherwise
+
+  // Whether this conditional branch has to be spelled the long way, which is
+  // the inverted branch over a 'j'. Decided by relaxBranches between passes
+  // and kept across them - see the loop in emitMachineFunction_riscv64.
+  Boolean isLong;
 } JumpSite;
 
 typedef struct _EmitContext {
@@ -370,6 +377,7 @@ static void recordJump(EmitContext *e, const MachineBasicBlock *target, Boolean 
   site->offset = here(e);
   site->block = target->id;
   site->isBranch = isBranch;
+  // isLong is the decision a previous pass reached and this one has to honour.
 }
 
 // Rewrite a J-type instruction's displacement in place, leaving every other
@@ -416,12 +424,41 @@ static void patchJumps(EmitContext *e) {
     int32_t displacement = (int32_t)(target - site->offset);
     uint8_t *at = section->start + site->offset;
 
-    if (site->isBranch) {
+    if (site->isBranch && !site->isLong) {
       patchBType(at, displacement);
     } else {
+      // The long form's site is the 'j' itself, so both reach here as J-type.
       patchJType(at, displacement);
     }
   }
+}
+
+// Which branches the *next* pass has to spell the long way, given where this
+// one put them. Answers TRUE when it found one it had not found before.
+//
+// Only ever adds, which is what makes this terminate: a long branch is one
+// instruction bigger than a short one and nothing shrinks, so the set of
+// branches out of range can only grow, and it is bounded by their number.
+static Boolean relaxBranches(EmitContext *e) {
+  Boolean changed = FALSE;
+
+  for (size_t idx = 0; idx < e->nextJump; ++idx) {
+    JumpSite *site = &e->jumps[idx];
+
+    if (!site->isBranch || site->isLong) {
+      continue;
+    }
+
+    ptrdiff_t target = e->blockOffset[site->block];
+    assert(target >= 0 && "a branch names a block that was never emitted");
+
+    if (!isInt((int32_t)(target - site->offset), 13)) {
+      site->isLong = TRUE;
+      changed = TRUE;
+    }
+  }
+
+  return changed;
 }
 
 static size_t countJumpSites(const MachineFunction *mf) {
@@ -767,9 +804,23 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
     static const uint32_t funct3[] = {
       RISCV_BR_EQ, RISCV_BR_NE, RISCV_BR_LT, RISCV_BR_GE, RISCV_BR_LTU, RISCV_BR_GEU
     };
+    uint32_t cond = funct3[mi->opcode - RISCV_BEQ];
+    enum XRegister rs1 = xReg(e, regIdOperand(mi, 0));
+    enum XRegister rs2 = xReg(e, regIdOperand(mi, 1));
+
+    // A B-type reaches +-4KiB and a J-type +-1MiB, so a branch that is out of
+    // range becomes the opposite branch over an unconditional jump. The low
+    // bit of funct3 is what distinguishes a condition from its negation -
+    // eq/ne, lt/ge, ltu/geu - so inverting is an xor.
+    if (e->jumps[e->nextJump].isLong) {
+      riscvBranch(e->gen, cond ^ 1u, rs1, rs2, 8);
+      recordJump(e, blockOperand(mi, 2), TRUE);
+      riscvJal(e->gen, X_ZERO, 0);
+      return;
+    }
+
     recordJump(e, blockOperand(mi, 2), TRUE);
-    riscvBranch(e->gen, funct3[mi->opcode - RISCV_BEQ],
-                xReg(e, regIdOperand(mi, 0)), xReg(e, regIdOperand(mi, 1)), 0);
+    riscvBranch(e->gen, cond, rs1, rs2, 0);
     return;
   }
 
@@ -803,6 +854,7 @@ static void emitFunctionBody(EmitContext *e) {
   MachineFunction *mf = e->mf;
   ptrdiff_t start = here(e);
 
+  e->nextJump = 0;
   emitPrologue(e);
 
   for (MachineBasicBlock *mbb = mf->blocks.head; mbb != NULL; mbb = mbb->next) {
@@ -843,15 +895,32 @@ GeneratedFunction *emitMachineFunction_riscv64(GenerationContext *ctx, MachineFu
   e.numJumps = countJumpSites(mf);
   if (e.numJumps != 0) {
     e.jumps = areanAllocate(ctx->codegenArena, e.numJumps * sizeof(JumpSite));
+    memset(e.jumps, 0, e.numJumps * sizeof(JumpSite));
   }
 
   e.frameSize = layoutCalleeSaved(&e);
   gen->frameSize = e.frameSize;
 
-  // One pass, unlike x86-64's emit-measure-emit loop: every instruction is
-  // four bytes whatever its operands, so patching a displacement afterwards
-  // moves nothing.
-  emitFunctionBody(&e);
+  // Emitting again means unwinding what the last attempt left behind: the
+  // bytes, the block offsets and the relocations it prepended to the section's
+  // list. Only a conditional branch out of B-type range makes a second pass
+  // necessary - every instruction is otherwise the same size whatever its
+  // operands, so a displacement is patched in place and nothing moves.
+  Section *section = gen->section;
+  Relocation *relocationsBefore = section->reloc;
+
+  for (;;) {
+    section->pc = section->start + gen->sectionOffset;
+    section->reloc = relocationsBefore;
+    memset(e.blockOffset, -1, mf->numBlocks * sizeof(ptrdiff_t));
+
+    emitFunctionBody(&e);
+
+    if (!relaxBranches(&e)) {
+      break;
+    }
+  }
+
   patchJumps(&e);
 
   gen->bodySize = (gen->section->pc - gen->section->start) - gen->sectionOffset;
