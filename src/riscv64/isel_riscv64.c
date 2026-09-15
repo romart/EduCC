@@ -1839,12 +1839,25 @@ static Boolean riscvIsLegalAddressMode(uint32_t scale, int64_t disp) {
   return scale == 0 && isInt(disp, 12);
 }
 
+// Which inputs reach an addressing mode, as a bit per position.
+//
+// A GEP is deliberately not here. Its base is absorbed by foldValue itself
+// when the two folds combine, and naming it again would count one use twice -
+// which is enough to convince markAbsorbed that every use of a local's address
+// was an address, and leave the one that was not reading a register nothing
+// ever defined.
 static uint32_t riscvAddressOperands(const IrInstruction *i) {
   switch (i->kind) {
-  case IR_M_LOAD: return 1u << 0;        // the pointer
-  case IR_M_STORE: return 1u << 0;
-  case IR_GET_ELEMENT_PTR: return 1u << 0;
-  default: return 0;
+  case IR_M_LOAD:
+  case IR_M_STORE:
+    return 1u << 0;  // the pointer
+
+  // Both of them: a copy addresses its destination and its source alike.
+  case IR_M_COPY:
+    return 3u;
+
+  default:
+    return 0;
   }
 }
 
