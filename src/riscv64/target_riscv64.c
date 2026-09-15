@@ -192,6 +192,7 @@ const TargetDescriptor targetRiscv64 = {
   .fpArgRegCount = sizeof(riscvFpArgRegs) / sizeof(riscvFpArgRegs[0]),
 
   .vaListKind = VA_FLAT_POINTER,
+  .largeAggregatesByReference = TRUE,
 
   .intRetReg = X_A0,
   .fpRetReg = FR(F_A0),

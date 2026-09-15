@@ -322,7 +322,11 @@ static void layoutIncomingParameters(MachineFunction *mf) {
     // picked up below. One that arrived on the stack is addressed where the
     // caller put it, which the translator spelled as an offset from the frame
     // rather than as an allocation - that is the case being recorded here.
-    if (lvi->stackSlot == NULL || lvi->stackSlot->kind == IR_ALLOCA) {
+    // An indirect one is neither: what the translator left is a value holding
+    // the object's address - a parameter the ABI passed by reference - and
+    // this frame holds no part of it.
+    if (lvi->stackSlot == NULL || lvi->stackSlot->kind == IR_ALLOCA ||
+        lvi->flags.indirect) {
       continue;
     }
 

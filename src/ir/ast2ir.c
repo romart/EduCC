@@ -525,7 +525,13 @@ static IrInstruction *translateVaArg(AstExpression *expr) {
                                            oaam->type, NULL);
   }
 
-  int32_t argSize = max(8, computeTypeSize(vatype));
+  // By reference: the slot holds a pointer to the argument, so the value's
+  // address is what is *in* the area rather than where it is, and one word is
+  // all the walk advances by.
+  Boolean byReference = ctx->target->largeAggregatesByReference &&
+                        isCompositeType(vatype) && computeTypeSize(vatype) > 2 * dataSize;
+
+  int32_t argSize = byReference ? dataSize : max(8, computeTypeSize(vatype));
 
   IrInstruction *alignesArgSize =
       createIntegerConstant(IR_I64, ALIGN_SIZE(argSize, dataSize));
@@ -533,6 +539,11 @@ static IrInstruction *translateVaArg(AstExpression *expr) {
       IR_E_ADD, overflowAreaValue, alignesArgSize, irOAType, oaam->type, NULL);
 
   addStoreInstr(overflowAreaGep, newOverflowArea, NULL);
+
+  if (byReference) {
+    overflowAreaValue = addLoadInstr(IR_PTR, overflowAreaValue, NULL);
+    overflowAreaValue->astType = makePointedType(ctx->pctx, 0, vatype);
+  }
 
   // Nothing to merge when the overflow area is the only place to look.
   if (!inRegister) {
@@ -739,7 +750,13 @@ static IrInstruction *translateCall(AstExpression *expr) {
         realArgOp->astType = makePointedType(ctx->pctx, 0, argType);
         generateCompositeCopy(argType, argOp, realArgOp, expr);
 
-        setCallMemoryArg(callInstr, callInstr->inputs.size);
+        // The copy is what the ABI asks for either way; what differs is what
+        // is handed over. A target that passes such an aggregate by reference
+        // wants the temporary's address, which is what this input already is,
+        // so the mask that says "pass the bytes" is simply not set.
+        if (!ctx->target->largeAggregatesByReference) {
+          setCallMemoryArg(callInstr, callInstr->inputs.size);
+        }
       } else {
         // One input per eightbyte, loaded as a float when its class is SSE -
         // which is what sends it to an xmm argument register, the same spelling
@@ -3064,6 +3081,29 @@ static void initializeParamterLocal(IrBasicBlock *entryBB,
   lvi->declaration = param;
 
   ctx->currentBB = entryBB;
+
+  // Passed by reference: what arrives is the address of the copy the caller
+  // made, so there is no slot to build and nothing to store - the parameter's
+  // address is the argument itself. See ParamtersABIInfo.byReference.
+  if (paramInfo->byReference) {
+    IrInstruction *addr = NULL;
+
+    if (paramInfo->isRegister) {
+      addr = newPhysRegister(IR_PTR, paramInfo->loc.physReg);
+      addInstruction(addr);
+    } else {
+      IrInstruction *slot = newInstruction(IR_E_ADD, IR_P_AGG);
+      addInstructionInput(slot, stackPtrOp);
+      addInstructionInput(slot, createIntegerConstant(IR_I64, paramInfo->loc.stackOffset));
+      addInstruction(slot);
+      addr = addLoadInstr(IR_PTR, slot, NULL);
+    }
+
+    addr->astType = makePointedType(ctx->pctx, astType->flags.storage, astType);
+    lvi->stackSlot = addr;
+    lvi->flags.indirect = 1;
+    return;
+  }
 
   if (paramInfo->isRegister) {
     // scalar type in register

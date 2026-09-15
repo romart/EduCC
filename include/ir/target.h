@@ -125,6 +125,12 @@ typedef struct {
   enum EightbyteClass classes[2];
   uint32_t regCount;
 
+  // The register or stack slot holds the *address* of the argument rather than
+  // its bytes: LP64D passes an aggregate wider than two words by reference,
+  // the caller having made the copy. See
+  // TargetDescriptor.largeAggregatesByReference.
+  Boolean byReference;
+
   uint32_t idx;
   Boolean isRegister;
 } ParamtersABIInfo;
@@ -193,6 +199,16 @@ typedef struct _TargetDescriptor {
 
   // Which shape a va_list has here. See enum VaListKind.
   enum VaListKind vaListKind;
+
+  // Whether an aggregate too wide for two registers travels as a pointer to a
+  // copy the caller made, rather than as bytes in the outgoing area. LP64D
+  // says so and SysV does not.
+  //
+  // It is what makes a flat va_list possible at all: arguments are then
+  // assigned to registers strictly in order and one word each, so the saved
+  // registers and the caller's stack area really are one array. Passing bytes
+  // would leave argument registers unused in the middle of that walk.
+  Boolean largeAggregatesByReference;
 
   uint32_t intRetReg;
   uint32_t fpRetReg;

@@ -222,6 +222,7 @@ void classifyParametersGeneric(const TargetDescriptor *target,
     pi->regCount = 1;
     pi->physReg2 = IR_NO_PHYS_REG;
     pi->classes[0] = pi->classes[1] = EB_NONE;
+    pi->byReference = FALSE;
 
     if (isEmptyCompositeType(paramType)) {
       // Passed in nothing: no register is used up and no stack space is
@@ -239,6 +240,30 @@ void classifyParametersGeneric(const TargetDescriptor *target,
       // is the point the hook comment in target.h means when it says the two
       // targets will stop sharing an implementation.
       uint32_t eightbytes = classifyComposite(paramType, pi->classes);
+
+      // Too wide for two registers, on a target that passes such a thing by
+      // reference: it is a pointer argument from here on, and one word is all
+      // it takes wherever it lands.
+      if (eightbytes == 0 && target->largeAggregatesByReference) {
+        pi->byReference = TRUE;
+        pi->classes[0] = pi->classes[1] = EB_NONE;
+        size = align = sizeof(intptr_t);
+
+        inRegister = intRegParams < target->intArgRegCount;
+        if (inRegister) {
+          pi->loc.physReg = target->intArgRegs[intRegParams++];
+        }
+
+        pi->isRegister = inRegister;
+
+        if (!inRegister) {
+          int32_t alignedOffset = ALIGN_SIZE(stackParamOffset, align);
+          pi->loc.stackOffset = alignedOffset;
+          stackParamOffset = alignedOffset + size;
+        }
+
+        continue;
+      }
 
       uint32_t needInt = 0, needFp = 0;
       for (uint32_t eb = 0; eb < eightbytes; ++eb) {

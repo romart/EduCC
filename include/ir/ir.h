@@ -316,6 +316,10 @@ typedef struct _LocalValueInfo {
 
     struct {
         unsigned referenced: 1; // used for stack slots allocation
+        // The slot above is a *value* that holds the object's address rather
+        // than something in this frame - a parameter the ABI passed by
+        // reference. Nothing is laid out for it; see layoutIncomingParameters.
+        unsigned indirect: 1;
     } flags;
 
 } LocalValueInfo;
