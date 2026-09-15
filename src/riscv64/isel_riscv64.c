@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <string.h>
 
 #include "ir/ir.h"
 #include "ir/isel.h"
@@ -81,15 +82,56 @@ static MachineAddress addressFor(MachineBuilder *b, const IrInstruction *ptr, in
   return addr;
 }
 
+// -============================ Canonical register form ===================-
+//
+// The extension a value of this type carries in its register. This is the
+// invariant the whole integer side rests on: a 32-bit value is kept *sign*-
+// extended whatever its own signedness, because that is what lw produces and
+// what every 'w' instruction produces, so there is one representation of it
+// and slt/sltu compare two of them correctly. Narrower values follow their own
+// signedness, which is what lb/lbu and lh/lhu produce.
+static Boolean canonicalIsUnsigned(enum IrTypeKind t, uint8_t size) {
+  return size < 4 && isUnsignedIrOperand(t);
+}
+
+// A constant in that same form. Without this a folded 0xffffffffu is
+// materialized as the 64-bit 4294967295 while the identical value loaded out
+// of memory is -1, and the two compare unequal - which is the one way an
+// invariant about representations can be got wrong.
+static int64_t canonicalConstant(const IrInstruction *cnst, uint8_t size) {
+  int64_t v = cnst->info.constant.data.i;
+
+  if (size >= (uint8_t)sizeof(intptr_t)) {
+    return v;
+  }
+
+  uint32_t bits = (uint32_t)size * 8;
+  uint64_t masked = (uint64_t)v & ((UINT64_C(1) << bits) - 1);
+
+  if (canonicalIsUnsigned(cnst->type, size)) {
+    return (int64_t)masked;
+  }
+
+  return (int64_t)(masked << (64 - bits)) >> (64 - bits);
+}
+
+// 'li dst, <constant>', in the canonical form for the constant's own type.
+// Every place a folded constant needs a register goes through here rather than
+// through setValueOperand, which would spell the value as the IR holds it.
+static void buildConstantInto(MachineBuilder *b, uint32_t dst, const IrInstruction *cnst,
+                              uint8_t size) {
+  MachineInstr *mi = buildMachineInstr(b, RISCV_LI, 1, 1);
+  setRegisterOperand(mi, 0, dst);
+  setImmediateOperand(mi, 1, canonicalConstant(cnst, valueSize(cnst)));
+  mi->opSize = size;
+}
+
 // -============================ Moves and widths ==========================-
 
 static void selectLoadInto(MachineBuilder *b, uint32_t dst, const IrInstruction *value,
                            uint8_t size) {
   if (machineBuilderIsFolded(b, value)) {
-    MachineInstr *mi = buildMachineInstr(b, RISCV_LI, 1, 1);
-    setRegisterOperand(mi, 0, dst);
-    setValueOperand(b, mi, 1, value);
-    mi->opSize = size;
+    buildConstantInto(b, dst, value, size);
     return;
   }
 
@@ -218,18 +260,175 @@ static void selectLogicalNot(MachineBuilder *b, const IrInstruction *i) {
   mi->opSize = size;
 }
 
-// -============================ Conversions ===============================-
-//
-// The extension a value of this type carries in its register. This is the
-// invariant the whole integer side rests on: a 32-bit value is kept *sign*-
-// extended whatever its own signedness, because that is what lw produces and
-// what every 'w' instruction produces, so there is one representation of it
-// and `slt` compares two of them correctly. Narrower values follow their own
-// signedness, which is what lb/lbu and lh/lhu produce.
-static Boolean canonicalIsUnsigned(enum IrTypeKind t, uint8_t size) {
-  return size < 4 && isUnsignedIrOperand(t);
+// -============================ Floats ====================================-
+
+// A float constant's bits, at the width it is stored in. The IR keeps every
+// float constant at long-double precision, so this is where it is rounded to
+// the one it actually has.
+static int64_t floatConstantBits(const IrInstruction *i) {
+  float80_const_t v = i->info.constant.data.f;
+
+  if (i->type == IR_F32) {
+    float f = (float)v;
+    uint32_t bits = 0;
+    memcpy(&bits, &f, sizeof(bits));
+    // Sign-extended, because that is what 'li' will build and what fmv.w.x
+    // reads the low half of.
+    return (int64_t)(int32_t)bits;
+  }
+
+  double d = (double)v;
+  uint64_t bits = 0;
+  memcpy(&bits, &d, sizeof(bits));
+  return (int64_t)bits;
 }
 
+static void selectFloatBinary(MachineBuilder *b, const IrInstruction *i, uint32_t opcode) {
+  uint8_t size = valueSize(i);
+
+  MachineInstr *mi = buildMachineInstr(b, opcode, 1, 2);
+  setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+  setRegisterOperand(mi, 1, machineBuilderVreg(b, inputAt(i, 0)));
+  setRegisterOperand(mi, 2, machineBuilderVreg(b, inputAt(i, 1)));
+  mi->opSize = size;
+}
+
+// feq/flt/fle and nothing else, so > and >= swap their operands and != is the
+// negation of ==. All three are quiet on a quiet NaN and answer false, which
+// is what C says every one of these comparisons does - and it is why != is a
+// negation rather than a comparison of its own: 'a != b' is true when either
+// is a NaN, which is exactly '!(a == b)'.
+static void selectFloatCompare(MachineBuilder *b, const IrInstruction *i) {
+  const IrInstruction *lhs = inputAt(i, 0);
+  const IrInstruction *rhs = inputAt(i, 1);
+  uint8_t size = valueSize(lhs);
+  uint32_t dst = machineBuilderVreg(b, i);
+
+  uint32_t opcode = RISCV_FEQ;
+  Boolean swap = FALSE, invert = FALSE;
+
+  switch (i->kind) {
+  case IR_E_FEQ: opcode = RISCV_FEQ; break;
+  case IR_E_FNE: opcode = RISCV_FEQ; invert = TRUE; break;
+  case IR_E_FLT: opcode = RISCV_FLT; break;
+  case IR_E_FLE: opcode = RISCV_FLE; break;
+  case IR_E_FGT: opcode = RISCV_FLT; swap = TRUE; break;
+  case IR_E_FGE: opcode = RISCV_FLE; swap = TRUE; break;
+  default: unreachable("not a float comparison");
+  }
+
+  uint32_t l = machineBuilderVreg(b, lhs);
+  uint32_t r = machineBuilderVreg(b, rhs);
+  uint32_t answer = invert ? createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t)) : dst;
+
+  // The answer lands in an *integer* register, so opSize is that register's
+  // width and srcSize carries the precision the comparison is made at. Using
+  // opSize for the precision would say this def is four bytes of an eight-byte
+  // register, which is a partial def and is not what happens.
+  MachineInstr *cmp = buildMachineInstr(b, opcode, 1, 2);
+  setRegisterOperand(cmp, 0, answer);
+  setRegisterOperand(cmp, 1, swap ? r : l);
+  setRegisterOperand(cmp, 2, swap ? l : r);
+  cmp->opSize = sizeof(intptr_t);
+  cmp->srcSize = size;
+
+  if (invert) {
+    MachineInstr *flip = buildMachineInstr(b, RISCV_XOR, 1, 2);
+    setRegisterOperand(flip, 0, dst);
+    setRegisterOperand(flip, 1, answer);
+    setImmediateOperand(flip, 2, 1);
+    flip->opSize = sizeof(intptr_t);
+  }
+}
+
+// A conversion with a float on one side or both.
+static void selectFloatConversion(MachineBuilder *b, const IrInstruction *i,
+                                  enum IrTypeKind fromType, enum IrTypeKind toType) {
+  uint8_t toSize = valueSize(i);
+  const IrInstruction *value = inputAt(i, 0);
+  uint8_t fromSize = valueSize(value);
+  uint32_t dst = machineBuilderVreg(b, i);
+
+  Boolean fromFloat = isFloatIrType(fromType);
+  Boolean toFloat = isFloatIrType(toType);
+
+  if (fromFloat && toFloat) {
+    // Same width is a move; float <-> double changes the bits completely and
+    // is its own instruction.
+    MachineInstr *mi = buildMachineInstr(b, fromSize == toSize ? MOP_COPY : RISCV_FCVT_F2F, 1, 1);
+    setRegisterOperand(mi, 0, dst);
+    setRegisterOperand(mi, 1, machineBuilderVreg(b, value));
+    mi->opSize = toSize;
+    mi->srcSize = fromSize;
+    return;
+  }
+
+  if (toType == IR_BOOL) {
+    // 'x != 0.0', which is a compare against a zero this has to make: there is
+    // no float register hardwired to it the way x0 is.
+    uint32_t zeroBits = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+    uint32_t zero = createVirtualRegister(b->mf, RC_FP, fromSize);
+    uint32_t equal = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
+    MachineInstr *li = buildMachineInstr(b, RISCV_LI, 1, 1);
+    setRegisterOperand(li, 0, zeroBits);
+    setImmediateOperand(li, 1, 0);
+    li->opSize = sizeof(intptr_t);
+
+    MachineInstr *mv = buildMachineInstr(b, RISCV_FMV_F, 1, 1);
+    setRegisterOperand(mv, 0, zero);
+    setRegisterOperand(mv, 1, zeroBits);
+    mv->opSize = fromSize;
+
+    MachineInstr *cmp = buildMachineInstr(b, RISCV_FEQ, 1, 2);
+    setRegisterOperand(cmp, 0, equal);
+    setRegisterOperand(cmp, 1, machineBuilderVreg(b, value));
+    setRegisterOperand(cmp, 2, zero);
+    cmp->opSize = sizeof(intptr_t);
+    cmp->srcSize = fromSize;
+
+    MachineInstr *flip = buildMachineInstr(b, RISCV_XOR, 1, 2);
+    setRegisterOperand(flip, 0, dst);
+    setRegisterOperand(flip, 1, equal);
+    setImmediateOperand(flip, 2, 1);
+    flip->opSize = sizeof(intptr_t);
+    return;
+  }
+
+  if (toFloat) {
+    // integer -> float. The integer forms are four and eight bytes only, so a
+    // narrower source is widened by its own signedness first - which is exact,
+    // and is what C says the conversion does.
+    uint8_t srcSize = fromSize < 4 ? 4 : fromSize;
+    uint32_t src = selectWidened(b, value, srcSize);
+
+    MachineInstr *mi = buildMachineInstr(
+        b, isUnsignedIrOperand(fromType) ? RISCV_FCVT_U2F : RISCV_FCVT_I2F, 1, 1);
+    setRegisterOperand(mi, 0, dst);
+    setRegisterOperand(mi, 1, src);
+    mi->opSize = toSize;
+    mi->srcSize = srcSize;
+    return;
+  }
+
+  // float -> integer, truncating toward zero, which is what a C cast does. The
+  // instruction converts to four or eight bytes; a narrower destination takes
+  // the low ones, and the value is in range by C's rules whenever the result is
+  // defined at all. The destination register is written whole, so opSize says
+  // the register and srcSize the float.
+  Boolean isUnsigned = isUnsignedIrOperand(toType);
+  uint8_t intSize = toSize < 4 ? 4 : toSize;
+
+  MachineInstr *mi = buildMachineInstr(
+      b, isUnsigned ? RISCV_FCVT_F2U : RISCV_FCVT_F2I, 1, 1);
+  setRegisterOperand(mi, 0, dst);
+  setRegisterOperand(mi, 1, machineBuilderVreg(b, value));
+  mi->opSize = intSize;
+  mi->srcSize = fromSize;
+}
+
+// -============================ Conversions ===============================-
+//
 static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
   enum IrTypeKind fromType = i->info.fromCastType;
   enum IrTypeKind toType = i->type;
@@ -237,10 +436,13 @@ static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
   const IrInstruction *value = inputAt(i, 0);
   uint32_t dst = machineBuilderVreg(b, i);
 
-  assert(!isFloatIrType(fromType) && !isFloatIrType(toType) &&
-         "float conversions have their own rules");
   assert(fromType != IR_P_AGG && toType != IR_P_AGG &&
          "a conversion to or from an aggregate");
+
+  if (isFloatIrType(fromType) || isFloatIrType(toType)) {
+    selectFloatConversion(b, i, fromType, toType);
+    return;
+  }
 
   // A conversion to _Bool is the one that is not a change of width: C defines
   // it as 'x != 0', so (_Bool)0x100 is 1 rather than the low byte of 0x100.
@@ -275,12 +477,9 @@ static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
   uint32_t src = machineBuilderIsFolded(b, value) ? NO_REG : machineBuilderVreg(b, value);
 
   if (src == NO_REG) {
-    // A folded constant is already the value; materializing it writes the
-    // whole register and needs no extension after it.
-    MachineInstr *li = buildMachineInstr(b, RISCV_LI, 1, 1);
-    setRegisterOperand(li, 0, dst);
-    setValueOperand(b, li, 1, value);
-    li->opSize = toSize;
+    // A folded constant is already the value, and buildConstantInto puts it in
+    // the destination type's canonical form, so nothing extends it afterwards.
+    buildConstantInto(b, dst, value, toSize);
     return;
   }
 
@@ -580,15 +779,25 @@ static void selectMemoryLoad(MachineBuilder *b, const IrInstruction *i) {
   // register it wholly wrote. On x86 the same load really is partial unless it
   // is spelled movzx/movsx; here there is no such form because there is no
   // such thing.
-  Boolean isUnsigned = isUnsignedIrOperand(t);
-  MachineInstr *mi = buildMachineInstr(b, isUnsigned && size < 8 ? RISCV_LOADU : RISCV_LOAD, 1, 1);
+  // Only a byte or a halfword uses the zero-extending form. A four-byte load
+  // is 'lw', which sign-extends, *whatever* the value's signedness: that is
+  // the canonical form for a 32-bit value here (see canonicalIsUnsigned), it
+  // is what every 'w' instruction produces, and it is what makes one
+  // representation of one value. An unsigned int wanted at sixty-four bits is
+  // zero-extended by the cast the IR spells out.
+  //
+  // Using 'lwu' instead and noting the register as sign-extended - which is
+  // what this did first - is the two halves disagreeing: the note is what a
+  // later use skips its own extension on the strength of.
+  Boolean extendsWithZero = isUnsignedIrOperand(t) && size < 4;
+  MachineInstr *mi = buildMachineInstr(b, extendsWithZero ? RISCV_LOADU : RISCV_LOAD, 1, 1);
   setRegisterOperand(mi, 0, dst);
   setMemoryOperand(mi, 1, &addr);
   mi->opSize = sizeof(intptr_t);
   mi->srcSize = size;
 
   if (size < sizeof(intptr_t)) {
-    machineNoteRegisterExtension(b->mf, dst, sizeof(intptr_t), isUnsigned && size < 4);
+    machineNoteRegisterExtension(b->mf, dst, sizeof(intptr_t), extendsWithZero);
   }
 }
 
@@ -622,10 +831,7 @@ static void selectMemoryStore(MachineBuilder *b, const IrInstruction *i) {
     // A folded constant has no register and a store has no immediate form, so
     // it is materialized here rather than at every use.
     src = createVirtualRegister(b->mf, RC_GP, size);
-    MachineInstr *li = buildMachineInstr(b, RISCV_LI, 1, 1);
-    setRegisterOperand(li, 0, src);
-    setValueOperand(b, li, 1, value);
-    li->opSize = size;
+    buildConstantInto(b, src, value, size);
   }
 
   addr = addressFor(b, inputAt(i, 0), 0);
@@ -634,6 +840,67 @@ static void selectMemoryStore(MachineBuilder *b, const IrInstruction *i) {
   setMemoryOperand(mi, 0, &addr);
   setRegisterOperand(mi, 1, src);
   mi->opSize = size;
+}
+
+// -============================ Block copy ================================-
+
+// An aggregate assignment, unrolled into load/store pairs. RV64 has no string
+// move to fall back on - x86's 'rep movsb' has no counterpart - and selection
+// may not invent the basic blocks a loop would need, so the count has to be
+// known here. It always is: C has no assignment of an object whose size is not
+// known, a VLA cannot be assigned and a flexible array member is not part of
+// its struct's size, which is the same reasoning selectMemoryCopy states on
+// the other target.
+static void selectMemoryCopy(MachineBuilder *b, const IrInstruction *i) {
+  const IrInstruction *count = inputAt(i, 2);
+
+  assert(count->kind == IR_DEF_CONST && count->info.constant.kind == IR_CK_INTEGER &&
+         count->info.constant.data.i >= 0 &&
+         "a block copy whose size is not known needs a call to memcpy");
+
+  int32_t bytes = (int32_t)count->info.constant.data.i;
+
+  // Both addresses once, outside the loop: the chunks differ only in their
+  // displacement, and an address built by arithmetic would otherwise be built
+  // again for every chunk.
+  MachineAddress from = addressFor(b, inputAt(i, 1), 0);
+  MachineAddress to = addressFor(b, inputAt(i, 0), 0);
+
+  // One register per chunk width rather than one for all of them: a register
+  // whose width is the load's is a register the spill of it writes whole.
+  uint32_t tmp[4] = { NO_REG, NO_REG, NO_REG, NO_REG };
+
+  for (int32_t done = 0; done < bytes;) {
+    int32_t left = bytes - done;
+    uint8_t chunk = left >= 8 ? 8 : left >= 4 ? 4 : left >= 2 ? 2 : 1;
+    uint32_t *slot = &tmp[chunk == 8 ? 3 : chunk == 4 ? 2 : chunk == 2 ? 1 : 0];
+
+    if (*slot == NO_REG) {
+      *slot = createVirtualRegister(b->mf, RC_GP, chunk);
+    }
+
+    MachineAddress fromChunk = from;
+    MachineAddress toChunk = to;
+    fromChunk.disp += done;
+    toChunk.disp += done;
+
+    // Unsigned, so that a byte or halfword of somebody else's bytes is not
+    // sign-extended into the register and then stored back narrowed - the
+    // store would write the same bytes either way, but the load is what the
+    // allocator sees and a zero-extended one is what it is.
+    MachineInstr *load = buildMachineInstr(b, RISCV_LOADU, 1, 1);
+    setRegisterOperand(load, 0, *slot);
+    setMemoryOperand(load, 1, &fromChunk);
+    load->opSize = chunk;
+    load->srcSize = chunk;
+
+    MachineInstr *store = buildMachineInstr(b, RISCV_STORE, 0, 2);
+    setMemoryOperand(store, 0, &toChunk);
+    setRegisterOperand(store, 1, *slot);
+    store->opSize = chunk;
+
+    done += chunk;
+  }
 }
 
 // -============================ Constants and registers ===================-
@@ -667,12 +934,29 @@ static void selectConstant(MachineBuilder *b, const IrInstruction *i) {
     return;
   }
 
+  if (i->info.constant.kind == IR_CK_FLOAT) {
+    // RV64 has no float immediate and no need of a constant pool for one: the
+    // bits go into an integer register, which 'li' can build to any width, and
+    // fmv moves them across unchanged. x86 does the same thing for the same
+    // reason - there is no 'mov xmm, imm' either.
+    uint8_t size = valueSize(i);
+    uint32_t bits = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
+    MachineInstr *li = buildMachineInstr(b, RISCV_LI, 1, 1);
+    setRegisterOperand(li, 0, bits);
+    setImmediateOperand(li, 1, floatConstantBits(i));
+    li->opSize = sizeof(intptr_t);
+
+    MachineInstr *mv = buildMachineInstr(b, RISCV_FMV_F, 1, 1);
+    setRegisterOperand(mv, 0, machineBuilderVreg(b, i));
+    setRegisterOperand(mv, 1, bits);
+    mv->opSize = size;
+    return;
+  }
+
   assert(i->info.constant.kind == IR_CK_INTEGER && "no rule for this constant kind");
 
-  MachineInstr *mi = buildMachineInstr(b, RISCV_LI, 1, 1);
-  setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
-  setImmediateOperand(mi, 1, i->info.constant.data.i);
-  mi->opSize = valueSize(i);
+  buildConstantInto(b, machineBuilderVreg(b, i), i, valueSize(i));
 }
 
 static void selectPhysReg(MachineBuilder *b, const IrInstruction *i) {
@@ -797,7 +1081,8 @@ static uint32_t floatBitsInGpRegister(MachineBuilder *b, const IrInstruction *ar
   MachineInstr *mv = buildMachineInstr(b, RISCV_FMV_X, 1, 1);
   setRegisterOperand(mv, 0, bits);
   setRegisterOperand(mv, 1, machineBuilderVreg(b, arg));
-  mv->opSize = size;
+  mv->opSize = sizeof(intptr_t);
+  mv->srcSize = size;
 
   return bits;
 }
@@ -931,6 +1216,13 @@ static void selectReturn(MachineBuilder *b, const IrInstruction *i) {
 // -============================ The dispatch ==============================-
 
 static void selectInstruction_riscv64(MachineBuilder *b, const IrInstruction *i) {
+  // RV64's long double is IEEE binary128 and there is no hardware for it:
+  // every operation is a libgcc call, which is a project of its own. Refused
+  // where a value of the type is actually computed rather than where the type
+  // is named - glibc's headers declare strtold and friends, so a translation
+  // unit that includes <stdlib.h> mentions the type without using it.
+  assert(i->type != IR_F80 && "long double is not supported on riscv64");
+
   int32_t frameIdx = machineFrameIndexForValue(b->mf, i);
 
   if (frameIdx >= 0) {
@@ -981,6 +1273,20 @@ static void selectInstruction_riscv64(MachineBuilder *b, const IrInstruction *i)
   case IR_U_NOT: selectLogicalNot(b, i); break;
   case IR_E_BITCAST: selectConversion(b, i); break;
 
+  case IR_E_FADD: selectFloatBinary(b, i, RISCV_FADD); break;
+  case IR_E_FSUB: selectFloatBinary(b, i, RISCV_FSUB); break;
+  case IR_E_FMUL: selectFloatBinary(b, i, RISCV_FMUL); break;
+  case IR_E_FDIV: selectFloatBinary(b, i, RISCV_FDIV); break;
+
+  case IR_E_FEQ:
+  case IR_E_FNE:
+  case IR_E_FLT:
+  case IR_E_FLE:
+  case IR_E_FGT:
+  case IR_E_FGE:
+    selectFloatCompare(b, i);
+    break;
+
   // Both spellings reach the same rule: what distinguishes a direct call from
   // an indirect one is whether the callee operand came out a symbol or a
   // register, and setValueOperand decides that from the value itself.
@@ -992,6 +1298,7 @@ static void selectInstruction_riscv64(MachineBuilder *b, const IrInstruction *i)
   case IR_GET_ELEMENT_PTR: selectGep(b, i); break;
   case IR_M_LOAD: selectMemoryLoad(b, i); break;
   case IR_M_STORE: selectMemoryStore(b, i); break;
+  case IR_M_COPY: selectMemoryCopy(b, i); break;
 
   case IR_E_EQ:
   case IR_E_NE:
@@ -1006,10 +1313,24 @@ static void selectInstruction_riscv64(MachineBuilder *b, const IrInstruction *i)
   // that never wrote it. Its value is whatever C says an uninitialized object
   // holds; zero is the one that makes the resulting misbehaviour reproducible.
   case IR_BAD: {
+    uint8_t size = valueSize(i);
+    uint32_t dst = machineBuilderVreg(b, i);
+    Boolean viaGp = isFloatIrType(i->type);
+    // 'li' writes an integer register, so a float one takes the zero the way a
+    // float constant does - through a general register and across.
+    uint32_t zero = viaGp ? createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t)) : dst;
+
     MachineInstr *mi = buildMachineInstr(b, RISCV_LI, 1, 1);
-    setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+    setRegisterOperand(mi, 0, zero);
     setImmediateOperand(mi, 1, 0);
-    mi->opSize = valueSize(i);
+    mi->opSize = viaGp ? (uint8_t)sizeof(intptr_t) : size;
+
+    if (viaGp) {
+      MachineInstr *across = buildMachineInstr(b, RISCV_FMV_F, 1, 1);
+      setRegisterOperand(across, 0, dst);
+      setRegisterOperand(across, 1, zero);
+      across->opSize = size;
+    }
     break;
   }
 

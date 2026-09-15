@@ -171,6 +171,41 @@ void riscvFStore(struct _GeneratedFunction *f, enum FRegister src, enum XRegiste
 #define RISCV_BR_LTU 0x6
 #define RISCV_BR_GEU 0x7
 
+// The F and D extensions. 'width' is 4 or 8 and picks the precision; the
+// funct7 constants below are the single-precision forms, and the double ones
+// are one greater.
+#define RISCV_FP_ADD 0x00
+#define RISCV_FP_SUB 0x04
+#define RISCV_FP_MUL 0x08
+#define RISCV_FP_DIV 0x0c
+
+// fsgnj's three funct3 values, which with rs1 == rs2 are fmv, fneg and fabs.
+#define RISCV_FSGNJ_MOVE 0x0
+#define RISCV_FSGNJ_NEG  0x1
+#define RISCV_FSGNJ_ABS  0x2
+
+// The comparisons' funct3. Note the order: fle is 0 and feq is 2.
+#define RISCV_FCMP_LE 0x0
+#define RISCV_FCMP_LT 0x1
+#define RISCV_FCMP_EQ 0x2
+
+void riscvFpArith(struct _GeneratedFunction *f, uint32_t funct7, uint32_t width,
+                  enum FRegister rd, enum FRegister rs1, enum FRegister rs2);
+void riscvFpSignInject(struct _GeneratedFunction *f, uint32_t funct3, uint32_t width,
+                       enum FRegister rd, enum FRegister rs1, enum FRegister rs2);
+void riscvFpCompare(struct _GeneratedFunction *f, uint32_t funct3, uint32_t width,
+                    enum XRegister rd, enum FRegister rs1, enum FRegister rs2);
+void riscvFpConvertFp(struct _GeneratedFunction *f, uint32_t toWidth, uint32_t fromWidth,
+                      enum FRegister rd, enum FRegister rs);
+void riscvFpFromInt(struct _GeneratedFunction *f, uint32_t fpWidth, uint32_t intWidth,
+                    Boolean isUnsigned, enum FRegister rd, enum XRegister rs);
+void riscvFpToInt(struct _GeneratedFunction *f, uint32_t intWidth, uint32_t fpWidth,
+                  Boolean isUnsigned, enum XRegister rd, enum FRegister rs);
+void riscvFpMoveToInt(struct _GeneratedFunction *f, uint32_t width, enum XRegister rd,
+                      enum FRegister rs);
+void riscvFpMoveFromInt(struct _GeneratedFunction *f, uint32_t width, enum FRegister rd,
+                        enum XRegister rs);
+
 void riscvBranch(struct _GeneratedFunction *f, uint32_t funct3, enum XRegister rs1,
                  enum XRegister rs2, int32_t offset);
 void riscvJal(struct _GeneratedFunction *f, enum XRegister rd, int32_t offset);

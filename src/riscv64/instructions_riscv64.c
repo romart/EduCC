@@ -454,6 +454,7 @@ void EmitCJ(GeneratedFunction *f, uint32_t funct3, int32_t offset, uint32_t opco
 #define OP_REG      0x33
 #define OP_LUI      0x37
 #define OP_REG_32   0x3b
+#define OP_FP       0x53
 #define OP_BRANCH   0x63
 #define OP_JALR     0x67
 #define OP_JAL      0x6f
@@ -609,6 +610,78 @@ void riscvFStore(GeneratedFunction *f, enum FRegister src, enum XRegister base, 
                  uint32_t width) {
   assert(width == 4 || width == 8);
   EmitS(f, off, src, base, width == 4 ? 0x2 : 0x3, OP_STORE_FP);
+}
+
+// -------------------------------------------------------------------------
+// The F and D extensions.
+//
+// One OP-FP opcode covers all of it, with funct7 naming the operation *and*
+// its precision - the '.s' and '.d' forms differ by one in funct7, which is
+// what 'fmt' below adds. funct3 is the rounding mode where an instruction has
+// one: 0x7 asks for whatever the fcsr says, which is what C arithmetic wants,
+// and 0x1 is round-toward-zero, which is what a C cast to an integer wants and
+// the one place this backend names a mode explicitly.
+// -------------------------------------------------------------------------
+
+#define FP_RM_DYNAMIC 0x7
+#define FP_RM_RTZ     0x1
+
+// 0 for single precision, 1 for double. Every funct7 below is the '.s' form.
+static uint32_t fpFmt(uint32_t width) {
+  assert(width == 4 || width == 8);
+  return width == 4 ? 0u : 1u;
+}
+
+void riscvFpArith(GeneratedFunction *f, uint32_t funct7, uint32_t width, enum FRegister rd,
+                  enum FRegister rs1, enum FRegister rs2) {
+  EmitR(f, funct7 + fpFmt(width), rs2, rs1, FP_RM_DYNAMIC, rd, OP_FP);
+}
+
+// fsgnj and its variants: rd takes rs1's magnitude and a sign built from rs2's.
+// With rs1 == rs2 they are the three moves - fmv, fneg and fabs - which is how
+// RV64 spells all three without an instruction of their own.
+void riscvFpSignInject(GeneratedFunction *f, uint32_t funct3, uint32_t width, enum FRegister rd,
+                       enum FRegister rs1, enum FRegister rs2) {
+  EmitR(f, 0x10 + fpFmt(width), rs2, rs1, funct3, rd, OP_FP);
+}
+
+// The comparisons, whose answer is an *integer* register.
+void riscvFpCompare(GeneratedFunction *f, uint32_t funct3, uint32_t width, enum XRegister rd,
+                    enum FRegister rs1, enum FRegister rs2) {
+  EmitR(f, 0x50 + fpFmt(width), rs2, rs1, funct3, rd, OP_FP);
+}
+
+// float <-> double. The destination's width picks the instruction and the
+// source's is encoded where rs2 would go.
+void riscvFpConvertFp(GeneratedFunction *f, uint32_t toWidth, uint32_t fromWidth,
+                      enum FRegister rd, enum FRegister rs) {
+  assert(toWidth != fromWidth);
+  EmitR(f, 0x20 + fpFmt(toWidth), fpFmt(fromWidth), rs, FP_RM_DYNAMIC, rd, OP_FP);
+}
+
+// integer -> float. 'intWidth' is 4 or 8 and 'isUnsigned' picks between the
+// w/l and wu/lu forms, which is the rs2 field: 0 w, 1 wu, 2 l, 3 lu.
+void riscvFpFromInt(GeneratedFunction *f, uint32_t fpWidth, uint32_t intWidth,
+                    Boolean isUnsigned, enum FRegister rd, enum XRegister rs) {
+  uint32_t which = (intWidth == 8 ? 2u : 0u) + (isUnsigned ? 1u : 0u);
+  EmitR(f, 0x68 + fpFmt(fpWidth), which, rs, FP_RM_DYNAMIC, rd, OP_FP);
+}
+
+// float -> integer, truncating toward zero, which is what a C cast does.
+void riscvFpToInt(GeneratedFunction *f, uint32_t intWidth, uint32_t fpWidth,
+                  Boolean isUnsigned, enum XRegister rd, enum FRegister rs) {
+  uint32_t which = (intWidth == 8 ? 2u : 0u) + (isUnsigned ? 1u : 0u);
+  EmitR(f, 0x60 + fpFmt(fpWidth), which, rs, FP_RM_RTZ, rd, OP_FP);
+}
+
+// The bits across, unchanged, in either direction. Only the same width: there
+// is no fmv between a float register and half an integer one.
+void riscvFpMoveToInt(GeneratedFunction *f, uint32_t width, enum XRegister rd, enum FRegister rs) {
+  EmitR(f, 0x70 + fpFmt(width), 0, rs, 0x0, rd, OP_FP);
+}
+
+void riscvFpMoveFromInt(GeneratedFunction *f, uint32_t width, enum FRegister rd, enum XRegister rs) {
+  EmitR(f, 0x78 + fpFmt(width), 0, rs, 0x0, rd, OP_FP);
 }
 
 void riscvBranch(GeneratedFunction *f, uint32_t funct3, enum XRegister rs1, enum XRegister rs2,

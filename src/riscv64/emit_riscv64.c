@@ -454,7 +454,11 @@ static void emitCopy(EmitContext *e, const MachineInstr *mi) {
   }
 
   if (isFpReg(e, srcId)) {
-    unreachable("float copies arrive with the float rules");
+    // 'fmv.d rd, rs' is 'fsgnj.d rd, rs, rs' - the magnitude and the sign both
+    // taken from the same register, which is a move.
+    enum FRegister src = fReg(e, srcId);
+    riscvFpSignInject(e->gen, RISCV_FSGNJ_MOVE, mi->opSize, fReg(e, dstId), src, src);
+    return;
   }
 
   // 'mv rd, rs' is 'addi rd, rs, 0'.
@@ -670,6 +674,71 @@ static void emitInstruction(EmitContext *e, const MachineInstr *mi) {
 
   case RISCV_SEXT: emitExtend(e, mi, FALSE); return;
   case RISCV_ZEXT: emitExtend(e, mi, TRUE); return;
+
+  case RISCV_FADD:
+  case RISCV_FSUB:
+  case RISCV_FMUL:
+  case RISCV_FDIV: {
+    static const uint32_t funct7[] = {
+      RISCV_FP_ADD, RISCV_FP_SUB, RISCV_FP_MUL, RISCV_FP_DIV
+    };
+    riscvFpArith(e->gen, funct7[mi->opcode - RISCV_FADD], mi->opSize,
+                 fReg(e, regIdOperand(mi, 0)), fReg(e, regIdOperand(mi, 1)),
+                 fReg(e, regIdOperand(mi, 2)));
+    return;
+  }
+
+  // fneg and fabs are fsgnj with both sources the same register: the magnitude
+  // is rs1's and the sign is built from rs2's, so one operand twice gives a
+  // sign flipped, cleared, or copied.
+  case RISCV_FNEG:
+  case RISCV_FABS: {
+    enum FRegister rs = fReg(e, regIdOperand(mi, 1));
+    riscvFpSignInject(e->gen, mi->opcode == RISCV_FNEG ? RISCV_FSGNJ_NEG : RISCV_FSGNJ_ABS,
+                      mi->opSize, fReg(e, regIdOperand(mi, 0)), rs, rs);
+    return;
+  }
+
+  case RISCV_FEQ:
+  case RISCV_FLT:
+  case RISCV_FLE: {
+    static const uint32_t funct3[] = { RISCV_FCMP_EQ, RISCV_FCMP_LT, RISCV_FCMP_LE };
+    // srcSize, not opSize: the destination is an integer register and opSize is
+    // its width, where the precision is the operands'.
+    riscvFpCompare(e->gen, funct3[mi->opcode - RISCV_FEQ], machineInstrSrcSize(mi),
+                   xReg(e, regIdOperand(mi, 0)), fReg(e, regIdOperand(mi, 1)),
+                   fReg(e, regIdOperand(mi, 2)));
+    return;
+  }
+
+  case RISCV_FCVT_F2F:
+    riscvFpConvertFp(e->gen, mi->opSize, machineInstrSrcSize(mi),
+                     fReg(e, regIdOperand(mi, 0)), fReg(e, regIdOperand(mi, 1)));
+    return;
+
+  case RISCV_FCVT_I2F:
+  case RISCV_FCVT_U2F:
+    riscvFpFromInt(e->gen, mi->opSize, machineInstrSrcSize(mi),
+                   mi->opcode == RISCV_FCVT_U2F, fReg(e, regIdOperand(mi, 0)),
+                   xReg(e, regIdOperand(mi, 1)));
+    return;
+
+  case RISCV_FCVT_F2I:
+  case RISCV_FCVT_F2U:
+    riscvFpToInt(e->gen, mi->opSize, machineInstrSrcSize(mi),
+                 mi->opcode == RISCV_FCVT_F2U, xReg(e, regIdOperand(mi, 0)),
+                 fReg(e, regIdOperand(mi, 1)));
+    return;
+
+  case RISCV_FMV_X:
+    riscvFpMoveToInt(e->gen, machineInstrSrcSize(mi), xReg(e, regIdOperand(mi, 0)),
+                     fReg(e, regIdOperand(mi, 1)));
+    return;
+
+  case RISCV_FMV_F:
+    riscvFpMoveFromInt(e->gen, mi->opSize, fReg(e, regIdOperand(mi, 0)),
+                       xReg(e, regIdOperand(mi, 1)));
+    return;
 
   // 'neg rd, rs' is 'sub rd, x0, rs'; 'not rd, rs' is 'xori rd, rs, -1'.
   case RISCV_NEG:
