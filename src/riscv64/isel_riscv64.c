@@ -821,9 +821,90 @@ static void selectTableBranch(MachineBuilder *b, const IrInstruction *i) {
 
 // -============================ Memory ====================================-
 
+// Somewhere in the outgoing-argument area, which is the one part of the frame
+// addressed off the stack pointer rather than off s0: the callee reads its
+// stack arguments at 0(sp) and upwards, so the area is wherever sp is.
+static MachineAddress outgoingArgAddress(const MachineFunction *mf, int32_t offset) {
+  MachineAddress addr = { MAK_REG, mf->target->sp, NO_REG, 0, offset };
+  return addr;
+}
+
+// A VLA or a call to alloca(): the block is carved out of the stack where the
+// allocation stands, so its address is the stack pointer afterwards rather
+// than a displacement from s0.
+//
+// Nothing puts sp back. Every local, spill and callee-saved slot is addressed
+// from s0, and the epilogue restores sp from s0 on every return path, so the
+// allocation lasts exactly as long as C says it does and costs nothing to end.
+static void selectDynamicAlloca(MachineBuilder *b, const IrInstruction *i) {
+  const int64_t alignment = 2 * sizeof(intptr_t);
+  uint32_t sp = b->mf->target->sp;
+  uint32_t bytes = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
+  // At a word, whatever width the size was computed at: this is about to be
+  // subtracted from a pointer, and the bytes above a narrow count are not the
+  // count's to supply.
+  selectLoadInto(b, bytes, inputAt(i, 0), sizeof(intptr_t));
+
+  // Rounded up to 16 rather than to the requested object's alignment, which is
+  // not known here - and which 16 covers, being the strictest an RV64 scalar
+  // asks for. It is also what keeps sp where LP64D wants it at the next call.
+  MachineInstr *round = buildMachineInstr(b, RISCV_ADD, 1, 2);
+  setRegisterOperand(round, 0, bytes);
+  setRegisterOperand(round, 1, bytes);
+  setImmediateOperand(round, 2, alignment - 1);
+  round->opSize = sizeof(intptr_t);
+
+  MachineInstr *mask = buildMachineInstr(b, RISCV_AND, 1, 2);
+  setRegisterOperand(mask, 0, bytes);
+  setRegisterOperand(mask, 1, bytes);
+  setImmediateOperand(mask, 2, -alignment);
+  mask->opSize = sizeof(intptr_t);
+
+  MachineInstr *carve = buildMachineInstr(b, RISCV_SUB, 1, 2);
+  setRegisterOperand(carve, 0, sp);
+  setRegisterOperand(carve, 1, sp);
+  setRegisterOperand(carve, 2, bytes);
+  carve->opSize = sizeof(intptr_t);
+
+  // The result is the new top of the stack, above whatever of it the outgoing
+  // arguments have reserved: the area is always the lowest bytes of the stack,
+  // so carving below it moves it down with sp and leaves the block that was
+  // just carved starting where it ends.
+  uint32_t outgoing = b->mf->frame.outgoingSize;
+  MachineAddress addr = outgoingArgAddress(b->mf, (int32_t)outgoing);
+
+  MachineInstr *result = buildMachineInstr(b, RISCV_LA, 1, 1);
+  setRegisterOperand(result, 0, machineBuilderVreg(b, i));
+  setMemoryOperand(result, 1, &addr);
+  result->opSize = sizeof(intptr_t);
+}
+
+// Reading and writing the stack pointer, which is all a loop needs to give
+// back what its body carved out of the stack. Both are plain moves; what makes
+// them worth two opcodes rather than an IR_P_REG read is that the stack
+// pointer is not a value GVN may assume two reads of agree about.
+static void selectStackSave(MachineBuilder *b, const IrInstruction *i) {
+  MachineInstr *mi = buildMachineInstr(b, MOP_COPY, 1, 1);
+  setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+  setRegisterOperand(mi, 1, b->mf->target->sp);
+  mi->opSize = sizeof(intptr_t);
+}
+
+static void selectStackRestore(MachineBuilder *b, const IrInstruction *i) {
+  MachineInstr *mi = buildMachineInstr(b, MOP_COPY, 1, 1);
+  setRegisterOperand(mi, 0, b->mf->target->sp);
+  setRegisterOperand(mi, 1, machineBuilderVreg(b, inputAt(i, 0)));
+  mi->opSize = sizeof(intptr_t);
+}
+
 static void selectFrameAddress(MachineBuilder *b, const IrInstruction *i, int32_t frameIdx) {
   const MachineFrameObject *obj = machineFrameObjectAt(b->mf, frameIdx);
-  assert(!obj->isDynamic && "a dynamic alloca needs its own rule");
+  if (obj->isDynamic) {
+    selectDynamicAlloca(b, i);
+    return;
+  }
+
 
   // The slot's address, not what is in it - 'addi rd, s0, off'.
   MachineInstr *mi = buildMachineInstr(b, RISCV_LA, 1, 1);
@@ -1335,13 +1416,6 @@ static uint32_t callArgRegister(MachineBuilder *b, const IrInstruction *call,
   return machineBuilderVreg(b, arg);
 }
 
-// A slot of the outgoing area, which sits at the bottom of the frame and is
-// therefore addressed from the stack pointer.
-static MachineAddress outgoingArgAddress(const MachineFunction *mf, int32_t offset) {
-  MachineAddress addr = { MAK_REG, mf->target->sp, NO_REG, 0, offset };
-  return addr;
-}
-
 // An aggregate the ABI passes as bytes, copied into the outgoing area one
 // eightbyte at a time - which is what the ABI asks for, the callee reading the
 // bytes where the call left them.
@@ -1600,6 +1674,9 @@ static void selectInstruction_riscv64(MachineBuilder *b, const IrInstruction *i)
       selectShift(b, i, RISCV_SRAW, RISCV_SRA);
     }
     break;
+
+  case IR_STACK_SAVE: selectStackSave(b, i); break;
+  case IR_STACK_RESTORE: selectStackRestore(b, i); break;
 
   case IR_U_BNOT: selectUnary(b, i, RISCV_NOT); break;
   case IR_U_NOT: selectLogicalNot(b, i); break;

@@ -348,9 +348,12 @@ static void emitPrologue(EmitContext *e) {
   }
 }
 
+// Everything here is addressed from s0 rather than from sp, and the stack
+// pointer is restored from s0 rather than added back to. A dynamic alloca is
+// why: it moves sp and nothing puts it back, so 'sp + frameSize' is not where
+// the frame began any more, while s0 still holds the caller's stack pointer
+// and every saved register is a fixed distance below it.
 static void emitEpilogue(EmitContext *e) {
-  // The callee-saved reloads are s0-relative, so they come before s0 itself is
-  // restored.
   for (size_t idx = 0; idx < CALLEE_SAVED_COUNT; ++idx) {
     if (e->calleeSavedOffset[idx] == 0) continue;
     emitLoadWide(e, riscvCalleeSaved[idx], X_S0, e->calleeSavedOffset[idx], sizeof(intptr_t), FALSE);
@@ -361,9 +364,12 @@ static void emitEpilogue(EmitContext *e) {
     emitFLoadWide(e, riscvFpCalleeSaved[idx], X_S0, e->fpCalleeSavedOffset[idx], sizeof(double));
   }
 
-  emitLoadWide(e, X_RA, X_SP, savedRaOffset(e), sizeof(intptr_t), FALSE);
-  emitLoadWide(e, X_S0, X_SP, savedS0Offset(e), sizeof(intptr_t), FALSE);
-  emitAddConst(e, X_SP, X_SP, e->frameSize);
+  emitLoadWide(e, X_RA, X_S0, savedRaOffset(e) - e->frameSize, sizeof(intptr_t), FALSE);
+
+  // sp before s0, and s0 last of all: the load that restores it is also the
+  // last use of the old one as a base.
+  riscvAddi(e->gen, X_SP, X_S0, 0);
+  emitLoadWide(e, X_S0, X_S0, savedS0Offset(e) - e->frameSize, sizeof(intptr_t), FALSE);
 
   riscvRet(e->gen);
 }
