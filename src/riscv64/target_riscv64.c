@@ -193,12 +193,12 @@ const TargetDescriptor targetRiscv64 = {
 
   .intRetReg = X_A0,
   .fpRetReg = FR(F_A0),
-  // LP64D does return a two-eightbyte aggregate in a0:a1 or fa0:fa1, but the
-  // rule that decides which is the float-flattening one this target does not
-  // implement yet, and classifyComposite is SysV's. Left unclaimed until the
-  // classification underneath it is LP64D's rather than x86's.
-  .intRetReg2 = IR_NO_PHYS_REG,
-  .fpRetReg2 = IR_NO_PHYS_REG,
+  // LP64D returns a two-eightbyte aggregate in a0:a1 or fa0:fa1, as SysV does.
+  // Which eightbyte goes to which file is still decided by classifyComposite,
+  // which is SysV's rule and not LP64D's float flattening - the one deliberate
+  // ABI divergence left on this target, recorded in the plan's R6.
+  .intRetReg2 = X_A1,
+  .fpRetReg2 = FR(F_A1),
 
   .callerSavedRegs = riscvCallerSavedRegs,
   .callerSavedRegCount = sizeof(riscvCallerSavedRegs) / sizeof(riscvCallerSavedRegs[0]),

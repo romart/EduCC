@@ -3,6 +3,7 @@
 
 #include "ir/ir.h"
 #include "ir/isel.h"
+#include "sema.h"
 #include "instructions_riscv64.h"
 #include "machine_riscv64.h"
 
@@ -54,10 +55,15 @@ static Boolean isAddressableIrType(enum IrTypeKind t) {
 // walk stop one term earlier here than it does on x86-64, so an index term
 // arrives as arithmetic that has already been selected.
 
-static void setFrameAddressOperand(MachineInstr *mi, uint16_t idx, int32_t frameIdx) {
-  MachineAddress addr = { MAK_FRAME, NO_REG, NO_REG, 0, 0 };
+static void setFrameAddressOperandAt(MachineInstr *mi, uint16_t idx, int32_t frameIdx,
+                                     int32_t disp) {
+  MachineAddress addr = { MAK_FRAME, NO_REG, NO_REG, 0, disp };
   addr.anchor.frameIdx = frameIdx;
   setMemoryOperand(mi, idx, &addr);
+}
+
+static void setFrameAddressOperand(MachineInstr *mi, uint16_t idx, int32_t frameIdx) {
+  setFrameAddressOperandAt(mi, idx, frameIdx, 0);
 }
 
 static MachineAddress addressFor(MachineBuilder *b, const IrInstruction *ptr, int32_t disp) {
@@ -1106,8 +1112,16 @@ static void selectPhysReg(MachineBuilder *b, const IrInstruction *i) {
   mi->opSize = valueSize(i);
 }
 
-static uint32_t retRegOf(const TargetDescriptor *target, enum RegClass rc) {
-  return rc == RC_FP ? target->fpRetReg : target->intRetReg;
+// a0 then a1, fa0 then fa1. The two files are counted separately, so an
+// aggregate of a double and a long comes back in fa0 and a0.
+static uint32_t retRegOf(const TargetDescriptor *target, enum RegClass rc, uint32_t idx) {
+  assert(idx < 2 && "no aggregate comes back in more than two registers");
+
+  if (rc == RC_FP) {
+    return idx == 0 ? target->fpRetReg : target->fpRetReg2;
+  }
+
+  return idx == 0 ? target->intRetReg : target->intRetReg2;
 }
 
 // -============================ Calls =====================================-
@@ -1141,6 +1155,33 @@ static enum RegClass callArgClass(const IrInstruction *call, const IrInstruction
   return isFloatIrType(arg->type) ? RC_FP : RC_GP;
 }
 
+static uint32_t argRegCountOf(const TargetDescriptor *target, enum RegClass rc) {
+  return rc == RC_FP ? target->fpArgRegCount : target->intArgRegCount;
+}
+
+static uint32_t argRegOf(const TargetDescriptor *target, enum RegClass rc, uint32_t idx) {
+  return rc == RC_FP ? target->fpArgRegs[idx] : target->intArgRegs[idx];
+}
+
+// What an aggregate passed as bytes takes in the outgoing area: its size
+// rounded to a whole number of eightbytes, and the alignment the callee will
+// read it at. Both come from the callee's view - classifyParametersGeneric -
+// because only the caller can put the bytes where the callee looks.
+static void memArgShape(const IrInstruction *arg, uint32_t *size, uint32_t *align) {
+  assert(arg->astType != NULL && isPointerLikeType(arg->astType));
+
+  const TypeRef *type = arg->astType->pointed;
+
+  *size = (uint32_t)ALIGN_SIZE(computeTypeSize(type), sizeof(intptr_t));
+  *align = (uint32_t)max((int32_t)sizeof(intptr_t), typeAlignment(type));
+}
+
+static uint32_t memArgStackSlots(const IrInstruction *arg) {
+  uint32_t size = 0, align = 0;
+  memArgShape(arg, &size, &align);
+  return size / (uint32_t)sizeof(intptr_t);
+}
+
 // Where one argument goes, or NO_REG when it goes on the stack. Walked from
 // the start each time rather than tabulated: a call has few enough arguments
 // that walking again is cheaper than the array, which is the same reasoning
@@ -1149,19 +1190,45 @@ static uint32_t callArgLocation(const TargetDescriptor *target, const IrInstruct
                                 size_t inputIdx) {
   uint32_t used[RC_CLASS_COUNT] = {0};
 
-  for (size_t idx = firstCallArgIndex(); idx < call->inputs.size; ++idx) {
-    enum RegClass rc = callArgClass(call, inputAt(call, idx));
-    uint32_t count = rc == RC_FP ? target->fpArgRegCount : target->intArgRegCount;
-    const uint32_t *regs = rc == RC_FP ? target->fpArgRegs : target->intArgRegs;
-
-    uint32_t reg = used[rc] < count ? regs[used[rc]] : NO_REG;
-    if (reg != NO_REG) {
-      used[rc] += 1;
+  for (size_t idx = firstCallArgIndex(); idx < call->inputs.size;) {
+    // How many inputs this argument is: two when the one behind it is the
+    // second eightbyte of the same aggregate, which the ABI places together.
+    size_t parts = 1;
+    if (idx + 1 < call->inputs.size && isCallPairedArg(call, idx + 1)) {
+      parts = 2;
     }
 
-    if (idx == inputIdx) {
-      return reg;
+    uint32_t reg[2] = { NO_REG, NO_REG };
+
+    // An aggregate passed as bytes consumes no register of either class: it is
+    // on the stack because of what it is rather than because a class ran out,
+    // so the arguments behind it are unaffected.
+    if (!isCallMemoryArg(call, idx)) {
+      uint32_t want[RC_CLASS_COUNT] = {0};
+      for (size_t p = 0; p < parts; ++p) {
+        want[callArgClass(call, inputAt(call, idx + p))] += 1;
+      }
+
+      // All of it or none of it, the way classifyParametersGeneric decides it
+      // on the callee's side.
+      Boolean fits = TRUE;
+      for (uint32_t rc = 0; rc < RC_CLASS_COUNT; ++rc) {
+        if (used[rc] + want[rc] > argRegCountOf(target, (enum RegClass)rc)) fits = FALSE;
+      }
+
+      if (fits) {
+        for (size_t p = 0; p < parts; ++p) {
+          enum RegClass rc = callArgClass(call, inputAt(call, idx + p));
+          reg[p] = argRegOf(target, rc, used[rc]++);
+        }
+      }
     }
+
+    if (inputIdx < idx + parts) {
+      return reg[inputIdx - idx];
+    }
+
+    idx += parts;
   }
 
   unreachable("every input past the callee is an argument");
@@ -1169,6 +1236,7 @@ static uint32_t callArgLocation(const TargetDescriptor *target, const IrInstruct
 }
 
 // The outgoing area this call needs, and where one stack argument sits in it.
+// Pass SIZE_MAX for wantedIdx to ask only for the total.
 static uint32_t callStackArea(const TargetDescriptor *target, const IrInstruction *call,
                               size_t wantedIdx, int32_t *wantedOffset) {
   int32_t offset = 0;
@@ -1178,17 +1246,39 @@ static uint32_t callStackArea(const TargetDescriptor *target, const IrInstructio
       continue;
     }
 
+    // A stack argument occupies a whole eightbyte however narrow it is; an
+    // aggregate passed as bytes occupies as many as it is wide.
+    uint32_t size = sizeof(intptr_t), align = sizeof(intptr_t);
+
+    if (isCallMemoryArg(call, idx)) {
+      memArgShape(inputAt(call, idx), &size, &align);
+    }
+
+    offset = (int32_t)ALIGN_SIZE(offset, align);
+
     if (idx == wantedIdx) {
       *wantedOffset = offset;
     }
 
-    // A stack argument occupies a whole eightbyte however narrow it is.
-    offset += (int32_t)sizeof(intptr_t);
+    offset += (int32_t)size;
   }
 
   // LP64D wants sp sixteen-byte aligned at the call, and the frame size stage
   // 3 subtracts is rounded to 16, so rounding the area is the whole of it.
   return (uint32_t)ALIGN_SIZE(offset, 2 * sizeof(intptr_t));
+}
+
+// The classes of the eightbytes a call's result comes back in, or zero when it
+// does not come back in registers at all. The call's astType is the return
+// type; the IR type says only IR_P_AGG and cannot answer.
+static uint32_t callResultEightbytes(const IrInstruction *call, enum EightbyteClass classes[2]) {
+  classes[0] = classes[1] = EB_NONE;
+
+  if (call->type != IR_P_AGG || call->info.call.returnBuffer != NULL || call->astType == NULL) {
+    return 0;
+  }
+
+  return classifyComposite(call->astType, classes);
 }
 
 static void riscvReserveFrame(MachineFunction *mf) {
@@ -1245,6 +1335,86 @@ static uint32_t callArgRegister(MachineBuilder *b, const IrInstruction *call,
   return machineBuilderVreg(b, arg);
 }
 
+// A slot of the outgoing area, which sits at the bottom of the frame and is
+// therefore addressed from the stack pointer.
+static MachineAddress outgoingArgAddress(const MachineFunction *mf, int32_t offset) {
+  MachineAddress addr = { MAK_REG, mf->target->sp, NO_REG, 0, offset };
+  return addr;
+}
+
+// An aggregate the ABI passes as bytes, copied into the outgoing area one
+// eightbyte at a time - which is what the ABI asks for, the callee reading the
+// bytes where the call left them.
+//
+// Reading up to seven bytes past the end is deliberate and safe: the source is
+// the temporary translateCall copied into, and a slot is a whole eightbyte.
+static void selectMemoryArgument(MachineBuilder *b, const IrInstruction *arg, int32_t offset) {
+  uint32_t slots = memArgStackSlots(arg);
+
+  // Once, outside the loop: an address that had to be computed would otherwise
+  // be computed again per eightbyte.
+  MachineAddress from = addressFor(b, arg, 0);
+  uint32_t tmp = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
+  for (uint32_t slot = 0; slot < slots; ++slot) {
+    int32_t disp = (int32_t)(slot * sizeof(intptr_t));
+
+    MachineAddress chunk = from;
+    chunk.disp += disp;
+
+    MachineInstr *load = buildMachineInstr(b, RISCV_LOAD, 1, 1);
+    setRegisterOperand(load, 0, tmp);
+    setMemoryOperand(load, 1, &chunk);
+    load->opSize = sizeof(intptr_t);
+    load->srcSize = sizeof(intptr_t);
+
+    MachineAddress to = outgoingArgAddress(b->mf, offset + disp);
+
+    MachineInstr *store = buildMachineInstr(b, RISCV_STORE, 0, 2);
+    setMemoryOperand(store, 0, &to);
+    setRegisterOperand(store, 1, tmp);
+    store->opSize = sizeof(intptr_t);
+  }
+}
+
+// Give an aggregate returned in a0 (and a1, or the float pair) somewhere to
+// live, and produce its address. Everything downstream of the call reads a
+// composite as an address - that is what IR_P_AGG means - and the registers
+// the callee handed back are not one, so this spends a frame slot on it. The
+// buffered case needs none of it: there the callee has already written the
+// aggregate into the slot the IR allocated.
+static void selectRegisterReturnedStruct(MachineBuilder *b, const IrInstruction *i) {
+  MachineFunction *mf = b->mf;
+
+  enum EightbyteClass classes[2];
+  uint32_t eightbytes = callResultEightbytes(i, classes);
+
+  // Whole eightbytes, whatever the aggregate's own size: a register is stored
+  // in full, and the bytes above the value are ours either way. Zero of them
+  // means an empty struct, which still needs an address and no bytes.
+  uint32_t bytes = (eightbytes == 0 ? 1u : eightbytes) * (uint32_t)sizeof(intptr_t);
+  int32_t frameIdx = addMachineFrameObject(mf, MFO_CALL_RESULT, bytes, sizeof(intptr_t));
+
+  mf->frame.size = (uint32_t)ALIGN_SIZE(
+      placeMachineFrameObject(mf, (int32_t)mf->frame.size, frameIdx), 2 * sizeof(intptr_t));
+
+  uint32_t used[RC_CLASS_COUNT] = {0};
+
+  for (uint32_t eb = 0; eb < eightbytes; ++eb) {
+    enum RegClass rc = classes[eb] == EB_SSE ? RC_FP : RC_GP;
+
+    MachineInstr *store = buildMachineInstr(b, rc == RC_FP ? RISCV_FSTORE : RISCV_STORE, 0, 2);
+    setFrameAddressOperandAt(store, 0, frameIdx, (int32_t)(eb * sizeof(intptr_t)));
+    setRegisterOperand(store, 1, retRegOf(mf->target, rc, used[rc]++));
+    store->opSize = sizeof(intptr_t);
+  }
+
+  MachineInstr *addr = buildMachineInstr(b, RISCV_LA, 1, 1);
+  setRegisterOperand(addr, 0, machineBuilderVreg(b, i));
+  setFrameAddressOperand(addr, 1, frameIdx);
+  addr->opSize = sizeof(intptr_t);
+}
+
 static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   const TargetDescriptor *target = b->mf->target;
 
@@ -1264,10 +1434,15 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
     int32_t offset = 0;
     callStackArea(target, i, idx, &offset);
 
+    if (isCallMemoryArg(i, idx)) {
+      selectMemoryArgument(b, arg, offset);
+      continue;
+    }
+
     Boolean asFloat = !i->info.call.isVariadic && isFloatIrType(arg->type);
     uint32_t src = callArgRegister(b, i, arg);
 
-    MachineAddress to = { MAK_REG, target->sp, NO_REG, 0, offset };
+    MachineAddress to = outgoingArgAddress(b->mf, offset);
 
     MachineInstr *store = buildMachineInstr(b, asFloat ? RISCV_FSTORE : RISCV_STORE, 0, 2);
     setMemoryOperand(store, 0, &to);
@@ -1299,15 +1474,28 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   // same, or nothing connects the copies to the call and liveness is free to
   // conclude they are dead.
   Boolean hasResult = i->type != IR_VOID;
-  uint16_t numDefs = hasResult ? 1 : 0;
+
+  // A small aggregate is IR_P_AGG whichever file it comes back in and however
+  // many registers that takes, so the return type has the answer where the IR
+  // type does not.
+  enum EightbyteClass resultClasses[2];
+  uint32_t resultEightbytes = callResultEightbytes(i, resultClasses);
+  uint16_t numDefs = hasResult ? (uint16_t)(resultEightbytes == 0 ? 1u : resultEightbytes) : 0;
 
   MachineInstr *call = buildMachineInstr(b, RISCV_CALL, numDefs, 1 + (uint16_t)numRegArgs);
   uint16_t op = 0;
 
   if (hasResult) {
-    setRegisterOperand(call, op, retRegOf(target, isFloatIrType(i->type) ? RC_FP : RC_GP));
-    machineOperandAt(call, op)->flags.isImplicit = 1;
-    op += 1;
+    uint32_t used[RC_CLASS_COUNT] = {0};
+
+    for (uint16_t def = 0; def < numDefs; ++def) {
+      enum RegClass rc = resultEightbytes != 0
+                             ? (resultClasses[def] == EB_SSE ? RC_FP : RC_GP)
+                             : (isFloatIrType(i->type) ? RC_FP : RC_GP);
+      setRegisterOperand(call, op, retRegOf(target, rc, used[rc]++));
+      machineOperandAt(call, op)->flags.isImplicit = 1;
+      op += 1;
+    }
   }
 
   // A folded symbol constant becomes the relocated call target; anything else
@@ -1327,11 +1515,13 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   assert(op == call->numOperands);
   call->flags.isCall = 1;
 
-  if (hasResult) {
+  if (i->type == IR_P_AGG && i->info.call.returnBuffer == NULL) {
+    selectRegisterReturnedStruct(b, i);
+  } else if (hasResult) {
     // Out of the fixed return register into one the allocator can move.
     MachineInstr *copy = buildMachineInstr(b, MOP_COPY, 1, 1);
     setRegisterOperand(copy, 0, machineBuilderVreg(b, i));
-    setRegisterOperand(copy, 1, retRegOf(target, isFloatIrType(i->type) ? RC_FP : RC_GP));
+    setRegisterOperand(copy, 1, retRegOf(target, isFloatIrType(i->type) ? RC_FP : RC_GP, 0));
     copy->opSize = valueSize(i);
   }
 }
@@ -1340,12 +1530,16 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
 
 static void selectReturn(MachineBuilder *b, const IrInstruction *i) {
   if (i->inputs.size != 0) {
-    assert(i->inputs.size == 1 && "an aggregate return needs the LP64D rules");
+    // One input per eightbyte, each into the return register of its own class.
+    // A scalar is the one-input case of the same walk.
+    uint32_t used[RC_CLASS_COUNT] = {0};
 
-    const IrInstruction *value = inputAt(i, 0);
-    enum RegClass rc = isFloatIrType(value->type) ? RC_FP : RC_GP;
+    for (size_t idx = 0; idx < i->inputs.size; ++idx) {
+      const IrInstruction *part = inputAt(i, idx);
+      enum RegClass rc = isFloatIrType(part->type) ? RC_FP : RC_GP;
 
-    selectLoadInto(b, retRegOf(b->mf->target, rc), value, valueSize(value));
+      selectLoadInto(b, retRegOf(b->mf->target, rc, used[rc]++), part, valueSize(part));
+    }
   }
 
   buildMachineInstr(b, RISCV_RET, 0, 0);
