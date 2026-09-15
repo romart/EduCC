@@ -371,6 +371,18 @@ Boolean isCharType(const TypeRef *type) {
   return type->kind == TR_VALUE && type->descriptorDesc->typeId == T_S1 || type->descriptorDesc->typeId == T_U1;
 }
 
+// A flat va_list is a bare 'void *' - LP64D's - so there is no __va_elem to
+// look for, and the object's own address is what va_arg walks. See enum
+// VaListKind; which of the two a target has is the target's answer, so the
+// caller asks the one that matches rather than this deciding.
+Boolean is_flat_va_list_Type(const TypeRef *type) {
+  if (type->kind != TR_POINTED) return FALSE;
+
+  const TypeRef *pointed = type->pointed;
+
+  return pointed->kind == TR_VALUE && pointed->descriptorDesc->typeId == T_VOID;
+}
+
 Boolean is_va_list_Type(const TypeRef *type) {
   // A va_list parameter has decayed to a pointer; both spell the same address.
   if (type->kind == TR_ARRAY) {

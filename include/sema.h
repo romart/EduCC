@@ -49,6 +49,7 @@ Boolean isTypeRequiresReturnValue(const TypeRef *type);
 Boolean isFlatType(const TypeRef *type);
 Boolean isFunctionalType(const TypeRef *type);
 Boolean is_va_list_Type(const TypeRef *type);
+Boolean is_flat_va_list_Type(const TypeRef *type);
 Boolean isNullConst(AstExpression *expr);
 
 Boolean checkReturnType(ParserContext *ctx, Coordinates *coords, TypeRef *returnType, AstExpression *expr);

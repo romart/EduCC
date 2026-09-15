@@ -310,7 +310,10 @@ static TypeRef* parseTypeName(ParserContext *ctx, DeclaratorScope ds_scope);
 static AstExpression *va_arg_expression(ParserContext *ctx, Coordinates *coords, AstExpression *va_list_Arg, TypeRef *typeArg) {
   TypeRef *va_list_Type = va_list_Arg->type;
 
-  if (!is_va_list_Type(va_list_Type)) {
+  // Two shapes, and the target picks: SysV's struct, or LP64D's bare pointer.
+  Boolean flat = ctx->config->arch == RISCV64;
+
+  if (!(flat ? is_flat_va_list_Type(va_list_Type) : is_va_list_Type(va_list_Type))) {
       reportDiagnostic(ctx, DIAG_FIRST_VA_ARG_NOT_VA_LIST, &va_list_Arg->coordinates, va_list_Type);
       return createErrorExpression(ctx, coords);
   }

@@ -426,12 +426,19 @@ computeVAListValuePtr(IrInstruction *valistInstr, IrBasicBlock *memoryBlock,
 static IrInstruction *translateVaArg(AstExpression *expr) {
   assert(expr->op == E_VA_ARG);
 
-  IrInstruction *valistInstr = translateRValue(expr->vaArg.va_list);
+  // A flat va_list is the walk pointer itself, so what this needs is the
+  // *object's* address rather than its value - where the struct form's own
+  // address is what an array decays to. See enum VaListKind.
+  Boolean flat = ctx->target->vaListKind == VA_FLAT_POINTER;
+
+  IrInstruction *valistInstr = flat ? translateLValue(expr->vaArg.va_list)
+                                    : translateRValue(expr->vaArg.va_list);
   TypeRef *vatype = expr->vaArg.argType;
   TypeRef *valistType = expr->vaArg.va_list->type;
 
-  assert(is_va_list_Type(valistType));
-  TypeDefiniton *vastruct = valistType->pointed->descriptorDesc->typeDefinition;
+  assert(flat ? is_flat_va_list_Type(valistType) : is_va_list_Type(valistType));
+  TypeDefiniton *vastruct =
+      flat ? NULL : valistType->pointed->descriptorDesc->typeDefinition;
 
   const static int32_t dataSize = sizeof(intptr_t);
   IrInstruction *dataSizeInstr = createIntegerConstant(IR_I64, dataSize);
@@ -498,20 +505,24 @@ static IrInstruction *translateVaArg(AstExpression *expr) {
     ctx->currentBB = memoryBlock;
   }
 
-  StructualMember *oaam = findStructualMember(vastruct, "overflow_arg_area");
-  assert(oaam != NULL);
+  // Where the walk pointer lives: a member of the struct, or the whole of a
+  // flat va_list and so at offset zero.
+  StructualMember *oaam = flat ? NULL : findStructualMember(vastruct, "overflow_arg_area");
+  assert(flat || oaam != NULL);
 
-  IrInstruction *overflowAreaOffset =
-      createIntegerConstant(IR_I64, oaam->offset);
-  enum IrTypeKind irOAType = typeRefToIrType(oaam->type);
+  TypeRef *oaType = flat ? makePointedType(ctx->pctx, 0,
+                                           makePrimitiveType(ctx->pctx, T_VOID, 0))
+                         : oaam->type;
+  IrInstruction *overflowAreaOffset = createIntegerConstant(IR_I64, flat ? 0 : oaam->offset);
+  enum IrTypeKind irOAType = typeRefToIrType(oaType);
 
   IrInstruction *overflowAreaGep =
-      newGEPInstruction(valistInstr, overflowAreaOffset, oaam->type);
+      newGEPInstruction(valistInstr, overflowAreaOffset, oaType);
   addInstruction(overflowAreaGep);
 
   IrInstruction *overflowAreaValue =
       addLoadInstr(irOAType, overflowAreaGep, NULL);
-  overflowAreaValue->astType = oaam->type;
+  overflowAreaValue->astType = oaType;
 
   int32_t align = typeAlignment(vatype);
 
@@ -519,10 +530,10 @@ static IrInstruction *translateVaArg(AstExpression *expr) {
     int32_t mask = ~(align - 1);
     IrInstruction *alignC = createIntegerConstant(IR_I64, align - 1);
     IrInstruction *addInstr = addBinaryOpeartion(
-        IR_E_ADD, overflowAreaValue, alignC, irOAType, oaam->type, NULL);
+        IR_E_ADD, overflowAreaValue, alignC, irOAType, oaType, NULL);
     IrInstruction *maskC = createIntegerConstant(IR_I64, mask);
     overflowAreaValue = addBinaryOpeartion(IR_E_AND, addInstr, maskC, irOAType,
-                                           oaam->type, NULL);
+                                           oaType, NULL);
   }
 
   // By reference: the slot holds a pointer to the argument, so the value's
@@ -536,7 +547,7 @@ static IrInstruction *translateVaArg(AstExpression *expr) {
   IrInstruction *alignesArgSize =
       createIntegerConstant(IR_I64, ALIGN_SIZE(argSize, dataSize));
   IrInstruction *newOverflowArea = addBinaryOpeartion(
-      IR_E_ADD, overflowAreaValue, alignesArgSize, irOAType, oaam->type, NULL);
+      IR_E_ADD, overflowAreaValue, alignesArgSize, irOAType, oaType, NULL);
 
   addStoreInstr(overflowAreaGep, newOverflowArea, NULL);
 
@@ -2829,6 +2840,18 @@ static void collectTranslationInfoExpr(const AstExpression *expr) {
   case E_NAMEREF:
     return;
   case E_VA_ARG:
+    // A flat va_list is walked through its own address, so the object cannot
+    // be promoted out of memory. The struct form is an array and never was.
+    if (ctx->target->vaListKind == VA_FLAT_POINTER &&
+        expr->vaArg.va_list->op == E_NAMEREF) {
+      const Symbol *s = expr->vaArg.va_list->nameRefExpr.s;
+      const AstValueDeclaration *vd = s->kind == ValueSymbol ? s->variableDesc : NULL;
+
+      if (vd != NULL && vd->flags.bits.isLocal) {
+        assert(vd->index2 >= 0);
+        ctx->localOperandMap[vd->index2].flags.referenced = 1;
+      }
+    }
     return collectTranslationInfoExpr(expr->vaArg.va_list);
   case E_COMPOUND:
     return collectRerenecedLabelsInit(expr->compound);

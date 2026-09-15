@@ -4,20 +4,29 @@
 #include <stddef.h>
 
 // Two shapes, and which one a target has is enum VaListKind in
-// include/ir/target.h - generateVaArea writes this and __builtin_va_arg reads
-// it back by member name, so the two have to agree.
+// include/ir/target.h. generateVaArea writes what __va_area__ holds and
+// __builtin_va_arg reads it back, so the two have to agree.
+
 #ifdef __riscv
 
-// LP64D. A variadic float arrives in an integer register, so there is one
-// register save area rather than two, and the callee places it immediately
-// below the caller's stack arguments - which makes the whole argument list one
-// array and a walk over it one pointer with no counter and no bound.
-typedef struct __va_elem {
-  void *overflow_arg_area;
-} __va_elem;
+// LP64D: a bare pointer, and not a struct holding one. A variadic float
+// arrives in an integer register here, so there is one register save area
+// rather than two, and the callee places it immediately below the caller's
+// stack arguments - which makes the whole argument list one array and a walk
+// over it one pointer, with no counter and no bound.
+//
+// It has to be the pointer itself rather than the address of something holding
+// it: glibc's riscv64 va_list is 'void *' passed by value, so that is what
+// vfprintf and friends are handed.
+typedef void *va_list;
+
+#define va_start(ap, last) do { (ap) = *(void **)__va_area__; } while (0)
+#define va_copy(dest, src) ((dest) = (src))
 
 #else
 
+// SysV: two register save areas, because a variadic float arrives in an SSE
+// register and a variadic integer in a general one, with a counter into each.
 typedef struct __va_elem {
   unsigned int gp_offset;
   unsigned int fp_offset;
@@ -25,18 +34,17 @@ typedef struct __va_elem {
   const void *reg_save_area;
 } __va_elem;
 
-#endif
-
 typedef __va_elem va_list[1];
-
 
 #define va_start(ap, last) \
   do { *(ap) = *(__va_elem *)__va_area__; } while (0)
 
+#define va_copy(dest, src) ((dest)[0] = (src)[0])
+
+#endif
+
 #define va_end(v)
 #define va_arg(v,l)	__builtin_va_arg(v,l)
-
-#define va_copy(dest, src) ((dest)[0] = (src)[0])
 
 
 #define __GNUC_VA_LIST 1
