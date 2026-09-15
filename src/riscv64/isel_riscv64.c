@@ -172,7 +172,13 @@ static uint32_t selectWidened(MachineBuilder *b, const IrInstruction *value, uin
     return src;
   }
 
-  const Boolean isUnsigned = isUnsignedIrOperand(value->type);
+  // By the canonical form and not by the type's own signedness: a 32-bit value
+  // lives in a register sign-extended whether it is signed or not, which is
+  // both what 'lw' and the 'w' forms produce and what the psABI says an
+  // argument narrower than a register arrives as. Widening an unsigned int
+  // with zeroes instead made the same number compare unequal to itself across
+  // a call.
+  const Boolean isUnsigned = canonicalIsUnsigned(value->type, srcSize);
 
   if (machineTakeRegisterExtension(b->mf, src, size, isUnsigned)) {
     return src;
@@ -1430,9 +1436,10 @@ static uint32_t callArgRegister(MachineBuilder *b, const IrInstruction *call,
   uint8_t size = valueSize(arg);
 
   // Widened to the full register: LP64D says a narrow argument arrives
-  // sign- or zero-extended to the register's width according to its own type,
-  // which is stricter than SysV and is why this is not the argument's own
-  // width the way x86 passes it.
+  // extended to the register's width, which is stricter than SysV and is why
+  // this is not the argument's own width the way x86 passes it. Which
+  // extension is selectWidened's answer - the canonical form, so a 32-bit
+  // argument is sign-extended whatever its signedness.
   if (!isFloatIrType(arg->type) && size < sizeof(intptr_t)) {
     return selectWidened(b, arg, sizeof(intptr_t));
   }
