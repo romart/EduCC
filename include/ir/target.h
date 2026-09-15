@@ -84,6 +84,21 @@ enum EightbyteClass {
   EB_SSE
 };
 
+// How a target spells a va_list, which is the one piece of genuinely
+// target-specific code that used to sit in a target-independent file.
+enum VaListKind {
+  // SysV's {gp_offset, fp_offset, overflow_arg_area, reg_save_area}: two
+  // register save areas, because a variadic float arrives in an SSE register
+  // and a variadic integer in a general one, and a counter into each.
+  VA_SYSV_REGSAVE = 0,
+
+  // LP64D's: one pointer, and nothing else. A variadic float arrives in an
+  // *integer* register there, so there is one save area rather than two - and
+  // the callee puts it immediately below the incoming stack arguments, which
+  // makes registers and stack one array and a walk over it one pointer.
+  VA_FLAT_POINTER
+};
+
 // How a composite travels: the class of each of its eightbytes, and how many of
 // them there are - one or two. Zero means it goes in memory, because it is
 // larger than two eightbytes or because something in it has no register class.
@@ -175,6 +190,9 @@ typedef struct _TargetDescriptor {
   uint32_t intArgRegCount;
   const uint32_t *fpArgRegs;
   uint32_t fpArgRegCount;
+
+  // Which shape a va_list has here. See enum VaListKind.
+  enum VaListKind vaListKind;
 
   uint32_t intRetReg;
   uint32_t fpRetReg;

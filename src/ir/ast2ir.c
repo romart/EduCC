@@ -470,7 +470,11 @@ static IrInstruction *translateVaArg(AstExpression *expr) {
   if (isEmptyCompositeType(vatype))
     return valistInstr;
 
-  Boolean inRegister = computeTypeSize(vatype) <= dataSize;
+  // A flat va_list has no register save area to choose: the callee put the
+  // argument registers immediately below the caller's stack arguments, so the
+  // overflow walk below is the whole of va_arg. See enum VaListKind.
+  Boolean inRegister = ctx->target->vaListKind == VA_SYSV_REGSAVE &&
+                       computeTypeSize(vatype) <= dataSize;
 
   IrBasicBlock *memoryBlock = NULL, *updateBlock = NULL, *doneBlock = NULL;
   IrInstruction *valuePtr = NULL;
@@ -3115,17 +3119,105 @@ static uint32_t computeParametersABIInfo(AstFunctionDeclaration *declaration,
   return numberOfParams;
 }
 
+// The address of the first unnamed argument the caller left on the stack.
+// That is above the frame pointer, so it is spelled the way an incoming stack
+// parameter is - an offset off the stack operand, which
+// layoutIncomingParameters turns into a frame object - and takes a local slot
+// of its own to be found through.
+static IrInstruction *stackArgumentsBegin(const ParametersABISummary *summary,
+                                          IrInstruction *stackPtrOp,
+                                          LocalValueInfo *infos, size_t idx) {
+  IrInstruction *ptr = newInstruction(IR_E_ADD, IR_P_AGG);
+  addInstructionInput(ptr, stackPtrOp);
+  addInstructionInput(ptr, createIntegerConstant(IR_I64, summary->stackParamOffset));
+  addInstruction(ptr);
+
+  infos[idx].stackSlot = ptr;
+  infos[idx].frameOffset = summary->stackParamOffset;
+  infos[idx].name = "<va_overflow_area>";
+
+  return ptr;
+}
+
+// LP64D's va_list: one pointer at the *walk*, and one register save area that
+// ends exactly at the frame pointer.
+//
+// That placement is the whole trick. A variadic float arrives in an integer
+// register here, so there is one save area rather than SysV's two; putting it
+// immediately below the caller's stack arguments makes the eight saved
+// registers and whatever the caller pushed one contiguous array, and walking
+// it needs no counter and no bound. layoutFrame lays this object out first for
+// exactly that reason - see IrInstruction.info.alloca.isVaArea.
+//
+// The save area is at the *end* of the object, because the pointer field has
+// to be at its start: va_start is a copy of the first bytes of __va_area__.
+static void generateFlatVaArea(IrInstruction *vaAreaSlot, size_t areaSize,
+                               const ParametersABISummary *summary,
+                               IrInstruction *stackPtrOp, LocalValueInfo *infos,
+                               size_t idx) {
+  const int32_t dataSize = sizeof(intptr_t);
+  uint32_t regs = ctx->target->intArgRegCount;
+  int32_t saveArea = (int32_t)areaSize - (int32_t)regs * dataSize;
+
+  assert(saveArea >= dataSize && "the register save area leaves no room for the pointer");
+
+  TypeRef *voidType = makePrimitiveType(ctx->pctx, T_VOID, 0);
+  TypeRef *voidPtrType = makePointedType(ctx->pctx, 0, voidType);
+  TypeRef *uintptrType = makePrimitiveType(ctx->pctx, T_U8, 0);
+
+  IrInstruction *stackBegin = stackArgumentsBegin(summary, stackPtrOp, infos, idx + 1);
+
+  // Where the first unnamed argument is: still in the save area when the named
+  // parameters did not use every argument register, and on the stack when they
+  // did - which is the one case where the two are not the same address, since
+  // a named parameter may have been pushed as well.
+  IrInstruction *first = stackBegin;
+
+  if (summary->intRegParams < regs) {
+    first = newGEPInstruction(
+        vaAreaSlot,
+        createIntegerConstant(IR_I64, saveArea + (int32_t)summary->intRegParams * dataSize),
+        uintptrType);
+    addInstruction(first);
+  }
+
+  IrInstruction *walkPtr =
+      newGEPInstruction(vaAreaSlot, createIntegerConstant(IR_I64, 0), voidPtrType);
+  addInstruction(walkPtr);
+  addStoreInstr(walkPtr, first, NULL);
+
+  // Every argument register is saved, including the ones a named parameter
+  // already used: the walk starts past those, so leaving holes would save
+  // nothing and make the area's contents depend on the signature.
+  for (uint32_t k = 0; k < regs; ++k) {
+    IrInstruction *slot = newGEPInstruction(
+        vaAreaSlot, createIntegerConstant(IR_I64, saveArea + (int32_t)k * dataSize),
+        uintptrType);
+    addInstruction(slot);
+    IrInstruction *reg = newPhysRegister(IR_I64, ctx->target->intArgRegs[k]);
+    addInstruction(reg);
+    addStoreInstr(slot, reg, NULL);
+  }
+}
+
 static size_t generateVaArea(AstValueDeclaration *va_area,
                              const ParametersABISummary *summary,
                              IrInstruction *stackPtrOp, LocalValueInfo *infos,
                              size_t idx) {
   va_area->index2 = idx;
   enum IrTypeKind irType = typeRefToIrType(va_area->type);
-  IrInstruction *vaAreaSlot = createAllocaSlot(computeTypeSize(va_area->type));
+  size_t areaSize = computeTypeSize(va_area->type);
+  IrInstruction *vaAreaSlot = createAllocaSlot(areaSize);
   vaAreaSlot->info.alloca.valueType = irType;
   vaAreaSlot->info.alloca.v = va_area;
+  vaAreaSlot->info.alloca.isVaArea = TRUE;
   infos[idx].stackSlot = vaAreaSlot;
   infos[idx].declaration = va_area;
+
+  if (ctx->target->vaListKind == VA_FLAT_POINTER) {
+    generateFlatVaArea(vaAreaSlot, areaSize, summary, stackPtrOp, infos, idx);
+    return idx + 2;
+  }
 
   /**
    * typedef struct {
@@ -3211,20 +3303,10 @@ static size_t generateVaArea(AstValueDeclaration *va_area,
                 NULL);
 
   // va_elem->overflow_arg_area = the first unnamed argument the caller left on
-  // the stack. That is above the frame pointer, so it is spelled the way an
-  // incoming stack parameter is - an offset off the stack operand, which
-  // layoutIncomingParameters turns into a frame object - and takes a local slot
-  // of its own to be found through. It used to be an offset into this frame's
-  // own va area, which is a different piece of memory entirely.
-  IrInstruction *stack_param_begin_ptr = newInstruction(IR_E_ADD, IR_P_AGG);
-  addInstructionInput(stack_param_begin_ptr, stackPtrOp);
-  addInstructionInput(stack_param_begin_ptr,
-                      createIntegerConstant(IR_I64, summary->stackParamOffset));
-  addInstruction(stack_param_begin_ptr);
-
-  infos[idx + 1].stackSlot = stack_param_begin_ptr;
-  infos[idx + 1].frameOffset = summary->stackParamOffset;
-  infos[idx + 1].name = "<va_overflow_area>";
+  // the stack. It used to be an offset into this frame's own va area, which is
+  // a different piece of memory entirely.
+  IrInstruction *stack_param_begin_ptr =
+      stackArgumentsBegin(summary, stackPtrOp, infos, idx + 1);
 
   IrInstruction *overflow_arg_area_slot_off =
       createIntegerConstant(IR_I64, overflow_arg_area_ptr_off);
@@ -3244,6 +3326,11 @@ static size_t generateVaArea(AstValueDeclaration *va_area,
   // are asserted to cover it rather than driving it.
   assert(ctx->target->intArgRegCount >= R_PARAM_COUNT &&
          ctx->target->fpArgRegCount >= R_FP_PARAM_COUNT);
+  // The area is a fixed-size local the parser declared; what goes in it is the
+  // target's, so the two have to be checked against each other.
+  assert((size_t)(fp_va_area + R_FP_PARAM_COUNT * dataSize) <=
+             (size_t)computeTypeSize(va_area->type) &&
+         "the va area this target needs does not fit the one the parser declared");
 
   for (uint32_t k = 0; k < R_PARAM_COUNT; ++k) {
     IrInstruction *slot = newGEPInstruction(

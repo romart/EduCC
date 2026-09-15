@@ -191,6 +191,8 @@ const TargetDescriptor targetRiscv64 = {
   .fpArgRegs = riscvFpArgRegs,
   .fpArgRegCount = sizeof(riscvFpArgRegs) / sizeof(riscvFpArgRegs[0]),
 
+  .vaListKind = VA_FLAT_POINTER,
+
   .intRetReg = X_A0,
   .fpRetReg = FR(F_A0),
   // LP64D returns a two-eightbyte aggregate in a0:a1 or fa0:fa1, as SysV does.

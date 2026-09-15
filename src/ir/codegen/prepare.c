@@ -380,9 +380,18 @@ static void layoutFrame(MachineFunction *mf) {
   // The slot the layout used to reserve for the old stack pointer was never
   // written and never read.
 
+  // The variadic area first, whatever order it was written in. A flat va_list
+  // needs the register half of it to end exactly at the frame pointer, so that
+  // the saved argument registers and the caller's stack arguments are one
+  // array - and being first is what puts an object there.
+  for (size_t pass = 0; pass < 2; ++pass) {
   for (size_t idx = 0; idx < allocas.size; ++idx) {
     const IrInstruction *i = (const IrInstruction *)getFromVector(&allocas, idx);
     AstValueDeclaration *v = i->info.alloca.v;
+
+    if ((i->info.alloca.isVaArea != 0) != (pass == 0)) {
+      continue;
+    }
 
     // An alloca with no declaration behind it is one the translator made for
     // itself - the return slot, a va_list area - and only its byte count is
@@ -407,6 +416,7 @@ static void layoutFrame(MachineFunction *mf) {
     }
 
     putAtVector(&mf->irToFrameIdx, i->id, (intptr_t)frameIdx + 1);
+  }
   }
 
   releaseVector(&allocas);

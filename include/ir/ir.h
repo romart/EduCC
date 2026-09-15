@@ -199,6 +199,11 @@ struct _IrInstruction {
           AstValueDeclaration *v;
           struct _IrInstruction *sizeInstr;
           enum IrTypeKind valueType;
+          // The variadic area, which stage 0 lays out before every other
+          // local. A flat va_list needs its register half to end exactly at
+          // the frame pointer, so that the saved argument registers and the
+          // incoming stack arguments are one array - see generateVaArea.
+          Boolean isVaArea;
         } alloca;
         struct {
           struct _AllocaOptInfo *info;
