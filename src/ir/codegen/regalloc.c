@@ -202,7 +202,8 @@ static void allocateInstruction(RegAllocContext *ra, MachineInstr *mi) {
 
     const VRegInfo *info = virtualRegisterInfo(ra->mf, table[idx].vreg);
     int32_t slot = spillSlotForVreg(&ra->spill, table[idx].vreg);
-    addMachineInstrBefore(mi, buildReloadInstr(ra->mf, table[idx].phys, slot, info->size));
+    addMachineInstrBefore(mi, buildReloadInstr(ra->mf, table[idx].phys, slot,
+                                              machineSpillWidth(ra->mf, info)));
   }
 
   for (uint16_t idx = 0; idx < mi->numOperands; ++idx) {
@@ -230,7 +231,8 @@ static void allocateInstruction(RegAllocContext *ra, MachineInstr *mi) {
 
     const VRegInfo *info = virtualRegisterInfo(ra->mf, table[idx].vreg);
     int32_t slot = spillSlotForVreg(&ra->spill, table[idx].vreg);
-    MachineInstr *spill = buildSpillInstr(ra->mf, slot, table[idx].phys, info->size);
+    MachineInstr *spill = buildSpillInstr(ra->mf, slot, table[idx].phys,
+                                         machineSpillWidth(ra->mf, info));
 
     addMachineInstrAfter(at, spill);
     at = spill;

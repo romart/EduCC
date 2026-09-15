@@ -38,6 +38,12 @@ void releaseSpillState(SpillState *ss) {
   releaseVector(&ss->vregToSlot);
 }
 
+uint8_t machineSpillWidth(const MachineFunction *mf, const VRegInfo *info) {
+  uint8_t whole = mf->target->spillRegisterWidth;
+
+  return whole > info->size ? whole : info->size;
+}
+
 int32_t spillSlotForVreg(SpillState *ss, uint32_t vreg) {
   size_t idx = vreg - FIRST_VREG;
 
@@ -52,7 +58,8 @@ int32_t spillSlotForVreg(SpillState *ss, uint32_t vreg) {
 
   // Aligned to its own size, which for every width a register can hold is the
   // natural alignment as well.
-  int32_t frameIdx = addMachineFrameObject(ss->mf, MFO_SPILL, info->size, info->size);
+  uint8_t width = machineSpillWidth(ss->mf, info);
+  int32_t frameIdx = addMachineFrameObject(ss->mf, MFO_SPILL, width, width);
   MachineFrameObject *obj = machineFrameObjectAt(ss->mf, frameIdx);
   obj->vreg = vreg;
   // The IR value this register was holding, when there is one, so the frame
@@ -186,7 +193,8 @@ static void rewriteInstruction(SpillState *ss, const BitSet *spilled, MachineIns
 
     const VRegInfo *info = virtualRegisterInfo(mf, sites[idx].vreg);
     int32_t slot = spillSlotForVreg(ss, sites[idx].vreg);
-    addMachineInstrBefore(mi, buildReloadInstr(mf, sites[idx].fresh, slot, info->size));
+    addMachineInstrBefore(mi, buildReloadInstr(mf, sites[idx].fresh, slot,
+                                              machineSpillWidth(mf, info)));
   }
 
   for (uint16_t idx = 0; idx < mi->numOperands; ++idx) {
@@ -212,7 +220,8 @@ static void rewriteInstruction(SpillState *ss, const BitSet *spilled, MachineIns
 
     const VRegInfo *info = virtualRegisterInfo(mf, sites[idx].vreg);
     int32_t slot = spillSlotForVreg(ss, sites[idx].vreg);
-    MachineInstr *spill = buildSpillInstr(mf, slot, sites[idx].fresh, info->size);
+    MachineInstr *spill = buildSpillInstr(mf, slot, sites[idx].fresh,
+                                         machineSpillWidth(mf, info));
 
     addMachineInstrAfter(at, spill);
     at = spill;

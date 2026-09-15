@@ -153,6 +153,19 @@ typedef struct _TargetDescriptor {
   // same constant, and the incoming-parameter offsets are wrong by exactly it.
   int32_t incomingStackParamOffset;
 
+  // How wide a spill is, when it is wider than the value: the byte width of a
+  // whole register, or 0 for a target that spills exactly the value's own
+  // width.
+  //
+  // x86-64 answers 0 because 'al' is a name the machine has: the bytes above a
+  // one-byte value belong to nobody and a reload need not reproduce them.
+  // riscv64 has no sub-registers, so every instruction reads all 64 bits and a
+  // narrow value's register is canonically extended - sign- or zero-extended
+  // by the value's own signedness. A spill of its low byte alone could not be
+  // reloaded, because putting the register back the way it was would need a
+  // signedness the spiller has no way to know.
+  uint8_t spillRegisterWidth;
+
   // The condition-flags register, or IR_NO_PHYS_REG for a target that has
   // none - riscv64 compares and branches in one instruction and keeps no
   // flags at all, which is why this is a target's answer and not a constant.

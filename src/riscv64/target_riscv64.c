@@ -178,6 +178,8 @@ const TargetDescriptor targetRiscv64 = {
   // rather than on the stack, so an argument the caller pushed is at s0 + 0.
   // x86-64 has a saved rbp and a return address in between and answers 16.
   .incomingStackParamOffset = 0,
+  // No sub-registers: a spill saves the whole register or it cannot be undone.
+  .spillRegisterWidth = sizeof(intptr_t),
 
   // riscv64 has no condition flags at all - a compare and a branch are one
   // instruction, and a materialized boolean comes out of 'slt' into an

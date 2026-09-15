@@ -483,10 +483,10 @@ static void emitReload(EmitContext *e, const MachineInstr *mi) {
   if (isFpReg(e, dstId)) {
     emitFLoadWide(e, fReg(e, dstId), X_S0, off, mi->opSize);
   } else {
-    // A reload restores the whole register, so it extends the way the value
-    // was stored - unsigned, since a spill wrote exactly the value's width and
-    // the bytes above it were never part of the value.
-    emitLoadWide(e, xReg(e, dstId), X_S0, off, mi->opSize, mi->opSize < 8);
+    // A spill here saved the whole register (TargetDescriptor.spillRegisterWidth),
+    // so the reload brings all of it back and has no extension to choose.
+    assert(mi->opSize == sizeof(intptr_t) && "a riscv64 spill is a whole register");
+    emitLoadWide(e, xReg(e, dstId), X_S0, off, mi->opSize, FALSE);
   }
 }
 

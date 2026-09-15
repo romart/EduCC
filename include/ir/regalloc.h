@@ -95,6 +95,11 @@ void insertSpillCode(SpillState *ss, const BitSet *spilled);
 // pointer 16-byte aligned at a call.
 void finishSpillFrame(SpillState *ss);
 
+// How many bytes a spill of this register moves, and how big its slot is. The
+// value's own width, unless the target spills whole registers - see
+// TargetDescriptor.spillRegisterWidth.
+uint8_t machineSpillWidth(const MachineFunction *mf, const VRegInfo *info);
+
 // The allocator's two moves between a register and a frame slot. The register
 // may still be virtual - that is exactly what the spiller builds.
 MachineInstr *buildReloadInstr(MachineFunction *mf, uint32_t reg, int32_t frameIdx, uint8_t size);
