@@ -45,11 +45,6 @@ compilerFlags = []
 # asserts.
 runPrefix = []
 
-# How to turn an object into an executable ('--link-with', repeatable). Empty
-# means the compiler links it itself, which is what it does natively. A cross
-# target names the cross toolchain's driver here until the in-house linker
-# learns that architecture, and this option goes away when it does.
-linkWith = []
 
 # A test is muted by putting a '<name>.muted' file next to its '<name>.c'; the
 # file's contents are the reason, printed whenever the test runs. Muted tests
@@ -333,25 +328,11 @@ def runCodegenTest(compiler, workingDir, dirname, name):
         args.append("")
 
     err = open(errFilePath, 'w+')
-    if linkWith:
-        # The compiler stops at an object and the named driver links it. Only
-        # a cross target needs this; natively the compiler links what it
-        # compiled, which is what the in-house linker is for.
-        objFileName = binFileName + '.o'
-        compilationCommand = [compiler] + compilerFlags \
-                           + ["-oneline", "-c", "-o", objFileName, testFilePath]
-    else:
-        objFileName = None
-        compilationCommand = [compiler] + compilerFlags \
-                           + ["-oneline", "-o", binFileName, testFilePath, "-lm"]
+    compilationCommand = [compiler] + compilerFlags \
+                       + ["-oneline", "-o", binFileName, testFilePath, "-lm"]
 
     compilation = Popen(compilationCommand, stdout=sys.stdout, stderr=err)
     exit_code = compilation.wait()
-
-    if exit_code == 0 and objFileName is not None:
-        link = Popen(linkWith + [objFileName, "-o", binFileName, "-lm"],
-                     stdout=sys.stdout, stderr=err)
-        exit_code = link.wait()
 
     err.close()
 
@@ -636,10 +617,6 @@ def parseArguments():
                               'repeatable (e.g. --run-prefix=qemu-riscv64 --run-prefix=-L '
                               '--run-prefix=/usr/riscv64-linux-gnu to run a cross target '
                               'under an emulator)')
-    parser.add_argument('--link-with', type=str, action='append', default=[],
-                         help='word of the command that links an object into an executable, '
-                              'repeatable; the compiler stops at -c when this is given. For a '
-                              'cross target whose linking the in-house linker does not do yet')
     parser.add_argument('--update-baselines', action='store_true',
                          help='write actual output as the new expected baseline for every test instead of comparing '
                               '(use after an intentional behavior change to regenerate golden files)')
@@ -653,7 +630,6 @@ def main():
     global compilerFlags
     global baselineTag
     global runPrefix
-    global linkWith
 
     args = parseArguments()
     compilerFlags = args.compiler_flag
@@ -665,7 +641,6 @@ def main():
     irPhase = args.ir_phase
     baselineTag = args.baseline_tag
     runPrefix = args.run_prefix
-    linkWith = args.link_with
 
     for testPath in testPaths:
         p = Path(testPath)
