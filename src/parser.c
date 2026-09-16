@@ -462,7 +462,16 @@ static AstExpression* parsePrimaryExpression(ParserContext *ctx) {
         case D_CONSTANT: typeId = T_F8; goto fconst;
         case LD_CONSTANT: typeId = T_F10; goto fconst;
         fconst: {
+            // Rounded to the type the suffix gives it. Every float constant is
+            // *stored* as a long double (AstConst.f), and the lexer parses all
+            // three with strtold, so without this a 'double' literal holds the
+            // long double nearest the text - which is a different number, and
+            // one the program never sees, since storage narrows it. It showed
+            // as '(long double)0.1' folding to 0.1 where the same expression
+            // computed at run time answers 0.10000000000000000555.
             float80_const_t f = ctx->token->value.ldv;
+            if (typeId == T_F4) f = (float80_const_t)(float)f;
+            else if (typeId == T_F8) f = (float80_const_t)(double)f;
             result = createAstConst(ctx, &coords, CK_FLOAT_CONST, &f, 0);
             result->type = makePrimitiveType(ctx, typeId, flags.storage);
             break;

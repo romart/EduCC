@@ -957,9 +957,30 @@ IrInstruction *createIntegerConstant(enum IrTypeKind type, int64_const_t v) {
     return getOrAddConstant(&d, IR_CK_INTEGER, type);
 }
 
+// A float constant holds a value its own type can represent, which is not
+// automatic: every one of them is stored as a long double, so a double or a
+// float constant is whatever the wider type made of the literal until it is
+// rounded here.
+//
+// Nothing notices until a conversion to a *wider* type is folded. Emission
+// narrows on the way into a section, so the value a program reads at run time
+// was always right - but '(long double)someDouble' folded to the long double
+// the literal was parsed as rather than to the double the variable holds, and
+// answered 0.1 where the program answers 0.10000000000000000555.
+//
+// IR_F80 is left alone: it is the host's own long double, and rounding it to
+// the target's format is a question the host cannot answer when the two differ.
+// See R7 in the riscv64 plan.
 IrInstruction *createFloatConstant(enum IrTypeKind type, float80_const_t v) {
     ConstantCacheData d;
     memset(&d, 0, sizeof d);
+
+    if (type == IR_F32) {
+      v = (float80_const_t)(float)v;
+    } else if (type == IR_F64) {
+      v = (float80_const_t)(double)v;
+    }
+
     d.data.f = v;
     return getOrAddConstant(&d, IR_CK_FLOAT, type);
 }
