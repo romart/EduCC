@@ -323,6 +323,21 @@ if(BUILD_TESTING)
   )
   set_tests_properties(link_dynamic PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 2)
 
+  # riscv64's ABI against a third party. Every other suite compares EduCC to
+  # EduCC - crossabi compares its two backends, and riscv64 has one - so a rule
+  # both halves of a call get wrong is a rule nothing notices. This builds each
+  # fixture pair three ways, one of them all-gcc, and diffs what they print.
+  # It is what the plan's Risk 4 asks for, and it caught a sixteen-byte struct
+  # holding a long double being passed by reference where LP64D passes it in a
+  # register pair. Skips without the cross toolchain, which is not a build
+  # dependency.
+  add_test(NAME abi_riscv64
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/test/abi/cross_toolchain_test.py"
+            "$<TARGET_FILE:main>"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+  set_tests_properties(abi_riscv64 PROPERTIES TIMEOUT 300 SKIP_RETURN_CODE 2)
+
   # The structural checkers (test/checkers/, docs/ir-codegen-design.md section
   # 9). A golden baseline says the output has not changed; these say it is
   # right, which is a different question and the only one that catches a bug
