@@ -49,21 +49,41 @@ def parseArgs(doc):
     return compiler, roots
 
 
+def targetName():
+    """The machine the pass-through flags name, as a fixture marker spells it."""
+    for i, flag in enumerate(flags):
+        if flag.startswith("-march="):
+            return flag[7:]
+        if flag == "-march" and i + 1 < len(flags):
+            return flags[i + 1]
+    return "x86_64"
+
+
 def sources(roots, backend="ir"):
-    """The .c fixtures under `roots`, minus the ones that belong to the other backend.
+    """The .c fixtures under `roots`, minus the ones that belong elsewhere.
 
     A '<name>.legacy' / '<name>.ir' sibling marks a fixture the other
     backend is not going to be taught to agree with (see test/testRunner.py);
     running a checker over the IR of a file the IR backend is not meant to
-    compile only produces noise.
+    compile only produces noise. A '<name>.x86_64' / '<name>.riscv64' sibling
+    says the same about a target - long double is one machine's and not the
+    other's - and is read the same way.
     """
     other = ".legacy" if backend == "ir" else ".ir"
+    target = targetName()
+    otherTargets = [t for t in (".x86_64", ".riscv64") if t != "." + target]
+
     files = []
     for root in roots:
         for dirpath, _, names in os.walk(root):
             for n in names:
-                if n.endswith(".c") and not os.path.exists(os.path.join(dirpath, n[:-2] + other)):
-                    files.append(os.path.join(dirpath, n))
+                if not n.endswith(".c"):
+                    continue
+                markers = [other] + otherTargets
+                if any(os.path.exists(os.path.join(dirpath, n[:-2] + m))
+                       for m in markers):
+                    continue
+                files.append(os.path.join(dirpath, n))
     files.sort()
     return files
 

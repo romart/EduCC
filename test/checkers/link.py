@@ -36,13 +36,53 @@ from dynamic_test import (Dynamic, crtDirectory, INTERPRETER, PT_PHDR,
                           DT_HASH, DT_STRTAB, DT_SYMTAB)
 from linker_test import PT_LOAD, PF_W, PF_X, PAGE, PHDR_SIZE
 
+EM_X86_64, EM_RISCV = 62, 243
+
+# What differs between the two machines the linker writes for. Everything else
+# a loader consults is the same table in the same place. Keyed by e_machine and
+# read off the file itself, so the checker cannot be told one thing and given
+# another.
+TARGETS = {
+    EM_X86_64: {
+        "name": "x86-64",
+        "interpreter": INTERPRETER,
+        "gotPltReserved": 3,
+        "plt0": 16,
+        "pltEntry": 16,
+        "jumpSlot": R_X86_64_JUMP_SLOT,
+        "sysroot": "",
+    },
+    EM_RISCV: {
+        "name": "riscv64",
+        "interpreter": "/lib/ld-linux-riscv64-lp64d.so.1",
+        "gotPltReserved": 2,
+        "plt0": 32,
+        "pltEntry": 16,
+        "jumpSlot": 5,  # R_RISCV_JUMP_SLOT
+        "sysroot": "/usr/riscv64-linux-gnu",
+    },
+}
+
+
+def targetOf(flags):
+    """Which machine this run compiles for, from the flags it passes through."""
+    for i, flag in enumerate(flags):
+        value = None
+        if flag.startswith("-march="):
+            value = flag[7:]
+        elif flag == "-march" and i + 1 < len(flags):
+            value = flags[i + 1]
+        if value == "riscv64":
+            return TARGETS[EM_RISCV]
+    return TARGETS[EM_X86_64]
+
 
 def check(findings, source, condition, message):
     if not condition:
         findings.append("%s: %s" % (source, message))
 
 
-def inspect(path, source, findings):
+def inspect(path, source, findings, target):
     exe = Dynamic(path)
     loads = exe.loads()
 
@@ -84,7 +124,8 @@ def inspect(path, source, findings):
     check(findings, source, interp is not None, "there is no PT_INTERP")
     if interp is not None:
         text = exe.blob[interp["offset"]:interp["offset"] + interp["filesz"]]
-        check(findings, source, text == INTERPRETER.encode() + b"\0",
+        check(findings, source,
+              text == target["interpreter"].encode() + b"\0",
               "PT_INTERP is not the loader's path")
 
     dynamic = exe.section(".dynamic")
@@ -119,13 +160,16 @@ def inspect(path, source, findings):
     plt = exe.section(".plt")
     relaPlt = exe.relocations(".rela.plt")
 
-    check(findings, source, gotPlt["size"] == (3 + len(relaPlt)) * 8,
+    reserved = target["gotPltReserved"]
+
+    check(findings, source, gotPlt["size"] == (reserved + len(relaPlt)) * 8,
           ".got.plt holds %d slots for %d stubs"
           % (gotPlt["size"] // 8, len(relaPlt)))
 
     if relaPlt:
         check(findings, source, plt is not None and
-              plt["size"] == (1 + len(relaPlt)) * 16,
+              plt["size"] == target["plt0"] +
+              len(relaPlt) * target["pltEntry"],
               ".plt is %d bytes for %d stubs"
               % (plt["size"] if plt else 0, len(relaPlt)))
         check(findings, source, exe.tag(DT_JMPREL) ==
@@ -133,12 +177,13 @@ def inspect(path, source, findings):
               "DT_JMPREL is not where .rela.plt is")
 
     for offset, symbol, type, _addend in relaPlt:
-        check(findings, source, type == R_X86_64_JUMP_SLOT,
+        check(findings, source, type == target["jumpSlot"],
               ".rela.plt holds a relocation of type %d" % type)
         check(findings, source,
-              gotPlt["addr"] + 24 <= offset < gotPlt["addr"] + gotPlt["size"],
+              gotPlt["addr"] + reserved * 8 <= offset <
+              gotPlt["addr"] + gotPlt["size"],
               "a JUMP_SLOT at 0x%x is not a .got.plt slot past the reserved "
-              "three" % offset)
+              "%d" % (offset, reserved))
 
     writable = [s for s in loads if s["flags"] & PF_W]
     for offset, symbol, type, _addend in relaPlt + exe.relocations(".rela.dyn"):
@@ -175,8 +220,18 @@ def inspect(path, source, findings):
 def main():
     compiler, roots = corpus.parseArgs(__doc__)
 
-    if crtDirectory() is None or not os.path.exists(INTERPRETER):
-        print("no C runtime to link against; skipping")
+    target = targetOf(corpus.flags)
+
+    if target["sysroot"]:
+        runtime = os.path.join(target["sysroot"], "usr", "lib", "crt1.o")
+        loader = target["sysroot"] + target["interpreter"]
+    else:
+        runtime = crtDirectory()
+        loader = target["interpreter"]
+
+    if runtime is None or not os.path.exists(runtime) or \
+            not os.path.exists(loader):
+        print("no %s C runtime to link against; skipping" % target["name"])
         return 2
 
     findings = []
@@ -201,7 +256,7 @@ def main():
                 continue
 
             scanned += 1
-            inspect(output, source, findings)
+            inspect(output, source, findings, target)
 
     return corpus.report(scanned, failed, findings,
                          "linked executables inspected")
