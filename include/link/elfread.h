@@ -129,6 +129,11 @@ enum InputKind {
 
 typedef struct _ElfReader {
   Arena *arena;
+
+  // The e_machine every input has to carry, or 0 to take any this reader
+  // knows - which is what '-Xlink-read' wants, since it only reports.
+  uint16_t machine;
+
   Boolean hadError;
 } ElfReader;
 

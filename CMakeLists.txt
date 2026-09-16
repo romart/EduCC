@@ -81,6 +81,7 @@ set(SOURCES
   src/riscv64/emit_riscv64.c
   src/link/elfread.c
   src/link/link.c
+  src/link/target_link.c
 )
 
 add_executable(main ${SOURCES})
@@ -209,23 +210,22 @@ if(BUILD_TESTING)
   # selector and a descriptor, and the cheapest honest test of one is every
   # fixture there already is, compiled for it and run.
   #
-  # Registered only when the cross toolchain is installed, since it is not a
-  # build dependency: qemu to run what comes out, and the cross driver to link
-  # it until the in-house linker learns EM_RISCV. A fixture that is about one
-  # target and no other carries a '<name>.x86_64' or '<name>.riscv64' marker
-  # and is skipped here or there, the way '.ir' and '.legacy' already scope one
-  # to a backend.
+  # Registered only when qemu and a riscv64 sysroot are installed, since
+  # neither is a build dependency: qemu to run what comes out, the sysroot to
+  # link against. EduCC links it itself - the cross driver was a crutch until
+  # roadmap step 59's R5, and is gone. A fixture that is about one target and
+  # no other carries a '<name>.x86_64' or '<name>.riscv64' marker and is
+  # skipped here or there, the way '.ir' and '.legacy' already scope one to a
+  # backend.
   find_program(QEMU_RISCV64 qemu-riscv64)
-  find_program(RISCV64_GCC riscv64-linux-gnu-gcc)
 
-  if(QEMU_RISCV64 AND RISCV64_GCC)
+  if(QEMU_RISCV64 AND EXISTS /usr/riscv64-linux-gnu/usr/lib/crt1.o)
     educc_add_test(codegen_riscv64 codegen codegen 600 ssa
                    --compiler-flag=-march --compiler-flag=riscv64
                    --run-prefix=${QEMU_RISCV64}
-                   --run-prefix=-L --run-prefix=/usr/riscv64-linux-gnu
-                   --link-with=${RISCV64_GCC} --link-with=-no-pie)
+                   --run-prefix=-L --run-prefix=/usr/riscv64-linux-gnu)
   else()
-    message(STATUS "riscv64 codegen suite not registered: need qemu-riscv64 and riscv64-linux-gnu-gcc")
+    message(STATUS "riscv64 codegen suite not registered: need qemu-riscv64 and a riscv64 sysroot")
   endif()
   # The two backends inside one link: each fixture is a pair of files compiled
   # with a different backend each, linked and run, then swapped over. Every
@@ -370,6 +370,20 @@ if(BUILD_TESTING)
       WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     )
     set_tests_properties(checker_link PROPERTIES
+      TIMEOUT 300
+      LABELS checkers
+      SKIP_RETURN_CODE 2)
+
+    # And once more for the other machine. What it asserts is not that riscv64
+    # code works - codegen_riscv64 runs it - but that the tables ld.so reads
+    # before any of it runs add up, which is a different half of the linker and
+    # the only one with a second target's answers in it.
+    add_test(NAME checker_link_riscv64
+      COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/test/checkers/link.py"
+              "$<TARGET_FILE:main>" "-march=riscv64" "test/testData/codegen"
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+    set_tests_properties(checker_link_riscv64 PROPERTIES
       TIMEOUT 300
       LABELS checkers
       SKIP_RETURN_CODE 2)

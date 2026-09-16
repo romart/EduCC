@@ -21,13 +21,10 @@
 #define LINK_PAGE_SIZE 0x1000
 #define DEFAULT_IMAGE_BASE 0x400000
 #define DEFAULT_ENTRY_SYMBOL "_start"
-#define DEFAULT_INTERPRETER "/lib64/ld-linux-x86-64.so.2"
 
-#define PLT_ENTRY_SIZE 16
 #define GOT_ENTRY_SIZE 8
-// .got.plt[0] is the address of .dynamic; [1] and [2] are ld.so's, and are
-// what a PLT stub pushes and jumps through on its first call.
-#define GOT_PLT_RESERVED 3
+// .got.plt[0] is the address of .dynamic, and the rest of the reserved run is
+// ld.so's - how many there are is the target's answer, not a constant.
 
 // Spelled out rather than taken from <limits.h>: these are the widths of the
 // relocation fields, not of any type this compiler happens to have.
@@ -223,6 +220,7 @@ typedef struct _Linker {
   Arena *arena;
   ElfReader reader;
   const LinkOptions *options;
+  const LinkTarget *target;
 
   LinkFile *files;
   LinkFile *lastFile;
@@ -280,7 +278,7 @@ typedef struct _Linker {
   // How many entries .rela.dyn needs, counted before layout because layout is
   // what sizes the section. Only a shared object has any beyond its copies.
   size_t dynRelocCount;
-  size_t relativeCount; // of those, the leading R_X86_64_RELATIVE run
+  size_t relativeCount; // of those, the leading RELATIVE run
 
   uint64_t relroStart;
   uint64_t relroEnd;
@@ -412,58 +410,74 @@ static char *findFile(const char *pattern) {
   return path;
 }
 
-const char *linkCrtPath(void) {
-  static const char *cached = NULL;
-  if (cached != NULL) return cached;
+// Both are cached per machine rather than once: a driver that compiled for one
+// target and links for it asks only about that one, but nothing stops a
+// process asking twice and getting the other's answer.
+static const LinkTarget *pathTargetFor(uint16_t machine) {
+  const LinkTarget *target = linkTargetFor(machine);
+  if (target != NULL) return target;
 
-  static const char *candidates[] = {
-    "/usr/lib/x86_64-linux-gnu", "/usr/lib64", "/usr/lib"
-  };
-
-  unsigned i;
-  for (i = 0; i < sizeof candidates / sizeof candidates[0]; ++i) {
-    char probe[512];
-    snprintf(probe, sizeof probe, "%s/crti.o", candidates[i]);
-    if (access(probe, F_OK) == 0) {
-      cached = candidates[i];
-      return cached;
-    }
-  }
-
-  fprintf(stderr, "educc: error: no C runtime directory found\n");
+  fprintf(stderr, "educc: error: no linker support for e_machine %u\n",
+          (unsigned)machine);
   exit(1);
 }
 
-const char *linkGccPath(void) {
-  static char cached[512];
-  if (cached[0] != '\0') return cached;
+const char *linkCrtPath(uint16_t machine) {
+  static const char *cached[2];
+  const LinkTarget *target = pathTargetFor(machine);
+  unsigned which = target->machine == EM_X86_64 ? 0 : 1;
 
-  static const char *patterns[] = {
-    "/usr/lib/gcc/x86_64-linux-gnu/*/crtbegin.o",
-    "/usr/lib/gcc/x86_64-pc-linux-gnu/*/crtbegin.o", // For Gentoo and Arch
-    "/usr/lib/gcc/x86_64-redhat-linux/*/crtbegin.o", // For Fedora
-  };
+  if (cached[which] != NULL) return cached[which];
 
-  unsigned i;
-  for (i = 0; i < sizeof patterns / sizeof patterns[0]; ++i) {
-    char *path = findFile(patterns[i]);
+  size_t i;
+  for (i = 0; i < target->crtDirCount; ++i) {
+    char probe[512];
+    snprintf(probe, sizeof probe, "%s/crti.o", target->crtDirs[i]);
+    if (access(probe, F_OK) == 0) {
+      cached[which] = target->crtDirs[i];
+      return cached[which];
+    }
+  }
+
+  fprintf(stderr, "educc: error: no %s C runtime directory found\n",
+          target->name);
+  exit(1);
+}
+
+const char *linkGccPath(uint16_t machine) {
+  static char cached[2][512];
+  const LinkTarget *target = pathTargetFor(machine);
+  unsigned which = target->machine == EM_X86_64 ? 0 : 1;
+
+  if (cached[which][0] != '\0') return cached[which];
+
+  size_t i;
+  for (i = 0; i < target->gccGlobCount; ++i) {
+    char *path = findFile(target->gccGlobs[i]);
     if (path == NULL) continue;
 
     static const char suffix[] = "/crtbegin.o";
     size_t length = strlen(path);
     size_t directory = length - (sizeof suffix - 1);
 
-    if (directory < sizeof cached) {
-      memcpy(cached, path, directory);
-      cached[directory] = '\0';
+    if (directory < sizeof cached[which]) {
+      memcpy(cached[which], path, directory);
+      cached[which][directory] = '\0';
     }
     free(path);
 
-    if (cached[0] != '\0') return cached;
+    if (cached[which][0] != '\0') return cached[which];
   }
 
-  fprintf(stderr, "educc: error: no gcc runtime directory found\n");
+  fprintf(stderr, "educc: error: no %s gcc runtime directory found\n",
+          target->name);
   exit(1);
+}
+
+const char *const *linkLibraryPaths(uint16_t machine, size_t *count) {
+  const LinkTarget *target = pathTargetFor(machine);
+  *count = target->libDirCount;
+  return target->libDirs;
 }
 
 /* ---------------------------------------------------------------- inputs */
@@ -714,6 +728,16 @@ static const char *findLibrary(Linker *l, const char *name) {
 // libgcc_s.so is 'GROUP ( libgcc_s.so.1 -lgcc )' - and ld looks such a name up
 // on the search path. Anything that opens where it stands is taken as written.
 static const char *resolveInput(Linker *l, const char *path) {
+  // A cross toolchain's own libc.so says 'GROUP ( /lib/libc.so.6 ... )' and
+  // means its sysroot's, not this machine's - which is the whole of what ld's
+  // '--sysroot' does, and getting it wrong links the host's libc into a
+  // riscv64 program.
+  if (path[0] == '/' && l->target->sysroot != NULL) {
+    char probe[1024];
+    snprintf(probe, sizeof probe, "%s%s", l->target->sysroot, path);
+    if (access(probe, R_OK) == 0) return copyString(l, probe, strlen(probe));
+  }
+
   if (path[0] == '/' || access(path, R_OK) == 0) return path;
 
   size_t i;
@@ -949,7 +973,11 @@ static const char *linkerSymbols[] = {
   "__preinit_array_start", "__preinit_array_end",
   "__init_array_start", "__init_array_end",
   "__fini_array_start", "__fini_array_end",
-  "etext", "_etext", "edata", "_edata", "__bss_start", "end", "_end"
+  "etext", "_etext", "edata", "_edata", "__bss_start", "end", "_end",
+  // RISC-V's, and it is load-bearing: crt1.o's _start puts it in gp before
+  // anything else runs. Claimed on every target, since a name nothing
+  // referenced is never asked about.
+  "__global_pointer$"
 };
 
 static void claimLinkerSymbols(Linker *l) {
@@ -1433,9 +1461,8 @@ static void needLocalGot(Linker *l, LinkFile *lf, unsigned index) {
   addToVector(&l->got, (intptr_t)slot);
 }
 
-static Boolean isGotRelocation(uint32_t type) {
-  return type == R_X86_64_GOTPCREL || type == R_X86_64_GOTPCRELX ||
-         type == R_X86_64_REX_GOTPCRELX;
+static enum RelocRole roleOf(const Linker *l, uint32_t type) {
+  return l->target->role(type);
 }
 
 // What an absolute 64-bit reference costs in a shared object. Asked twice -
@@ -1494,11 +1521,17 @@ static void scanRelocations(Linker *l) {
         if (index == 0 || index >= lf->file->symbolCount) continue;
 
         const InputSymbol *symbol = &lf->file->symbols[index];
-        Boolean absolute32 = type == R_X86_64_32 || type == R_X86_64_32S;
+        enum RelocRole role = roleOf(l, type);
+
+        // The low half of a PC-relative pair names the instruction holding the
+        // high half rather than a symbol, so everything it needs was arranged
+        // when that one was seen.
+        if (role == RELOC_ROLE_PAIRED_LO) continue;
 
         // A 32-bit absolute field cannot hold an address that is not known
         // until load time, and no dynamic relocation would fit in it either.
-        if (l->options->shared && absolute32 && symbol->shndx != SHN_ABS) {
+        if (l->options->shared && role == RELOC_ROLE_ABS32 &&
+            symbol->shndx != SHN_ABS) {
           linkError(l, "%s: a 32-bit absolute reference to '%s' in '%s' cannot "
                        "be used when making a shared object", fileName(lf),
                     symbol->name != NULL ? symbol->name : "", piece->name);
@@ -1506,8 +1539,8 @@ static void scanRelocations(Linker *l) {
         }
 
         if (symbol->bind == STB_LOCAL) {
-          if (isGotRelocation(type)) needLocalGot(l, lf, index);
-          if (l->options->shared && type == R_X86_64_64) {
+          if (role == RELOC_ROLE_GOT) needLocalGot(l, lf, index);
+          if (l->options->shared && role == RELOC_ROLE_ABS64) {
             requireWritable(l, lf, piece);
             ++l->dynRelocCount;
           }
@@ -1517,28 +1550,28 @@ static void scanRelocations(Linker *l) {
         LinkSymbol *global = lf->globals[index];
         if (global == NULL) continue;
 
-        if (isGotRelocation(type)) needGlobalGot(l, global);
+        if (role == RELOC_ROLE_GOT) needGlobalGot(l, global);
 
         if (l->options->shared) {
           Boolean preempt = isPreemptible(l, global);
 
-          if (isGotRelocation(type) && preempt) addDynamicSymbol(l, global);
+          if (role == RELOC_ROLE_GOT && preempt) addDynamicSymbol(l, global);
 
-          switch (type) {
-            case R_X86_64_PLT32:
+          switch (role) {
+            case RELOC_ROLE_CALL:
               // A call to a name somebody else may define goes through a stub
               // even when this object defines it too - that is the whole of
               // what makes an interposed definition take effect.
               if (preempt) needPlt(l, global);
               break;
 
-            case R_X86_64_64:
+            case RELOC_ROLE_ABS64:
               requireWritable(l, lf, piece);
               if (preempt) addDynamicSymbol(l, global);
               ++l->dynRelocCount;
               break;
 
-            case R_X86_64_PC32:
+            case RELOC_ROLE_PCREL:
               if (preempt) {
                 linkError(l, "%s: a PC-relative reference to '%s' in '%s' "
                              "cannot be used when making a shared object; "
@@ -1555,18 +1588,15 @@ static void scanRelocations(Linker *l) {
 
         if (!isSharedSymbol(global)) continue;
 
-        switch (type) {
-          case R_X86_64_PLT32:
+        switch (role) {
+          case RELOC_ROLE_CALL:
             needPlt(l, global);
             break;
 
-          case R_X86_64_64:
-          case R_X86_64_PC32:
-          case R_X86_64_32:
-          case R_X86_64_32S:
-          case R_X86_64_GOTPCREL:
-          case R_X86_64_GOTPCRELX:
-          case R_X86_64_REX_GOTPCRELX:
+          case RELOC_ROLE_ABS64:
+          case RELOC_ROLE_ABS32:
+          case RELOC_ROLE_PCREL:
+          case RELOC_ROLE_GOT:
             needSharedSymbol(l, global);
             break;
 
@@ -1728,8 +1758,10 @@ static void createDynamicSections(Linker *l) {
                                    &l->relaPltSection);
 
     l->pltPiece = addSynthetic(l, ".plt", SHT_PROGBITS,
-                               SHF_ALLOC | SHF_EXECINSTR, 16, PLT_ENTRY_SIZE,
-                               (l->plt.size + 1) * PLT_ENTRY_SIZE,
+                               SHF_ALLOC | SHF_EXECINSTR, l->target->pltAlign,
+                               l->target->pltEntrySize,
+                               l->target->plt0Size +
+                                   l->plt.size * l->target->pltEntrySize,
                                &l->pltSection);
   }
 
@@ -1743,7 +1775,7 @@ static void createDynamicSections(Linker *l) {
   // loader finds .dynamic, and _GLOBAL_OFFSET_TABLE_ points at its start.
   l->gotPltPiece = addSynthetic(l, ".got.plt", SHT_PROGBITS,
                                 SHF_ALLOC | SHF_WRITE, 8, GOT_ENTRY_SIZE,
-                                (GOT_PLT_RESERVED + l->plt.size) *
+                                (l->target->gotPltReserved + l->plt.size) *
                                     GOT_ENTRY_SIZE,
                                 &l->gotPltSection);
 
@@ -1815,6 +1847,14 @@ static uint64_t linkerSymbolValue(Linker *l, const Layout *layout,
     return l->dynamicSection != NULL ? l->dynamicSection->address : 0;
   }
 
+  // ld's riscv64 script puts this 2KiB into the small-data area, which is the
+  // middle of a signed 12-bit reach either way. Nothing this linker writes
+  // addresses through gp - it never relaxes a reference into doing so - so
+  // what matters is that the name resolves at all.
+  if (strcmp(name, "__global_pointer$") == 0) {
+    return layout->segments[CLASS_DATA].address + 0x800;
+  }
+
   uint64_t start = 0, end = 0;
 
   if (strncmp(name, "__preinit_array_", 16) == 0) {
@@ -1843,8 +1883,8 @@ static uint64_t linkerSymbolValue(Linker *l, const Layout *layout,
 }
 
 static uint64_t pltEntryAddress(Linker *l, const LinkSymbol *symbol) {
-  return l->pltSection->address +
-         (uint64_t)(symbol->pltIndex + 1) * PLT_ENTRY_SIZE;
+  return l->pltSection->address + l->target->plt0Size +
+         (uint64_t)symbol->pltIndex * l->target->pltEntrySize;
 }
 
 static Boolean resolveSymbolAddresses(Linker *l, const Layout *layout) {
@@ -1945,43 +1985,9 @@ static Boolean localSymbolAddress(Linker *l, LinkFile *lf,
 static void fillPlt(Linker *l) {
   if (l->pltPiece == NULL) return;
 
-  uint8_t *plt = (uint8_t *)l->pltPiece->data;
-  uint64_t pltAddress = l->pltPiece->address;
-  uint64_t gotPlt = l->gotPltPiece->address;
-
-  // PLT0 pushes the loader's bookkeeping word and jumps to its resolver, which
-  // ld.so leaves in the second and third reserved .got.plt slots.
-  plt[0] = 0xff;
-  plt[1] = 0x35;
-  write32(plt + 2, (uint32_t)(gotPlt + 8 - (pltAddress + 6)));
-  plt[6] = 0xff;
-  plt[7] = 0x25;
-  write32(plt + 8, (uint32_t)(gotPlt + 16 - (pltAddress + 12)));
-  plt[12] = 0x0f;
-  plt[13] = 0x1f;
-  plt[14] = 0x40;
-  plt[15] = 0x00;
-
-  uint8_t *gotPltData = (uint8_t *)l->gotPltPiece->data;
-
-  size_t i;
-  for (i = 0; i < l->plt.size; ++i) {
-    uint8_t *entry = plt + PLT_ENTRY_SIZE * (i + 1);
-    uint64_t address = pltAddress + PLT_ENTRY_SIZE * (i + 1);
-    uint64_t slot = gotPlt + GOT_ENTRY_SIZE * (GOT_PLT_RESERVED + i);
-
-    entry[0] = 0xff;
-    entry[1] = 0x25;
-    write32(entry + 2, (uint32_t)(slot - (address + 6)));
-    entry[6] = 0x68;
-    write32(entry + 7, (uint32_t)i);
-    entry[11] = 0xe9;
-    write32(entry + 12, (uint32_t)(pltAddress - (address + 16)));
-
-    // Until ld.so has resolved it, the slot points back at the push - which is
-    // what makes the first call go through PLT0 and the rest not.
-    write64(gotPltData + GOT_ENTRY_SIZE * (GOT_PLT_RESERVED + i), address + 6);
-  }
+  l->target->writePlt((uint8_t *)l->pltPiece->data, l->pltPiece->address,
+                      (uint8_t *)l->gotPltPiece->data,
+                      l->gotPltPiece->address, l->plt.size);
 }
 
 static void fillGot(Linker *l) {
@@ -2115,7 +2121,8 @@ static void emitDynamicRelocations(Linker *l, Boolean relative,
     if (gotSlotAction(l, slot) == DYN_SYMBOL) {
       if (!relative) {
         addDynRela(entries, at, where,
-                   ELF64_R_INFO(slot->global->dynIndex, R_X86_64_GLOB_DAT), 0);
+                   ELF64_R_INFO(slot->global->dynIndex, l->target->relocGlobDat),
+                   0);
       }
       continue;
     }
@@ -2130,7 +2137,7 @@ static void emitDynamicRelocations(Linker *l, Boolean relative,
       if (!localSymbolAddress(l, slot->file, symbol, &value)) continue;
     }
 
-    addDynRela(entries, at, where, ELF64_R_INFO(0, R_X86_64_RELATIVE),
+    addDynRela(entries, at, where, ELF64_R_INFO(0, l->target->relocRelative),
                (int64_t)value);
   }
 
@@ -2146,7 +2153,7 @@ static void emitDynamicRelocations(Linker *l, Boolean relative,
       size_t j;
       for (j = 0; j < piece->input->relocCount; ++j) {
         const Elf64_Rela *rela = &piece->input->relocs[j];
-        if ((uint32_t)ELF64_R_TYPE(rela->r_info) != R_X86_64_64) continue;
+        if ((uint32_t)ELF64_R_TYPE(rela->r_info) != l->target->relocAbs64) continue;
 
         uint32_t index = (uint32_t)ELF64_R_SYM(rela->r_info);
         uint64_t where = piece->address + rela->r_offset;
@@ -2156,7 +2163,7 @@ static void emitDynamicRelocations(Linker *l, Boolean relative,
 
           LinkSymbol *global = lf->globals[index];
           addDynRela(entries, at, where,
-                     ELF64_R_INFO(global->dynIndex, R_X86_64_64),
+                     ELF64_R_INFO(global->dynIndex, l->target->relocAbs64),
                      rela->r_addend);
           continue;
         }
@@ -2176,7 +2183,7 @@ static void emitDynamicRelocations(Linker *l, Boolean relative,
           }
         }
 
-        addDynRela(entries, at, where, ELF64_R_INFO(0, R_X86_64_RELATIVE),
+        addDynRela(entries, at, where, ELF64_R_INFO(0, l->target->relocRelative),
                    (int64_t)(S + (uint64_t)rela->r_addend));
       }
     }
@@ -2192,8 +2199,9 @@ static void fillDynamicRelocations(Linker *l) {
       LinkSymbol *symbol = (LinkSymbol *)getFromVector(&l->plt, i);
 
       entries[i].r_offset = l->gotPltPiece->address +
-                            GOT_ENTRY_SIZE * (GOT_PLT_RESERVED + i);
-      entries[i].r_info = ELF64_R_INFO(symbol->dynIndex, R_X86_64_JUMP_SLOT);
+                            GOT_ENTRY_SIZE * (l->target->gotPltReserved + i);
+      entries[i].r_info =
+          ELF64_R_INFO(symbol->dynIndex, l->target->relocJumpSlot);
       entries[i].r_addend = 0;
     }
   }
@@ -2213,7 +2221,7 @@ static void fillDynamicRelocations(Linker *l) {
     for (i = 0; i < l->copies.size; ++i) {
       LinkSymbol *symbol = (LinkSymbol *)getFromVector(&l->copies, i);
       addDynRela(entries, &at, symbol->address,
-                 ELF64_R_INFO(symbol->dynIndex, R_X86_64_COPY), 0);
+                 ELF64_R_INFO(symbol->dynIndex, l->target->relocCopy), 0);
     }
   }
 
@@ -2222,7 +2230,7 @@ static void fillDynamicRelocations(Linker *l) {
   // Short only when something above already failed, and a link that reported
   // an error writes nothing - but a half-filled table must still parse.
   while (at < capacity) {
-    addDynRela(entries, &at, 0, ELF64_R_INFO(0, R_X86_64_NONE), 0);
+    addDynRela(entries, &at, 0, ELF64_R_INFO(0, l->target->relocNone), 0);
   }
 }
 
@@ -2332,80 +2340,85 @@ static void fillDynamicContents(Linker *l) {
 
 /* ------------------------------------------------------------ relocations */
 
-static const char *relocationName(uint32_t type) {
-  switch (type) {
-    case R_X86_64_64: return "R_X86_64_64";
-    case R_X86_64_PC32: return "R_X86_64_PC32";
-    case R_X86_64_PLT32: return "R_X86_64_PLT32";
-    case R_X86_64_32: return "R_X86_64_32";
-    case R_X86_64_32S: return "R_X86_64_32S";
-    case R_X86_64_GOTPCREL: return "R_X86_64_GOTPCREL";
-    case R_X86_64_GOTPCRELX: return "R_X86_64_GOTPCRELX";
-    case R_X86_64_REX_GOTPCRELX: return "R_X86_64_REX_GOTPCRELX";
-    case R_X86_64_GOTPC32: return "R_X86_64_GOTPC32";
-    default: return "relocation";
-  }
-}
+// What a relocation names, once the link has answered for it. Resolved in one
+// place because RISC-V's paired low half has to ask the same questions about a
+// relocation that is not the one being applied.
+typedef struct _RelocOperands {
+  uint32_t type;
+  const char *name;
+  uint64_t S;        // the symbol
+  int64_t A;         // the addend
+  uint64_t P;        // where the field is
+  uint64_t G;        // its GOT entry, when it has one
+  Boolean haveGot;
+  LinkSymbol *global; // NULL for a local symbol or no symbol at all
+} RelocOperands;
 
-static void applyRelocation(Linker *l, LinkPiece *piece,
-                            const Elf64_Rela *rela, uint8_t *image) {
-  uint32_t type = (uint32_t)ELF64_R_TYPE(rela->r_info);
+static Boolean resolveRelocOperands(Linker *l, LinkPiece *piece,
+                                    const Elf64_Rela *rela,
+                                    RelocOperands *o) {
+  LinkFile *lf = piece->owner;
   uint32_t index = (uint32_t)ELF64_R_SYM(rela->r_info);
 
-  if (type == R_X86_64_NONE) return;
+  memset(o, 0, sizeof *o);
+  o->type = (uint32_t)ELF64_R_TYPE(rela->r_info);
+  o->name = "";
+  o->A = rela->r_addend;
+  o->P = piece->address + rela->r_offset;
 
+  if (index == 0) return TRUE;
+
+  if (index >= lf->file->symbolCount) {
+    linkError(l, "%s: a relocation in '%s' names symbol %u, which does not "
+                 "exist", fileName(lf), piece->name, index);
+    return FALSE;
+  }
+
+  const InputSymbol *symbol = &lf->file->symbols[index];
+  if (symbol->name != NULL) o->name = symbol->name;
+
+  if (symbol->bind == STB_LOCAL) {
+    if (!localSymbolAddress(l, lf, symbol, &o->S)) return FALSE;
+    if (lf->localGot[index] != 0) {
+      o->haveGot = TRUE;
+      o->G = l->gotPiece->address + lf->localGot[index] - 1;
+    }
+    return TRUE;
+  }
+
+  o->global = lf->globals[index];
+  if (o->global == NULL || !o->global->resolved) {
+    linkError(l, "%s: '%s' is not resolved", fileName(lf), o->name);
+    return FALSE;
+  }
+
+  o->S = o->global->address;
+  if (o->global->needsGot) {
+    o->haveGot = TRUE;
+    o->G = l->gotPiece->address + o->global->gotOffset;
+  }
+  return TRUE;
+}
+
+// Where a call goes. In a shared object a name this object defines may still
+// be answered for by somebody else, and the stub is where that gets decided.
+static uint64_t callTarget(Linker *l, const RelocOperands *o) {
+  if (o->global != NULL && o->global->needsPlt) return pltEntryAddress(l, o->global);
+  return o->S;
+}
+
+/* ------------------------------------------------------ x86-64 relocations */
+
+static void applyX86Relocation(Linker *l, LinkPiece *piece, uint8_t *where,
+                               const RelocOperands *o) {
   LinkFile *lf = piece->owner;
-  size_t width = type == R_X86_64_64 ? 8 : 4;
+  const char *name = o->name;
+  int64_t A = o->A;
+  uint64_t P = o->P;
 
-  if (rela->r_offset > piece->size || piece->size - rela->r_offset < width) {
-    linkError(l, "%s: a %s in '%s' points past the end of the section",
-              fileName(lf), relocationName(type), piece->name);
-    return;
-  }
-
-  const char *name = "";
-  uint64_t S = 0;
-  Boolean haveGot = FALSE;
-  uint64_t G = 0;
-  LinkSymbol *global = NULL;
-
-  if (index != 0) {
-    if (index >= lf->file->symbolCount) {
-      linkError(l, "%s: a relocation in '%s' names symbol %u, which does not "
-                   "exist", fileName(lf), piece->name, index);
-      return;
-    }
-
-    const InputSymbol *symbol = &lf->file->symbols[index];
-    if (symbol->name != NULL) name = symbol->name;
-
-    if (symbol->bind == STB_LOCAL) {
-      if (!localSymbolAddress(l, lf, symbol, &S)) return;
-      if (lf->localGot[index] != 0) {
-        haveGot = TRUE;
-        G = l->gotPiece->address + lf->localGot[index] - 1;
-      }
-    } else {
-      global = lf->globals[index];
-      if (global == NULL || !global->resolved) {
-        linkError(l, "%s: '%s' is not resolved", fileName(lf), name);
-        return;
-      }
-      S = global->address;
-      if (global->needsGot) {
-        haveGot = TRUE;
-        G = l->gotPiece->address + global->gotOffset;
-      }
-    }
-  }
-
-  int64_t A = rela->r_addend;
-  uint64_t P = piece->address + rela->r_offset;
-  uint8_t *where = image + piece->offset + rela->r_offset;
-
-  switch (type) {
+  switch (o->type) {
     case R_X86_64_64:
-      write64(where, S + (uint64_t)A);
+      write64(where, o->S + (uint64_t)A);
       return;
 
     // A call to a symbol this link defines needs no stub, so the two are the
@@ -2413,13 +2426,8 @@ static void applyRelocation(Linker *l, LinkPiece *piece,
     // stub's address and they stay the same arithmetic.
     case R_X86_64_PC32:
     case R_X86_64_PLT32: {
-      // In a shared object a name this object defines may still be answered
-      // for by somebody else, and the stub is where that gets decided - so a
-      // call goes there rather than straight at the local definition.
-      uint64_t target = S;
-      if (type == R_X86_64_PLT32 && global != NULL && global->needsPlt) {
-        target = pltEntryAddress(l, global);
-      }
+      uint64_t target =
+          o->type == R_X86_64_PLT32 ? callTarget(l, o) : o->S;
 
       int64_t value = (int64_t)(target + (uint64_t)A) - (int64_t)P;
       if (value < RELOC_S32_MIN || value > RELOC_S32_MAX) {
@@ -2432,7 +2440,7 @@ static void applyRelocation(Linker *l, LinkPiece *piece,
     }
 
     case R_X86_64_32: {
-      uint64_t value = S + (uint64_t)A;
+      uint64_t value = o->S + (uint64_t)A;
       if (value > (uint64_t)RELOC_U32_MAX) {
         linkError(l, "%s: '%s' does not fit in the 32 bits '%s' has for it",
                   fileName(lf), name, piece->name);
@@ -2443,7 +2451,7 @@ static void applyRelocation(Linker *l, LinkPiece *piece,
     }
 
     case R_X86_64_32S: {
-      int64_t value = (int64_t)(S + (uint64_t)A);
+      int64_t value = (int64_t)(o->S + (uint64_t)A);
       if (value < RELOC_S32_MIN || value > RELOC_S32_MAX) {
         linkError(l, "%s: '%s' does not fit in the 32 bits '%s' has for it",
                   fileName(lf), name, piece->name);
@@ -2458,15 +2466,15 @@ static void applyRelocation(Linker *l, LinkPiece *piece,
     case R_X86_64_GOTPCREL:
     case R_X86_64_GOTPCRELX:
     case R_X86_64_REX_GOTPCRELX: {
-      if (!haveGot) {
+      if (!o->haveGot) {
         // A link with no loader has no GOT to build one in: only the dynamic
         // half of this file allocates slots, and it is not running.
         linkError(l, "%s: relocation type %u against '%s' is not supported yet",
-                  fileName(lf), type, name);
+                  fileName(lf), o->type, name);
         return;
       }
 
-      int64_t value = (int64_t)(G + (uint64_t)A) - (int64_t)P;
+      int64_t value = (int64_t)(o->G + (uint64_t)A) - (int64_t)P;
       if (value < RELOC_S32_MIN || value > RELOC_S32_MAX) {
         linkError(l, "%s: the GOT entry for '%s' is too far from '%s'",
                   fileName(lf), name, piece->name);
@@ -2490,8 +2498,345 @@ static void applyRelocation(Linker *l, LinkPiece *piece,
 
     default:
       linkError(l, "%s: relocation type %u against '%s' is not supported yet",
-                fileName(lf), type, name);
+                fileName(lf), o->type, name);
       return;
+  }
+}
+
+/* ----------------------------------------------------- riscv64 relocations */
+
+// RISC-V splices an immediate through the instruction rather than laying it
+// out in one field, so every one of these rewrites bits and leaves the rest of
+// the word alone.
+
+static uint32_t read32(const uint8_t *where) {
+  return (uint32_t)where[0] | ((uint32_t)where[1] << 8) |
+         ((uint32_t)where[2] << 16) | ((uint32_t)where[3] << 24);
+}
+
+static uint64_t read64(const uint8_t *where) {
+  return (uint64_t)read32(where) | ((uint64_t)read32(where + 4) << 32);
+}
+
+static uint16_t read16(const uint8_t *where) {
+  return (uint16_t)((uint32_t)where[0] | ((uint32_t)where[1] << 8));
+}
+
+static void write16(uint8_t *where, uint16_t value) {
+  where[0] = (uint8_t)value;
+  where[1] = (uint8_t)(value >> 8);
+}
+
+// A 12-bit signed low half and the 20-bit high half that carries its sign.
+static uint32_t riscvHigh20(int64_t value) {
+  return (uint32_t)(((uint64_t)value + 0x800u) & 0xfffff000u);
+}
+
+static int32_t riscvLow12(int64_t value) {
+  return (int32_t)(value - (int64_t)(int32_t)riscvHigh20(value));
+}
+
+static void patchU(uint8_t *where, int64_t value) {
+  write32(where, (read32(where) & 0x00000fffu) | riscvHigh20(value));
+}
+
+static void patchI(uint8_t *where, int64_t value) {
+  write32(where, (read32(where) & 0x000fffffu) |
+                     (((uint32_t)(int32_t)value & 0xfffu) << 20));
+}
+
+static void patchS(uint8_t *where, int64_t value) {
+  uint32_t imm = (uint32_t)(int32_t)value & 0xfffu;
+  write32(where, (read32(where) & 0x01fff07fu) | ((imm >> 5) << 25) |
+                     ((imm & 0x1fu) << 7));
+}
+
+static void patchB(uint8_t *where, int64_t offset) {
+  uint32_t imm = (uint32_t)(int32_t)offset;
+  uint32_t encoded = (((imm >> 12) & 1u) << 31) | (((imm >> 5) & 0x3fu) << 25) |
+                     (((imm >> 1) & 0xfu) << 8) | (((imm >> 11) & 1u) << 7);
+  write32(where, (read32(where) & 0x01fff07fu) | encoded);
+}
+
+static void patchJ(uint8_t *where, int64_t offset) {
+  uint32_t imm = (uint32_t)(int32_t)offset;
+  uint32_t encoded = (((imm >> 20) & 1u) << 31) | (((imm >> 1) & 0x3ffu) << 21) |
+                     (((imm >> 11) & 1u) << 20) | (((imm >> 12) & 0xffu) << 12);
+  write32(where, (read32(where) & 0x00000fffu) | encoded);
+}
+
+static void patchRvcBranch(uint8_t *where, int64_t offset) {
+  uint32_t imm = (uint32_t)(int32_t)offset;
+  uint32_t encoded = (((imm >> 8) & 1u) << 12) | (((imm >> 3) & 3u) << 10) |
+                     (((imm >> 6) & 3u) << 5) | (((imm >> 1) & 3u) << 3) |
+                     (((imm >> 5) & 1u) << 2);
+  write16(where, (uint16_t)((read16(where) & 0xe383u) | encoded));
+}
+
+static void patchRvcJump(uint8_t *where, int64_t offset) {
+  uint32_t imm = (uint32_t)(int32_t)offset;
+  uint32_t encoded = (((imm >> 11) & 1u) << 12) | (((imm >> 4) & 1u) << 11) |
+                     (((imm >> 8) & 3u) << 9) | (((imm >> 10) & 1u) << 8) |
+                     (((imm >> 6) & 1u) << 7) | (((imm >> 7) & 1u) << 6) |
+                     (((imm >> 1) & 7u) << 3) | (((imm >> 5) & 1u) << 2);
+  write16(where, (uint16_t)((read16(where) & 0xe003u) | encoded));
+}
+
+static Boolean fitsSigned(int64_t value, unsigned bits) {
+  int64_t limit = (int64_t)1 << (bits - 1);
+  return value >= -limit && value < limit;
+}
+
+// The low half of a PC-relative pair names the auipc that carries the high
+// half, not the symbol - so the answer is whatever *that* relocation resolved
+// to, and it has to be worked out a second time here.
+static Boolean riscvPairedOffset(Linker *l, LinkPiece *piece,
+                                 uint64_t auipcAddress, int64_t *offset) {
+  if (auipcAddress < piece->address) return FALSE;
+  uint64_t at = auipcAddress - piece->address;
+
+  size_t j;
+  for (j = 0; j < piece->input->relocCount; ++j) {
+    const Elf64_Rela *high = &piece->input->relocs[j];
+    if (high->r_offset != at) continue;
+
+    uint32_t type = (uint32_t)ELF64_R_TYPE(high->r_info);
+    if (type != R_RISCV_PCREL_HI20 && type != R_RISCV_GOT_HI20) continue;
+
+    RelocOperands o;
+    if (!resolveRelocOperands(l, piece, high, &o)) return FALSE;
+
+    if (type == R_RISCV_GOT_HI20) {
+      if (!o.haveGot) return FALSE;
+      *offset = (int64_t)o.G - (int64_t)auipcAddress;
+    } else {
+      *offset = (int64_t)(o.S + (uint64_t)o.A) - (int64_t)auipcAddress;
+    }
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+static void applyRiscvRelocation(Linker *l, LinkPiece *piece, uint8_t *where,
+                                 const RelocOperands *o) {
+  LinkFile *lf = piece->owner;
+  const char *name = o->name;
+  uint64_t V = o->S + (uint64_t)o->A; // the plain answer, for everything absolute
+
+  switch (o->type) {
+    // Annotations. This linker never relaxes, so nothing shrinks and the
+    // padding an assembler already emitted stays exactly the right size.
+    case R_RISCV_RELAX:
+    case R_RISCV_ALIGN:
+      return;
+
+    case R_RISCV_64:
+      write64(where, V);
+      return;
+
+    case R_RISCV_32: {
+      if (!fitsSigned((int64_t)V, 32) && V > (uint64_t)RELOC_U32_MAX) {
+        linkError(l, "%s: '%s' does not fit in the 32 bits '%s' has for it",
+                  fileName(lf), name, piece->name);
+        return;
+      }
+      write32(where, (uint32_t)V);
+      return;
+    }
+
+    // medlow: the address is computed outright, in two halves, and each half
+    // names the symbol itself. Both must round the same way, which is what
+    // riscvHigh20 and riscvLow12 are for.
+    case R_RISCV_HI20:
+      patchU(where, (int64_t)V);
+      return;
+
+    case R_RISCV_LO12_I:
+      patchI(where, riscvLow12((int64_t)V));
+      return;
+
+    case R_RISCV_LO12_S:
+      patchS(where, riscvLow12((int64_t)V));
+      return;
+
+    // One entry covers the auipc and the jalr after it.
+    case R_RISCV_CALL:
+    case R_RISCV_CALL_PLT: {
+      int64_t offset =
+          (int64_t)(callTarget(l, o) + (uint64_t)o->A) - (int64_t)o->P;
+      if (!fitsSigned(offset, 32)) {
+        linkError(l, "%s: '%s' is too far from '%s' for a call",
+                  fileName(lf), name, piece->name);
+        return;
+      }
+      patchU(where, offset);
+      patchI(where + 4, riscvLow12(offset));
+      return;
+    }
+
+    case R_RISCV_JAL: {
+      int64_t offset =
+          (int64_t)(callTarget(l, o) + (uint64_t)o->A) - (int64_t)o->P;
+      if (!fitsSigned(offset, 21)) {
+        linkError(l, "%s: '%s' is more than a megabyte from '%s', which is as "
+                     "far as a jal reaches", fileName(lf), name, piece->name);
+        return;
+      }
+      patchJ(where, offset);
+      return;
+    }
+
+    case R_RISCV_BRANCH: {
+      int64_t offset = (int64_t)V - (int64_t)o->P;
+      if (!fitsSigned(offset, 13)) {
+        linkError(l, "%s: '%s' is too far from '%s' for a branch",
+                  fileName(lf), name, piece->name);
+        return;
+      }
+      patchB(where, offset);
+      return;
+    }
+
+    case R_RISCV_RVC_BRANCH: {
+      int64_t offset = (int64_t)V - (int64_t)o->P;
+      if (!fitsSigned(offset, 9)) {
+        linkError(l, "%s: '%s' is too far from '%s' for a compressed branch",
+                  fileName(lf), name, piece->name);
+        return;
+      }
+      patchRvcBranch(where, offset);
+      return;
+    }
+
+    case R_RISCV_RVC_JUMP: {
+      int64_t offset = (int64_t)V - (int64_t)o->P;
+      if (!fitsSigned(offset, 12)) {
+        linkError(l, "%s: '%s' is too far from '%s' for a compressed jump",
+                  fileName(lf), name, piece->name);
+        return;
+      }
+      patchRvcJump(where, offset);
+      return;
+    }
+
+    case R_RISCV_PCREL_HI20: {
+      int64_t offset = (int64_t)V - (int64_t)o->P;
+      if (!fitsSigned(offset, 32)) {
+        linkError(l, "%s: '%s' is too far from '%s' for a pc-relative "
+                     "reference", fileName(lf), name, piece->name);
+        return;
+      }
+      patchU(where, offset);
+      return;
+    }
+
+    case R_RISCV_GOT_HI20: {
+      if (!o->haveGot) {
+        linkError(l, "%s: relocation type %u against '%s' is not supported yet",
+                  fileName(lf), o->type, name);
+        return;
+      }
+      int64_t offset = (int64_t)o->G - (int64_t)o->P;
+      if (!fitsSigned(offset, 32)) {
+        linkError(l, "%s: the GOT entry for '%s' is too far from '%s'",
+                  fileName(lf), name, piece->name);
+        return;
+      }
+      patchU(where, offset);
+      return;
+    }
+
+    case R_RISCV_PCREL_LO12_I:
+    case R_RISCV_PCREL_LO12_S: {
+      int64_t offset = 0;
+      if (!riscvPairedOffset(l, piece, o->S, &offset)) {
+        linkError(l, "%s: a %s in '%s' has no auipc to pair with",
+                  fileName(lf), l->target->relocName(o->type), piece->name);
+        return;
+      }
+
+      if (o->type == R_RISCV_PCREL_LO12_I) {
+        patchI(where, riscvLow12(offset));
+      } else {
+        patchS(where, riscvLow12(offset));
+      }
+      return;
+    }
+
+    case R_RISCV_32_PCREL: {
+      int64_t offset = (int64_t)V - (int64_t)o->P;
+      if (!fitsSigned(offset, 32)) {
+        linkError(l, "%s: '%s' is too far from '%s' for a 32-bit displacement",
+                  fileName(lf), name, piece->name);
+        return;
+      }
+      write32(where, (uint32_t)(int32_t)offset);
+      return;
+    }
+
+    // A difference between two labels, which RISC-V spells as an add of one
+    // and a subtract of the other into the same field. .eh_frame is full of
+    // them and every CRT object this links has some.
+    case R_RISCV_ADD8:  where[0] = (uint8_t)(where[0] + V); return;
+    case R_RISCV_SUB8:  where[0] = (uint8_t)(where[0] - V); return;
+    case R_RISCV_SET8:  where[0] = (uint8_t)V; return;
+
+    case R_RISCV_ADD16: write16(where, (uint16_t)(read16(where) + V)); return;
+    case R_RISCV_SUB16: write16(where, (uint16_t)(read16(where) - V)); return;
+    case R_RISCV_SET16: write16(where, (uint16_t)V); return;
+
+    case R_RISCV_ADD32: write32(where, read32(where) + (uint32_t)V); return;
+    case R_RISCV_SUB32: write32(where, read32(where) - (uint32_t)V); return;
+    case R_RISCV_SET32: write32(where, (uint32_t)V); return;
+
+    case R_RISCV_ADD64:
+      write64(where, read64(where) + V);
+      return;
+    case R_RISCV_SUB64:
+      write64(where, read64(where) - V);
+      return;
+
+    // Six bits of one byte, which is how a CFI advance is patched.
+    case R_RISCV_SUB6:
+      where[0] = (uint8_t)((where[0] & 0xc0u) |
+                           (((uint32_t)where[0] - (uint32_t)V) & 0x3fu));
+      return;
+    case R_RISCV_SET6:
+      where[0] = (uint8_t)((where[0] & 0xc0u) | ((uint32_t)V & 0x3fu));
+      return;
+
+    default:
+      linkError(l, "%s: relocation type %u against '%s' is not supported yet",
+                fileName(lf), o->type, name);
+      return;
+  }
+}
+
+static void applyRelocation(Linker *l, LinkPiece *piece,
+                            const Elf64_Rela *rela, uint8_t *image) {
+  uint32_t type = (uint32_t)ELF64_R_TYPE(rela->r_info);
+  LinkFile *lf = piece->owner;
+
+  if (type == l->target->relocNone) return;
+
+  size_t width = l->target->fieldWidth(type);
+
+  if (rela->r_offset > piece->size || piece->size - rela->r_offset < width) {
+    linkError(l, "%s: a %s in '%s' points past the end of the section",
+              fileName(lf), l->target->relocName(type), piece->name);
+    return;
+  }
+
+  RelocOperands o;
+  if (!resolveRelocOperands(l, piece, rela, &o)) return;
+
+  uint8_t *where = image + piece->offset + rela->r_offset;
+
+  if (l->target->machine == EM_RISCV) {
+    applyRiscvRelocation(l, piece, where, &o);
+  } else {
+    applyX86Relocation(l, piece, where, &o);
   }
 }
 
@@ -2822,7 +3167,7 @@ static Boolean writeImage(Linker *l, const Layout *layout, Boolean *wrote) {
   header->e_ident[EI_VERSION] = EV_CURRENT;
   header->e_ident[EI_OSABI] = ELFOSABI_SYSV;
   header->e_type = l->options->shared ? ET_DYN : ET_EXEC;
-  header->e_machine = EM_X86_64;
+  header->e_machine = l->target->machine;
   header->e_version = EV_CURRENT;
   header->e_entry = l->entry;
   header->e_phoff = sizeof(Elf64_Ehdr);
@@ -2925,6 +3270,7 @@ static void releaseLinker(Linker *l) {
 
 void initLinkOptions(LinkOptions *options) {
   options->outputFile = "a.out";
+  options->machine = EM_X86_64;
   options->entrySymbol = DEFAULT_ENTRY_SYMBOL;
   options->imageBase = DEFAULT_IMAGE_BASE;
   options->interpreter = NULL;
@@ -2976,7 +3322,19 @@ Boolean linkObjects(const LinkOptions *options, int inputCount,
   linker.arena = createArena("linker", DEFAULT_CHUNCK_SIZE);
   linker.reader.arena = linker.arena;
   linker.options = options;
+  linker.target = linkTargetFor(options->machine);
   linker.dynamic = options->interpreter != NULL || options->shared;
+
+  if (linker.target == NULL) {
+    linkError(&linker, "no linker support for e_machine %u",
+              (unsigned)options->machine);
+    releaseArena(linker.arena);
+    return FALSE;
+  }
+
+  // An input for another machine is a mistake worth naming rather than a pile
+  // of relocations that make no sense.
+  linker.reader.machine = linker.target->machine;
   linker.globalMap = createHashMap(DEFAULT_MAP_CAPACITY, &nameHash,
                                    &nameCompare);
   initVector(&linker.globals, 64);
@@ -3071,7 +3429,7 @@ Boolean linkStaticExecutable(const LinkOptions *options, int inputCount,
 int linkCommand(int argc, char **argv, Boolean dynamic) {
   LinkOptions options;
   initLinkOptions(&options);
-  if (dynamic) options.interpreter = DEFAULT_INTERPRETER;
+  if (dynamic) options.interpreter = linkTargetFor(options.machine)->interpreter;
 
   int room = argc > 0 ? argc : 1;
   LinkInput *inputs = heapAllocate(sizeof(LinkInput) * room);

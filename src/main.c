@@ -119,34 +119,23 @@ static const char *sdkIncludePath() {
 #endif
 }
 
-// Where the CRT objects live. Probed in src/link/, because the in-house
-// linker needs the same answer and two probes that could disagree is one
-// more than this driver has any use for.
-static const char *stdLibPaths[] = {
-  "/usr/lib/x86_64-linux-gnu",
-  "/usr/lib64",
-  "/lib64",
-  "/usr/lib/x86_64-pc-linux-gnu",
-  "/usr/lib/x86_64-redhat-linux",
-  "/usr/lib",
-  "/lib"
-};
-
-#define DYNAMIC_LINKER "/lib64/ld-linux-x86-64.so.2"
-
 // The link, in this process. The input list is the one ld used to be given,
 // in the same order and with the same CRT objects around it, except that the
 // objects this run compiled are handed over as bytes: nothing wrote them down,
-// so there is nothing to name.
-static Boolean linkInternal(const char *outputFile, Boolean shared,
-                            ObjectImage *compiledObjs, StringList *cliObjs,
-                            StringList *libs, StringList *libDirs,
-                            StringList *ldArgs) {
+// so there is nothing to name. Where those objects are, which interpreter the
+// result asks for and what the default '-L' list is are all the target's
+// answer, probed in src/link/ so that two probes cannot disagree.
+static Boolean linkInternal(const char *outputFile, uint16_t machine,
+                            Boolean shared, ObjectImage *compiledObjs,
+                            StringList *cliObjs, StringList *libs,
+                            StringList *libDirs, StringList *ldArgs) {
+  const LinkTarget *target = linkTargetFor(machine);
   LinkOptions options;
   initLinkOptions(&options);
   options.outputFile = outputFile;
+  options.machine = machine;
   options.shared = shared;
-  if (!shared) options.interpreter = DYNAMIC_LINKER;
+  if (!shared) options.interpreter = target->interpreter;
 
   StringList *n;
   unsigned count = 0;
@@ -209,8 +198,8 @@ static Boolean linkInternal(const char *outputFile, Boolean shared,
   unsigned at = 0;
   char buffer[512];
 
-  const char *crtPath = linkCrtPath();
-  const char *gccPath = linkGccPath();
+  const char *crtPath = linkCrtPath(machine);
+  const char *gccPath = linkGccPath(machine);
 
 #define PATH(p)                                                                \
   do {                                                                         \
@@ -256,9 +245,12 @@ static Boolean linkInternal(const char *outputFile, Boolean shared,
 
   assert(at <= count);
 
+  size_t stdLibPathCount = 0;
+  const char *const *stdLibPaths = linkLibraryPaths(machine, &stdLibPathCount);
+
   unsigned dirCount = 0;
   for (n = libDirs; n; n = n->next) ++dirCount;
-  dirCount += sizeof stdLibPaths / sizeof stdLibPaths[0] + 1;
+  dirCount += (unsigned)stdLibPathCount + 1;
 
   char **dirs = heapAllocate(sizeof(char *) * dirCount);
   unsigned dirAt = 0;
@@ -269,7 +261,7 @@ static Boolean linkInternal(const char *outputFile, Boolean shared,
   dirs[dirAt++] = (char *)gccPath;
 
   unsigned k;
-  for (k = 0; k < sizeof stdLibPaths / sizeof stdLibPaths[0]; ++k) {
+  for (k = 0; k < stdLibPathCount; ++k) {
     dirs[dirAt++] = (char *)stdLibPaths[k];
   }
 
@@ -470,8 +462,12 @@ int main(int argc, char** argv) {
         continue;
     } else if (strcmp("-o", arg) == 0) {
         config.outputFile = argv[++i];
-    } else if (strcmp("-march", arg) == 0) {
-        const char *march = argv[++i];
+    } else if (strcmp("-march", arg) == 0 ||
+               strncmp("-march=", arg, 7) == 0) {
+        // gcc spells it '-march=x86-64'; the two-word form is what every
+        // script here already says, and a checker's argument list cannot use
+        // it - a word not beginning with '-' is read as a corpus root.
+        const char *march = arg[6] == '=' ? &arg[7] : argv[++i];
         if (strcmp(march, "x86_64") == 0) {
             config.arch = X86_64;
         } else if (strcmp(march, "riscv64") == 0) {
@@ -681,8 +677,10 @@ int main(int argc, char** argv) {
   if (!config.hadError && config.keepObjects) {
     const char *output = config.outputFile ? config.outputFile : "a.out";
 
-    if (!linkInternal(output, config.sharedOutput, config.objects, ohead.next,
-                      lhead.next, lDirHead.next, ldHead.next)) {
+    uint16_t machine = config.arch == RISCV64 ? EM_RISCV : EM_X86_64;
+
+    if (!linkInternal(output, machine, config.sharedOutput, config.objects,
+                      ohead.next, lhead.next, lDirHead.next, ldHead.next)) {
       config.hadError = 1;
     }
   }

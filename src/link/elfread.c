@@ -141,9 +141,20 @@ static Boolean checkElfHeader(ElfReader *r, const char *path,
     return FALSE;
   }
 
-  if (header->e_machine != EM_X86_64) {
-    readError(r, path, member, "not an x86-64 object (e_machine %u)",
-              (unsigned)header->e_machine);
+  uint16_t wanted = r->machine;
+
+  if (wanted == 0) {
+    // '-Xlink-read' only reports on what it is given, so it takes either
+    // machine this linker has ever written.
+    if (header->e_machine != EM_X86_64 && header->e_machine != EM_RISCV) {
+      readError(r, path, member, "not an object for a machine this linker "
+                                 "knows (e_machine %u)",
+                (unsigned)header->e_machine);
+      return FALSE;
+    }
+  } else if (header->e_machine != wanted) {
+    readError(r, path, member, "is for e_machine %u, and this link is for %u",
+              (unsigned)header->e_machine, (unsigned)wanted);
     return FALSE;
   }
 

@@ -2,6 +2,7 @@
 #define __LINK_LINK_H__ 1
 
 #include "link/elfread.h"
+#include "link/target.h"
 
 // Writing side of the linker: objects in, an executable out, and nothing is
 // exec'd to do it. Three shapes of link exist: a static, freestanding one with
@@ -11,6 +12,11 @@
 
 typedef struct _LinkOptions {
   const char *outputFile;
+
+  // EM_X86_64 unless set. It decides the interpreter, the PLT's shape, which
+  // relocations mean what, and where the CRT objects and libraries are looked
+  // for - so a cross link needs nothing else said about it.
+  uint16_t machine;
 
   // The symbol e_entry is taken from, '_start' unless overridden. A shared
   // object has no entry point and does not look for one.
@@ -70,9 +76,13 @@ int linkStaticCommand(int argc, char **argv);
 int linkDynamicCommand(int argc, char **argv);
 
 // Where the distribution keeps crt1.o/crti.o/crtn.o, and where gcc keeps
-// crtbegin.o/crtend.o. Probed once; both abort if there is nothing to find,
-// since a link cannot be attempted without them either way.
-const char *linkCrtPath(void);
-const char *linkGccPath(void);
+// crtbegin.o/crtend.o, for the machine being linked for. Probed once per
+// machine; both abort if there is nothing to find, since a link cannot be
+// attempted without them either way.
+const char *linkCrtPath(uint16_t machine);
+const char *linkGccPath(uint16_t machine);
+
+// The default '-L' list for a machine, searched after anything the user named.
+const char *const *linkLibraryPaths(uint16_t machine, size_t *count);
 
 #endif // __LINK_LINK_H__
