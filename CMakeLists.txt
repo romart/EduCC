@@ -68,6 +68,7 @@ set(SOURCES
   src/ir/cp.c
   src/ir/evaluator.c
   src/ir/gvn.c
+  src/ir/softfloat.c
   src/ir/codegen/machine.c
   src/ir/codegen/mirdump.c
   src/ir/codegen/prepare.c

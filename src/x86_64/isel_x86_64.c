@@ -1725,14 +1725,15 @@ static uint32_t retRegOf(const TargetDescriptor *target, enum RegClass rc, uint3
 // does not come back in registers at all. The call's astType is the return
 // type, which is what ast2ir asked the same question of when it built the
 // callee's side; the IR type says only IR_P_AGG and cannot answer.
-static uint32_t callResultEightbytes(const IrInstruction *call, enum EightbyteClass classes[2]) {
+static uint32_t callResultEightbytes(const TargetDescriptor *target, const IrInstruction *call,
+                                     enum EightbyteClass classes[2]) {
   classes[0] = classes[1] = EB_NONE;
 
   if (call->type != IR_P_AGG || call->info.call.returnBuffer != NULL || call->astType == NULL) {
     return 0;
   }
 
-  return classifyComposite(call->astType, classes);
+  return classifyComposite(target, call->astType, classes);
 }
 
 // Where the argument at input position 'inputIdx' is passed: an argument
@@ -1919,7 +1920,7 @@ static void selectRegisterReturnedStruct(MachineBuilder *b, const IrInstruction 
   // a buffer and never reaches this function. It still needs an address,
   // because everything downstream reads a composite as one; what it does not
   // need is any bytes stored into it.
-  uint32_t eightbytes = callResultEightbytes(i, classes);
+  uint32_t eightbytes = callResultEightbytes(b->mf->target, i, classes);
 
   // Whole eightbytes, whatever the struct's own size: a register is stored in
   // full because storing part of it would need the size rounded to something
@@ -2098,7 +2099,7 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   // type does not - the same question selectRegisterReturnedStruct asks when
   // it reads the value out.
   enum EightbyteClass resultClasses[2];
-  uint32_t resultEightbytes = callResultEightbytes(i, resultClasses);
+  uint32_t resultEightbytes = callResultEightbytes(b->mf->target, i, resultClasses);
   uint16_t numDefs = hasResult ? (uint16_t)(resultEightbytes == 0 ? 1u : resultEightbytes) : 0;
 
   MachineInstr *call = buildMachineInstr(b, X86_CALL, numDefs, 1 + numArgRegs);

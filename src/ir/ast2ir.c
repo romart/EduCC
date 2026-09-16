@@ -687,13 +687,13 @@ static IrInstruction *translateCall(AstExpression *expr) {
   // bitmaps have to cover, counted before the first input goes in because that
   // is when they can still be sized.
   size_t numInputs = 1;
-  if (returnsThroughHiddenPointer(returnType)) {
+  if (returnsThroughHiddenPointer(ctx->target, returnType)) {
     numInputs += 1;
   }
   for (AstExpressionList *args = expr->callExpr.arguments; args != NULL;
        args = args->next) {
     enum EightbyteClass argClasses[2];
-    uint32_t parts = classifyComposite(args->expression->type, argClasses);
+    uint32_t parts = classifyComposite(ctx->target, args->expression->type, argClasses);
     numInputs += parts == 0 ? 1 : parts;
   }
   allocateCallArgMaps(callInstr, numInputs);
@@ -716,7 +716,7 @@ static IrInstruction *translateCall(AstExpression *expr) {
 
   // TODO: save and restore stack after series of alloca's
 
-  if (returnsThroughHiddenPointer(returnType)) {
+  if (returnsThroughHiddenPointer(ctx->target, returnType)) {
     returnSlotOp = createAllocaSlot(returnTypeSize);
     returnSlotOp->info.alloca.valueType = typeRefToIrType(returnType);
     addInstructionInput(callInstr, returnSlotOp);
@@ -748,7 +748,7 @@ static IrInstruction *translateCall(AstExpression *expr) {
 
     if (isCompositeType(argType)) {
       enum EightbyteClass classes[2];
-      uint32_t eightbytes = classifyComposite(argType, classes);
+      uint32_t eightbytes = classifyComposite(ctx->target, argType, classes);
 
       if (eightbytes == 0) {
         // The temporary is the copy C says a by-value argument is, and the
@@ -2568,7 +2568,7 @@ static Boolean translateReturn(AstStatement *stmt) {
       // The slot holds the caller's buffer pointer rather than the value, so
       // the copy goes through it - which is also what leaves the result where
       // the caller is looking for it, with no second copy at the exit.
-      if (returnsThroughHiddenPointer(expr->type)) {
+      if (returnsThroughHiddenPointer(ctx->target, expr->type)) {
         dst = addLoadInstr(IR_PTR, returnSlot, NULL);
       }
 
@@ -3051,7 +3051,7 @@ static void generateExitBlock(IrFunction *func, TypeRef *returnType) {
     enum EightbyteClass classes[2];
     uint32_t eightbytes = 0;
 
-    if (returnsThroughHiddenPointer(returnType)) {
+    if (returnsThroughHiddenPointer(ctx->target, returnType)) {
       slotType = makePointedType(ctx->pctx, 0, returnType);
       valueType = IR_PTR;
     } else if (!isCompositeType(returnType)) {
@@ -3060,7 +3060,7 @@ static void generateExitBlock(IrFunction *func, TypeRef *returnType) {
       // One input per eightbyte, each spelled by its class: an SSE one comes
       // back in xmm0/xmm1 rather than rax/rdx, and selectReturn picks the
       // register file off these types.
-      eightbytes = classifyComposite(returnType, classes);
+      eightbytes = classifyComposite(ctx->target, returnType, classes);
     }
 
     if (eightbytes == 0) {
@@ -3510,7 +3510,7 @@ static uint32_t buildInitialIr(IrFunction *func,
     TypeRef *returnType = declaration->returnType;
     ctx->currentBB = func->entry;
 
-    if (returnsThroughHiddenPointer(returnType)) {
+    if (returnsThroughHiddenPointer(ctx->target, returnType)) {
       // Nothing local holds the value: the caller allocated the buffer and
       // passed its address in the first integer argument register (see
       // classifyParametersGeneric, which reserves that register), and each
@@ -3613,6 +3613,13 @@ static IrFunction *translateFunction(AstFunctionDefinition *function) {
 
   dce(func);
   dumpRequestedPhase(func, IR_DUMP_PHASE_DCE, "dce");
+
+  // After the optimizers, so that what is lowered is what survived them, and
+  // before the machine side, so that the calls it produces are calls the
+  // register allocator sees. Nothing on a target with hardware for the type.
+  if (longDoubleIsSoft(ctx->target)) {
+    lowerLongDoubleCalls(func);
+  }
 
   // Machine IR is built unconditionally rather than only when it is dumped:
   // it is on the way to being the only way this pipeline produces code, and a

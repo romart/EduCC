@@ -1,3 +1,0 @@
-long double is IEEE binary128 on riscv64 with no hardware to compute it, so
-the front end refuses the type there (DIAG_TYPE_UNSUPPORTED_ON_TARGET). This
-fixture is about the x87 eighty-bit format and has no riscv64 counterpart.

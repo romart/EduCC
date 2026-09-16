@@ -239,6 +239,10 @@ const TargetDescriptor targetX86_64 = {
   .fpArgRegs = x86FpArgRegs,
   .fpArgRegCount = sizeof(x86FpArgRegs) / sizeof(x86FpArgRegs[0]),
 
+  // x87's 80-bit extended format, padded to sixteen bytes. It is hardware, so
+  // nothing here is a libcall.
+  .longDoubleFormat = LDF_X87_EXTENDED,
+
   .intRetReg = R_EAX,
   .fpRetReg = FP(0),
   .intRetReg2 = R_EDX,

@@ -257,6 +257,14 @@ struct _IrInstruction {
           // stack, and selection cannot see the grouping otherwise: two loads
           // out of one struct look like two unrelated arguments.
           uint64_t *pairArgs;
+
+          // The same shape again, saying which inputs *start* an argument that
+          // is twice a register wide - LP64D's long double, and nothing else.
+          // Such a pair is aligned to sixteen bytes wherever it lands and to an
+          // even register pair when it is one of a variadic call's unnamed
+          // arguments, neither of which is true of the two-eightbyte aggregate
+          // that pairArgs alone describes.
+          uint64_t *wideArgs;
         } call;
         struct {
           uint32_t cacheIdx;
@@ -360,6 +368,12 @@ struct _IrContext {
     // may be jumped to long before it is reached.
     HashMap *labelScopeMap;
 
+    // The Symbol standing for each libgcc routine lowerLongDoubleCalls has
+    // needed, by name. One per name and not one per call: the object writer
+    // marks a symbol as emitted by writing an index into it, so a second
+    // Symbol for one name is a second undefined entry for the same function.
+    HashMap *libcallSymbols;
+
     struct _SwitchTable *switchTable;
 
     struct _IrBasicBlock *currentBB;
@@ -402,6 +416,7 @@ typedef struct _SwitchTable SwitchTable;
 
 void addInstructionTail(IrBasicBlock *block, IrInstruction *instr);
 void addInstructionHead(IrBasicBlock *block, IrInstruction *instr);
+void addInstructionBefore(IrInstruction *at, IrInstruction *instr);
 
 IrBasicBlockListNode *newBBListNode(IrBasicBlock *bb);
 void addBasicBlockTail(IrFunction *function, IrBasicBlock *bb);
@@ -441,6 +456,8 @@ void setCallMemoryArg(IrInstruction *call, size_t idx);
 Boolean isCallMemoryArg(const IrInstruction *call, size_t idx);
 void setCallPairedArg(IrInstruction *call, size_t idx);
 Boolean isCallPairedArg(const IrInstruction *call, size_t idx);
+void setCallWideArg(IrInstruction *call, size_t idx);
+Boolean isCallWideArg(const IrInstruction *call, size_t idx);
 
 IrBasicBlock *updateBlock();
 void addInstruction(IrInstruction *instr);
@@ -556,6 +573,12 @@ void dce(IrFunction *func);
 
 void scp(IrFunction *func);
 void gvn(IrFunction *func);
+
+// Rewrite every long double operation as a call into libgcc's soft-float set,
+// for a target whose long double is binary128 and which has no instruction
+// that touches one. See src/ir/softfloat.c for why this is a pass over the IR
+// rather than a rule in the selector.
+void lowerLongDoubleCalls(IrFunction *func);
 // ------------- dump utils ---------------------------------
 const char *irInstructionMnemonic(enum IrIntructionKind kind);
 // Bytes as a C string literal would have been written, with the trailing NUL

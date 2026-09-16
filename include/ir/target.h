@@ -4,6 +4,7 @@
 #include "common.h"
 #include "tree.h"
 #include "parser.h"
+#include "float_image.h"
 
 // Physical registers live in ONE flat namespace per target, shared by the IR
 // (IR_P_REG), and later by the instruction selector and register allocator.
@@ -99,13 +100,16 @@ enum VaListKind {
   VA_FLAT_POINTER
 };
 
+typedef struct _TargetDescriptor TargetDescriptor;
+
 // How a composite travels: the class of each of its eightbytes, and how many of
 // them there are - one or two. Zero means it goes in memory, because it is
 // larger than two eightbytes or because something in it has no register class.
 //
 // A scalar answers zero too: it is not an aggregate, and isRealType already
 // decides where a bare float goes.
-uint32_t classifyComposite(const TypeRef *type, enum EightbyteClass classes[2]);
+uint32_t classifyComposite(const TargetDescriptor *target, const TypeRef *type,
+                           enum EightbyteClass classes[2]);
 
 // Where one parameter arrives, as decided by the target's ABI.
 typedef struct {
@@ -200,6 +204,12 @@ typedef struct _TargetDescriptor {
   // Which shape a va_list has here. See enum VaListKind.
   enum VaListKind vaListKind;
 
+  // What sixteen bytes of 'long double' mean here, which decides both how a
+  // constant of the type is written into a section and how one is computed:
+  // x87 has instructions for its own format and RV64G has nothing at all for
+  // binary128, so the second is libgcc calls. See lowerLongDoubleCalls.
+  enum LongDoubleFormat longDoubleFormat;
+
   // Whether an aggregate too wide for two registers travels as a pointer to a
   // copy the caller made, rather than as bytes in the outgoing area. LP64D
   // says so and SysV does not.
@@ -288,7 +298,7 @@ void classifyParametersGeneric(const TargetDescriptor *target,
 // splits an aggregate of up to sixteen bytes into two eightbytes and returns
 // those in rax:rdx; that is the same approximation the parameter side makes,
 // and the two have to move together.
-Boolean returnsThroughHiddenPointer(const TypeRef *returnType);
+Boolean returnsThroughHiddenPointer(const TargetDescriptor *target, const TypeRef *returnType);
 
 // Whether a composite that fits in one register travels in the SSE file rather
 // than the integer one - SysV's SSE class, for the single-eightbyte case. The
@@ -296,7 +306,18 @@ Boolean returnsThroughHiddenPointer(const TypeRef *returnType);
 //
 // Read by the IR backend only. See the definition for why the legacy backend
 // does not, and what that costs.
-Boolean isCompositeInSSERegister(const TypeRef *type);
+Boolean isCompositeInSSERegister(const TargetDescriptor *target, const TypeRef *type);
+
+// Whether long double arithmetic here is calls into libgcc rather than
+// instructions. x87 is hardware and RV64G's binary128 is not, which is what
+// makes this a question about the format rather than about the target.
+Boolean longDoubleIsSoft(const TargetDescriptor *target);
+
+// Whether a value of this type travels in a pair of integer registers because
+// it is twice a register wide - LP64D's long double, and nothing else here.
+// Such an argument is also aligned to sixteen bytes wherever it lands, and to
+// an *even* register pair when it is one of a variadic call's unnamed ones.
+Boolean isRegisterPairScalar(const TargetDescriptor *target, const TypeRef *type);
 
 const char *physRegName(const TargetDescriptor *target, uint32_t reg);
 

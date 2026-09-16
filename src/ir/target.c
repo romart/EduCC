@@ -58,9 +58,11 @@ enum MachineFlagsEffect targetOpcodeFlagsEffect(const TargetDescriptor *target, 
 // aggregate being classified. FALSE means the whole aggregate is class MEMORY,
 // which is what a long double in it says: SysV gives that class X87, which has
 // no argument register, and an aggregate containing one is passed on the stack.
-static Boolean classifyLeaf(const TypeRef *type, size_t offset, enum EightbyteClass classes[2]);
+static Boolean classifyLeaf(const TargetDescriptor *target, const TypeRef *type, size_t offset,
+                            enum EightbyteClass classes[2]);
 
-static Boolean classifyMembers(const TypeRef *type, size_t offset, enum EightbyteClass classes[2]) {
+static Boolean classifyMembers(const TargetDescriptor *target, const TypeRef *type, size_t offset,
+                               enum EightbyteClass classes[2]) {
   TypeDefiniton *definition = type->descriptorDesc->typeDefinition;
 
   if (definition == NULL) {
@@ -72,7 +74,7 @@ static Boolean classifyMembers(const TypeRef *type, size_t offset, enum Eightbyt
 
     // A union's members all start where the union does, and 'offset' already
     // carries that; StructualMember.offset is zero for each of them.
-    if (!classifyLeaf(member->type, offset + (size_t)member->offset, classes)) {
+    if (!classifyLeaf(target, member->type, offset + (size_t)member->offset, classes)) {
       return FALSE;
     }
   }
@@ -80,7 +82,8 @@ static Boolean classifyMembers(const TypeRef *type, size_t offset, enum Eightbyt
   return TRUE;
 }
 
-static Boolean classifyLeaf(const TypeRef *type, size_t offset, enum EightbyteClass classes[2]) {
+static Boolean classifyLeaf(const TargetDescriptor *target, const TypeRef *type, size_t offset,
+                            enum EightbyteClass classes[2]) {
   if (offset >= 2 * sizeof(intptr_t)) {
     return FALSE;  // past the second eightbyte: the size test should have caught it
   }
@@ -95,7 +98,7 @@ static Boolean classifyLeaf(const TypeRef *type, size_t offset, enum EightbyteCl
     }
 
     for (int idx = 0; idx < count; ++idx) {
-      if (!classifyLeaf(element, offset + idx * elementSize, classes)) {
+      if (!classifyLeaf(target, element, offset + idx * elementSize, classes)) {
         return FALSE;
       }
     }
@@ -104,7 +107,7 @@ static Boolean classifyLeaf(const TypeRef *type, size_t offset, enum EightbyteCl
   }
 
   if (isCompositeType(type)) {
-    return classifyMembers(type, offset, classes);
+    return classifyMembers(target, type, offset, classes);
   }
 
   enum EightbyteClass leaf = EB_INTEGER;
@@ -113,7 +116,11 @@ static Boolean classifyLeaf(const TypeRef *type, size_t offset, enum EightbyteCl
     leaf = EB_INTEGER;  // its storage is an integer whatever it is declared as
   } else if (type->kind == TR_VALUE) {
     TypeId id = type->descriptorDesc->typeId;
-    if (id == T_F10) return FALSE;  // class X87: the aggregate goes to memory
+    // SysV gives a long double class X87, which has no argument register, so
+    // an aggregate holding one is passed in memory entire. LP64D's is
+    // binary128 and travels in integer registers like any other sixteen bytes,
+    // so there it is nothing special - which is why this is a target's answer.
+    if (id == T_F10 && target->longDoubleFormat != LDF_BINARY128) return FALSE;
     if (id == T_F4 || id == T_F8) leaf = EB_SSE;
   }
 
@@ -135,7 +142,8 @@ static Boolean classifyLeaf(const TypeRef *type, size_t offset, enum EightbyteCl
   return TRUE;
 }
 
-uint32_t classifyComposite(const TypeRef *type, enum EightbyteClass classes[2]) {
+uint32_t classifyComposite(const TargetDescriptor *target, const TypeRef *type,
+                           enum EightbyteClass classes[2]) {
   classes[0] = classes[1] = EB_NONE;
 
   if (!isCompositeType(type)) {
@@ -148,7 +156,7 @@ uint32_t classifyComposite(const TypeRef *type, enum EightbyteClass classes[2]) 
     return 0;
   }
 
-  if (!classifyMembers(type, 0, classes)) {
+  if (!classifyMembers(target, type, 0, classes)) {
     return 0;
   }
 
@@ -171,15 +179,24 @@ uint32_t classifyComposite(const TypeRef *type, enum EightbyteClass classes[2]) 
 // argument down a separate address-based path that never reaches a register
 // class at all, so it still passes these in the integer file - which is why
 // the two backends disagree here and the crossabi fixtures below say so.
-Boolean isCompositeInSSERegister(const TypeRef *type) {
+Boolean isCompositeInSSERegister(const TargetDescriptor *target, const TypeRef *type) {
   enum EightbyteClass classes[2];
-  return classifyComposite(type, classes) == 1 && classes[0] == EB_SSE;
+  return classifyComposite(target, type, classes) == 1 && classes[0] == EB_SSE;
 }
 
-Boolean returnsThroughHiddenPointer(const TypeRef *returnType) {
+Boolean longDoubleIsSoft(const TargetDescriptor *target) {
+  return target->longDoubleFormat == LDF_BINARY128;
+}
+
+Boolean isRegisterPairScalar(const TargetDescriptor *target, const TypeRef *type) {
+  return target->longDoubleFormat == LDF_BINARY128 && type->kind == TR_VALUE &&
+         type->descriptorDesc->typeId == T_F10;
+}
+
+Boolean returnsThroughHiddenPointer(const TargetDescriptor *target, const TypeRef *returnType) {
   enum EightbyteClass classes[2];
   return isCompositeType(returnType) && !isEmptyCompositeType(returnType) &&
-         classifyComposite(returnType, classes) == 0;
+         classifyComposite(target, returnType, classes) == 0;
 }
 
 void classifyParametersGeneric(const TargetDescriptor *target,
@@ -194,7 +211,7 @@ void classifyParametersGeneric(const TargetDescriptor *target,
   // first integer argument register, ahead of every declared parameter - so
   // the first of those starts one register along. It is not in the parameter
   // list, which is why this is a counter rather than another iteration.
-  if (returnsThroughHiddenPointer(declaration->returnType)) {
+  if (returnsThroughHiddenPointer(target, declaration->returnType)) {
     intRegParams += 1;
   }
 
@@ -239,7 +256,7 @@ void classifyParametersGeneric(const TargetDescriptor *target,
       // The eightbyte rule below is SysV's; riscv64 LP64D has its own, and this
       // is the point the hook comment in target.h means when it says the two
       // targets will stop sharing an implementation.
-      uint32_t eightbytes = classifyComposite(paramType, pi->classes);
+      uint32_t eightbytes = classifyComposite(target, paramType, pi->classes);
 
       // Too wide for two registers, on a target that passes such a thing by
       // reference: it is a pointer argument from here on, and one word is all
@@ -285,6 +302,24 @@ void classifyParametersGeneric(const TargetDescriptor *target,
                                                    : target->intArgRegs[intRegParams++];
           if (eb == 0) pi->loc.physReg = reg; else pi->physReg2 = reg;
         }
+      }
+    } else if (isRegisterPairScalar(target, paramType)) {
+      // Twice a register wide, so it travels in two of them, low half first -
+      // the same shape a two-eightbyte aggregate takes and for the same reason,
+      // which is why the eightbyte classes say INTEGER and the rest of the
+      // translation needs to know nothing else about it.
+      //
+      // LP64D also splits such a scalar when exactly one register is left,
+      // putting the low half in it and the high half on the stack. This does
+      // not: the aggregate path above has the same gap, and the two want
+      // closing together - see R6 in the riscv64 plan.
+      pi->classes[0] = pi->classes[1] = EB_INTEGER;
+      inRegister = intRegParams + 2 <= target->intArgRegCount;
+
+      if (inRegister) {
+        pi->regCount = 2;
+        pi->loc.physReg = target->intArgRegs[intRegParams++];
+        pi->physReg2 = target->intArgRegs[intRegParams++];
       }
     } else if (isRealType(paramType)) {
       inRegister = fpRegParams < target->fpArgRegCount && size <= sizeof(intptr_t);

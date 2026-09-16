@@ -194,6 +194,11 @@ const TargetDescriptor targetRiscv64 = {
   .vaListKind = VA_FLAT_POINTER,
   .largeAggregatesByReference = TRUE,
 
+  // LP64D's long double is IEEE binary128, and RV64G has no instruction that
+  // touches one: every operation on the type is a call into libgcc, and a
+  // value of it travels in a pair of integer registers.
+  .longDoubleFormat = LDF_BINARY128,
+
   .intRetReg = X_A0,
   .fpRetReg = FR(F_A0),
   // LP64D returns a two-eightbyte aggregate in a0:a1 or fa0:fa1, as SysV does.

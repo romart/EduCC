@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <string.h>
 
+#include "float_image.h"
 #include "ir/ir.h"
 #include "ir/isel.h"
 #include "sema.h"
@@ -1003,9 +1004,103 @@ static void selectGep(MachineBuilder *b, const IrInstruction *i) {
   mi->opSize = sizeof(intptr_t);
 }
 
+// -============================ Long double ===============================-
+//
+// Sixteen bytes of IEEE binary128, which RV64G has no instruction for: the
+// arithmetic is libgcc calls that lowerLongDoubleCalls put in the IR long
+// before this, and what is left here is moving the bytes about. An IR_F80
+// value is *the address of* them (see include/ir/ir.h), so that is all any of
+// this does.
+
+static int32_t quadScratch(MachineBuilder *b) {
+  MachineFunction *mf = b->mf;
+  int32_t frameIdx = addMachineFrameObject(mf, MFO_SCRATCH, 2 * sizeof(intptr_t),
+                                           2 * sizeof(intptr_t));
+
+  mf->frame.size = (uint32_t)ALIGN_SIZE(
+      placeMachineFrameObject(mf, (int32_t)mf->frame.size, frameIdx), 2 * sizeof(intptr_t));
+
+  return frameIdx;
+}
+
+// Loading one moves nothing: the value *is* the address, so this is the address
+// arriving in a register, and what reads the bytes is whatever reads the value.
+static void selectQuadLoad(MachineBuilder *b, const IrInstruction *i) {
+  MachineAddress addr = addressFor(b, inputAt(i, 0), 0);
+
+  MachineInstr *mi = buildMachineInstr(b, RISCV_LA, 1, 1);
+  setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
+  setMemoryOperand(mi, 1, &addr);
+  mi->opSize = sizeof(intptr_t);
+}
+
+// Storing one is the copy a load is not - 'a = b' has to leave a with its own
+// bytes - and sixteen bytes is two words.
+static void selectQuadStore(MachineBuilder *b, const IrInstruction *i) {
+  MachineAddress from = addressFor(b, inputAt(i, 1), 0);
+  MachineAddress to = addressFor(b, inputAt(i, 0), 0);
+  uint32_t word = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
+  for (int32_t half = 0; half < 2; ++half) {
+    MachineAddress fromHalf = from, toHalf = to;
+    fromHalf.disp += half * (int32_t)sizeof(intptr_t);
+    toHalf.disp += half * (int32_t)sizeof(intptr_t);
+
+    MachineInstr *load = buildMachineInstr(b, RISCV_LOAD, 1, 1);
+    setRegisterOperand(load, 0, word);
+    setMemoryOperand(load, 1, &fromHalf);
+    load->opSize = sizeof(intptr_t);
+    load->srcSize = sizeof(intptr_t);
+
+    MachineInstr *store = buildMachineInstr(b, RISCV_STORE, 0, 2);
+    setMemoryOperand(store, 0, &toHalf);
+    setRegisterOperand(store, 1, word);
+    store->opSize = sizeof(intptr_t);
+  }
+}
+
+// A constant, written into a slot of its own a word at a time. There is no
+// constant pool to put it in and no need of one: 'li' builds any sixty-four
+// bits, and the value has to end up at an address regardless.
+static void selectQuadConstant(MachineBuilder *b, const IrInstruction *i) {
+  uint8_t image[16];
+  int32_t frameIdx = quadScratch(b);
+  uint32_t bits = createVirtualRegister(b->mf, RC_GP, sizeof(intptr_t));
+
+  longDoubleImage(LDF_BINARY128, (long double)i->info.constant.data.f, image);
+
+  for (int32_t half = 0; half < 2; ++half) {
+    uint64_t word = 0;
+
+    for (int32_t byte = 7; byte >= 0; --byte) {
+      word = word << 8 | image[half * 8 + byte];
+    }
+
+    MachineInstr *li = buildMachineInstr(b, RISCV_LI, 1, 1);
+    setRegisterOperand(li, 0, bits);
+    setImmediateOperand(li, 1, (int64_t)word);
+    li->opSize = sizeof(intptr_t);
+
+    MachineInstr *store = buildMachineInstr(b, RISCV_STORE, 0, 2);
+    setFrameAddressOperandAt(store, 0, frameIdx, half * (int32_t)sizeof(intptr_t));
+    setRegisterOperand(store, 1, bits);
+    store->opSize = sizeof(intptr_t);
+  }
+
+  MachineInstr *addr = buildMachineInstr(b, RISCV_LA, 1, 1);
+  setRegisterOperand(addr, 0, machineBuilderVreg(b, i));
+  setFrameAddressOperand(addr, 1, frameIdx);
+  addr->opSize = sizeof(intptr_t);
+}
+
 static void selectMemoryLoad(MachineBuilder *b, const IrInstruction *i) {
   enum IrTypeKind t = i->info.memory.opType;
   assert(isAddressableIrType(t) && "a load of a value with no register class");
+
+  if (t == IR_F80) {
+    selectQuadLoad(b, i);
+    return;
+  }
 
   MachineAddress addr = addressFor(b, inputAt(i, 0), 0);
   const uint8_t size = irTypeMachineSize(t);
@@ -1063,6 +1158,11 @@ static void selectMemoryStore(MachineBuilder *b, const IrInstruction *i) {
   uint8_t size = irTypeMachineSize(t);
   const IrInstruction *value = inputAt(i, 1);
   MachineAddress addr;
+
+  if (t == IR_F80) {
+    selectQuadStore(b, i);
+    return;
+  }
 
   if (isFloatIrType(t)) {
     uint32_t src = machineBuilderVreg(b, value);
@@ -1186,6 +1286,11 @@ static void selectConstant(MachineBuilder *b, const IrInstruction *i) {
     setRegisterOperand(mi, 0, machineBuilderVreg(b, i));
     setMemoryOperand(mi, 1, &addr);
     mi->opSize = sizeof(intptr_t);
+    return;
+  }
+
+  if (i->info.constant.kind == IR_CK_FLOAT && i->type == IR_F80) {
+    selectQuadConstant(b, i);
     return;
   }
 
@@ -1313,6 +1418,16 @@ static uint32_t callArgLocation(const TargetDescriptor *target, const IrInstruct
         want[callArgClass(call, idx + p)] += 1;
       }
 
+      // An *unnamed* argument twice a register wide takes an aligned register
+      // pair, so an odd register is skipped and left unused. Only variadic
+      // ones: a named long double takes the next two registers whatever their
+      // numbers, which the oracle confirms. Skipping from seven lands on eight
+      // and there are eight, so it also puts this argument and everything
+      // after it on the stack - which is the rest of the same rule.
+      if (isCallWideArg(call, idx) && isUnnamedCallArg(call, idx) && (used[RC_GP] & 1) != 0) {
+        used[RC_GP] += 1;
+      }
+
       // All of it or none of it, the way classifyParametersGeneric decides it
       // on the callee's side.
       Boolean fits = TRUE;
@@ -1350,6 +1465,13 @@ static uint32_t callStackArea(const TargetDescriptor *target, const IrInstructio
       continue;
     }
 
+    // Twice a register wide means aligned to twice a register, here as much as
+    // in an argument register pair - and the callee reads it back at that
+    // alignment, classifyParametersGeneric taking it from the type.
+    if (isCallWideArg(call, idx)) {
+      offset = (int32_t)ALIGN_SIZE(offset, 2 * sizeof(intptr_t));
+    }
+
     if (idx == wantedIdx) {
       *wantedOffset = offset;
     }
@@ -1367,14 +1489,23 @@ static uint32_t callStackArea(const TargetDescriptor *target, const IrInstructio
 // The classes of the eightbytes a call's result comes back in, or zero when it
 // does not come back in registers at all. The call's astType is the return
 // type; the IR type says only IR_P_AGG and cannot answer.
-static uint32_t callResultEightbytes(const IrInstruction *call, enum EightbyteClass classes[2]) {
+static uint32_t callResultEightbytes(const TargetDescriptor *target, const IrInstruction *call,
+                                     enum EightbyteClass classes[2]) {
   classes[0] = classes[1] = EB_NONE;
+
+  // A long double comes back in a0:a1, which is a two-eightbyte aggregate in
+  // everything but name - and here the IR type is the whole answer, there
+  // being no members to classify.
+  if (call->type == IR_F80) {
+    classes[0] = classes[1] = EB_INTEGER;
+    return 2;
+  }
 
   if (call->type != IR_P_AGG || call->info.call.returnBuffer != NULL || call->astType == NULL) {
     return 0;
   }
 
-  return classifyComposite(call->astType, classes);
+  return classifyComposite(target, call->astType, classes);
 }
 
 static void riscvReserveFrame(MachineFunction *mf) {
@@ -1444,7 +1575,7 @@ static void selectRegisterReturnedStruct(MachineBuilder *b, const IrInstruction 
   MachineFunction *mf = b->mf;
 
   enum EightbyteClass classes[2];
-  uint32_t eightbytes = callResultEightbytes(i, classes);
+  uint32_t eightbytes = callResultEightbytes(mf->target, i, classes);
 
   // Whole eightbytes, whatever the aggregate's own size: a register is stored
   // in full, and the bytes above the value are ours either way. Zero of them
@@ -1530,7 +1661,7 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   // many registers that takes, so the return type has the answer where the IR
   // type does not.
   enum EightbyteClass resultClasses[2];
-  uint32_t resultEightbytes = callResultEightbytes(i, resultClasses);
+  uint32_t resultEightbytes = callResultEightbytes(target, i, resultClasses);
   uint16_t numDefs = hasResult ? (uint16_t)(resultEightbytes == 0 ? 1u : resultEightbytes) : 0;
 
   MachineInstr *call = buildMachineInstr(b, RISCV_CALL, numDefs, 1 + (uint16_t)numRegArgs);
@@ -1566,7 +1697,7 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   assert(op == call->numOperands);
   call->flags.isCall = 1;
 
-  if (i->type == IR_P_AGG && i->info.call.returnBuffer == NULL) {
+  if ((i->type == IR_P_AGG || i->type == IR_F80) && i->info.call.returnBuffer == NULL) {
     selectRegisterReturnedStruct(b, i);
   } else if (hasResult) {
     // Out of the fixed return register into one the allocator can move.
@@ -1599,13 +1730,6 @@ static void selectReturn(MachineBuilder *b, const IrInstruction *i) {
 // -============================ The dispatch ==============================-
 
 static void selectInstruction_riscv64(MachineBuilder *b, const IrInstruction *i) {
-  // RV64's long double is IEEE binary128 and there is no hardware for it:
-  // every operation is a libgcc call, which is a project of its own. Refused
-  // where a value of the type is actually computed rather than where the type
-  // is named - glibc's headers declare strtold and friends, so a translation
-  // unit that includes <stdlib.h> mentions the type without using it.
-  assert(i->type != IR_F80 && "long double is not supported on riscv64");
-
   int32_t frameIdx = machineFrameIndexForValue(b->mf, i);
 
   if (frameIdx >= 0) {

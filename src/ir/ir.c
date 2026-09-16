@@ -141,6 +141,7 @@ void initializeIrContext(IrContext *_ctx, ParserContext* pctx) {
     initVector(&_ctx->constantCache, INITIAL_VECTOR_CAPACITY);
     initVector(&_ctx->allocas, INITIAL_VECTOR_CAPACITY);
     initVector(&_ctx->referencedBlocks, INITIAL_VECTOR_CAPACITY);
+    _ctx->libcallSymbols = createHashMap(DEFAULT_MAP_CAPACITY, &stringHashCode, &stringCmp);
    ctx = _ctx;
 }
 
@@ -149,6 +150,7 @@ void releaseIrContext(IrContext *_ctx) {
     releaseArena(_ctx->irArena);
     releaseHashMap(_ctx->labelMap);
     releaseHashMap(_ctx->labelScopeMap);
+    releaseHashMap(_ctx->libcallSymbols);
     releaseVector(&_ctx->stackScopes);
     releaseVector(&_ctx->constantCache);
     releaseVector(&_ctx->allocas);
@@ -300,6 +302,27 @@ void addInstructionTail(IrBasicBlock *block, IrInstruction *instr) {
       block->instrunctions.tail->next = instr;
       block->instrunctions.tail = instr;
     }
+}
+
+// Splice 'instr' in immediately ahead of 'at'. The one insertion point a pass
+// rewriting an instruction in place needs, and the reason it cannot use
+// addInstruction: that appends to the block being translated, which is not a
+// place that exists any more once translation is over.
+void addInstructionBefore(IrInstruction *at, IrInstruction *instr) {
+    assert(instr->block == NULL && "Instruction already in block");
+    assert(at->block != NULL && "Inserting before an instruction in no block");
+
+    instr->block = at->block;
+    instr->prev = at->prev;
+    instr->next = at;
+
+    if (at->prev != NULL) {
+      at->prev->next = instr;
+    } else {
+      at->block->instrunctions.head = instr;
+    }
+
+    at->prev = instr;
 }
 
 IrBasicBlock *newBasicBlock(const char *name) {
@@ -1030,6 +1053,7 @@ void allocateCallArgMaps(IrInstruction *call, size_t numInputs) {
   size_t words = (numInputs + MEM_ARG_WORD_BITS - 1) / MEM_ARG_WORD_BITS;
   call->info.call.memArgs = areanAllocate(ctx->irArena, words * sizeof(uint64_t));
   call->info.call.pairArgs = areanAllocate(ctx->irArena, words * sizeof(uint64_t));
+  call->info.call.wideArgs = areanAllocate(ctx->irArena, words * sizeof(uint64_t));
 }
 
 void setCallMemoryArg(IrInstruction *call, size_t idx) {
@@ -1063,6 +1087,23 @@ Boolean isCallPairedArg(const IrInstruction *call, size_t idx) {
   }
 
   return (call->info.call.pairArgs[idx / MEM_ARG_WORD_BITS] >>
+          (idx % MEM_ARG_WORD_BITS)) & 1;
+}
+
+void setCallWideArg(IrInstruction *call, size_t idx) {
+  assert(call->info.call.wideArgs != NULL);
+  call->info.call.wideArgs[idx / MEM_ARG_WORD_BITS] |=
+      (uint64_t)1 << (idx % MEM_ARG_WORD_BITS);
+}
+
+Boolean isCallWideArg(const IrInstruction *call, size_t idx) {
+  assert(idx < call->inputs.size && "the bitmap holds one bit per input, no more");
+
+  if (call->info.call.wideArgs == NULL) {
+    return FALSE;
+  }
+
+  return (call->info.call.wideArgs[idx / MEM_ARG_WORD_BITS] >>
           (idx % MEM_ARG_WORD_BITS)) & 1;
 }
 
