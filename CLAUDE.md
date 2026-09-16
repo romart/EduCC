@@ -120,13 +120,12 @@ python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/cod
 # Cross-backend ABI tests (each fixture is two files, one compiled per backend, linked and run)
 python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/crossabi -m crossabi
 
-# The same codegen fixtures for riscv64: compiled here, linked with the cross
-# driver, and *run* under qemu. --run-prefix and --link-with are what make that
-# possible; the external link is a crutch until src/link/ learns the target.
+# The same codegen fixtures for riscv64: compiled here, linked here, and *run*
+# under qemu. --run-prefix is what makes the last part possible; the link is
+# EduCC's own, against the cross sysroot, since roadmap step 59's R5.
 python3 test/testRunner.py -c build/bin/main -wd /tmp/eduwd -p test/testData/codegen -m codegen \
         --compiler-flag=-march --compiler-flag=riscv64 \
-        --run-prefix=qemu-riscv64 --run-prefix=-L --run-prefix=/usr/riscv64-linux-gnu \
-        --link-with=riscv64-linux-gnu-gcc --link-with=-no-pie
+        --run-prefix=qemu-riscv64 --run-prefix=-L --run-prefix=/usr/riscv64-linux-gnu
 
 # IR-dump tests: one pass, against <name>.<phase>.txt. The 'ra' phase is the
 # one that differs per register allocator, so it names the allocator on both
@@ -228,7 +227,7 @@ Three jobs, each of which is a command that already existed and that somebody ha
 | `selfhost` | `./selfhost.sh` — the compiler builds itself twice, the two stages must be byte-identical, and the whole suite is then run by the self-hosted binary |
 | `asan` | a `-DEDUCC_SANITIZE=ON` build, then `test/asan_sweep.sh` |
 
-The runner has to stay x86_64 — the codegen fixtures link and *run* what they compile, and that is what the host executes directly. riscv64 is not a second runner but a second *suite* on the same one, through qemu and a cross sysroot, and is not wired into CI yet: `codegen_riscv64` registers itself only when `qemu-riscv64` and `riscv64-linux-gnu-gcc` are both found. `.deps/` is cached on a key derived from `cmake/Zydis.cmake`, so the pinned Zydis tarball is fetched once rather than on every job, and an upstream outage does not take the workflow with it.
+The runner has to stay x86_64 — the codegen fixtures link and *run* what they compile, and that is what the host executes directly. riscv64 is not a second runner but a second *suite* on the same one, through qemu and a cross sysroot, and is not wired into CI yet: `codegen_riscv64` registers itself only when `qemu-riscv64` and a riscv64 sysroot are both found (the cross *driver* is no longer needed — EduCC links its own riscv64 output since step 59's R5). `.deps/` is cached on a key derived from `cmake/Zydis.cmake`, so the pinned Zydis tarball is fetched once rather than on every job, and an upstream outage does not take the workflow with it.
 
 ## Benchmarks (`test/bench/`)
 
@@ -302,6 +301,18 @@ Three decisions about **executables** are worth knowing about, because each of t
 - **A library's function is reached through a stub this link wrote, and a library's data is copied into this executable's `.bss`.** Both give the symbol an address the executable owns, which is the only thing a non-PIE can do with an address it has to write into an instruction. The copy is a `COPY` relocation, and it is not optional — EduCC's own sources reference `stdout` and `stderr`.
 - **Every GOT slot is filled at link time and carries no dynamic relocation.** In a non-PIE nothing moves, so a slot for a library function holds its stub — the same address the program uses for that function everywhere else — and one for a local symbol holds the symbol. `GLOB_DAT` never arises here; only `JUMP_SLOT` and `COPY` do.
 - **A shared object's `.gnu.version` is read**, so an unversioned reference binds to the default definition rather than to whichever entry came first. glibc exports `__libc_start_main` twice, and the two are not the same function.
+
+#### Two machines (roadmap step 59, R5)
+
+`src/link/target_link.c` is what `-march riscv64` means at link time, and it is a table rather than a second linker. The seam is `enum RelocRole` (`include/link/target.h`): every decision taken before a byte is written — a stub, a GOT slot, a dynamic entry, a refusal — asks what a relocation is *for* rather than what number it is, and those six answers are the same on both machines. What genuinely differs is the final write, and only that is spelled per target: `applyX86Relocation` and `applyRiscvRelocation` in `link.c`, plus each machine's PLT bytes, interpreter, `.got.plt` reserved count and search paths in the table.
+
+Three things riscv64 needed that x86-64 never did:
+
+- **A sysroot.** The cross glibc's `libc.so` is a linker script saying `GROUP ( /lib/libc.so.6 ... )`, and it means *its own* `/lib`, not this machine's. An absolute path inside a script is looked up under `LinkTarget.sysroot` first, which is the whole of what `ld --sysroot` does and the difference between linking a riscv64 program and linking the host's libc into one.
+- **A paired relocation.** `R_RISCV_PCREL_LO12_I` names the *auipc that carries the high half*, not a symbol, so resolving one means finding that instruction's own relocation and asking what it resolved to. `RELOC_ROLE_PAIRED_LO` is that case, and it is the only role the linker cannot answer from `S` and `A` alone. EduCC never emits one — medlow addressing reaches a global with absolute `HI20`/`LO12` — but every gcc-built CRT object has some.
+- **`__global_pointer$`.** A linker-defined name like `_end`, and load-bearing: `crt1.o`'s `_start` puts it in `gp` before anything else runs, so a link that leaves it undefined fails outright.
+
+`R_RISCV_RELAX` and `R_RISCV_ALIGN` are ignored, and safe to ignore precisely because this linker never relaxes: nothing shrinks, so padding an assembler already emitted stays the right size. `R_RISCV_ADD*`/`SUB*` — RISC-V's way of writing the difference between two labels — are not ignorable; `.eh_frame` in every CRT object uses them.
 
 #### `-shared` (roadmap step 56)
 
