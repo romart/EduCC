@@ -11,6 +11,10 @@
 #include "_elf.h"
 #include "parser.h"
 #include "sema.h"
+#include "float_image.h"
+
+// Which long double format this target's sixteen bytes hold.
+enum LongDoubleFormat targetLongDoubleFormat(enum Arch arch);
 
 typedef struct _GeneratedFunction {
   const char *name;

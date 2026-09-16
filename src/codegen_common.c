@@ -1,5 +1,6 @@
 #include "_elf.h"
 #include "codegen.h"
+#include "float_image.h"
 #include "ir/emit.h"
 #include "ir/ir.h"
 #include "mem.h"
@@ -125,13 +126,19 @@ static int f8Cmp(intptr_t pf1, intptr_t pf2) {
   return memcmp((uint8_t*)&v2, (uint8_t*)&v1, 8);
 }
 
+// Ten bytes on a host whose long double is x87's and sixteen on one whose is
+// binary128, which is what hostLongDoubleWidth answers. A fixed ten would hash
+// only the exponent half of a binary128 value, and a fixed sixteen would reach
+// six bytes of x87 padding that the value did not put there.
 static int f10HashCode(intptr_t pf) {
   LongDoubleBytes ldb = { 0 };
   ldb.ld = *(long double*)pf;
 
-  int i, r = 0;
+  size_t width = hostLongDoubleWidth();
+  size_t i;
+  int r = 0;
 
-  for (i = 0; i < 10; ++i) {
+  for (i = 0; i < width; ++i) {
       r *= 31;
       r ^= ldb.bytes[i];
   }
@@ -147,7 +154,7 @@ int f10Cmp(intptr_t pf1, intptr_t pf2) {
   LongDoubleBytes ldb2 = { 0 };
   ldb2.ld = *(long double*)pf2;
 
-  return memcmp(ldb2.bytes, ldb1.bytes, 10);
+  return memcmp(ldb2.bytes, ldb1.bytes, hostLongDoubleWidth());
 }
 
 int strConstHashcode(intptr_t k) {
@@ -539,7 +546,14 @@ static void emitIntIntoSection(Section *s, uint64_t v, size_t size) {
   }
 }
 
-static void emitFloatIntoSection(Section *s, TypeId tid, long double v) {
+// Which sixteen bytes 'long double' means here. The compiler's own is the
+// host's and the section's is the target's, and a cross-compile is exactly
+// where the two differ - see include/float_image.h.
+enum LongDoubleFormat targetLongDoubleFormat(enum Arch arch) {
+  return arch == RISCV64 ? LDF_BINARY128 : LDF_X87_EXTENDED;
+}
+
+static void emitFloatIntoSection(Section *s, enum Arch arch, TypeId tid, long double v) {
   if (tid == T_F4) {
       FloatBytes fb; fb.f = (float)v;
       emitSectionByte(s, fb.bytes[0]);
@@ -558,23 +572,14 @@ static void emitFloatIntoSection(Section *s, TypeId tid, long double v) {
       emitSectionByte(s, db.bytes[7]);
    } else {
       assert(tid == T_F10);
-      LongDoubleBytes ldb = { 0 }; ldb.ld = v;
-      emitSectionByte(s, (uint8_t)(ldb.bytes[0]));
-      emitSectionByte(s, (uint8_t)(ldb.bytes[1]));
-      emitSectionByte(s, (uint8_t)(ldb.bytes[2]));
-      emitSectionByte(s, (uint8_t)(ldb.bytes[3]));
-      emitSectionByte(s, (uint8_t)(ldb.bytes[4]));
-      emitSectionByte(s, (uint8_t)(ldb.bytes[5]));
-      emitSectionByte(s, (uint8_t)(ldb.bytes[6]));
-      emitSectionByte(s, (uint8_t)(ldb.bytes[7]));
-      emitSectionByte(s, (uint8_t)(ldb.bytes[8]));
-      emitSectionByte(s, (uint8_t)(ldb.bytes[9]));
-      emitSectionByte(s, (uint8_t)(ldb.bytes[10]));
-      emitSectionByte(s, (uint8_t)(ldb.bytes[11]));
-      emitSectionByte(s, (uint8_t)(ldb.bytes[12]));
-      emitSectionByte(s, (uint8_t)(ldb.bytes[13]));
-      emitSectionByte(s, (uint8_t)(ldb.bytes[14]));
-      emitSectionByte(s, (uint8_t)(ldb.bytes[15]));
+      uint8_t image[16];
+      unsigned i;
+
+      longDoubleImage(targetLongDoubleFormat(arch), v, image);
+
+      for (i = 0; i < sizeof(image); ++i) {
+          emitSectionByte(s, image[i]);
+      }
    }
 }
 
@@ -797,7 +802,10 @@ size_t fillInitializer(GenerationContext *ctx, Section *section, AstInitializer 
       // constExpr.op off one reads whatever the union holds there.
       switch (cexpr->op) {
       case CK_INT_CONST: emitIntIntoSection(section, cexpr->i, computeTypeSize(constType)); break;
-      case CK_FLOAT_CONST: emitFloatIntoSection(section, typeToId(constType), cexpr->f); break;
+      case CK_FLOAT_CONST:
+        emitFloatIntoSection(section, ctx->parserContext->config->arch, typeToId(constType),
+                             cexpr->f);
+        break;
       case CK_STRING_LITERAL: {
         Section *rodata = ctx->rodata;
 

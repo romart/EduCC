@@ -50,6 +50,7 @@ set(SOURCES
   src/lexer.c
   src/pp.c
   src/codegen_common.c
+  src/float_image.c
   src/x86_64/instructions_x86_64.c
   src/x86_64/codegen_x86_64.c
   src/x86_64/target_x86_64.c
