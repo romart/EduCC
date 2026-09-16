@@ -657,10 +657,17 @@ def testMalformed(reader, suite):
     expectError(noSections.build(), "nosections.o", "no section header table",
                 "an object with no section header table")
 
+    # -Xlink-read reports on whatever it is handed, so it takes either machine
+    # this linker writes for; a third one is still refused by name.
     wrongMachine = simpleObject()
     wrongMachine.machine = 40  # EM_ARM
-    expectError(wrongMachine.build(), "arm.o", "not an x86-64 object",
+    expectError(wrongMachine.build(), "arm.o", "e_machine 40",
                 "an object for another architecture")
+
+    riscv = simpleObject()
+    riscv.machine = 243  # EM_RISCV
+    suite.equal(reader.run(riscv.build(), "riscv.o").code, 0,
+                "a riscv64 object is read rather than refused")
 
     elf32 = simpleObject()
     elf32.elfClass = 1

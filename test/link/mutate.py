@@ -59,10 +59,17 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))))
 SOURCE = os.path.join(ROOT, "src/link/link.c")
+TARGET_SOURCE = os.path.join(ROOT, "src/link/target_link.c")
+
+# Every file a mutation may edit. Both are backed up and both are put back,
+# because a run that stopped halfway must not leave either one mutated.
+SOURCES = {"link": SOURCE, "target": TARGET_SOURCE}
 
 
-# Each entry is (name, text to find, text to put there). The text has to occur
-# exactly once, so that what a mutation changes is never in question.
+# Each entry is (name, text to find, text to put there), optionally with a
+# fourth field naming which of SOURCES it edits - "link" when it is left out.
+# The text has to occur exactly once in that file, so that what a mutation
+# changes is never in question.
 MUTATIONS = [
     # ------------------------------------------------ placement and addresses
     ("alignment dropped",
@@ -121,18 +128,18 @@ MUTATIONS = [
      "      if (0) {"),
 
     ("signed 32-bit range check dropped",
-     "      int64_t value = (int64_t)(S + (uint64_t)A);\n"
+     "      int64_t value = (int64_t)(o->S + (uint64_t)A);\n"
      "      if (value < RELOC_S32_MIN || value > RELOC_S32_MAX) {",
-     "      int64_t value = (int64_t)(S + (uint64_t)A);\n"
+     "      int64_t value = (int64_t)(o->S + (uint64_t)A);\n"
      "      if (0) {"),
 
     ("a 64-bit relocation writes 32 bits",
-     "      write64(where, S + (uint64_t)A);",
-     "      write32(where, (uint32_t)(S + (uint64_t)A));"),
+     "      write64(where, o->S + (uint64_t)A);",
+     "      write32(where, (uint32_t)(o->S + (uint64_t)A));"),
 
     ("the addend is ignored",
-     "  int64_t A = rela->r_addend;",
-     "  int64_t A = 0;"),
+     "  o->A = rela->r_addend;",
+     "  o->A = 0;"),
 
     ("relocation offset bounds check dropped",
      "  if (rela->r_offset > piece->size || piece->size - rela->r_offset < width) {",
@@ -151,8 +158,8 @@ MUTATIONS = [
      "  *result = piece->address;"),
 
     ("a GOT relocation names the symbol, not its slot",
-     "      int64_t value = (int64_t)(G + (uint64_t)A) - (int64_t)P;",
-     "      int64_t value = (int64_t)(S + (uint64_t)A) - (int64_t)P;"),
+     "      int64_t value = (int64_t)(o->G + (uint64_t)A) - (int64_t)P;",
+     "      int64_t value = (int64_t)(o->S + (uint64_t)A) - (int64_t)P;"),
 
     # ------------------------------------------------------------- resolution
     ("the smallest tentative definition wins",
@@ -233,42 +240,48 @@ MUTATIONS = [
 
     # ------------------------------------------------------ stubs and the GOT
     ("PLT0 pushes the wrong .got.plt word",
-     "  write32(plt + 2, (uint32_t)(gotPlt + 8 - (pltAddress + 6)));",
-     "  write32(plt + 2, (uint32_t)(gotPlt - (pltAddress + 6)));"),
+     "  write32le(plt + 2, (uint32_t)(gotPltAddress + 8 - (pltAddress + 6)));",
+     "  write32le(plt + 2, (uint32_t)(gotPltAddress - (pltAddress + 6)));",
+     "target"),
 
     ("PLT0 jumps through the wrong .got.plt word",
-     "  write32(plt + 8, (uint32_t)(gotPlt + 16 - (pltAddress + 12)));",
-     "  write32(plt + 8, (uint32_t)(gotPlt + 8 - (pltAddress + 12)));"),
+     "  write32le(plt + 8, (uint32_t)(gotPltAddress + 16 - (pltAddress + 12)));",
+     "  write32le(plt + 8, (uint32_t)(gotPltAddress + 8 - (pltAddress + 12)));",
+     "target"),
 
     ("a PLT stub jumps through the slot before its own",
-     "    write32(entry + 2, (uint32_t)(slot - (address + 6)));",
-     "    write32(entry + 2, (uint32_t)(slot - 8 - (address + 6)));"),
+     "    write32le(entry + 2, (uint32_t)(slot - (address + 6)));",
+     "    write32le(entry + 2, (uint32_t)(slot - 8 - (address + 6)));",
+     "target"),
 
     ("a PLT stub's tail jump misses PLT0",
-     "    write32(entry + 12, (uint32_t)(pltAddress - (address + 16)));",
-     "    write32(entry + 12, (uint32_t)(pltAddress - (address + 12)));"),
+     "    write32le(entry + 12, (uint32_t)(pltAddress - (address + 16)));",
+     "    write32le(entry + 12, (uint32_t)(pltAddress - (address + 12)));",
+     "target"),
 
     ("an unresolved slot points at the stub's jump, not its push",
-     "    write64(gotPltData + GOT_ENTRY_SIZE * (GOT_PLT_RESERVED + i), address + 6);",
-     "    write64(gotPltData + GOT_ENTRY_SIZE * (GOT_PLT_RESERVED + i), address);"),
+     "    write64le(gotPlt + 8 * (3 + i), address + 6);",
+     "    write64le(gotPlt + 8 * (3 + i), address);",
+     "target"),
 
     ("the first .got.plt slot does not name .dynamic",
      "    write64((uint8_t *)l->gotPltPiece->data, l->dynamicPiece->address);",
      "    write64((uint8_t *)l->gotPltPiece->data, 0);"),
 
     ("the loader's reserved slots are not reserved",
-     "#define GOT_PLT_RESERVED 3",
-     "#define GOT_PLT_RESERVED 1"),
+     "    .gotPltReserved = 3,",
+     "    .gotPltReserved = 1,",
+     "target"),
 
     ("a JUMP_SLOT names a reserved slot",
      "      entries[i].r_offset = l->gotPltPiece->address +\n"
-     "                            GOT_ENTRY_SIZE * (GOT_PLT_RESERVED + i);",
+     "                            GOT_ENTRY_SIZE * (l->target->gotPltReserved + i);",
      "      entries[i].r_offset = l->gotPltPiece->address +\n"
      "                            GOT_ENTRY_SIZE * i;"),
 
     ("a stub's address is not the symbol's address",
-     "  return l->pltSection->address +\n"
-     "         (uint64_t)(symbol->pltIndex + 1) * PLT_ENTRY_SIZE;",
+     "  return l->pltSection->address + l->target->plt0Size +\n"
+     "         (uint64_t)symbol->pltIndex * l->target->pltEntrySize;",
      "  return l->pltSection->address;"),
 
     # ------------------------------------------------------------ copied data
@@ -352,9 +365,9 @@ MUTATIONS = [
      "  header->e_type = ET_EXEC;"),
 
     ("a RELATIVE addend forgets the symbol it names",
-     "        addDynRela(entries, at, where, ELF64_R_INFO(0, R_X86_64_RELATIVE),\n"
+     "        addDynRela(entries, at, where, ELF64_R_INFO(0, l->target->relocRelative),\n"
      "                   (int64_t)(S + (uint64_t)rela->r_addend));",
-     "        addDynRela(entries, at, where, ELF64_R_INFO(0, R_X86_64_RELATIVE),\n"
+     "        addDynRela(entries, at, where, ELF64_R_INFO(0, l->target->relocRelative),\n"
      "                   rela->r_addend);"),
 
     ("DT_RELACOUNT counts every relocation",
@@ -507,13 +520,16 @@ def main():
             # After a run that was killed outright: put the source back and
             # take the backup away, which is all the finally below would have
             # done had it been reached.
-            backup = SOURCE + ".mutate-backup"
-            if not os.path.exists(backup):
-                print("nothing to restore: there is no %s" % backup)
+            found = [p for p in SOURCES.values()
+                     if os.path.exists(p + ".mutate-backup")]
+            if not found:
+                print("nothing to restore: there is no %s"
+                      % (SOURCE + ".mutate-backup"))
                 return 2
-            shutil.copy(backup, SOURCE)
-            os.unlink(backup)
-            print("restored %s" % SOURCE)
+            for path in found:
+                shutil.copy(path + ".mutate-backup", path)
+                os.unlink(path + ".mutate-backup")
+                print("restored %s" % path)
             return 0
         else:
             print(__doc__)
@@ -522,28 +538,30 @@ def main():
     selected = [m for m in MUTATIONS if only is None or only in m[0]]
 
     if listOnly:
-        for name, _, _ in selected:
-            print(name)
+        for mutation in selected:
+            print(mutation[0])
         return 0
 
     if not selected:
         print("no mutation matches '%s'" % only)
         return 2
 
-    backup = SOURCE + ".mutate-backup"
-    if os.path.exists(backup):
-        # An earlier run did not get to put the file back, which means the
-        # source on disk may still carry a mutation. Saying which file to copy
-        # where beats guessing on the user's behalf: they may have edited it
-        # since, and this cannot tell.
-        print("a backup from an earlier run is still at\n    %s\n"
-              "which means %s may still be mutated. Restore it with\n"
-              "    cp %s %s\n"
-              "or, if you know the source is the one you want, delete the "
-              "backup." % (backup, SOURCE, backup, SOURCE))
-        return 2
+    for path in SOURCES.values():
+        stale = path + ".mutate-backup"
+        if os.path.exists(stale):
+            # An earlier run did not get to put the file back, which means the
+            # source on disk may still carry a mutation. Saying which file to
+            # copy where beats guessing on the user's behalf: they may have
+            # edited it since, and this cannot tell.
+            print("a backup from an earlier run is still at\n    %s\n"
+                  "which means %s may still be mutated. Restore it with\n"
+                  "    cp %s %s\n"
+                  "or, if you know the source is the one you want, delete the "
+                  "backup." % (stale, path, stale, path))
+            return 2
 
-    shutil.copy(SOURCE, backup)
+    for path in SOURCES.values():
+        shutil.copy(path, path + ".mutate-backup")
 
     # SIGKILL cannot be caught and is what leaves the backup behind for the
     # message above. Everything else can, and turning it into an exception is
@@ -554,8 +572,10 @@ def main():
     for number in (signal.SIGTERM, signal.SIGHUP):
         signal.signal(number, terminate)
 
-    with open(backup) as f:
-        original = f.read()
+    originals = {}
+    for key, path in SOURCES.items():
+        with open(path + ".mutate-backup") as f:
+            originals[key] = f.read()
 
     caught, missed, unusable, equivalent = [], [], [], []
 
@@ -574,14 +594,18 @@ def main():
             print("the unmutated tests already fail: " + str(who))
             return 2
 
-        for name, before, after in selected:
+        for mutation in selected:
+            name, before, after = mutation[0], mutation[1], mutation[2]
+            key = mutation[3] if len(mutation) > 3 else "link"
+            original = originals[key]
+
             hits = original.count(before)
             if hits != 1:
                 unusable.append("%s (pattern matches %d sites)" % (name, hits))
                 print("UNUSABLE  %s" % name)
                 continue
 
-            with open(SOURCE, "w") as f:
+            with open(SOURCES[key], "w") as f:
                 f.write(original.replace(before, after))
 
             ok, err = rebuild(build)
@@ -601,17 +625,18 @@ def main():
                 caught.append(name)
                 print("caught    %-56s by %s" % (name, who))
     except KeyboardInterrupt:
-        print("\ninterrupted; putting %s back" % os.path.basename(SOURCE))
+        print("\ninterrupted; putting the sources back")
     finally:
-        shutil.copy(backup, SOURCE)
-        with open(SOURCE) as f:
-            restored = f.read() == original
+        for key, path in SOURCES.items():
+            shutil.copy(path + ".mutate-backup", path)
+            with open(path) as f:
+                restored = f.read() == originals[key]
 
-        if restored:
-            os.unlink(backup)
-        else:
-            print("\n*** %s was NOT restored; the original is at %s"
-                  % (SOURCE, backup))
+            if restored:
+                os.unlink(path + ".mutate-backup")
+            else:
+                print("\n*** %s was NOT restored; the original is at %s"
+                      % (path, path + ".mutate-backup"))
 
         rebuild(build)
 
