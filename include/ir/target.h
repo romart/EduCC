@@ -149,7 +149,7 @@ typedef struct {
   int32_t stackParamOffset;
 } ParametersABISummary;
 
-typedef struct _TargetDescriptor {
+struct _TargetDescriptor {
   const char *name;
 
   uint32_t numPhysRegs;
@@ -269,11 +269,11 @@ typedef struct _TargetDescriptor {
   // stub out today do *not* agree - SysV classifies a struct field-by-field
   // into two eightbytes, riscv64 LP64D has its own rules - so that is where
   // they will stop sharing an implementation.
-  void (*classifyParameters)(const struct _TargetDescriptor *target,
+  void (*classifyParameters)(const TargetDescriptor *target,
                              AstFunctionDeclaration *declaration,
                              ParamtersABIInfo *infos, size_t numberOfParams,
                              ParametersABISummary *summary);
-} TargetDescriptor;
+};
 
 extern const TargetDescriptor targetX86_64;
 extern const TargetDescriptor targetRiscv64;
