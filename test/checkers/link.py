@@ -51,6 +51,7 @@ TARGETS = {
         "pltEntry": 16,
         "jumpSlot": R_X86_64_JUMP_SLOT,
         "sysroot": "",
+        "flags": 0,
     },
     EM_RISCV: {
         "name": "riscv64",
@@ -60,6 +61,9 @@ TARGETS = {
         "pltEntry": 16,
         "jumpSlot": 5,  # R_RISCV_JUMP_SLOT
         "sysroot": "/usr/riscv64-linux-gnu",
+        # EF_RISCV_FLOAT_ABI_DOUBLE, and not EF_RISCV_RVC: no compressed
+        # instruction is emitted and the flag is a claim about the bytes.
+        "flags": 0x4,
     },
 }
 
@@ -85,6 +89,13 @@ def check(findings, source, condition, message):
 def inspect(path, source, findings, target):
     exe = Dynamic(path)
     loads = exe.loads()
+
+    # A RISC-V file states its float ABI in e_flags, and the zero x86-64 leaves
+    # there reads as soft-float - a claim about how this program passes
+    # doubles, which ld reads and refuses to link against a double-float one.
+    check(findings, source, exe.flags == target["flags"],
+          "e_flags is 0x%x where %s's is 0x%x"
+          % (exe.flags, target["name"], target["flags"]))
 
     for segment in loads:
         check(findings, source, segment["offset"] % PAGE ==

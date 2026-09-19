@@ -348,6 +348,7 @@ static const LinkTarget targets[] = {
   {
     .machine = EM_RISCV,
     .name = "riscv64",
+    .flags = EF_RISCV_FLOAT_ABI_DOUBLE,
     .interpreter = "/lib/ld-linux-riscv64-lp64d.so.1",
     .sysroot = "/usr/riscv64-linux-gnu",
 

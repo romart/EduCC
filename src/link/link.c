@@ -3168,6 +3168,7 @@ static Boolean writeImage(Linker *l, const Layout *layout, Boolean *wrote) {
   header->e_ident[EI_OSABI] = ELFOSABI_SYSV;
   header->e_type = l->options->shared ? ET_DYN : ET_EXEC;
   header->e_machine = l->target->machine;
+  header->e_flags = l->target->flags;
   header->e_version = EV_CURRENT;
   header->e_entry = l->entry;
   header->e_phoff = sizeof(Elf64_Ehdr);

@@ -42,6 +42,11 @@ typedef struct _LinkTarget {
   uint16_t machine; // EM_X86_64 or EM_RISCV
   const char *name; // what a diagnostic calls it
 
+  // The ELF header's e_flags. x86-64 has none; a RISC-V file records its float
+  // ABI there, and the zero x86-64 leaves reads as soft-float - which is a
+  // claim about how this program passes doubles, not about nothing.
+  uint32_t flags;
+
   const char *interpreter;
 
   // Where the target's own files live when it is not the machine this compiler

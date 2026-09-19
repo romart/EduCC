@@ -254,7 +254,7 @@ class Executable:
             self.blob = f.read()
 
         (ident, self.type, self.machine, _version, self.entry, phoff, shoff,
-         _flags, _ehsize, _phentsize, phnum, _shentsize, shnum,
+         self.flags, _ehsize, _phentsize, phnum, _shentsize, shnum,
          shstrndx) = struct.unpack("<16sHHIQQQIHHHHHH", self.blob[:64])
 
         self.ident = ident
