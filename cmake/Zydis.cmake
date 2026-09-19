@@ -37,15 +37,22 @@ FetchContent_MakeAvailable(zydis_src)
 # EduCC's own sources and always linked the disassembler as an already-built
 # library. Mirror that: always build this copy with a real host compiler,
 # independent of whatever CMAKE_C_COMPILER the outer project is using.
-if(CMAKE_C_COMPILER_ID)
-  set(ZYDIS_HOST_CC "${CMAKE_C_COMPILER}" CACHE FILEPATH "Compiler used to build vendored Zydis")
-else()
-  find_program(ZYDIS_HOST_CC NAMES gcc cc clang)
-  if(NOT ZYDIS_HOST_CC)
-    message(FATAL_ERROR "Can't build vendored Zydis: no real host C compiler (gcc/clang/cc) found, "
-                        "and CMAKE_C_COMPILER ('${CMAKE_C_COMPILER}') isn't recognized as one either "
-                        "(this happens when bootstrapping with EduCC's own not-yet-complete binary). "
-                        "Install gcc or clang.")
+#
+# A toolchain file may name both outright, and cmake/riscv64.toolchain.cmake
+# does: on a cross build "a real compiler" also has to mean one that emits the
+# *target's* machine, and an x86-64 libzydis.a in a riscv64 link is the first
+# error anyone sees.
+if(NOT ZYDIS_HOST_CC)
+  if(CMAKE_C_COMPILER_ID)
+    set(ZYDIS_HOST_CC "${CMAKE_C_COMPILER}" CACHE FILEPATH "Compiler used to build vendored Zydis")
+  else()
+    find_program(ZYDIS_HOST_CC NAMES gcc cc clang)
+    if(NOT ZYDIS_HOST_CC)
+      message(FATAL_ERROR "Can't build vendored Zydis: no real host C compiler (gcc/clang/cc) found, "
+                          "and CMAKE_C_COMPILER ('${CMAKE_C_COMPILER}') isn't recognized as one either "
+                          "(this happens when bootstrapping with EduCC's own not-yet-complete binary). "
+                          "Install gcc or clang.")
+    endif()
   endif()
 endif()
 find_program(ZYDIS_AR NAMES ar REQUIRED)
