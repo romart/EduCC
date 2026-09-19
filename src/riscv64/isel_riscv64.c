@@ -188,6 +188,29 @@ static uint32_t selectWidened(MachineBuilder *b, const IrInstruction *value, uin
   return widenRegister(b, src, srcSize, size, isUnsigned);
 }
 
+// The same widening as a *conversion* rather than as a change of register
+// width, and the two differ for exactly one type. An 'unsigned int' lives in a
+// register sign-extended like every other 32-bit value, so selectWidened is
+// right to leave it alone - but C says converting one to a wider type keeps its
+// value, and the value has no sign. The zeroes have to be put back.
+static uint32_t selectConverted(MachineBuilder *b, const IrInstruction *value, uint8_t size) {
+  uint8_t srcSize = valueSize(value);
+
+  if (srcSize >= size || isFloatIrType(value->type) ||
+      !isUnsignedIrOperand(value->type) ||
+      canonicalIsUnsigned(value->type, srcSize)) {
+    return selectWidened(b, value, size);
+  }
+
+  uint32_t src = machineBuilderVreg(b, value);
+
+  if (machineTakeRegisterExtension(b->mf, src, size, TRUE)) {
+    return src;
+  }
+
+  return widenRegister(b, src, srcSize, size, TRUE);
+}
+
 // -============================ Arithmetic ================================-
 
 // Which of a pair of opcodes this width wants: the 'w' form for a 32-bit
@@ -542,7 +565,7 @@ static void selectConversion(MachineBuilder *b, const IrInstruction *i) {
   // narrower source is widened by its own signedness on the way, which is what
   // C says a conversion does.
   if (toSize >= sizeof(intptr_t)) {
-    uint32_t src = selectWidened(b, value, toSize);
+    uint32_t src = selectConverted(b, value, toSize);
 
     MachineInstr *mi = buildMachineInstr(b, MOP_COPY, 1, 1);
     setRegisterOperand(mi, 0, dst);
