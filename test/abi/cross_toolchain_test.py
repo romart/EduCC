@@ -150,8 +150,9 @@ def main():
     findings = []
     for name in names:
         try:
-            findings += checkFixture(name, workdir)
-            print("%s -- OK" % name)
+            found = checkFixture(name, workdir)
+            findings += found
+            print("%s -- %s" % (name, "FAIL" if found else "OK"))
         except Failure as failure:
             findings.append("%s: %s" % (name, failure))
             print("%s -- FAIL" % name)
