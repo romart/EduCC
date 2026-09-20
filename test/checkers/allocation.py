@@ -32,16 +32,12 @@ import tempfile
 
 import corpus
 
-SCRATCH = {"r10", "r11", "rbx", "xmm8", "xmm9", "xmm10"}
-ABI_IN = {"rdi", "rsi", "rdx", "rcx", "r8", "r9",
-          "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7",
-          "rsp", "rbp"}
-TERMINATORS = ("jmp", "jmp*", "ret", "je", "jne", "jl", "jle", "jg", "jge",
-               "jb", "jbe", "ja", "jae")
-# Only these have to be a block's last instruction. A sparse switch is a chain
-# of 'cmp; je #case' inside one block (section 6.13), so a conditional branch
-# in the middle of a block is the shape of the dispatch, not a misplacement.
-UNCONDITIONAL = ("jmp", "jmp*", "ret")
+# The scratch registers, what the ABI hands over, how a block ends, and how
+# wide a spill is: corpus.TARGETS, which is this machine's TargetDescriptor
+# said again. Only an unconditional terminator has to be a block's last
+# instruction - a sparse switch is a chain of 'cmp; je #case' inside one block
+# (section 6.13), so a conditional branch mid-block is the shape of the
+# dispatch and not a misplacement.
 
 
 class Instr:
@@ -137,7 +133,7 @@ def parseFunctions(path):
     return funcs
 
 
-def checkFunction(where, f, stats):
+def checkFunction(where, f, stats, target):
     name = f["name"]
     findings = []
 
@@ -173,14 +169,19 @@ def checkFunction(where, f, stats):
                 continue
             slot = next(iter(l for l in (i.defs | i.uses) if l.startswith("fi#")), None)
             v = slotVreg.get(slot)
-            if v is not None and f["vregs"].get(v) and f["vregs"][v][1] != i.width():
-                bad(f"{i.text} uses width {i.width()} for %v{v}, which is "
-                    f"{f['vregs'][v][1]} bytes")
+            if v is None or not f["vregs"].get(v):
+                continue
+            # machineSpillWidth: the whole register where the target has no
+            # sub-registers, and the value's own width where it has.
+            want = max(target["spillRegisterWidth"], f["vregs"][v][1])
+            if want != i.width():
+                bad(f"{i.text} uses width {i.width()} for %v{v}, which wants "
+                    f"{want} bytes")
 
     # (4) nothing lands after a block's unconditional terminator
     for b in f["blocks"]:
         for pos, i in enumerate(b.instrs):
-            if i.base() in UNCONDITIONAL and pos != len(b.instrs) - 1:
+            if i.base() in target["uncond"] and pos != len(b.instrs) - 1:
                 bad(f"MBB #{b.id} has {i.base()} at position {pos} of {len(b.instrs)}")
 
     # (5) and (6): the backward liveness fixpoint.
@@ -205,21 +206,22 @@ def checkFunction(where, f, stats):
     for loc in sorted(liveIn[order[0]]):
         if loc.startswith("fi#"):
             bad(f"spill slot {loc} is read before it is written")
-        elif trivial and loc in SCRATCH:
+        elif trivial and loc in target["scratchRegs"]:
             bad(f"scratch register ${loc} is read before it is written")
-        elif loc not in ABI_IN:
+        elif loc not in target["entryRegs"]:
             bad(f"${loc} is live into the entry block")
 
     if trivial:
         for bid in order:
             for loc in liveIn[bid]:
-                if loc in SCRATCH:
+                if loc in target["scratchRegs"]:
                     bad(f"scratch ${loc} is live into MBB #{bid}")
 
-    # (7) two-address form survived allocation
+    # (7) two-address form survived allocation, on a machine that has it
     for b in f["blocks"]:
-        for i in b.instrs:
-            if i.base().startswith("MOP_") or i.base() in TERMINATORS:
+        for i in b.instrs if target["twoAddress"] else ():
+            if i.base().startswith("MOP_") or i.base() in target["uncond"] \
+                    or target["cond"].match(i.base()):
                 continue
             m = re.match(r"\$(\w+) = \S+ \$(\w+), ", i.text)
             if m:
@@ -243,6 +245,7 @@ def checkFunction(where, f, stats):
 def main():
     compiler, roots = corpus.parseArgs(__doc__)
     files = corpus.sources(roots)
+    target = corpus.target()
 
     findings, failed = [], []
     stats = collections.Counter()
@@ -254,7 +257,7 @@ def main():
                 continue
             for fn in parseFunctions(ra):
                 if not fn["unalloc"]:
-                    findings += checkFunction(f, fn, stats)
+                    findings += checkFunction(f, fn, stats, target)
 
     return corpus.report(len(files), failed, findings,
                          f"functions: {stats['functions']}, instructions: {stats['instrs']}, "

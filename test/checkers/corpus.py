@@ -19,6 +19,7 @@ finding: a checker has nothing to say about a file that never reached the
 stage it reads.
 """
 import os
+import re
 import subprocess
 import sys
 
@@ -57,6 +58,121 @@ def targetName():
         if flag == "-march" and i + 1 < len(flags):
             return flags[i + 1]
     return "x86_64"
+
+
+# What the checkers have to know about each machine, which is very nearly the
+# TargetDescriptor the compiler reads - spelled again here because a checker
+# cannot ask the compiler for it, and kept in one table rather than one per
+# checker so that a machine is described once.
+#
+# Until roadmap step 59's R6 these were x86-64's constants written into the
+# checkers directly, which is why pointing any of them at riscv64 used to
+# report findings in the thousands, none of them a bug. link.py keeps a table
+# of its own: what it needs is what a *loader* reads, and it identifies the
+# machine from the file it is inspecting rather than from a flag.
+TARGETS = {
+    "x86_64": {
+        "name": "x86-64",
+
+        # TargetDescriptor.incomingStackParamOffset: the saved rbp and the
+        # pushed return address lie between the frame pointer and the first
+        # argument the caller left on the stack.
+        "incomingStackParamOffset": 16,
+
+        # Every register that holds something before this function wrote it:
+        # what the ABI hands over, and what the frame is addressed by.
+        "entryRegs": frozenset(
+            {"rdi", "rsi", "rdx", "rcx", "r8", "r9", "rsp", "rbp"} |
+            {"xmm%d" % n for n in range(8)}),
+
+        # Whether a target instruction reads its own destination. x86's do,
+        # which is what the leading copy is for; RV64G is three-address and
+        # none of its do, so the invariant has nothing to say there.
+        "twoAddress": True,
+
+        # How a block ends, as the dump spells the opcodes. 'indirect' reaches
+        # its successors through a table rather than through an operand.
+        "uncond": frozenset({"jmp", "ret", "jmp*"}),
+        "indirect": "jmp*",
+        "cond": re.compile(r"^j(?!mp)[a-z]+$"),
+
+        # TargetDescriptor.spillRegisterWidth, read the way machineSpillWidth
+        # reads it: a spill is max(this, the value's own width). Zero because
+        # 'al' is a name the machine has, so the bytes above a narrow value
+        # belong to nobody and a reload need not reproduce them.
+        "spillRegisterWidth": 0,
+
+        # TargetDescriptor.scratchRegs: what the trivial allocator may use, and
+        # so what no value may be live in across a block boundary there.
+        "scratchRegs": frozenset({"r10", "r11", "rbx", "xmm8", "xmm9", "xmm10"}),
+
+        # The last IR phase before the machine backend. x87 has instructions
+        # for its own long double, so nothing is lowered after 'dce'.
+        "lastIrPhase": "dce",
+
+        # Which backends this machine has, for the checkers that cover more
+        # than one. riscv64 refuses '-legacy' by name.
+        "backends": ("ir", "legacy"),
+
+        # Whether '-fPIC' means anything here.
+        "pic": True,
+
+        # The stack pointer as '-S' prints it.
+        "sp": "rsp",
+        "objdump": "objdump",
+    },
+
+    "riscv64": {
+        "name": "riscv64",
+
+        # The return address is in ra and s0 points at the top of the frame,
+        # so the first stack argument is at the frame pointer itself.
+        "incomingStackParamOffset": 0,
+
+        # x0 is hardwired to zero: it holds a value before anything wrote one
+        # in the strongest possible sense, and reading it is not a defect.
+        "entryRegs": frozenset(
+            {"sp", "zero", "ra", "s0"} |
+            {"a%d" % n for n in range(8)} |
+            {"fa%d" % n for n in range(8)}),
+
+        "twoAddress": False,
+
+        # A conditional branch here is the comparison and the branch at once,
+        # so these are six opcodes rather than a setcc/jcc pair.
+        "uncond": frozenset({"j", "jr", "ret"}),
+        "indirect": "jr",
+        "cond": re.compile(r"^b(eq|ne|lt|ge|ltu|geu)$"),
+
+        # No sub-registers: every instruction reads all 64 bits, so a narrow
+        # value's register is canonically extended and a spill has to save the
+        # whole of it - a reload of the low bytes alone could not put the
+        # register back without a signedness the spiller does not have.
+        "spillRegisterWidth": 8,
+
+        "scratchRegs": frozenset({"t4", "t5", "t6", "ft9", "ft10", "ft11"}),
+
+        # lowerLongDoubleCalls runs after 'dce' here, and it replaces every
+        # operation on a long double with a call - so a value the 'dce' dump
+        # names is not necessarily one the machine IR has.
+        "lastIrPhase": "softfloat",
+
+        "backends": ("ir",),
+        "pic": False,
+
+        "sp": "sp",
+        "objdump": "riscv64-linux-gnu-objdump",
+    },
+}
+
+
+def target():
+    """The facts about the machine this run compiles for. See TARGETS."""
+    name = targetName()
+    if name not in TARGETS:
+        print("no checker knows anything about '%s'" % name)
+        sys.exit(2)
+    return TARGETS[name]
 
 
 def sources(roots, backend="ir"):

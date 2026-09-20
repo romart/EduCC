@@ -19,8 +19,11 @@ edges being the ones that cannot be split, and the sequence executed here is
 therefore all of them. That is the point: each target's phi still has to come
 out holding what its own edge carried.
 
-Reads two dumps of the same function: '-irDump:dce' for the phis (the last IR
-before the machine backend) and '-irDump:mir' for the copies stage 0 emitted.
+Reads two dumps of the same function: the last IR phase before the machine
+backend for the phis, and '-irDump:mir' for the copies stage 0 emitted. Which
+phase that is belongs to the target - riscv64 lowers every long double
+operation to a libgcc call after 'dce', so reading 'dce' there names values
+the machine IR does not have. See corpus.TARGETS.
 """
 import os
 import re
@@ -127,13 +130,14 @@ def check(name, irText, mirText):
 def main():
     compiler, roots = corpus.parseArgs(__doc__)
     files = corpus.sources(roots)
+    lastIr = corpus.target()["lastIrPhase"]
 
     findings, failed, pairs = [], [], 0
     with tempfile.TemporaryDirectory() as tmp:
         ir, mir = os.path.join(tmp, "ir.txt"), os.path.join(tmp, "mir.txt")
         obj = os.path.join(tmp, "d.o")
         for f in files:
-            if not (corpus.dump(compiler, f, "dce", ir, obj)
+            if not (corpus.dump(compiler, f, lastIr, ir, obj)
                     and corpus.dump(compiler, f, "mir", mir, obj)):
                 failed.append(f)
                 continue

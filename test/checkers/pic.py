@@ -124,6 +124,10 @@ def checkSource(compiler, source, obj, so):
 
 def main():
     compiler, roots = corpus.parseArgs(__doc__)
+    target = corpus.target()
+    if not target["pic"]:
+        print("SKIP: '-fPIC' is refused by name on %s" % target["name"])
+        return 2
     if not shutil.which("ld"):
         print("ld not found; this checker needs it as its oracle")
         return 2

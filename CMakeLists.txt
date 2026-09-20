@@ -447,38 +447,12 @@ if(BUILD_TESTING)
         phi_destruction frame_layout selection allocation allocation_widths
         call_alignment emission_objdump disasm_stable jump_relaxation pic)
 
-    # Every one of them is x86-64's, and a cross build registers none. link.py
-    # below is the exception and the model: R5 gave it a target dimension, and
-    # it is the only one that has one. What the other ten each need is a debt
-    # recorded in roadmap step 59's R6, and it is specific rather than general:
-    #
-    #   frame_layout      asserts incoming arguments at +16, which is x86's
-    #                     saved rbp plus return address. riscv64 keeps the
-    #                     return address in 'ra' and the offset is 0 - which is
-    #                     TargetDescriptor.incomingStackParamOffset, already
-    #                     there to be read.
-    #   selection         "nothing read before written" counts $a0..$a7 and the
-    #                     hardwired $zero and $sp as reads of undefined
-    #                     registers; it needs the target's argument registers
-    #                     and its fixed ones.
-    #   allocation,       assert a spill stores no more than was written, which
-    #   allocation_widths is x86's answer. RV64 has no sub-registers, so a
-    #                     spill saves the whole register by design
-    #                     (TargetDescriptor.spillRegisterWidth).
-    #   phi_destruction   one fixture, one finding: a phi whose value has no
-    #                     vreg. Unlike the others this is not obviously the
-    #                     checker's assumption and wants looking at.
-    #   call_alignment,   read '-S', which riscv64 has no disassembler for yet.
-    #   disasm_stable,    call_alignment is the worst of the four because it
-    #   jump_relaxation   passes: with nothing to read it reports zero calls.
-    #   emission_objdump  wants riscv64-linux-gnu-objdump as its oracle.
-    #   pic               is '-fPIC', refused by name on riscv64.
-    if(EDUCC_CROSS_RISCV64)
-      set(EDUCC_CHECKERS "")
-      message(STATUS "riscv64: only checker_link registered; the other ten "
-                     "carry x86-64's invariants (roadmap step 59, R6)")
-    endif()
-
+    # All of them answer for both machines since roadmap step 59's R6; what
+    # each one needs to know about a target is test/checkers/corpus.py's
+    # TARGETS, which is that machine's TargetDescriptor said again. Two of
+    # them skip on riscv64 rather than run, and say why when they do:
+    # allocation_widths asks a question a machine with no sub-registers does
+    # not have, and pic is '-fPIC', refused by name there.
     foreach(alloc chaitin linear trivial)
       foreach(checker ${EDUCC_CHECKERS})
         add_test(NAME checker_${checker}_${alloc}
@@ -522,6 +496,23 @@ if(BUILD_TESTING)
         TIMEOUT 300
         LABELS checkers
         SKIP_RETURN_CODE 2)
+
+      # And the other ten for the other machine (roadmap step 59, R6). Once
+      # rather than once per allocator, the way checker_link_riscv64 is: what
+      # this round adds is the *target* dimension, and the allocator dimension
+      # is already covered three times over above. Anything that turns out to
+      # be allocator-specific on riscv64 alone would be the first of its kind.
+      foreach(checker ${EDUCC_CHECKERS})
+        add_test(NAME checker_${checker}_riscv64
+          COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/test/checkers/${checker}.py"
+                  "${EDUCC_TEST_COMPILER}" "-march=riscv64" "test/testData/codegen"
+          WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        )
+        set_tests_properties(checker_${checker}_riscv64 PROPERTIES
+          TIMEOUT 300
+          LABELS checkers
+          SKIP_RETURN_CODE 2)
+      endforeach()
     endif()
   endif()
 endif()

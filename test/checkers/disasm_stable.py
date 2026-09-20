@@ -3,7 +3,7 @@
 
     python3 test/checkers/disasm_stable.py build/bin/main test/testData/codegen
 
-Disassembles every fixture under both backends, twice, and asserts that the
+Disassembles every fixture under every backend the target has, twice, and asserts that the
 output is byte-identical across runs and that the compiler does not die
 producing it. The emitted bytes are a pure function of the input, so any
 difference between two runs of the same command is the debugging tool lying.
@@ -38,12 +38,13 @@ def disassemble(compiler, flags, source, obj, prefix):
 
 def main():
     compiler, roots = corpus.parseArgs(__doc__)
+    target = corpus.target()
     noAslr = ["setarch", "-R"] if shutil.which("setarch") else []
 
     findings, failed, runs = [], [], 0
     with tempfile.TemporaryDirectory() as tmp:
         obj = os.path.join(tmp, "d.o")
-        for backend in ("ir", "legacy"):
+        for backend in target["backends"]:
             flags = [] if backend == "ir" else ["-legacy"]
             for f in corpus.sources(roots, backend):
                 rc, first = disassemble(compiler, flags, f, obj, [])

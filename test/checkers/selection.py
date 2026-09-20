@@ -12,11 +12,13 @@ that reading a dump does not reliably establish:
     A misplaced phi copy, a block visited in the wrong order, or a two-address
     sequence emitted backwards all surface here.
 
- 2. Two-address form. A target instruction whose first source operand is a
-    plain register must name that same register as its destination - that is
-    what the leading copy is for, and this is what notices when one goes
-    missing. Instructions reading memory are not in this shape and are not
-    checked: '%v5 = mov.4 [%v1 + %v4*4]' names two registers and is a load.
+ 2. Two-address form, on a machine that has it. A target instruction whose
+    first source operand is a plain register must name that same register as
+    its destination - that is what the leading copy is for, and this is what
+    notices when one goes missing. Instructions reading memory are not in this
+    shape and are not checked: '%v5 = mov.4 [%v1 + %v4*4]' names two registers
+    and is a load. RV64G is three-address and no opcode there reads its own
+    destination, so this says nothing and is not asked.
 
  3. Branches agree with layout. Per block, the successors reachable by what
     was emitted - explicit branch targets, plus the next block in layout order
@@ -31,14 +33,11 @@ import tempfile
 
 import corpus
 
-ARG_REGS = {"rdi", "rsi", "rdx", "rcx", "r8", "r9", "rsp", "rbp",
-            "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7"}
-UNCOND = {"jmp", "ret", "jmp*"}
-# An indirect jump - a switch's table dispatch, a computed goto - reaches every
-# successor through the table rather than through an operand, so what it emits
-# can only be asked to be a subset of the CFG's successors.
-INDIRECT = "jmp*"
-COND = re.compile(r"^j(?!mp)[a-z]+$")
+# Which registers the ABI hands over, how a block ends, and whether the
+# machine is two-address: corpus.TARGETS. An indirect jump - a switch's table
+# dispatch, a computed goto - reaches every successor through the table rather
+# than through an operand, so what it emits can only be asked to be a subset of
+# the CFG's successors.
 REG = re.compile(r"(%v\d+|\$[a-z0-9]+)")
 BARE_REG = re.compile(r"^(%v\d+|\$[a-z0-9]+)$")
 # 'fi#3' is a frame index, not a block label.
@@ -147,7 +146,7 @@ def liveness(blocks):
     return liveIn
 
 
-def checkDump(path, where, stats):
+def checkDump(path, where, stats, target):
     findings = []
     for fname, blocks in parseFunctions(path):
         if not blocks:
@@ -156,14 +155,15 @@ def checkDump(path, where, stats):
         stats["instrs"] += sum(len(b.instrs) for b in blocks)
 
         for r in sorted(liveness(blocks)[blocks[0].id]):
-            if r.startswith("%v") or r.lstrip("$") not in ARG_REGS:
+            if r.startswith("%v") or r.lstrip("$") not in target["entryRegs"]:
                 findings.append(f"{where} [{fname}]: {r} is live on entry (read before written)")
 
         for idx, b in enumerate(blocks):
             for ins in b.instrs:
                 if ins.opcode.startswith("MOP_") or ins.targets:
                     continue
-                if len(ins.defs) == 1 and len(ins.operands) >= 2 \
+                if target["twoAddress"] and len(ins.defs) == 1 \
+                        and len(ins.operands) >= 2 \
                         and BARE_REG.match(ins.operands[0]):
                     stats["two-address"] += 1
                     if ins.defs[0] != ins.operands[0]:
@@ -172,9 +172,9 @@ def checkDump(path, where, stats):
 
             emitted, terminal = set(), False
             for ins in b.instrs:
-                if ins.opcode in UNCOND or COND.match(ins.opcode):
+                if ins.opcode in target["uncond"] or target["cond"].match(ins.opcode):
                     emitted |= set(ins.targets)
-                    if ins.opcode in UNCOND:
+                    if ins.opcode in target["uncond"]:
                         terminal = True
             if not terminal and idx + 1 < len(blocks):
                 emitted.add(blocks[idx + 1].id)
@@ -183,7 +183,7 @@ def checkDump(path, where, stats):
             # than by defect.
             if any(i.opcode == "MOP_UNSELECTED" and not i.defs for i in b.instrs[-1:]):
                 continue
-            if any(i.opcode == INDIRECT for i in b.instrs):
+            if any(i.opcode == target["indirect"] for i in b.instrs):
                 if not emitted <= set(b.succs):
                     findings.append(f"{where} [{fname}] MBB#{b.id}: emitted -> "
                                     f"{sorted(emitted)}, not all in {sorted(b.succs)}")
@@ -197,6 +197,7 @@ def checkDump(path, where, stats):
 def main():
     compiler, roots = corpus.parseArgs(__doc__)
     files = corpus.sources(roots)
+    target = corpus.target()
 
     findings, failed = [], []
     stats = collections.Counter()
@@ -206,7 +207,7 @@ def main():
             if not corpus.dump(compiler, f, "isel", isel, obj):
                 failed.append(f)
                 continue
-            findings += checkDump(isel, f, stats)
+            findings += checkDump(isel, f, stats, target)
 
     return corpus.report(len(files), failed, findings,
                          f"functions: {stats['functions']}, instructions: {stats['instrs']}, "

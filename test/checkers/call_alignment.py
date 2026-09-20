@@ -3,21 +3,26 @@
 
     python3 test/checkers/call_alignment.py build/bin/main test/testData/codegen
 
-Simulates rsp through the '-S' disassembly of each emitted function, following
-only the instructions that move it - push, pop, and add/sub of an immediate -
-and asserts three things the exit-code tests cannot see:
+Simulates the stack pointer through the '-S' disassembly of each emitted
+function, following only the instructions that move it, and asserts three
+things the exit-code tests cannot see:
 
-  - rsp is 16-byte aligned at every call. At function entry rsp % 16 == 8
-    (the caller's return address is on the stack), so the invariant at a call
-    is delta % 16 == 8.
-  - every call's stack arguments are given back, so by the epilogue rsp is
-    where the prologue left it.
-  - the stack pointer stands still between the prologue and the epilogue.
-    Since roadmap step 42 a call's stack arguments are stored into an area the
-    frame reserves once, so the prologue's own push of rbp and its 'sub rsp'
-    are the only constant-sized moves an emitted function makes. A dynamic
-    allocation still moves rsp, by a register rather than by a constant, and
-    is not one of these.
+  - it is 16-byte aligned at every call;
+  - every call's stack arguments are given back, so by the epilogue it is
+    where the prologue left it;
+  - it stands still between the prologue and the epilogue. Since roadmap step
+    42 a call's stack arguments are stored into an area the frame reserves
+    once, so the prologue's own moves are the only constant-sized ones an
+    emitted function makes. A dynamic allocation still moves it, by a register
+    rather than by a constant, and is not one of these.
+
+Both machines, and the arithmetic differs in what the caller left behind. On
+x86-64 the call pushed a return address, so at function entry rsp % 16 == 8
+and the invariant at a call is delta % 16 == 8; the moves are 'push', 'pop'
+and 'add/sub rsp, imm'. On riscv64 the return address is in a register and
+nothing was pushed, so entry is already aligned and the invariant is
+delta % 16 == 0; the only constant-sized move is 'addi sp,sp,imm', and the
+epilogue restores with 'mv sp,s0' rather than with 'leave'.
 
 An unaligned call only crashes if the callee touches SSE, which is why running
 the corpus does not catch it: deleting the odd-stack-argument padding shows up
@@ -36,6 +41,50 @@ POP = re.compile(r"^pop ")
 ADDSUB = re.compile(r"^(add|sub) rsp, (0x[0-9a-fA-F]+|\d+)$")
 INSN = re.compile(r"^<[0-9a-f]+>\t[0-9a-f]+\s+(.*)$")
 FUNCTION = re.compile(r"^<<< (\w+) >>>$")
+
+# riscv64: 'addi sp,sp,-16' is the whole prologue's move, signed rather than
+# spelled by two mnemonics, and 'mv sp,s0' is the epilogue's restore.
+RISCV_ADJUST = re.compile(r"^addi sp,sp,(-?\d+)$")
+RISCV_RESTORE = "mv sp,s0"
+RISCV_CALL = re.compile(r"^(jal ra,|jalr\b)")
+
+
+def checkRiscv(where, name, body, stats):
+    findings = []
+    delta, frame, adjustments = 0, None, 0
+
+    # A frameless function subtracts nothing, so there is no prologue move to
+    # take as the reference and the balance check compares against zero.
+    if not any(RISCV_ADJUST.match(i) for i in body):
+        frame = 0
+
+    for insn in body:
+        m = RISCV_ADJUST.match(insn)
+        if m:
+            delta -= int(m.group(1))
+            adjustments += 1
+            if adjustments > 1 or int(m.group(1)) > 0:
+                findings.append(f"{where} [{name}]: sp moved outside the prologue: {insn}")
+            if frame is None:
+                frame = delta
+            continue
+        if RISCV_CALL.match(insn):
+            stats["calls"] += 1
+            if delta % 16 != 0:
+                findings.append(f"{where} [{name}]: sp misaligned at call "
+                                f"(delta={delta}, delta%16={delta % 16}, want 0)")
+            continue
+        if insn == RISCV_RESTORE:
+            # 'mv sp,s0' restores whatever sp held, so nothing about delta is
+            # checkable past it - but an unbalanced call sequence is, and it
+            # shows up as delta not being where the prologue left it.
+            if frame is not None and delta != frame:
+                findings.append(f"{where} [{name}]: stack arguments not given back "
+                                f"(delta={delta}, after prologue={frame})")
+            delta = frame if frame is not None else delta
+
+    stats["functions"] += 1
+    return findings
 
 
 def checkFunction(where, name, body, stats):
@@ -94,7 +143,7 @@ def checkFunction(where, name, body, stats):
     return findings
 
 
-def checkSource(compiler, source, obj, stats):
+def checkSource(compiler, source, obj, stats, check):
     r = subprocess.run([compiler] + corpus.flags + ["-oneline", "-S", "-c", "-o", obj, source],
                        capture_output=True, text=True)
     if r.returncode != 0:
@@ -107,7 +156,7 @@ def checkSource(compiler, source, obj, stats):
             name, body = m.group(1), []
             continue
         if line == "<<<>>>" and name:
-            findings += checkFunction(source, name, body, stats)
+            findings += check(source, name, body, stats)
             name = None
             continue
         if name is not None:
@@ -120,13 +169,14 @@ def checkSource(compiler, source, obj, stats):
 def main():
     compiler, roots = corpus.parseArgs(__doc__)
     files = corpus.sources(roots)
+    check = checkRiscv if corpus.targetName() == "riscv64" else checkFunction
 
     findings, failed = [], []
     stats = {"functions": 0, "calls": 0}
     with tempfile.TemporaryDirectory() as tmp:
         obj = os.path.join(tmp, "d.o")
         for f in files:
-            fs = checkSource(compiler, f, obj, stats)
+            fs = checkSource(compiler, f, obj, stats, check)
             if fs is None:
                 failed.append(f)
             else:

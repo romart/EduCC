@@ -14,6 +14,15 @@ no later instruction - a spill above all - reads more than that.
 Registers are not live across block boundaries under the spill-everything
 allocator, so the state is cleared at each block; a register not yet written in
 this block is assumed whole (it is an incoming ABI register or a reload).
+
+Skips (exit 2) on a machine with no sub-registers. The premise here is x86's:
+the bytes above a narrow value belong to nobody, so reading them is reading
+something that was never written. On RV64 they belong to the value - every
+instruction writes all 64 bits and a narrow one leaves its register
+canonically extended - so "eight read, four written" is what the machine
+guarantees rather than a defect, and the walk has nothing to say. What does
+carry over is that a spill must store the whole register, and that is
+allocation.py's invariant (3), read off TargetDescriptor.spillRegisterWidth.
 """
 import os, re, subprocess, sys, tempfile
 
@@ -90,6 +99,13 @@ def check_dump(path):
 
 def main():
     compiler, roots = corpus.parseArgs(__doc__)
+    target = corpus.target()
+
+    if target["spillRegisterWidth"] != 0:
+        print("SKIP: %s has no sub-registers, so a narrow value's register is "
+              "canonically extended and every byte of it was written" % target["name"])
+        return 2
+
     files = []
     for root in roots:
         if os.path.isfile(root):
