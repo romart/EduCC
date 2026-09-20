@@ -645,18 +645,107 @@ static IrInstruction *maybeTranslateAlloca(AstExpression *expr) {
   return allocaInstr;
 }
 
-// The IR type one eightbyte of an aggregate travels as. An INTEGER eightbyte is
+// The IR type one piece of an aggregate travels as. An INTEGER piece is
 // IR_P_AGG, which is what keeps it in the integer file; an SSE one is a float of
-// the eightbyte's own width, which is what puts it in an xmm register and makes
-// the move a movss/movsd rather than a mov. 'bytes' is what is left of the
-// aggregate at this eightbyte, so a trailing four-byte one is not read eight
-// bytes wide.
-static enum IrTypeKind eightbyteIrType(enum EightbyteClass cls, size_t bytes) {
-  if (cls != EB_SSE) {
+// the piece's own width, which is what puts it in an xmm register and makes
+// the move a movss/movsd rather than a mov.
+static enum IrTypeKind aggregatePartIrType(const AggregatePart *part) {
+  if (part->cls != EB_SSE) {
     return IR_P_AGG;
   }
 
-  return bytes > 4 ? IR_F64 : IR_F32;
+  return part->size > 4 ? IR_F64 : IR_F32;
+}
+
+// How many argument registers of each class one argument takes, and - for a
+// composite - which pieces it travels as.
+//
+// On a target that flattens (see TargetDescriptor.flattenFloatAggregates) an
+// aggregate's *shape* depends on where in the list it is: the flattened form
+// wants a floating-point register per float field, and when the arguments
+// ahead have used those up the whole argument falls back to the integer
+// convention instead. So the caller has to keep count while it walks, the way
+// classifyParametersGeneric does on the other side and callArgLocation does
+// again in the selector - all three answering the same question, and this one
+// deciding the shape the other two then place.
+//
+// Returns the piece count, zero for anything not travelling as pieces.
+static uint32_t callArgumentShape(const TargetDescriptor *target, const TypeRef *argType,
+                                  Boolean unnamed, uint32_t *usedInt, uint32_t *usedFp,
+                                  AggregatePart parts[2]) {
+  uint32_t count;
+
+  parts[0].cls = parts[1].cls = EB_NONE;
+  parts[0].offset = parts[1].offset = 0;
+  parts[0].size = parts[1].size = 0;
+
+  if (!target->flattenFloatAggregates) {
+    return classifyComposite(target, argType, parts);
+  }
+
+  if (isEmptyCompositeType(argType)) {
+    return 0;  // passed in nothing at all, and takes up nothing
+  }
+
+  if (!isCompositeType(argType)) {
+    // A scalar: only the counters move. A long double is two words, and an
+    // unnamed argument of any type travels through the integer file.
+    if (isRegisterPairScalar(target, argType)) {
+      if (unnamed && (*usedInt & 1) != 0) *usedInt += 1;  // an aligned pair
+      if (*usedInt + 2 <= target->intArgRegCount) *usedInt += 2;
+    } else if (isRealType(argType) && !unnamed) {
+      if (*usedFp < target->fpArgRegCount) {
+        *usedFp += 1;
+      } else if (target->floatsUseIntegerRegsWhenFull && *usedInt < target->intArgRegCount) {
+        *usedInt += 1;  // its bits, in an integer register
+      }
+    } else {
+      if (*usedInt < target->intArgRegCount) *usedInt += 1;
+    }
+
+    return 0;
+  }
+
+  // Nothing about an unnamed argument is flattened: it travels by the integer
+  // convention whatever it holds, which is what callArgLocation reads off the
+  // input's position rather than its type.
+  count = unnamed ? classifyCompositeIntegers(target, argType, parts)
+                  : classifyComposite(target, argType, parts);
+
+  if (count == 0) {
+    // By reference: a pointer, and one word wherever it lands.
+    if (*usedInt < target->intArgRegCount) *usedInt += 1;
+    return 0;
+  }
+
+  for (;;) {
+    uint32_t needInt = 0, needFp = 0;
+
+    for (uint32_t idx = 0; idx < count; ++idx) {
+      if (parts[idx].cls == EB_SSE) needFp += 1; else needInt += 1;
+    }
+
+    if (*usedInt + needInt <= target->intArgRegCount &&
+        *usedFp + needFp <= target->fpArgRegCount) {
+      *usedInt += needInt;
+      *usedFp += needFp;
+      break;
+    }
+
+    if (needFp == 0) {
+      // Two integer words with one register left is the split: the low word
+      // takes it and the high word goes on the stack.
+      if (target->splitsArgumentsAcrossStack && count == 2 &&
+          *usedInt + 1 == target->intArgRegCount) {
+        *usedInt += 1;
+      }
+      break;
+    }
+
+    count = classifyCompositeIntegers(target, argType, parts);
+  }
+
+  return count;
 }
 
 static IrInstruction *translateCall(AstExpression *expr) {
@@ -692,9 +781,12 @@ static IrInstruction *translateCall(AstExpression *expr) {
   }
   for (AstExpressionList *args = expr->callExpr.arguments; args != NULL;
        args = args->next) {
-    enum EightbyteClass argClasses[2];
-    uint32_t parts = classifyComposite(ctx->target, args->expression->type, argClasses);
-    numInputs += parts == 0 ? 1 : parts;
+    // An upper bound rather than the answer: the shape the walk below settles
+    // on can be narrower (a flattened aggregate that falls back to the integer
+    // convention) but never wider, and these are only bitmap widths.
+    AggregatePart argParts[2];
+    uint32_t count = classifyComposite(ctx->target, args->expression->type, argParts);
+    numInputs += count == 0 ? 1 : count;
   }
   allocateCallArgMaps(callInstr, numInputs);
 
@@ -724,6 +816,8 @@ static IrInstruction *translateCall(AstExpression *expr) {
   }
 
   size_t argIdx = 0;
+  uint32_t usedInt = returnsThroughHiddenPointer(ctx->target, returnType) ? 1 : 0;
+  uint32_t usedFp = 0;
   callInstr->info.call.firstUnnamedInput = callInstr->inputs.size;
 
   for (AstExpressionList *args = expr->callExpr.arguments; args != NULL;
@@ -737,6 +831,12 @@ static IrInstruction *translateCall(AstExpression *expr) {
     unsigned alignent = max(8, typeAlignment(argType));
     unsigned argSize = max(8, computeTypeSize(argType));
 
+    AggregatePart parts[2];
+    uint32_t eightbytes =
+        callArgumentShape(ctx->target, argType,
+                          calleeType->functionTypeDesc.isVariadic && argIdx >= namedArgs,
+                          &usedInt, &usedFp, parts);
+
     IrInstruction *argOp = translateRValue(argExpr);
     IrInstruction *realArgOp = NULL;
 
@@ -747,9 +847,6 @@ static IrInstruction *translateCall(AstExpression *expr) {
       continue;
 
     if (isCompositeType(argType)) {
-      enum EightbyteClass classes[2];
-      uint32_t eightbytes = classifyComposite(ctx->target, argType, classes);
-
       if (eightbytes == 0) {
         // The temporary is the copy C says a by-value argument is, and the
         // backend passes its *bytes* rather than its address - so the slot is
@@ -769,23 +866,18 @@ static IrInstruction *translateCall(AstExpression *expr) {
           setCallMemoryArg(callInstr, callInstr->inputs.size);
         }
       } else {
-        // One input per eightbyte, loaded as a float when its class is SSE -
-        // which is what sends it to an xmm argument register, the same spelling
-        // the callee's prologue reads it back with; see
+        // One input per piece, loaded as a float when its class is SSE - which
+        // is what sends it to a floating-point argument register, the same
+        // spelling the callee's prologue reads it back with; see
         // initializeParamterLocal. The second one is marked as continuing the
-        // first, because SysV passes such an aggregate all in registers or all
-        // on the stack and selection is where that is decided.
-        size_t size = (size_t)computeTypeSize(argType);
-
+        // first, because such an aggregate is placed as a unit and selection is
+        // where that is decided.
         for (uint32_t eb = 0; eb < eightbytes; ++eb) {
-          enum IrTypeKind eightbyte =
-              eightbyteIrType(classes[eb], size - eb * sizeof(intptr_t));
-
           IrInstruction *offset =
-              createIntegerConstant(IR_I64, (int64_t)(eb * sizeof(intptr_t)));
+              createIntegerConstant(IR_I64, (int64_t)parts[eb].offset);
           IrInstruction *gep = newGEPInstruction(argOp, offset, argType);
           addInstruction(gep);
-          IrInstruction *part = addLoadInstr(eightbyte, gep, expr);
+          IrInstruction *part = addLoadInstr(aggregatePartIrType(&parts[eb]), gep, expr);
           gep->meta.astExpr = part->meta.astExpr = argExpr;
 
           if (eb != 0) {
@@ -3048,7 +3140,7 @@ static void generateExitBlock(IrFunction *func, TypeRef *returnType) {
     // IR_P_AGG rather than as the struct it spells.
     TypeRef *slotType = returnType;
     enum IrTypeKind valueType = IR_P_AGG;
-    enum EightbyteClass classes[2];
+    AggregatePart parts[2];
     uint32_t eightbytes = 0;
 
     if (returnsThroughHiddenPointer(ctx->target, returnType)) {
@@ -3057,10 +3149,11 @@ static void generateExitBlock(IrFunction *func, TypeRef *returnType) {
     } else if (!isCompositeType(returnType)) {
       valueType = typeRefToIrType(returnType);
     } else {
-      // One input per eightbyte, each spelled by its class: an SSE one comes
-      // back in xmm0/xmm1 rather than rax/rdx, and selectReturn picks the
-      // register file off these types.
-      eightbytes = classifyComposite(ctx->target, returnType, classes);
+      // One input per piece, each spelled by its class: an SSE one comes back
+      // in xmm0/xmm1 (fa0/fa1) rather than rax/rdx, and selectReturn picks the
+      // register file off these types. Nothing has used a return register up,
+      // so a flattening target's answer here is always the flattened one.
+      eightbytes = classifyComposite(ctx->target, returnType, parts);
     }
 
     if (eightbytes == 0) {
@@ -3068,20 +3161,17 @@ static void generateExitBlock(IrFunction *func, TypeRef *returnType) {
       retValue->astType = slotType;
       addInstructionInput(ret, retValue);
     } else {
-      size_t size = (size_t)computeTypeSize(returnType);
-
       for (uint32_t eb = 0; eb < eightbytes; ++eb) {
         IrInstruction *at = func->retOperand;
 
-        if (eb != 0) {
+        if (parts[eb].offset != 0) {
           IrInstruction *offset =
-              createIntegerConstant(IR_I64, (int64_t)(eb * sizeof(intptr_t)));
+              createIntegerConstant(IR_I64, (int64_t)parts[eb].offset);
           at = newGEPInstruction(func->retOperand, offset, returnType);
           addInstruction(at);
         }
 
-        IrInstruction *part = addLoadInstr(
-            eightbyteIrType(classes[eb], size - eb * sizeof(intptr_t)), at, NULL);
+        IrInstruction *part = addLoadInstr(aggregatePartIrType(&parts[eb]), at, NULL);
         part->astType = slotType;
         addInstructionInput(ret, part);
       }
@@ -3091,9 +3181,34 @@ static void generateExitBlock(IrFunction *func, TypeRef *returnType) {
   termintateBlock(ret);
 }
 
+// The address of one word the caller left in the incoming argument area.
+//
+// It cannot be plain arithmetic on the stack pointer: the offset the ABI
+// states is measured from the *frame* pointer, and what turns that into a real
+// address is layoutIncomingParameters giving the expression a frame object -
+// which it does by walking the local slots. So the anchor is a slot, the way
+// the variadic overflow area's is, and 'anchor' is the one reserved for this
+// parameter in translateFunction.
+static IrInstruction *anchorIncomingAddress(IrInstruction *stackPtrOp, int32_t offset,
+                                            LocalValueInfo *anchor, const char *name) {
+  IrInstruction *ptr = newInstruction(IR_E_ADD, IR_P_AGG);
+
+  addInstructionInput(ptr, stackPtrOp);
+  addInstructionInput(ptr, createIntegerConstant(IR_I64, offset));
+  addInstruction(ptr);
+
+  assert(anchor != NULL && "an incoming address needs a slot to be found through");
+  anchor->stackSlot = ptr;
+  anchor->frameOffset = offset;
+  anchor->name = name;
+
+  return ptr;
+}
+
 static void initializeParamterLocal(IrBasicBlock *entryBB,
                                     IrInstruction *stackPtrOp,
-                                    ParamtersABIInfo *paramInfo) {
+                                    ParamtersABIInfo *paramInfo,
+                                    LocalValueInfo *anchor) {
 
   AstValueDeclaration *param = paramInfo->declaration;
   TypeRef *astType = param->type;
@@ -3115,10 +3230,8 @@ static void initializeParamterLocal(IrBasicBlock *entryBB,
       addr = newPhysRegister(IR_PTR, paramInfo->loc.physReg);
       addInstruction(addr);
     } else {
-      IrInstruction *slot = newInstruction(IR_E_ADD, IR_P_AGG);
-      addInstructionInput(slot, stackPtrOp);
-      addInstructionInput(slot, createIntegerConstant(IR_I64, paramInfo->loc.stackOffset));
-      addInstruction(slot);
+      IrInstruction *slot = anchorIncomingAddress(
+          stackPtrOp, paramInfo->loc.stackOffset, anchor, "<byref_param>");
       addr = addLoadInstr(IR_PTR, slot, NULL);
     }
 
@@ -3136,32 +3249,37 @@ static void initializeParamterLocal(IrBasicBlock *entryBB,
         makePointedType(ctx->pctx, astType->flags.storage, astType);
     lvi->stackSlot = stackSlot;
 
-    // One register per eightbyte, each spelled by its class: an SSE one arrives
-    // in an xmm register, and a float of the eightbyte's width is what puts the
+    // One register per piece, each spelled by its class: an SSE one arrives in
+    // an xmm register, and a float of the piece's width is what puts the
     // physical register in the right file and makes the store a movss/movsd
     // rather than a mov. The slot itself stays what its type says; only the
-    // eightbytes in flight are spelled this way. A scalar is the same shape
-    // with one eightbyte whose class nothing had to decide.
-    size_t size = (size_t)computeTypeSize(astType);
-
+    // pieces in flight are spelled this way. A scalar is the same shape with
+    // one piece whose class nothing had to decide.
     for (uint32_t eb = 0; eb < paramInfo->regCount; ++eb) {
-      enum IrTypeKind regType =
-          paramInfo->classes[eb] == EB_NONE
-              ? type
-              : eightbyteIrType(paramInfo->classes[eb], size - eb * sizeof(intptr_t));
+      const AggregatePart *part = &paramInfo->parts[eb];
+      enum IrTypeKind regType = part->cls == EB_NONE ? type : aggregatePartIrType(part);
+
+      IrInstruction *at = stackSlot;
+
+      if (part->offset != 0) {
+        IrInstruction *offset = createIntegerConstant(IR_I64, (int64_t)part->offset);
+        at = newGEPInstruction(stackSlot, offset, astType);
+        addInstruction(at);
+      }
+
+      // The high half of a split argument came on the stack rather than in a
+      // register; everything else about it is the same, so it is read out of
+      // the incoming area and stored into the slot beside the half that did.
+      if (paramInfo->split && eb != 0) {
+        IrInstruction *incoming = anchorIncomingAddress(
+            stackPtrOp, paramInfo->splitStackOffset, anchor, "<split_param>");
+        addStoreInstr(at, addLoadInstr(regType, incoming, NULL), NULL);
+        continue;
+      }
 
       IrInstruction *regInstr = newPhysRegister(
           regType, eb == 0 ? paramInfo->loc.physReg : paramInfo->physReg2);
       addInstruction(regInstr);
-
-      IrInstruction *at = stackSlot;
-
-      if (eb != 0) {
-        IrInstruction *offset =
-            createIntegerConstant(IR_I64, (int64_t)(eb * sizeof(intptr_t)));
-        at = newGEPInstruction(stackSlot, offset, astType);
-        addInstruction(at);
-      }
 
       addStoreInstr(at, regInstr, NULL);
     }
@@ -3180,25 +3298,6 @@ static void initializeParamterLocal(IrBasicBlock *entryBB,
     lvi->stackSlot = addInstr;
     lvi->frameOffset = paramInfo->loc.stackOffset;
   }
-}
-
-// Parameter classification itself lives in the TargetDescriptor now (see
-// classifyParametersGeneric in src/ir/target.c); this only wires the result
-// up to the LocalValueInfo slots the rest of the translation indexes by.
-static uint32_t computeParametersABIInfo(AstFunctionDeclaration *declaration,
-                                         ParamtersABIInfo *infos,
-                                         size_t numberOfParams,
-                                         LocalValueInfo *lvis,
-                                         ParametersABISummary *summary) {
-
-  ctx->target->classifyParameters(ctx->target, declaration, infos,
-                                  numberOfParams, summary);
-
-  for (uint32_t idx = 0; idx < numberOfParams; ++idx) {
-    infos[idx].lvi = &lvis[idx];
-  }
-
-  return numberOfParams;
 }
 
 // The address of the first unnamed argument the caller left on the stack.
@@ -3466,8 +3565,28 @@ static uint32_t buildInitialIr(IrFunction *func,
     numOfVariadicSlots = 2;
   }
 
-  const size_t numOfLocalSlots =
-      numOfParams + numOfLocals + numOfReturnSlots + numOfVariadicSlots;
+  // Classified before the slots are counted, because two of its answers ask
+  // for a slot: a parameter whose address the caller left on the stack, and a
+  // split one whose high half is up there. Both are read out of the incoming
+  // area, which is above the frame pointer and so is a slot of its own the way
+  // an incoming stack parameter is - see anchorIncomingAddress.
+  ParamtersABIInfo *paramABIInfo =
+      heapAllocate(numOfParams * sizeof(ParamtersABIInfo));
+  ParametersABISummary abiSummary = {0};
+
+  ctx->target->classifyParameters(ctx->target, declaration, paramABIInfo,
+                                  numOfParams, &abiSummary);
+
+  size_t numOfAnchorSlots = 0;
+  for (size_t p = 0; p < numOfParams; ++p) {
+    if (paramABIInfo[p].split ||
+        (paramABIInfo[p].byReference && !paramABIInfo[p].isRegister)) {
+      numOfAnchorSlots += 1;
+    }
+  }
+
+  const size_t numOfLocalSlots = numOfParams + numOfLocals + numOfReturnSlots +
+                                 numOfVariadicSlots + numOfAnchorSlots;
   func->numOfLocalSlots = numOfLocalSlots;
 
   LocalValueInfo *localOperandsMap =
@@ -3475,23 +3594,30 @@ static uint32_t buildInitialIr(IrFunction *func,
   ctx->localOperandMap = localOperandsMap;
   func->localOperandMap = localOperandsMap;
 
-  int32_t frameOffset = 0;
+  for (size_t p = 0; p < numOfParams; ++p) {
+    paramABIInfo[p].lvi = &localOperandsMap[p];
+  }
 
-  ParamtersABIInfo *paramABIInfo =
-      heapAllocate(numOfParams * sizeof(ParamtersABIInfo));
+  int32_t frameOffset = 0;
 
   IrInstruction *stackPtrOp = ctx->stackOp =
       newPhysRegister(IR_PTR, ctx->target->sp);
   addInstructionHead(func->entry, stackPtrOp);
 
-  ParametersABISummary abiSummary = {0};
-  computeParametersABIInfo(declaration, paramABIInfo, numOfParams,
-                           localOperandsMap, &abiSummary);
+  // Handed out from the end of the map, so the parameter, local, return and
+  // variadic slots keep the indices everything else assumes.
+  size_t anchorIdx = numOfLocalSlots - numOfAnchorSlots;
   size_t idx = 0;
   for (AstValueDeclaration *param = declaration->parameters; param != NULL;
        param = param->next, ++idx) {
     ParamtersABIInfo *pi = &paramABIInfo[idx];
-    initializeParamterLocal(func->entry, stackPtrOp, pi);
+    LocalValueInfo *anchor = NULL;
+
+    if (pi->split || (pi->byReference && !pi->isRegister)) {
+      anchor = &localOperandsMap[anchorIdx++];
+    }
+
+    initializeParamterLocal(func->entry, stackPtrOp, pi, anchor);
     frameOffset += alignSize(computeTypeSize(param->type), sizeof(intptr_t));
   }
 

@@ -193,6 +193,9 @@ const TargetDescriptor targetRiscv64 = {
 
   .vaListKind = VA_FLAT_POINTER,
   .largeAggregatesByReference = TRUE,
+  .flattenFloatAggregates = TRUE,
+  .splitsArgumentsAcrossStack = TRUE,
+  .floatsUseIntegerRegsWhenFull = TRUE,
 
   // LP64D's long double is IEEE binary128, and RV64G has no instruction that
   // touches one: every operation on the type is a call into libgcc, and a
@@ -201,10 +204,8 @@ const TargetDescriptor targetRiscv64 = {
 
   .intRetReg = X_A0,
   .fpRetReg = FR(F_A0),
-  // LP64D returns a two-eightbyte aggregate in a0:a1 or fa0:fa1, as SysV does.
-  // Which eightbyte goes to which file is still decided by classifyComposite,
-  // which is SysV's rule and not LP64D's float flattening - the one deliberate
-  // ABI divergence left on this target, recorded in the plan's R6.
+  // LP64D returns a two-piece aggregate in a0:a1 or fa0:fa1, as SysV does; what
+  // the two pieces *are* is flattenFloatAggregates' answer rather than SysV's.
   .intRetReg2 = X_A1,
   .fpRetReg2 = FR(F_A1),
 

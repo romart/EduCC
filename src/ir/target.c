@@ -142,9 +142,25 @@ static Boolean classifyLeaf(const TargetDescriptor *target, const TypeRef *type,
   return TRUE;
 }
 
-uint32_t classifyComposite(const TargetDescriptor *target, const TypeRef *type,
-                           enum EightbyteClass classes[2]) {
-  classes[0] = classes[1] = EB_NONE;
+// Fills the pieces in with the eightbytes 'size' bytes divide into - the offset
+// and the width a SysV piece always has, and the shape the integer convention
+// gives an aggregate on either target.
+static uint32_t eightbyteParts(size_t size, AggregatePart parts[2]) {
+  uint32_t count = (uint32_t)((size + sizeof(intptr_t) - 1) / sizeof(intptr_t));
+
+  for (uint32_t eb = 0; eb < count; ++eb) {
+    parts[eb].offset = (uint32_t)(eb * sizeof(intptr_t));
+    parts[eb].size = (uint32_t)min(sizeof(intptr_t), size - eb * sizeof(intptr_t));
+  }
+
+  return count;
+}
+
+uint32_t classifyCompositeIntegers(const TargetDescriptor *target, const TypeRef *type,
+                                   AggregatePart parts[2]) {
+  parts[0].cls = parts[1].cls = EB_NONE;
+  parts[0].offset = parts[1].offset = 0;
+  parts[0].size = parts[1].size = 0;
 
   if (!isCompositeType(type)) {
     return 0;
@@ -156,17 +172,158 @@ uint32_t classifyComposite(const TargetDescriptor *target, const TypeRef *type,
     return 0;
   }
 
+  uint32_t count = eightbyteParts(size, parts);
+
+  for (uint32_t eb = 0; eb < count; ++eb) {
+    parts[eb].cls = EB_INTEGER;
+  }
+
+  return count;
+}
+
+// LP64D's rule, which asks what the *fields* are rather than what each
+// eightbyte holds. The struct is flattened recursively - a nested struct or a
+// one-element array contributes its own leaves - and the answer is a piece per
+// leaf, in declaration order.
+//
+// It applies to a struct of at most two leaves, each no wider than a register,
+// at least one of which is a floating-point real. Anything else - three leaves,
+// a union anywhere, a long double, an array of three floats - is not flattened
+// and travels by the integer convention; the oracle confirms each of those.
+// FALSE means exactly that, and is not the same as MEMORY.
+#define MAX_FLAT_LEAVES 2
+
+typedef struct {
+  AggregatePart leaves[MAX_FLAT_LEAVES];
+  uint32_t count;
+  Boolean ok;
+} FlatFields;
+
+static void flattenLeaf(const TypeRef *type, size_t offset, FlatFields *flat) {
+  if (!flat->ok) {
+    return;
+  }
+
+  size_t size = (size_t)computeTypeSize(type);
+
+  if (type->kind == TR_ARRAY) {
+    const TypeRef *element = type->arrayTypeDesc.elementType;
+    int count = type->arrayTypeDesc.size;
+    size_t elementSize = (size_t)computeTypeSize(element);
+
+    // A zero-length array occupies nothing and contributes no leaf, which is
+    // what lets struct { double a; int z[0]; } still go in one fa register.
+    for (int idx = 0; idx < count; ++idx) {
+      flattenLeaf(element, offset + idx * elementSize, flat);
+    }
+
+    return;
+  }
+
+  if (isCompositeType(type)) {
+    TypeDefiniton *definition = type->descriptorDesc->typeDefinition;
+
+    // A union is never flattened: its members share an offset, so "one piece
+    // per field" has no answer. gcc passes one by the integer convention.
+    if (definition == NULL || definition->kind != TDK_STRUCT) {
+      flat->ok = FALSE;
+      return;
+    }
+
+    for (StructualMember *member = definition->members; member != NULL; member = member->next) {
+      if (member->type == NULL) continue;
+      flattenLeaf(member->type, offset + (size_t)member->offset, flat);
+    }
+
+    return;
+  }
+
+  if (size == 0) {
+    return;
+  }
+
+  if (flat->count >= MAX_FLAT_LEAVES || size > sizeof(intptr_t)) {
+    flat->ok = FALSE;
+    return;
+  }
+
+  enum EightbyteClass cls = EB_INTEGER;
+
+  // A bitfield's storage is an integer whatever it is declared as, and gcc
+  // flattens a struct holding one exactly as if it were that integer.
+  if (type->kind == TR_VALUE) {
+    TypeId id = type->descriptorDesc->typeId;
+    if (id == T_F4 || id == T_F8) cls = EB_SSE;
+  }
+
+  flat->leaves[flat->count].cls = cls;
+  flat->leaves[flat->count].offset = (uint32_t)offset;
+  flat->leaves[flat->count].size = (uint32_t)size;
+  flat->count += 1;
+}
+
+// How many pieces the flattened form has, or 0 when this type does not flatten.
+static uint32_t flattenFloatFields(const TypeRef *type, AggregatePart parts[2]) {
+  FlatFields flat;
+  flat.count = 0;
+  flat.ok = TRUE;
+
+  flattenLeaf(type, 0, &flat);
+
+  if (!flat.ok || flat.count == 0) {
+    return 0;
+  }
+
+  Boolean anyFloat = FALSE;
+  for (uint32_t idx = 0; idx < flat.count; ++idx) {
+    if (flat.leaves[idx].cls == EB_SSE) anyFloat = TRUE;
+  }
+
+  if (!anyFloat) {
+    return 0;  // all integer: the integer convention says the same thing
+  }
+
+  for (uint32_t idx = 0; idx < flat.count; ++idx) {
+    parts[idx] = flat.leaves[idx];
+  }
+
+  return flat.count;
+}
+
+uint32_t classifyComposite(const TargetDescriptor *target, const TypeRef *type,
+                           AggregatePart parts[2]) {
+  enum EightbyteClass classes[2] = {EB_NONE, EB_NONE};
+
+  parts[0].cls = parts[1].cls = EB_NONE;
+  parts[0].offset = parts[1].offset = 0;
+  parts[0].size = parts[1].size = 0;
+
+  if (!isCompositeType(type)) {
+    return 0;
+  }
+
+  size_t size = (size_t)computeTypeSize(type);
+
+  if (size == 0 || size > 2 * sizeof(intptr_t)) {
+    return 0;
+  }
+
+  if (target->flattenFloatAggregates) {
+    uint32_t flat = flattenFloatFields(type, parts);
+    return flat != 0 ? flat : classifyCompositeIntegers(target, type, parts);
+  }
+
   if (!classifyMembers(target, type, 0, classes)) {
     return 0;
   }
 
+  uint32_t eightbytes = eightbyteParts(size, parts);
+
   // An eightbyte no member reached - a struct that is all padding, or one whose
   // only member is a zero-sized array - still has to travel as something, and
   // INTEGER is what SysV makes of a NO_CLASS eightbyte that is not MEMORY.
-  uint32_t eightbytes = (uint32_t)((size + sizeof(intptr_t) - 1) / sizeof(intptr_t));
-
   for (uint32_t eb = 0; eb < eightbytes; ++eb) {
-    if (classes[eb] == EB_NONE) classes[eb] = EB_INTEGER;
+    parts[eb].cls = classes[eb] == EB_NONE ? EB_INTEGER : classes[eb];
   }
 
   return eightbytes;
@@ -180,8 +337,8 @@ uint32_t classifyComposite(const TargetDescriptor *target, const TypeRef *type,
 // class at all, so it still passes these in the integer file - which is why
 // the two backends disagree here and the crossabi fixtures below say so.
 Boolean isCompositeInSSERegister(const TargetDescriptor *target, const TypeRef *type) {
-  enum EightbyteClass classes[2];
-  return classifyComposite(target, type, classes) == 1 && classes[0] == EB_SSE;
+  AggregatePart parts[2];
+  return classifyComposite(target, type, parts) == 1 && parts[0].cls == EB_SSE;
 }
 
 Boolean longDoubleIsSoft(const TargetDescriptor *target) {
@@ -194,9 +351,40 @@ Boolean isRegisterPairScalar(const TargetDescriptor *target, const TypeRef *type
 }
 
 Boolean returnsThroughHiddenPointer(const TargetDescriptor *target, const TypeRef *returnType) {
-  enum EightbyteClass classes[2];
+  AggregatePart parts[2];
   return isCompositeType(returnType) && !isEmptyCompositeType(returnType) &&
-         classifyComposite(target, returnType, classes) == 0;
+         classifyComposite(target, returnType, parts) == 0;
+}
+
+// All of it or none of it: an aggregate that would take the last integer
+// register and one that is not there does not get half of what it needs. The
+// argument behind it may still find a register, which is why this asks rather
+// than stopping the walk.
+static Boolean partsFitInRegisters(const TargetDescriptor *target, const AggregatePart parts[2],
+                                   uint32_t count, uint32_t usedInt, uint32_t usedFp) {
+  uint32_t needInt = 0, needFp = 0;
+
+  for (uint32_t idx = 0; idx < count; ++idx) {
+    if (parts[idx].cls == EB_SSE) needFp += 1; else needInt += 1;
+  }
+
+  return count != 0 && usedInt + needInt <= target->intArgRegCount &&
+         usedFp + needFp <= target->fpArgRegCount;
+}
+
+// The half-and-half case: two integer words with exactly one integer argument
+// register left. LP64D puts the low word in it and the high word on the stack;
+// SysV has no such rule, so this is FALSE there and the whole thing goes to
+// memory.
+//
+// It can only ever be the first stack argument - the stack does not start
+// taking integers until the registers are gone - which is why the high word
+// needs no alignment of its own.
+static Boolean splitsAcrossStack(const TargetDescriptor *target, const AggregatePart parts[2],
+                                 uint32_t count, uint32_t usedInt) {
+  return target->splitsArgumentsAcrossStack && count == 2 &&
+         parts[0].cls == EB_INTEGER && parts[1].cls == EB_INTEGER &&
+         usedInt + 1 == target->intArgRegCount;
 }
 
 void classifyParametersGeneric(const TargetDescriptor *target,
@@ -238,8 +426,12 @@ void classifyParametersGeneric(const TargetDescriptor *target,
 
     pi->regCount = 1;
     pi->physReg2 = IR_NO_PHYS_REG;
-    pi->classes[0] = pi->classes[1] = EB_NONE;
+    pi->parts[0].cls = pi->parts[1].cls = EB_NONE;
+    pi->parts[0].offset = pi->parts[1].offset = 0;
+    pi->parts[0].size = pi->parts[1].size = 0;
     pi->byReference = FALSE;
+    pi->split = FALSE;
+    pi->splitStackOffset = 0;
 
     if (isEmptyCompositeType(paramType)) {
       // Passed in nothing: no register is used up and no stack space is
@@ -253,17 +445,14 @@ void classifyParametersGeneric(const TargetDescriptor *target,
     }
 
     if (isCompositeType(paramType)) {
-      // The eightbyte rule below is SysV's; riscv64 LP64D has its own, and this
-      // is the point the hook comment in target.h means when it says the two
-      // targets will stop sharing an implementation.
-      uint32_t eightbytes = classifyComposite(target, paramType, pi->classes);
+      uint32_t eightbytes = classifyComposite(target, paramType, pi->parts);
 
       // Too wide for two registers, on a target that passes such a thing by
       // reference: it is a pointer argument from here on, and one word is all
       // it takes wherever it lands.
       if (eightbytes == 0 && target->largeAggregatesByReference) {
         pi->byReference = TRUE;
-        pi->classes[0] = pi->classes[1] = EB_NONE;
+        pi->parts[0].cls = pi->parts[1].cls = EB_NONE;
         size = align = sizeof(intptr_t);
 
         inRegister = intRegParams < target->intArgRegCount;
@@ -282,26 +471,35 @@ void classifyParametersGeneric(const TargetDescriptor *target,
         continue;
       }
 
-      uint32_t needInt = 0, needFp = 0;
-      for (uint32_t eb = 0; eb < eightbytes; ++eb) {
-        if (pi->classes[eb] == EB_SSE) needFp += 1; else needInt += 1;
-      }
+      inRegister = partsFitInRegisters(target, pi->parts, eightbytes,
+                                       intRegParams, fpRegParams);
 
-      // All in registers or all on the stack. An aggregate that would take the
-      // last integer register and one that is not there does not get half of
-      // what it needs - it goes to memory entire, and the argument behind it
-      // may still find a register.
-      inRegister = eightbytes != 0 &&
-                   intRegParams + needInt <= target->intArgRegCount &&
-                   fpRegParams + needFp <= target->fpArgRegCount;
+      // LP64D's flattened form wants a floating-point register per float
+      // field, and when the arguments ahead have used them up the *whole*
+      // argument falls back to the integer convention rather than to the
+      // stack - struct { float a, b; } behind eight doubles arrives in a0, not
+      // in fa0 and fa1 and not in memory. Confirmed against the oracle.
+      if (!inRegister && target->flattenFloatAggregates) {
+        eightbytes = classifyCompositeIntegers(target, paramType, pi->parts);
+        inRegister = partsFitInRegisters(target, pi->parts, eightbytes,
+                                         intRegParams, fpRegParams);
+      }
 
       if (inRegister) {
         pi->regCount = eightbytes;
         for (uint32_t eb = 0; eb < eightbytes; ++eb) {
-          uint32_t reg = pi->classes[eb] == EB_SSE ? target->fpArgRegs[fpRegParams++]
-                                                   : target->intArgRegs[intRegParams++];
+          uint32_t reg = pi->parts[eb].cls == EB_SSE ? target->fpArgRegs[fpRegParams++]
+                                                     : target->intArgRegs[intRegParams++];
           if (eb == 0) pi->loc.physReg = reg; else pi->physReg2 = reg;
         }
+      } else if (splitsAcrossStack(target, pi->parts, eightbytes, intRegParams)) {
+        pi->split = TRUE;
+        pi->regCount = 2;
+        pi->loc.physReg = target->intArgRegs[intRegParams++];
+        pi->splitStackOffset = ALIGN_SIZE(stackParamOffset, sizeof(intptr_t));
+        stackParamOffset = pi->splitStackOffset + (int32_t)sizeof(intptr_t);
+        pi->isRegister = TRUE;
+        continue;
       }
     } else if (isRegisterPairScalar(target, paramType)) {
       // Twice a register wide, so it travels in two of them, low half first -
@@ -309,22 +507,39 @@ void classifyParametersGeneric(const TargetDescriptor *target,
       // which is why the eightbyte classes say INTEGER and the rest of the
       // translation needs to know nothing else about it.
       //
-      // LP64D also splits such a scalar when exactly one register is left,
-      // putting the low half in it and the high half on the stack. This does
-      // not: the aggregate path above has the same gap, and the two want
-      // closing together - see R6 in the riscv64 plan.
-      pi->classes[0] = pi->classes[1] = EB_INTEGER;
+      pi->parts[0].cls = pi->parts[1].cls = EB_INTEGER;
+      pi->parts[0].offset = 0;
+      pi->parts[1].offset = (uint32_t)sizeof(intptr_t);
+      pi->parts[0].size = pi->parts[1].size = (uint32_t)sizeof(intptr_t);
       inRegister = intRegParams + 2 <= target->intArgRegCount;
 
       if (inRegister) {
         pi->regCount = 2;
         pi->loc.physReg = target->intArgRegs[intRegParams++];
         pi->physReg2 = target->intArgRegs[intRegParams++];
+      } else if (splitsAcrossStack(target, pi->parts, 2, intRegParams)) {
+        // The same split the aggregate takes, and the oracle confirms it is
+        // one rule: a long double is a two-word argument like any other.
+        pi->split = TRUE;
+        pi->regCount = 2;
+        pi->loc.physReg = target->intArgRegs[intRegParams++];
+        pi->splitStackOffset = ALIGN_SIZE(stackParamOffset, sizeof(intptr_t));
+        stackParamOffset = pi->splitStackOffset + (int32_t)sizeof(intptr_t);
+        pi->isRegister = TRUE;
+        continue;
       }
     } else if (isRealType(paramType)) {
       inRegister = fpRegParams < target->fpArgRegCount && size <= sizeof(intptr_t);
       if (inRegister) {
         pi->loc.physReg = target->fpArgRegs[fpRegParams++];
+      } else if (target->floatsUseIntegerRegsWhenFull && size <= sizeof(intptr_t) &&
+                 intRegParams < target->intArgRegCount) {
+        // The floating-point argument registers are gone, so this one arrives
+        // in an integer register holding its bits - which is the one place
+        // loc.physReg is not in the file the type says. selectPhysReg is what
+        // notices, and moves across the banks instead of copying.
+        pi->loc.physReg = target->intArgRegs[intRegParams++];
+        inRegister = TRUE;
       }
     } else {
       inRegister = intRegParams < target->intArgRegCount;

@@ -1726,14 +1726,15 @@ static uint32_t retRegOf(const TargetDescriptor *target, enum RegClass rc, uint3
 // type, which is what ast2ir asked the same question of when it built the
 // callee's side; the IR type says only IR_P_AGG and cannot answer.
 static uint32_t callResultEightbytes(const TargetDescriptor *target, const IrInstruction *call,
-                                     enum EightbyteClass classes[2]) {
-  classes[0] = classes[1] = EB_NONE;
-
+                                     AggregatePart parts[2]) {
   if (call->type != IR_P_AGG || call->info.call.returnBuffer != NULL || call->astType == NULL) {
+    parts[0].cls = parts[1].cls = EB_NONE;
+    parts[0].offset = parts[1].offset = 0;
+    parts[0].size = parts[1].size = 0;
     return 0;
   }
 
-  return classifyComposite(target, call->astType, classes);
+  return classifyComposite(target, call->astType, parts);
 }
 
 // Where the argument at input position 'inputIdx' is passed: an argument
@@ -1914,13 +1915,13 @@ static void x86ReserveFrame(MachineFunction *mf) {
 static void selectRegisterReturnedStruct(MachineBuilder *b, const IrInstruction *i) {
   MachineFunction *mf = b->mf;
 
-  enum EightbyteClass classes[2];
+  AggregatePart parts[2];
 
   // Zero eightbytes here means an empty struct - a real memory return came with
   // a buffer and never reaches this function. It still needs an address,
   // because everything downstream reads a composite as one; what it does not
   // need is any bytes stored into it.
-  uint32_t eightbytes = callResultEightbytes(b->mf->target, i, classes);
+  uint32_t eightbytes = callResultEightbytes(b->mf->target, i, parts);
 
   // Whole eightbytes, whatever the struct's own size: a register is stored in
   // full because storing part of it would need the size rounded to something
@@ -1935,7 +1936,7 @@ static void selectRegisterReturnedStruct(MachineBuilder *b, const IrInstruction 
   uint32_t used[RC_CLASS_COUNT] = {0};
 
   for (uint32_t eb = 0; eb < eightbytes; ++eb) {
-    enum RegClass rc = classes[eb] == EB_SSE ? RC_FP : RC_GP;
+    enum RegClass rc = parts[eb].cls == EB_SSE ? RC_FP : RC_GP;
 
     MachineInstr *store = buildMachineInstr(b, X86_STORE, 0, 2);
     setFrameAddressOperandAt(store, 0, frameIdx, (int32_t)(eb * sizeof(intptr_t)));
@@ -2098,8 +2099,8 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
   // many registers that takes, so the return type has the answer where the IR
   // type does not - the same question selectRegisterReturnedStruct asks when
   // it reads the value out.
-  enum EightbyteClass resultClasses[2];
-  uint32_t resultEightbytes = callResultEightbytes(b->mf->target, i, resultClasses);
+  AggregatePart resultParts[2];
+  uint32_t resultEightbytes = callResultEightbytes(b->mf->target, i, resultParts);
   uint16_t numDefs = hasResult ? (uint16_t)(resultEightbytes == 0 ? 1u : resultEightbytes) : 0;
 
   MachineInstr *call = buildMachineInstr(b, X86_CALL, numDefs, 1 + numArgRegs);
@@ -2110,7 +2111,7 @@ static void selectCall(MachineBuilder *b, const IrInstruction *i) {
 
     for (uint16_t def = 0; def < numDefs; ++def) {
       enum RegClass rc = resultEightbytes != 0
-                             ? (resultClasses[def] == EB_SSE ? RC_FP : RC_GP)
+                             ? (resultParts[def].cls == EB_SSE ? RC_FP : RC_GP)
                              : (isFloatIrType(i->type) ? RC_FP : RC_GP);
       setRegisterOperand(call, op, retRegOf(target, rc, used[rc]++));
       machineOperandAt(call, op)->flags.isImplicit = 1;

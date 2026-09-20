@@ -102,14 +102,43 @@ enum VaListKind {
 
 typedef struct _TargetDescriptor TargetDescriptor;
 
-// How a composite travels: the class of each of its eightbytes, and how many of
-// them there are - one or two. Zero means it goes in memory, because it is
-// larger than two eightbytes or because something in it has no register class.
+// One piece of a composite that travels in one register, and which bytes of the
+// composite that piece is.
+//
+// SysV's pieces are eightbytes: piece k is the eight bytes at 8k and its class
+// is what those bytes hold, so the offset and the size are the index over
+// again. LP64D's are *fields*: a struct of two floats is two four-byte pieces
+// at 0 and 4, one floating-point register each, where SysV puts both halves in
+// one. Carrying the offset and the width rather than deriving them is what lets
+// one model answer for both.
+typedef struct {
+  enum EightbyteClass cls;
+  uint32_t offset;
+  uint32_t size;
+} AggregatePart;
+
+// How a composite travels: what each piece of it is, and how many pieces there
+// are - one or two. Zero means it goes in memory, because it is larger than two
+// registers or because something in it has no register class.
 //
 // A scalar answers zero too: it is not an aggregate, and isRealType already
 // decides where a bare float goes.
+//
+// This is the answer with every argument register still free, which is the only
+// answer a *return* value ever needs. An argument may not get it: see
+// classifyCompositeIntegers.
 uint32_t classifyComposite(const TargetDescriptor *target, const TypeRef *type,
-                           enum EightbyteClass classes[2]);
+                           AggregatePart parts[2]);
+
+// The same composite by the integer convention - one or two integer pieces of a
+// register each, or zero when it is too wide for two.
+//
+// LP64D falls back to this for an argument whose flattened form wants
+// floating-point registers that the arguments ahead of it have used up, so the
+// *shape* of an argument depends on where in the list it is. On a target that
+// does not flatten this is what classifyComposite already answered.
+uint32_t classifyCompositeIntegers(const TargetDescriptor *target, const TypeRef *type,
+                                   AggregatePart parts[2]);
 
 // Where one parameter arrives, as decided by the target's ABI.
 typedef struct {
@@ -120,14 +149,20 @@ typedef struct {
     uint32_t physReg;     // when isRegister, an id in the flat namespace above
   } loc;
 
-  // A composite of two eightbytes arrives in two registers, each of its own
-  // class - {double,double} in xmm0:xmm1, {long,long} in rdi:rsi. 'regCount' is
-  // 1 for everything else and 'physReg2' is only read when it is 2. SysV passes
-  // such an aggregate all in registers or all on the stack and never splits it,
-  // so one 'isRegister' still answers for both halves.
+  // A composite of two pieces arrives in two registers, each of its own class -
+  // {double,double} in xmm0:xmm1, {long,long} in rdi:rsi. 'regCount' is 1 for
+  // everything else and 'physReg2' is only read when it is 2.
   uint32_t physReg2;
-  enum EightbyteClass classes[2];
+  AggregatePart parts[2];
   uint32_t regCount;
+
+  // The low half arrived in a register and the high half on the stack. LP64D
+  // does that to a two-word argument when exactly one integer argument register
+  // is left, where SysV puts the whole thing on the stack; it is the one case
+  // where 'isRegister' does not answer for both halves, so the register is in
+  // loc.physReg and the stack offset here.
+  Boolean split;
+  int32_t splitStackOffset;
 
   // The register or stack slot holds the *address* of the argument rather than
   // its bytes: LP64D passes an aggregate wider than two words by reference,
@@ -219,6 +254,29 @@ struct _TargetDescriptor {
   // registers and the caller's stack area really are one array. Passing bytes
   // would leave argument registers unused in the middle of that walk.
   Boolean largeAggregatesByReference;
+
+  // Whether a small aggregate is classified by its *fields* rather than by its
+  // eightbytes. LP64D says so: a struct of at most two floating-point reals
+  // travels in floating-point registers one field each, and one float beside
+  // one integer travels in one register of each file - where SysV asks only
+  // what each eightbyte holds and so puts two floats that share one in a single
+  // register. See classifyComposite.
+  //
+  // It is also what makes an argument's shape depend on its position: when the
+  // registers the flattened form wants are gone, the whole argument falls back
+  // to the integer convention rather than to the stack.
+  Boolean flattenFloatAggregates;
+
+  // Whether a two-word argument may be split when exactly one integer argument
+  // register is left - the low half in it and the high half on the stack.
+  // LP64D does; SysV puts the whole thing on the stack.
+  Boolean splitsArgumentsAcrossStack;
+
+  // Whether a real no wider than a register falls back to an *integer*
+  // argument register once the floating-point ones are used up, carrying its
+  // bits. LP64D does - the ninth double of a call is in a0, not on the stack -
+  // and SysV does not, having no such spelling for an xmm value.
+  Boolean floatsUseIntegerRegsWhenFull;
 
   uint32_t intRetReg;
   uint32_t fpRetReg;
