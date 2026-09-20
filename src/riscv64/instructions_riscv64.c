@@ -625,6 +625,7 @@ void riscvFStore(GeneratedFunction *f, enum FRegister src, enum XRegister base, 
 
 #define FP_RM_DYNAMIC 0x7
 #define FP_RM_RTZ     0x1
+#define FP_RM_RNE     0x0
 
 // 0 for single precision, 1 for double. Every funct7 below is the '.s' form.
 static uint32_t fpFmt(uint32_t width) {
@@ -656,7 +657,14 @@ void riscvFpCompare(GeneratedFunction *f, uint32_t funct3, uint32_t width, enum 
 void riscvFpConvertFp(GeneratedFunction *f, uint32_t toWidth, uint32_t fromWidth,
                       enum FRegister rd, enum FRegister rs) {
   assert(toWidth != fromWidth);
-  EmitR(f, 0x20 + fpFmt(toWidth), fpFmt(fromWidth), rs, FP_RM_DYNAMIC, rd, OP_FP);
+
+  // Widening is exact, so there is nothing for a rounding mode to decide and
+  // the canonical encoding says so: binutils refuses an fcvt.d.s with the
+  // dynamic mode outright, and a dynamic one is an illegal instruction
+  // whenever fcsr's frm holds a reserved value. Narrowing really does round.
+  uint32_t rm = toWidth > fromWidth ? FP_RM_RNE : FP_RM_DYNAMIC;
+
+  EmitR(f, 0x20 + fpFmt(toWidth), fpFmt(fromWidth), rs, rm, rd, OP_FP);
 }
 
 // integer -> float. 'intWidth' is 4 or 8 and 'isUnsigned' picks between the
@@ -664,7 +672,13 @@ void riscvFpConvertFp(GeneratedFunction *f, uint32_t toWidth, uint32_t fromWidth
 void riscvFpFromInt(GeneratedFunction *f, uint32_t fpWidth, uint32_t intWidth,
                     Boolean isUnsigned, enum FRegister rd, enum XRegister rs) {
   uint32_t which = (intWidth == 8 ? 2u : 0u) + (isUnsigned ? 1u : 0u);
-  EmitR(f, 0x68 + fpFmt(fpWidth), which, rs, FP_RM_DYNAMIC, rd, OP_FP);
+
+  // A 32-bit integer is exact in a double, so those two have nothing to round
+  // and take the canonical RNE the way fcvt.d.s does; binutils refuses them
+  // otherwise. Everything wider, and everything into a float, really rounds.
+  uint32_t rm = intWidth == 4 && fpWidth == 8 ? FP_RM_RNE : FP_RM_DYNAMIC;
+
+  EmitR(f, 0x68 + fpFmt(fpWidth), which, rs, rm, rd, OP_FP);
 }
 
 // float -> integer, truncating toward zero, which is what a C cast does.
