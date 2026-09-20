@@ -301,6 +301,7 @@ static unsigned parseIrDumpPhases(const char *spec) {
     { "scp",     IR_DUMP_PHASE_SCP },
     { "gvn",     IR_DUMP_PHASE_GVN },
     { "dce",     IR_DUMP_PHASE_DCE },
+    { "softfloat", IR_DUMP_PHASE_SOFTFLOAT },
     { "mir",     IR_DUMP_PHASE_MIR },
     { "isel",    IR_DUMP_PHASE_ISEL },
     { "ra",      IR_DUMP_PHASE_RA },
@@ -398,7 +399,7 @@ int main(int argc, char** argv) {
         if (arg[7] == ':') {
           config.irDumpPhases = parseIrDumpPhases(&arg[8]);
           if (config.irDumpPhases == 0) {
-            fprintf(stderr, "unknown ir dump phase in '%s' (expected a comma-separated list of: initial, ssa, scp, gvn, dce, mir, isel, ra)\n", arg);
+            fprintf(stderr, "unknown ir dump phase in '%s' (expected a comma-separated list of: initial, ssa, scp, gvn, dce, softfloat, mir, isel, ra)\n", arg);
             return 2;
           }
         }

@@ -54,6 +54,11 @@ enum IrDumpPhase {
     IR_DUMP_PHASE_SCP     = 1u << 2,
     IR_DUMP_PHASE_GVN     = 1u << 3,
     IR_DUMP_PHASE_DCE     = 1u << 4,
+    // The last IR phase, and only on a target whose long double has no
+    // hardware: what lowerLongDoubleCalls left, which is the IR the machine
+    // side is actually built from there. It dumps nothing elsewhere, the pass
+    // not having run.
+    IR_DUMP_PHASE_SOFTFLOAT = 1u << 8,
     // Not IR phases but machine-IR ones, dumped in their own format (see
     // dumpMachineFunction): 'mir' is the MachineFunction as stage 0 leaves it -
     // the CFG, the frame and the phi copies, with no instructions selected yet -

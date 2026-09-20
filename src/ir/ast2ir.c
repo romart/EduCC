@@ -3745,6 +3745,7 @@ static IrFunction *translateFunction(AstFunctionDefinition *function) {
   // register allocator sees. Nothing on a target with hardware for the type.
   if (longDoubleIsSoft(ctx->target)) {
     lowerLongDoubleCalls(func);
+    dumpRequestedPhase(func, IR_DUMP_PHASE_SOFTFLOAT, "softfloat");
   }
 
   // Machine IR is built unconditionally rather than only when it is dumped:
