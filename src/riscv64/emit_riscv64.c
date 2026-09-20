@@ -986,6 +986,12 @@ GeneratedFunction *emitMachineFunction_riscv64(GenerationContext *ctx, MachineFu
 
   gen->bodySize = (gen->section->pc - gen->section->start) - gen->sectionOffset;
 
+  if (ctx->parserContext->config->asmDump) {
+    fprintf(stdout, "<<< %s >>>\n", gen->name);
+    disassembleRiscv64(stdout, gen->section->start + gen->sectionOffset, gen->bodySize);
+    fprintf(stdout, "<<<>>>\n");
+  }
+
   return gen;
 }
 

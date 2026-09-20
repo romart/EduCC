@@ -2,6 +2,8 @@
 #ifndef __INSTR_RISCV64_H__
 #define __INSTR_RISCV64_H__ 1
 
+#include <stdio.h>
+
 #include "instructions.h"
 
 enum XRegister {
@@ -211,5 +213,9 @@ void riscvBranch(struct _GeneratedFunction *f, uint32_t funct3, enum XRegister r
 void riscvJal(struct _GeneratedFunction *f, enum XRegister rd, int32_t offset);
 void riscvJalr(struct _GeneratedFunction *f, enum XRegister rd, enum XRegister rs1, int32_t off);
 void riscvRet(struct _GeneratedFunction *f);
+
+// What '-S' prints: RV64G decoded back out of the bytes just emitted. See
+// disasm_riscv64.c for why this is a switch where x86-64 needs a library.
+void disassembleRiscv64(FILE *output, const uint8_t *buffer, size_t size);
 
 #endif // __INSTR_RISCV64_H__

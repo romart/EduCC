@@ -81,6 +81,7 @@ set(SOURCES
   src/ir/codegen/regalloc_colour.c
   src/x86_64/emit_x86_64.c
   src/riscv64/emit_riscv64.c
+  src/riscv64/disasm_riscv64.c
   src/link/elfread.c
   src/link/link.c
   src/link/target_link.c
