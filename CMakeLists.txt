@@ -280,9 +280,14 @@ if(BUILD_TESTING)
   #
   # A cross build has no use for it: 'codegen' is already that suite there, and
   # registering this would run the same 173 fixtures a second time under qemu.
+  #
+  # Two layouts for the same sysroot: Arch's cross glibc puts crt1.o under
+  # 'usr/lib' and Debian's under 'lib'. The linker searches both
+  # (src/link/target_link.c), so finding either is enough to register.
   if(EDUCC_CROSS_RISCV64)
     # nothing to add - 'codegen' above is the riscv64 suite
-  elseif(QEMU_RISCV64 AND EXISTS /usr/riscv64-linux-gnu/usr/lib/crt1.o)
+  elseif(QEMU_RISCV64 AND (EXISTS /usr/riscv64-linux-gnu/usr/lib/crt1.o OR
+                           EXISTS /usr/riscv64-linux-gnu/lib/crt1.o))
     educc_add_test(codegen_riscv64 codegen codegen 600 ssa
                    --compiler-flag=-march --compiler-flag=riscv64
                    --run-prefix=${QEMU_RISCV64}

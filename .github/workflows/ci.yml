@@ -43,10 +43,11 @@ jobs:
       - name: Build
         run: cmake --build build -j$(nproc)
 
-      # The codegen fixtures link with the system ld and run the result, so this
-      # needs a real toolchain on the runner rather than only a compiler - which
-      # ubuntu-latest has, and which is also why the runner has to stay x86_64:
-      # x86_64 is the only target either backend generates working code for.
+      # The codegen fixtures link and run the result, so this needs a real
+      # toolchain on the runner rather than only a compiler - which
+      # ubuntu-latest has, and which is also why the runner has to stay
+      # x86_64: what these fixtures compile to is what the runner executes.
+      # riscv64 is not a second runner but the job below, through qemu.
       - name: Test
         run: ctest --test-dir build --output-on-failure --output-junit "$GITHUB_WORKSPACE/results-${{ matrix.cc }}.xml"
 
@@ -79,6 +80,62 @@ jobs:
       # stages are byte-identical, and runs ctest with stage 2.
       - name: Bootstrap and run the suite with the result
         run: ./selfhost.sh
+
+  # The other machine (roadmap step 59). Not a second runner: riscv64 is a
+  # cross sysroot and an emulator on this one, which is what lets the same
+  # fixtures be compiled for it and *run*.
+  #
+  # Its own job rather than packages added to 'test' above, because installing
+  # a cross toolchain in both matrix legs would pay for it twice to answer a
+  # question neither leg asks - which host compiler built EduCC has nothing to
+  # do with which machine EduCC targets.
+  riscv64:
+    name: riscv64 (cross suites and self-host)
+    runs-on: ubuntu-latest
+    # The longest job here by some way, and all of it emulation: the self-host
+    # alone runs 37 suite entries with a riscv64-hosted compiler under qemu.
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache third-party sources
+        uses: actions/cache@v4
+        with:
+          path: .deps
+          key: deps-${{ hashFiles('cmake/Zydis.cmake') }}
+
+      # gcc for the ABI oracle and for building the vendored Zydis in the
+      # cross build; binutils for objdump, which emission_objdump.py compares
+      # the emitted bytes against; the cross libc for something to link
+      # against; qemu-user to run what comes out.
+      - name: Install the cross toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu \
+            libc6-dev-riscv64-cross qemu-user
+
+      - name: Configure
+        run: cmake -B build -S .
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      # Everything with riscv64 in its name, which is exactly the entries the
+      # suites above cannot register without this toolchain: the codegen
+      # corpus compiled for riscv64 and run under qemu, the cross-toolchain
+      # ABI differential, the machine-IR baselines, and the structural
+      # checkers' second target.
+      - name: Run the riscv64 suites
+        run: ctest --test-dir build --output-on-failure -R riscv64
+
+      # And the question the corpus cannot ask: EduCC compiling itself for
+      # riscv64, stage 2 built by stage 1 under qemu, the two byte-identical.
+      # It found both of the bugs R8 found and the corpus did not. Stage 2
+      # then runs 37 of the suite's entries - it was 7 before R6 taught the
+      # structural checkers the target.
+      - name: Self-host for riscv64
+        run: ./selfhost.sh --target riscv64
 
   # The compiler is an arena allocator over a memory-mapped source buffer, so
   # nothing it gets wrong about a lifetime shows up as a crash near the mistake.
