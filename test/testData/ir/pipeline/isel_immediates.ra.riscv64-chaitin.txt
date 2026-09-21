@@ -1,0 +1,44 @@
+--- Phase: ra ---
+MachineFunction 'isel_immediates' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %33
+  %v1 : gp/8 ; %23
+  %v2 : gp/8 ; %19
+  %v3 : gp/8 ; %3
+  %v4 : gp/8 ; %6
+  %v5 : gp/8 ; %16
+  %v6 : gp/8 ; %20
+  %v7 : gp/8 ; %24
+  %v8 : gp/8 ; %26
+  %v9 : gp/8 ; %27
+  %v10 : gp/8 ; %31
+  %v11 : gp/8 ; %35
+  %v12 : gp/8 ; %39
+  %v13 : gp/8 ; %41
+  %v14 : gp/8 ; %43
+  %v15 : gp/8 ; %45
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0 $a1 $t3 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.8 3 ; %33
+  $t2 = li.8 100 ; %23
+  $t3 = li.8 78187493520 ; %19
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t4 = add.8 $a0, 7 ; %16
+  $t5 = add.8 $a0, $t3 ; %20
+  $t3 = add.8 $a0, $t2 ; %24
+  $t6 = div.8 $t2, $a1 ; %26
+  $t2 = add.8 $t3, $t6 ; %27
+  $t3 = sll.8 $a0, 5 ; %31
+  $t6 = sub.8 $t1, $a0 ; %35
+  $t1 = add.8 $t4, $t5 ; %39
+  $t4 = add.8 $t1, $t2 ; %41
+  $t1 = add.8 $t4, $t3 ; %43
+  $a0 = add.8 $t1, $t6 ; %45
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %48
+
+

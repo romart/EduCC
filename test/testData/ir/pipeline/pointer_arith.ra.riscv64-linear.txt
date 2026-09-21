@@ -1,0 +1,35 @@
+--- Phase: ra ---
+MachineFunction 'pointer_arith' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %14
+  %v1 : gp/8 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/8 ; %15
+  %v4 : gp/8
+  %v5 : gp/8 ; %16
+  %v6 : gp/8 ; %17
+  %v7 : gp/4 ; %26
+  %v8 : gp/4 ; %28
+  %v9 : gp/4 ; %29
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $t1 $t2 $a0 $a1 $t3 $t4
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.8 4 ; %14
+  $t2 = MOP_COPY.8 $a0 ; %3
+  $t3 = MOP_COPY.4 $a1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t4 = sext.8/4 $t3 ; %15
+  $t3 = MOP_COPY.8 $t4 ; %15
+  $t4 = mul.8 $t3, $t1 ; %16
+  $t1 = add.8 $t2, $t4 ; %17
+  $t2 = l.8/4 [$t1] ; %26
+  $t3 = l.8/4 [$t1] ; %28
+  $t1 = addw.4 $t2, $t3 ; %29
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.4 $t1 ; %34
+  ret ; %34
+
+

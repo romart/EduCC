@@ -1,0 +1,47 @@
+--- Phase: ra ---
+MachineFunction 'loop_backedge_guard' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %45
+  %v1 : gp/4 ; %14
+  %v2 : gp/4 ; %43
+  %v3 : gp/4 ; %26
+  %v4 : gp/4 ; %30
+  %v5 : gp/4 ; %3
+  %v6 : gp/4 ; %6
+  %v7 : gp/4 ; %9
+  %v8 : gp/4 ; %25
+  %v9 : gp/4 ; %36
+  %v10 : gp/4 ; %37
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $t1 $t2 $a0 $a1 $a2 $t3 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 0 ; %14
+  $t2 = MOP_COPY.4 $a0 ; %3
+  $t3 = MOP_COPY.4 $a1 ; %6
+  $t4 = MOP_COPY.4 $a2 ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  $t5 = MOP_COPY.4 $t1 ; %45
+  $t6 = MOP_COPY.4 $t1 ; %43
+
+MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
+  bge $t6, $t4, #5 ; %21
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #3
+  $t1 = addw.4 $t2, $t3 ; %25
+  $a0 = addw.4 $t5, $t1 ; %26
+  $t1 = addw.4 $t6, 1 ; %30
+  $t5 = MOP_COPY.4 $a0 ; %45
+  $t6 = MOP_COPY.4 $t1 ; %43
+  j #3 ; %32
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+  $t1 = addw.4 $t2, $t3 ; %36
+  $t2 = addw.4 $t5, $t1 ; %37
+
+MBB #1, '<exit>', ir #1, <- #5
+  $a0 = MOP_COPY.4 $t2 ; %40
+  ret ; %40
+
+

@@ -1,0 +1,31 @@
+--- Phase: ra ---
+MachineFunction 'calls_not_merged' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %3
+  %v1 : gp/8
+  %v2 : gp/4 ; %7
+  %v3 : gp/8
+  %v4 : gp/4 ; %9
+  %v5 : gp/4 ; %11
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $t1 $t2 $s1 $a0 $s2
+MBB #0, '<entry>', ir #0, -> #2
+  $s1 = MOP_COPY.4 $a0 ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t1 = sext.8/4 $s1 ; %7
+  $a0 = MOP_COPY.8 $t1 ; %7
+  call opaque [implicit-def $a0, implicit $a0] <clobbers caller-saved> ; %7
+  $s2 = MOP_COPY.4 $a0 ; %7
+  $t1 = sext.8/4 $s1 ; %9
+  $a0 = MOP_COPY.8 $t1 ; %9
+  call opaque [implicit-def $a0, implicit $a0] <clobbers caller-saved> ; %9
+  $t1 = MOP_COPY.4 $a0 ; %9
+  $t2 = addw.4 $s2, $t1 ; %11
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.4 $t2 ; %14
+  ret ; %14
+
+

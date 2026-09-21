@@ -1,0 +1,64 @@
+--- Phase: isel ---
+MachineFunction 'loop_break_continue' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %57
+  %v1 : gp/4 ; %14
+  %v2 : gp/4 ; %53
+  %v3 : gp/4 ; %24
+  %v4 : gp/4 ; %40
+  %v5 : gp/4 ; %32
+  %v6 : gp/4 ; %27
+  %v7 : gp/4 ; %3
+  %v8 : gp/4 ; %6
+  %v9 : gp/4 ; %9
+  %v10 : gp/4 ; %39
+  %v11 : gp/4 ; %46
+  %v12 : gp/4 ; %47
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v5 = li.4 7 ; %32
+  %v6 = li.4 3 ; %27
+  %v1 = li.4 0 ; %14
+  %v7 = MOP_COPY.4 $a0 ; %3
+  %v8 = MOP_COPY.4 $a1 ; %6
+  %v9 = MOP_COPY.4 $a2 ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  %v0 = MOP_COPY.4 %v1 ; %57
+  %v2 = MOP_COPY.4 %v1 ; %53
+
+MBB #3, '<while_head>', ir #3, <- #2 #7 #8, -> #4 #10
+  bge %v2, %v9, #10 ; %21
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #7 #6
+  %v3 = addw.4 %v2, 1 ; %24
+  beq %v3, %v6, #7 ; %29
+
+MBB #6, '<if_exit>', ir #6, <- #4, -> #9 #8
+  beq %v3, %v5, #9 ; %34
+
+MBB #8, '<if_exit>', ir #8, <- #6, -> #3
+  %v10 = addw.4 %v7, %v8 ; %39
+  %v4 = addw.4 %v0, %v10 ; %40
+  %v0 = MOP_COPY.4 %v4 ; %57
+  %v2 = MOP_COPY.4 %v3 ; %53
+  j #3 ; %42
+
+MBB #9, '<if_then>', ir #9, <- #6, -> #5
+  j #5 ; %35
+
+MBB #7, '<if_then>', ir #7, <- #4, -> #3
+  %v2 = MOP_COPY.4 %v3 ; %53
+  j #3 ; %30
+
+MBB #10, '<crit_splitter>', ir #10, <- #3, -> #5
+
+MBB #5, '<while_exit>', ir #5, <- #10 #9, -> #1
+  %v11 = addw.4 %v7, %v8 ; %46
+  %v12 = addw.4 %v0, %v11 ; %47
+
+MBB #1, '<exit>', ir #1, <- #5
+  $a0 = MOP_COPY.4 %v12 ; %50
+  ret ; %50
+
+

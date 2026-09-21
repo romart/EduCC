@@ -1,0 +1,219 @@
+--- Phase: isel ---
+MachineFunction 'large' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %10
+  %v1 : gp/8 ; %8
+  %v2 : gp/4 ; %3
+  %v3 : gp/8 ; %6
+  %v4 : gp/8 ; %18
+  %v5 : gp/8
+  %v6 : gp/8
+Frame: 48 bytes
+  fi#0 : local 40/8 @ -40 'r' ; %9
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = li.8 0 ; %10
+  %v1 = li.8 40 ; %8
+  %v2 = MOP_COPY.4 $a1 ; %3
+  %v3 = MOP_COPY.8 $a0 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v5 = sext.8/4 %v2 ; %18
+  %v4 = MOP_COPY.8 %v5 ; %18
+  s.8 [fi#0], %v4 ; %19
+  %v6 = lu.8 [fi#0] ; %21
+  s.8 [%v3], %v6 ; %21
+  %v6 = lu.8 [fi#0 + 8] ; %21
+  s.8 [%v3 + 8], %v6 ; %21
+  %v6 = lu.8 [fi#0 + 16] ; %21
+  s.8 [%v3 + 16], %v6 ; %21
+  %v6 = lu.8 [fi#0 + 24] ; %21
+  s.8 [%v3 + 24], %v6 ; %21
+  %v6 = lu.8 [fi#0 + 32] ; %21
+  s.8 [%v3 + 32], %v6 ; %21
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.8 %v3 ; %23
+  ret ; %23
+
+
+--- Phase: isel ---
+MachineFunction 'small' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %11
+  %v1 : gp/8 ; %7
+  %v2 : gp/8 ; %1
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %15
+  %v5 : gp/8
+  %v6 : gp/8 ; %20
+Frame: 16 bytes
+  fi#0 : local 8/8 @ -8 ; %5
+  fi#1 : local 8/4 @ -16 'r' ; %6
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = li.8 4 ; %11
+  %v1 = li.8 0 ; %7
+  %v2 = li.8 8 ; %1
+  %v3 = MOP_COPY.4 $a0 ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  s.4 [fi#1], %v3 ; %10
+  %v4 = addw.4 %v3, 1 ; %15
+  s.4 [fi#1 + 4], %v4 ; %16
+  %v5 = lu.8 [fi#1] ; %17
+  s.8 [fi#0], %v5 ; %17
+
+MBB #1, '<exit>', ir #1, <- #2
+  %v6 = l.8 [fi#0] ; %20
+  $a0 = MOP_COPY.8 %v6 ; %19
+  ret ; %19
+
+
+--- Phase: isel ---
+MachineFunction 'shifted' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %65
+  %v1 : gp/8 ; %25
+  %v2 : gp/8 ; %23
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+  %v5 : gp/4 ; %9
+  %v6 : gp/4 ; %12
+  %v7 : gp/4 ; %15
+  %v8 : gp/4 ; %18
+  %v9 : gp/8 ; %21
+  %v10 : gp/4 ; %34
+  %v11 : gp/4 ; %36
+  %v12 : gp/8 ; %37
+  %v13 : gp/8
+  %v14 : gp/4 ; %46
+  %v15 : gp/4 ; %48
+  %v16 : gp/8 ; %49
+  %v17 : gp/8
+  %v18 : gp/8
+Frame: 48 bytes
+  fi#0 : local 40/8 @ -40 'r' ; %24
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = li.8 8 ; %65
+  %v1 = li.8 0 ; %25
+  %v2 = li.8 40 ; %23
+  %v3 = MOP_COPY.4 $a1 ; %3
+  %v4 = MOP_COPY.4 $a2 ; %6
+  %v5 = MOP_COPY.4 $a3 ; %9
+  %v6 = MOP_COPY.4 $a4 ; %12
+  %v7 = MOP_COPY.4 $a5 ; %15
+  %v8 = MOP_COPY.4 $a6 ; %18
+  %v9 = MOP_COPY.8 $a0 ; %21
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v10 = addw.4 %v3, %v4 ; %34
+  %v11 = addw.4 %v10, %v5 ; %36
+  %v13 = sext.8/4 %v11 ; %37
+  %v12 = MOP_COPY.8 %v13 ; %37
+  s.8 [fi#0], %v12 ; %38
+  %v14 = addw.4 %v6, %v7 ; %46
+  %v15 = addw.4 %v14, %v8 ; %48
+  %v17 = sext.8/4 %v15 ; %49
+  %v16 = MOP_COPY.8 %v17 ; %49
+  s.8 [fi#0 + 8], %v16 ; %50
+  %v18 = lu.8 [fi#0] ; %52
+  s.8 [%v9], %v18 ; %52
+  %v18 = lu.8 [fi#0 + 8] ; %52
+  s.8 [%v9 + 8], %v18 ; %52
+  %v18 = lu.8 [fi#0 + 16] ; %52
+  s.8 [%v9 + 16], %v18 ; %52
+  %v18 = lu.8 [fi#0 + 24] ; %52
+  s.8 [%v9 + 24], %v18 ; %52
+  %v18 = lu.8 [fi#0 + 32] ; %52
+  s.8 [%v9 + 32], %v18 ; %52
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.8 %v9 ; %54
+  ret ; %54
+
+
+--- Phase: isel ---
+MachineFunction 'twice' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %51
+  %v1 : gp/8 ; %49
+  %v2 : gp/8 ; %48
+  %v3 : gp/4 ; %12
+  %v4 : gp/8 ; %10
+  %v5 : gp/8 ; %8
+  %v6 : gp/4 ; %3
+  %v7 : gp/8 ; %6
+  %v8 : gp/8 ; %18
+  %v9 : gp/8
+  %v10 : gp/8
+  %v11 : gp/8
+Frame: 48 bytes
+  fi#0 : local 40/8 @ -40 'r' ; %9
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = li.8 -1 ; %51
+  %v1 = li.8 8 ; %49
+  %v2 = li.8 1 ; %48
+  %v3 = li.4 0 ; %12
+  %v4 = li.8 0 ; %10
+  %v5 = li.8 40 ; %8
+  %v6 = MOP_COPY.4 $a1 ; %3
+  %v7 = MOP_COPY.8 $a0 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  %v9 = sext.8/4 %v6 ; %18
+  %v8 = MOP_COPY.8 %v9 ; %18
+  s.8 [fi#0], %v8 ; %19
+  blt %v6, %v3, #4 ; %22
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  s.8 [fi#0 + 8], %v2 ; %39
+  %v10 = lu.8 [fi#0] ; %41
+  s.8 [%v7], %v10 ; %41
+  %v10 = lu.8 [fi#0 + 8] ; %41
+  s.8 [%v7 + 8], %v10 ; %41
+  %v10 = lu.8 [fi#0 + 16] ; %41
+  s.8 [%v7 + 16], %v10 ; %41
+  %v10 = lu.8 [fi#0 + 24] ; %41
+  s.8 [%v7 + 24], %v10 ; %41
+  %v10 = lu.8 [fi#0 + 32] ; %41
+  s.8 [%v7 + 32], %v10 ; %41
+  j #1 ; %42
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  s.8 [fi#0 + 8], %v0 ; %30
+  %v11 = lu.8 [fi#0] ; %32
+  s.8 [%v7], %v11 ; %32
+  %v11 = lu.8 [fi#0 + 8] ; %32
+  s.8 [%v7 + 8], %v11 ; %32
+  %v11 = lu.8 [fi#0 + 16] ; %32
+  s.8 [%v7 + 16], %v11 ; %32
+  %v11 = lu.8 [fi#0 + 24] ; %32
+  s.8 [%v7 + 24], %v11 ; %32
+  %v11 = lu.8 [fi#0 + 32] ; %32
+  s.8 [%v7 + 32], %v11 ; %32
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $a0 = MOP_COPY.8 %v7 ; %43
+  ret ; %43
+
+
+--- Phase: isel ---
+MachineFunction 'plain' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %3
+  %v1 : gp/4 ; %8
+  %v2 : gp/8 ; %9
+  %v3 : gp/8
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = MOP_COPY.4 $a0 ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v1 = addw.4 %v0, 1 ; %8
+  %v3 = sext.8/4 %v1 ; %9
+  %v2 = MOP_COPY.8 %v3 ; %9
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.8 %v2 ; %12
+  ret ; %12
+
+

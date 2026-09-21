@@ -1,0 +1,28 @@
+--- Phase: ra ---
+MachineFunction 'struct_fields' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %12
+  %v1 : gp/8 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/4 ; %14
+  %v4 : gp/4 ; %16
+  %v5 : gp/4 ; %20
+  %v6 : gp/4 ; %22
+  %v7 : gp/4 ; %26
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0 $a1 $t3
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.8 0 ; %12
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t1 = l.8/4 [$a0] ; %14
+  $t2 = addw.4 $t1, $a1 ; %16
+  $t1 = l.8/4 [$a0] ; %20
+  $t3 = addw.4 $t1, $a1 ; %22
+  $a0 = addw.4 $t2, $t3 ; %26
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %29
+
+

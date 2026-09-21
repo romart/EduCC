@@ -1,0 +1,13 @@
+--- Phase: mir ---
+MachineFunction 'frame_stack_params' [target = riscv64]
+VRegs: <none>
+Frame: 16 bytes
+  fi#0 : param 0/8 @ 0 ; %26
+  fi#1 : local 16/4 @ -16 'arr' ; %31
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+

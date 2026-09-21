@@ -1,0 +1,37 @@
+--- Phase: isel ---
+MachineFunction 'array_of_structs' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %20
+  %v1 : gp/8 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/4 ; %9
+  %v4 : gp/8 ; %16
+  %v5 : gp/8
+  %v6 : gp/8 ; %18
+  %v7 : gp/8 ; %19
+  %v8 : gp/4 ; %22
+  %v9 : gp/4 ; %30
+  %v10 : gp/4 ; %34
+  %v11 : gp/4 ; %36
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = li.8 4 ; %20
+  %v1 = MOP_COPY.8 $a0 ; %3
+  %v2 = MOP_COPY.4 $a1 ; %6
+  %v3 = MOP_COPY.4 $a2 ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v5 = sext.8/4 %v2 ; %16
+  %v4 = MOP_COPY.8 %v5 ; %16
+  %v6 = sll.8 %v4, 3 ; %18
+  %v7 = add.8 %v1, %v6 ; %19
+  %v8 = l.8/4 [%v7 + 4] ; %22
+  %v9 = l.8/4 [%v7 + 4] ; %30
+  %v10 = addw.4 %v8, %v9 ; %34
+  %v11 = addw.4 %v10, %v3 ; %36
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.4 %v11 ; %39
+  ret ; %39
+
+

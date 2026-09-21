@@ -1,0 +1,33 @@
+--- Phase: isel ---
+MachineFunction 'pointer_arith' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %14
+  %v1 : gp/8 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/8 ; %15
+  %v4 : gp/8
+  %v5 : gp/8 ; %16
+  %v6 : gp/8 ; %17
+  %v7 : gp/4 ; %26
+  %v8 : gp/4 ; %28
+  %v9 : gp/4 ; %29
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = li.8 4 ; %14
+  %v1 = MOP_COPY.8 $a0 ; %3
+  %v2 = MOP_COPY.4 $a1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v4 = sext.8/4 %v2 ; %15
+  %v3 = MOP_COPY.8 %v4 ; %15
+  %v5 = mul.8 %v3, %v0 ; %16
+  %v6 = add.8 %v1, %v5 ; %17
+  %v7 = l.8/4 [%v6] ; %26
+  %v8 = l.8/4 [%v6] ; %28
+  %v9 = addw.4 %v7, %v8 ; %29
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.4 %v9 ; %34
+  ret ; %34
+
+

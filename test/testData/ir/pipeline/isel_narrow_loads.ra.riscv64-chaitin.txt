@@ -1,0 +1,200 @@
+--- Phase: ra ---
+MachineFunction 'promoted' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %3
+  %v1 : gp/4 ; %8
+  %v2 : gp/4 ; %9
+  %v3 : gp/4 ; %13
+  %v4 : gp/1 ; %14
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t1 = l.8/1 [$a0] ; %8
+  $t2 = addw.4 $t1, 1 ; %13
+  $a0 = sext.1 $t2 ; %14
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %17
+
+
+--- Phase: ra ---
+MachineFunction 'unpromoted' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %3
+  %v1 : gp/1 ; %7
+  %v2 : gp/4 ; %8
+  %v3 : gp/4 ; %10
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t1 = lu.8/1 [$a0] ; %7
+  $t2 = sext.4 $t1 ; %8
+  $a0 = addw.4 $t2, 1 ; %10
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %13
+
+
+--- Phase: ra ---
+MachineFunction 'halfword' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %3
+  %v1 : gp/4 ; %7
+  %v2 : gp/4 ; %8
+  %v3 : gp/4 ; %10
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $a0
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t1 = l.8/2 [$a0] ; %7
+  $a0 = addw.4 $t1, 1 ; %10
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %13
+
+
+--- Phase: ra ---
+MachineFunction 'mixedSource' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %3
+  %v1 : gp/8 ; %6
+  %v2 : gp/1 ; %9
+  %v3 : gp/4 ; %12
+  %v4 : gp/4 ; %13
+  %v5 : gp/4 ; %15
+  %v6 : gp/1 ; %20
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0 $a1 $a2
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
+  $t1 = l.8/1 [$a0] ; %12
+  $t2 = sext.4 $a2 ; %15
+  blt $t1, $t2, #4 ; %17
+
+MBB #5, '<crit_splitter>', ir #5, <- #2, -> #3
+  j #3 ; %29
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  $t1 = l.8/1 [$a0] ; %20
+  s.1 [$a1], $t1 ; %21
+
+MBB #3, '<if_exit>', ir #3, <- #5 #4, -> #1
+
+MBB #1, '<exit>', ir #1, <- #3
+  ret ; %24
+
+
+--- Phase: ra ---
+MachineFunction 'toWide' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %3
+  %v1 : gp/8 ; %6
+  %v2 : gp/8 ; %11
+  %v3 : gp/8 ; %12
+  %v4 : gp/8 ; %14
+  %v5 : gp/8 ; %15
+  %v6 : gp/4 ; %16
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0 $a1
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t1 = l.8/1 [$a1] ; %11
+  $t2 = sll.8 $t1, 2 ; %14
+  $t1 = add.8 $a0, $t2 ; %15
+  $a0 = l.8/4 [$t1] ; %16
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %19
+
+
+--- Phase: ra ---
+MachineFunction 'byteLoop' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %42
+  %v1 : gp/4 ; %11
+  %v2 : gp/4 ; %40
+  %v3 : gp/4 ; %26
+  %v4 : gp/4 ; %31
+  %v5 : gp/8 ; %3
+  %v6 : gp/4 ; %6
+  %v7 : gp/8 ; %21
+  %v8 : gp/8
+  %v9 : gp/8 ; %22
+  %v10 : gp/1 ; %23
+  %v11 : gp/4 ; %24
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0 $a1 $t3 $t4
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 0 ; %11
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  $t2 = MOP_COPY.4 $t1 ; %40
+
+MBB #3, '<for_head>', ir #3, <- #2 #6, -> #4 #5
+  bge $t2, $a1, #5 ; %18
+
+MBB #4, '<for_body>', ir #4, <- #3, -> #6
+  $t3 = sext.8/4 $t2 ; %21
+  $t4 = add.8 $a0, $t3 ; %22
+  $t3 = lu.8/1 [$t4] ; %23
+  $t4 = sext.4 $t3 ; %24
+  $t3 = addw.4 $t1, $t4 ; %26
+
+MBB #6, '<for_mod>', ir #6, <- #4, -> #3
+  $t4 = addw.4 $t2, 1 ; %31
+  $t1 = MOP_COPY.4 $t3 ; %42
+  $t2 = MOP_COPY.4 $t4 ; %40
+  j #3 ; %33
+
+MBB #5, '<for_exit>', ir #5, <- #3, -> #1
+
+MBB #1, '<exit>', ir #1, <- #5
+  $a0 = MOP_COPY.4 $t1 ; %37
+  ret ; %37
+
+
+--- Phase: ra ---
+MachineFunction 'throughPhi' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %28
+  %v1 : gp/4 ; %10
+  %v2 : gp/4 ; %17
+  %v3 : gp/8 ; %3
+  %v4 : gp/4 ; %6
+  %v5 : gp/4 ; %16
+  %v6 : gp/4 ; %22
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $a0 $a1
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 0 ; %10
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
+  blt $t1, $a1, #4 ; %14
+
+MBB #5, '<crit_splitter>', ir #5, <- #2, -> #3
+  j #3 ; %34
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  $t1 = l.8/1 [$a0] ; %16
+
+MBB #3, '<if_exit>', ir #3, <- #5 #4, -> #1
+  $a0 = addw.4 $t1, 1 ; %22
+
+MBB #1, '<exit>', ir #1, <- #3
+  ret ; %25
+
+

@@ -1,0 +1,22 @@
+--- Phase: mir ---
+MachineFunction 'param_va_area' [target = riscv64]
+VRegs: <none>
+Frame: 160 bytes
+  fi#0 : param 0/8 @ 0 ; %8
+  fi#1 : local 144/8 @ -144 '__va_area__' ; %7
+  fi#2 : local 8/8 @ -152 'ap' ; %47
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #5
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+
+MBB #3, '<do_body>', ir #3, <- #2 #6, -> #4
+
+MBB #4, '<do_tail>', ir #4, <- #3, -> #6 #5
+
+MBB #5, '<do_exit>', ir #5, <- #4, -> #1
+
+MBB #6, '<crit_splitter>', ir #6, <- #4, -> #3
+
+

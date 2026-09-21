@@ -1,0 +1,66 @@
+--- Phase: ra ---
+MachineFunction 'pointer_arith' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %14
+  %v1 : gp/8 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/8 ; %15
+  %v4 : gp/8
+  %v5 : gp/8 ; %16
+  %v6 : gp/8 ; %17
+  %v7 : gp/4 ; %26
+  %v8 : gp/4 ; %28
+  %v9 : gp/4 ; %29
+Frame: 80 bytes
+  fi#0 : spill 8/8 @ -8 %v0 ; %14
+  fi#1 : spill 8/8 @ -16 %v1 ; %3
+  fi#2 : spill 8/8 @ -24 %v2 ; %6
+  fi#3 : spill 8/8 @ -32 %v4
+  fi#4 : spill 8/8 @ -40 %v3 ; %15
+  fi#5 : spill 8/8 @ -48 %v5 ; %16
+  fi#6 : spill 8/8 @ -56 %v6 ; %17
+  fi#7 : spill 8/8 @ -64 %v7 ; %26
+  fi#8 : spill 8/8 @ -72 %v8 ; %28
+  fi#9 : spill 8/8 @ -80 %v9 ; %29
+Allocator: trivial
+Physical registers used: $a0 $a1 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = li.8 4 ; %14
+  MOP_SPILL.8 fi#0, $t4
+  $t4 = MOP_COPY.8 $a0 ; %3
+  MOP_SPILL.8 fi#1, $t4
+  $t4 = MOP_COPY.4 $a1 ; %6
+  MOP_SPILL.8 fi#2, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t5 = MOP_RELOAD.8 fi#2
+  $t4 = sext.8/4 $t5 ; %15
+  MOP_SPILL.8 fi#3, $t4
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = MOP_COPY.8 $t5 ; %15
+  MOP_SPILL.8 fi#4, $t4
+  $t5 = MOP_RELOAD.8 fi#4
+  $t6 = MOP_RELOAD.8 fi#0
+  $t4 = mul.8 $t5, $t6 ; %16
+  MOP_SPILL.8 fi#5, $t4
+  $t5 = MOP_RELOAD.8 fi#1
+  $t6 = MOP_RELOAD.8 fi#5
+  $t4 = add.8 $t5, $t6 ; %17
+  MOP_SPILL.8 fi#6, $t4
+  $t5 = MOP_RELOAD.8 fi#6
+  $t4 = l.8/4 [$t5] ; %26
+  MOP_SPILL.8 fi#7, $t4
+  $t5 = MOP_RELOAD.8 fi#6
+  $t4 = l.8/4 [$t5] ; %28
+  MOP_SPILL.8 fi#8, $t4
+  $t5 = MOP_RELOAD.8 fi#7
+  $t6 = MOP_RELOAD.8 fi#8
+  $t4 = addw.4 $t5, $t6 ; %29
+  MOP_SPILL.8 fi#9, $t4
+
+MBB #1, '<exit>', ir #1, <- #2
+  $t4 = MOP_RELOAD.8 fi#9
+  $a0 = MOP_COPY.4 $t4 ; %34
+  ret ; %34
+
+

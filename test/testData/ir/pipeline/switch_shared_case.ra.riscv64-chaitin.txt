@@ -1,0 +1,64 @@
+--- Phase: ra ---
+MachineFunction 'switch_shared_case' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %50
+  %v1 : gp/4 ; %51
+  %v2 : gp/4 ; %40
+  %v3 : gp/4 ; %13
+  %v4 : gp/4 ; %21
+  %v5 : gp/4 ; %52
+  %v6 : gp/4 ; %27
+  %v7 : gp/4 ; %3
+  %v8 : gp/4 ; %6
+  %v9 : gp/4 ; %9
+  %v10 : gp/8
+  %v11 : gp/8
+  %v12 : gp/8
+  %v13 : gp/8
+  %v14 : gp/4 ; %34
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0 $a1 $a2
+MBB #0, '<entry>', ir #0, -> #2
+  $t2 = li.4 0 ; %13
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #8 #6 #9 #10
+  $t1 = li.8 0 ; %16
+  beq $a2, $t1, #4 ; %16
+  $t1 = li.8 1 ; %16
+  beq $a2, $t1, #8 ; %16
+  $t1 = li.8 2 ; %16
+  beq $a2, $t1, #6 ; %16
+  $t1 = li.8 3 ; %16
+  beq $a2, $t1, #9 ; %16
+
+MBB #10, '<crit_splitter>', ir #11, <- #2, -> #3
+  $t1 = addw.4 $a0, $a1 ; %51
+  j #3 ; %49
+
+MBB #9, '<crit_splitter>', ir #10, <- #2, -> #7
+  j #7 ; %48
+
+MBB #6, '<case_block>', ir #6, <- #2, -> #7
+
+MBB #7, '<case_block>', ir #7, <- #9 #6, -> #3
+  $t2 = subw.4 $a0, $a1 ; %27
+  $t1 = addw.4 $a0, $a1 ; %52
+  j #3 ; %29
+
+MBB #8, '<crit_splitter>', ir #9, <- #2, -> #5
+  j #5 ; %47
+
+MBB #4, '<case_block>', ir #4, <- #2, -> #5
+
+MBB #5, '<case_block>', ir #5, <- #8 #4, -> #3
+  $t1 = addw.4 $a0, $a1 ; %21
+  $t2 = MOP_COPY.4 $t1 ; %40
+
+MBB #3, '<switch_exit>', ir #3, <- #10 #5 #7, -> #1
+  $a0 = addw.4 $t2, $t1 ; %34
+
+MBB #1, '<exit>', ir #1, <- #3
+  ret ; %37
+
+

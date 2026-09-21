@@ -1,0 +1,289 @@
+--- Phase: ra ---
+MachineFunction 'folded' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $t1 $t2 $a0 $a1 $t3 $t4
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 2 ; %16
+  $t2 = li.4 1 ; %13
+  $t3 = MOP_COPY.4 $a0 ; %3
+  $t4 = MOP_COPY.4 $a1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  blt $t3, $t4, #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  $t3 = MOP_COPY.4 $t1 ; %22
+  j #1 ; %18
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $t3 = MOP_COPY.4 $t2 ; %22
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $a0 = MOP_COPY.4 $t3 ; %19
+  ret ; %19
+
+
+--- Phase: ra ---
+MachineFunction 'inverted' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %28
+  %v1 : gp/4 ; %18
+  %v2 : gp/4 ; %22
+  %v3 : gp/4 ; %17
+  %v4 : gp/4 ; %15
+  %v5 : gp/4 ; %14
+  %v6 : gp/4 ; %3
+  %v7 : gp/4 ; %6
+  %v8 : gp/8
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $zero $t1 $t2 $a0 $a1 $t3 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 2 ; %22
+  $t2 = li.4 1 ; %18
+  $t3 = li.4 0 ; %14
+  $t4 = MOP_COPY.4 $a0 ; %3
+  $t5 = MOP_COPY.4 $a1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #5 #7
+  bge $t5, $t4, #5 ; %12
+
+MBB #7, '<crit_splitter>', ir #7, <- #2, -> #6
+  $t5 = MOP_COPY.4 $t2 ; %17
+  j #6 ; %33
+
+MBB #5, '< || >', ir #5, <- #2, -> #6
+  $t6 = sub.8 $t4, $t3 ; %15
+  $t3 = sltu.8 $t6, 1 ; %15
+  $t5 = MOP_COPY.4 $t3 ; %17
+
+MBB #6, '< ||-exit>', ir #6, <- #7 #5, -> #4 #3
+  bne $t5, $zero, #4 ; %19
+
+MBB #3, '<if_exit>', ir #3, <- #6, -> #1
+  $t3 = MOP_COPY.4 $t1 ; %28
+  j #1 ; %24
+
+MBB #4, '<if_then>', ir #4, <- #6, -> #1
+  $t3 = MOP_COPY.4 $t2 ; %28
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $a0 = MOP_COPY.4 $t3 ; %25
+  ret ; %25
+
+
+--- Phase: ra ---
+MachineFunction 'unsigned_' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $t1 $t2 $a0 $a1 $t3 $t4
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 2 ; %16
+  $t2 = li.4 1 ; %13
+  $t3 = MOP_COPY.4 $a0 ; %3
+  $t4 = MOP_COPY.4 $a1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  bltu $t3, $t4, #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  $t3 = MOP_COPY.4 $t1 ; %22
+  j #1 ; %18
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $t3 = MOP_COPY.4 $t2 ; %22
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $a0 = MOP_COPY.4 $t3 ; %19
+  ret ; %19
+
+
+--- Phase: ra ---
+MachineFunction 'kept' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %27
+  %v1 : gp/4 ; %18
+  %v2 : gp/4 ; %12
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+  %v5 : gp/8
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $zero $t1 $t2 $a0 $a1 $t3
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = MOP_COPY.4 $a0 ; %3
+  $t2 = MOP_COPY.4 $a1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  $t3 = sub.8 $t1, $t2 ; %12
+  $t1 = sltu.8 $t3, 1 ; %12
+  bne $t1, $zero, #4 ; %15
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  $t2 = MOP_COPY.4 $t1 ; %27
+  j #1 ; %23
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $t3 = addw.4 $t1, 10 ; %18
+  $t2 = MOP_COPY.4 $t3 ; %27
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $a0 = MOP_COPY.4 $t2 ; %24
+  ret ; %24
+
+
+--- Phase: ra ---
+MachineFunction 'distant' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %35
+  %v1 : gp/4 ; %24
+  %v2 : gp/4 ; %27
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+  %v5 : gp/4 ; %9
+  %v6 : gp/4 ; %15
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $zero $t1 $t2 $a0 $a1 $a2 $t3 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 2 ; %27
+  $t2 = li.4 1 ; %24
+  $t3 = MOP_COPY.4 $a0 ; %3
+  $t4 = MOP_COPY.4 $a1 ; %6
+  $t5 = MOP_COPY.4 $a2 ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
+  $t6 = slt.8/4 $t4, $t3 ; %15
+  bne $t5, $zero, #4 ; %18
+
+MBB #7, '<crit_splitter>', ir #7, <- #2, -> #3
+  j #3 ; %42
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+
+MBB #3, '<if_exit>', ir #3, <- #7 #4, -> #6 #5
+  bne $t6, $zero, #6 ; %23
+
+MBB #5, '<if_exit>', ir #5, <- #3, -> #1
+  $t3 = MOP_COPY.4 $t1 ; %35
+  j #1 ; %29
+
+MBB #6, '<if_then>', ir #6, <- #3, -> #1
+  $t3 = MOP_COPY.4 $t2 ; %35
+
+MBB #1, '<exit>', ir #1, <- #6 #5
+  $a0 = MOP_COPY.4 $t3 ; %30
+  ret ; %30
+
+
+--- Phase: ra ---
+MachineFunction 'notCompare' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %17
+  %v1 : gp/4 ; %8
+  %v2 : gp/4 ; %11
+  %v3 : gp/4 ; %3
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $zero $t1 $t2 $a0 $t3
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 2 ; %11
+  $t2 = li.4 1 ; %8
+  $t3 = MOP_COPY.4 $a0 ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  bne $t3, $zero, #4 ; %7
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  $t3 = MOP_COPY.4 $t1 ; %17
+  j #1 ; %13
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $t3 = MOP_COPY.4 $t2 ; %17
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $a0 = MOP_COPY.4 $t3 ; %14
+  ret ; %14
+
+
+--- Phase: ra ---
+MachineFunction 'floatOrder' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+  %v3 : fp/8 ; %3
+  %v4 : fp/8 ; %6
+  %v5 : gp/4 ; %11
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $zero $t1 $t2 $a0 $t3 $ft0 $ft1 $fa0 $fa1
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 2 ; %16
+  $t2 = li.4 1 ; %13
+  $ft0 = MOP_COPY.8 $fa0 ; %3
+  $ft1 = MOP_COPY.8 $fa1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  $t3 = fle.8 $ft1, $ft0 ; %11
+  bne $t3, $zero, #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  $t3 = MOP_COPY.4 $t1 ; %22
+  j #1 ; %18
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $t3 = MOP_COPY.4 $t2 ; %22
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $a0 = MOP_COPY.4 $t3 ; %19
+  ret ; %19
+
+
+--- Phase: ra ---
+MachineFunction 'floatEqual' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+  %v3 : fp/8 ; %3
+  %v4 : fp/8 ; %6
+  %v5 : gp/4 ; %11
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $zero $t1 $t2 $a0 $t3 $ft0 $ft1 $fa0 $fa1
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 2 ; %16
+  $t2 = li.4 1 ; %13
+  $ft0 = MOP_COPY.8 $fa0 ; %3
+  $ft1 = MOP_COPY.8 $fa1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  $t3 = feq.8 $ft0, $ft1 ; %11
+  bne $t3, $zero, #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  $t3 = MOP_COPY.4 $t1 ; %22
+  j #1 ; %18
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $t3 = MOP_COPY.4 $t2 ; %22
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $a0 = MOP_COPY.4 $t3 ; %19
+  ret ; %19
+
+

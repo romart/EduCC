@@ -1,0 +1,41 @@
+--- Phase: ra ---
+MachineFunction 'scp_dead_backedge' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %38
+  %v1 : gp/4 ; %11
+  %v2 : gp/4 ; %36
+  %v3 : gp/4 ; %27
+  %v4 : gp/4 ; %21
+  %v5 : gp/4 ; %3
+  %v6 : gp/4 ; %6
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $t1 $t2 $a0 $a1 $t3 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 0 ; %11
+  $t2 = MOP_COPY.4 $a0 ; %3
+  $t3 = MOP_COPY.4 $a1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  $t4 = MOP_COPY.4 $t1 ; %38
+  $t5 = MOP_COPY.4 $t1 ; %36
+
+MBB #3, '<while_head>', ir #3, <- #2 #6, -> #4 #5
+  bge $t5, $t3, #5 ; %18
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #6
+  $t1 = addw.4 $t5, 1 ; %21
+
+MBB #6, '<if_exit>', ir #6, <- #4, -> #3
+  $t6 = addw.4 $t4, $t2 ; %27
+  $t4 = MOP_COPY.4 $t6 ; %38
+  $t5 = MOP_COPY.4 $t1 ; %36
+  j #3 ; %29
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+
+MBB #1, '<exit>', ir #1, <- #5
+  $a0 = MOP_COPY.4 $t4 ; %33
+  ret ; %33
+
+

@@ -1,0 +1,24 @@
+--- Phase: ra ---
+MachineFunction 'loads_not_merged' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %3
+  %v1 : gp/4 ; %9
+  %v2 : gp/4 ; %14
+  %v3 : gp/4 ; %17
+  %v4 : gp/4 ; %21
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t1 = l.8/4 [$a0] ; %9
+  $t2 = addw.4 $t1, 1 ; %14
+  s.4 [$a0], $t2 ; %15
+  $t2 = l.8/4 [$a0] ; %17
+  $a0 = addw.4 $t1, $t2 ; %21
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %24
+
+

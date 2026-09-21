@@ -1,0 +1,49 @@
+--- Phase: isel ---
+MachineFunction 'frame_dynamic_alloca' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %60
+  %v1 : gp/8 ; %58
+  %v2 : gp/8 ; %12
+  %v3 : gp/8 ; %1
+  %v4 : gp/4 ; %3
+  %v5 : gp/8 ; %9
+  %v6 : gp/8
+  %v7 : gp/8 ; %13
+  %v8 : gp/8
+  %v9 : gp/8 ; %14
+  %v10 : gp/4 ; %32
+  %v11 : gp/4 ; %43
+  %v12 : gp/4 ; %47
+  %v13 : gp/4 ; %48
+Frame: 16 bytes, dynamic
+  fi#0 : local 8/4 @ -8 'fixed' ; %7
+  fi#1 : local dynamic 'v' ; %14
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = li.8 4 ; %60
+  %v1 = li.8 0 ; %58
+  %v2 = li.8 4 ; %12
+  %v3 = li.8 8 ; %1
+  %v4 = MOP_COPY.4 $a0 ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v6 = sext.8/4 %v4 ; %9
+  %v5 = MOP_COPY.8 %v6 ; %9
+  %v7 = mul.8 %v5, %v2 ; %13
+  %v8 = MOP_COPY.8 %v7 ; %14
+  %v8 = add.8 %v8, 15 ; %14
+  %v8 = and.8 %v8, -16 ; %14
+  $sp = sub.8 $sp, %v8 ; %14
+  %v9 = la.8 [$sp] ; %14
+  s.4 [%v9], %v4 ; %24
+  %v10 = l.8/4 [%v9] ; %32
+  s.4 [fi#0], %v10 ; %33
+  s.4 [fi#0 + 4], %v4 ; %39
+  %v11 = l.8/4 [fi#0] ; %43
+  %v12 = l.8/4 [fi#0 + 4] ; %47
+  %v13 = addw.4 %v11, %v12 ; %48
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.4 %v13 ; %51
+  ret ; %51
+
+

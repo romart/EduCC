@@ -1,0 +1,34 @@
+--- Phase: ra ---
+MachineFunction 'merge_full_redundancy' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %44
+  %v1 : gp/4 ; %19
+  %v2 : gp/4 ; %24
+  %v3 : gp/4 ; %14
+  %v4 : gp/4 ; %3
+  %v5 : gp/4 ; %6
+  %v6 : gp/4 ; %9
+  %v7 : gp/4 ; %31
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $a0 $a1 $a2
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 0 ; %14
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
+  blt $t1, $a2, #4 ; %16
+
+MBB #5, '<if_else>', ir #5, <- #2, -> #3
+  $t1 = addw.4 $a0, $a1 ; %24
+  j #3 ; %26
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  $t1 = addw.4 $a0, $a1 ; %19
+
+MBB #3, '<if_exit>', ir #3, <- #4 #5, -> #1
+  $a0 = addw.4 $t1, $t1 ; %31
+
+MBB #1, '<exit>', ir #1, <- #3
+  ret ; %34
+
+

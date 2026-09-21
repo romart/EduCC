@@ -1,0 +1,165 @@
+--- Phase: ra ---
+MachineFunction 'ra_byte_setcc' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %3
+  %v1 : gp/4 ; %6
+  %v2 : gp/4 ; %11
+  %v3 : gp/1 ; %12
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $zero $t1 $t2 $a0 $a1 $t3
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = MOP_COPY.4 $a0 ; %3
+  $t2 = MOP_COPY.4 $a1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t3 = or.4 $t1, $t2 ; %11
+  $t1 = sltu.8 $zero, $t3 ; %12
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.1 $t1 ; %15
+  ret ; %15
+
+
+--- Phase: ra ---
+MachineFunction 'ra_scratch_budget' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %5
+  %v1 : gp/8 ; %1
+  %v2 : gp/8 ; %3
+  %v3 : gp/8 ; %7
+  %v4 : gp/8 ; %10
+  %v5 : gp/8 ; %13
+  %v6 : gp/8 ; %18
+  %v7 : gp/8 ; %19
+  %v8 : gp/8 ; %20
+  %v9 : gp/8 ; %21
+  %v10 : gp/8 ; %50
+  %v11 : gp/8 ; %51
+  %v12 : gp/8 ; %52
+  %v13 : gp/8 ; %53
+  %v14 : gp/8 ; %54
+  %v15 : gp/8 ; %55
+  %v16 : gp/8 ; %48
+  %v17 : gp/8 ; %23
+  %v18 : gp/8 ; %24
+  %v19 : gp/8 ; %58
+  %v20 : gp/8 ; %59
+  %v21 : gp/8 ; %60
+  %v22 : gp/8 ; %61
+  %v23 : gp/8 ; %62
+  %v24 : gp/8 ; %63
+  %v25 : gp/8 ; %56
+  %v26 : gp/8 ; %36
+  %v27 : gp/8 ; %37
+  %v28 : gp/8 ; %38
+  %v29 : gp/8 ; %39
+  %v30 : gp/8 ; %40
+  %v31 : gp/8 ; %41
+  %v32 : gp/8 ; %42
+  %v33 : gp/8 ; %43
+  %v34 : gp/8 ; %44
+  %v35 : gp/8 ; %45
+  %v36 : gp/8 ; %46
+  %v37 : gp/8 ; %47
+  %v38 : gp/8 ; %35
+  %v39 : gp/8
+  %v40 : gp/8 ; %29
+  %v41 : gp/8 ; %32
+  %v42 : gp/8 ; %33
+  %v43 : gp/8 ; %34
+Frame: 96 bytes
+  fi#0 : local 16/16 @ -16 'a' ; %2
+  fi#1 : local 16/16 @ -32 'b' ; %9
+  fi#2 : local 16/8 @ -48 ; %15
+  fi#3 : call-result 16/8 @ -64
+  fi#4 : call-result 16/8 @ -80
+  fi#5 : call-result 16/8 @ -96
+Allocator: linear scan
+Physical registers used: $t1 $t2 $s1 $a0 $a1 $a2 $a3 $a4 $a5 $a6 $a7 $s2 $s3 $s4 $t3 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $s1 = li.8 8 ; %5
+  $t1 = li.8 16 ; %1
+  $t1 = MOP_COPY.8 $a0 ; %3
+  s.8 [fi#0], $t1 ; %4
+  $t1 = MOP_COPY.8 $a1 ; %7
+  s.8 [fi#0 + 8], $t1 ; %8
+  $t1 = MOP_COPY.8 $a2 ; %10
+  s.8 [fi#1], $t1 ; %11
+  $t1 = MOP_COPY.8 $a3 ; %13
+  s.8 [fi#1 + 8], $t1 ; %14
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $s2 = la.8 [fi#0] ; %18
+  $s3 = la.8 [fi#1] ; %19
+  $t1 = la.8 [fi#0] ; %20
+  $t2 = la.8 [fi#1] ; %21
+  $t3 = l.8 [$t1] ; %50
+  $t4 = add.8 $t1, $s1 ; %51
+  $t1 = l.8 [$t4] ; %52
+  $t4 = l.8 [$t2] ; %53
+  $t5 = add.8 $t2, $s1 ; %54
+  $t2 = l.8 [$t5] ; %55
+  $a0 = MOP_COPY.8 $t3 ; %48
+  $a1 = MOP_COPY.8 $t1 ; %48
+  $a2 = MOP_COPY.8 $t4 ; %48
+  $a3 = MOP_COPY.8 $t2 ; %48
+  call __addtf3 [implicit-def $a0, implicit-def $a1, implicit $a0, implicit $a1, implicit $a2, implicit $a3] <clobbers caller-saved> ; %48
+  s.8 [fi#3], $a0 ; %48
+  s.8 [fi#3 + 8], $a1 ; %48
+  $s4 = la.8 [fi#3] ; %48
+  $t1 = la.8 [fi#0] ; %23
+  $t2 = la.8 [fi#1] ; %24
+  $t3 = l.8 [$t1] ; %58
+  $t4 = add.8 $t1, $s1 ; %59
+  $t1 = l.8 [$t4] ; %60
+  $t4 = l.8 [$t2] ; %61
+  $t5 = add.8 $t2, $s1 ; %62
+  $t2 = l.8 [$t5] ; %63
+  $a0 = MOP_COPY.8 $t3 ; %56
+  $a1 = MOP_COPY.8 $t1 ; %56
+  $a2 = MOP_COPY.8 $t4 ; %56
+  $a3 = MOP_COPY.8 $t2 ; %56
+  call __subtf3 [implicit-def $a0, implicit-def $a1, implicit $a0, implicit $a1, implicit $a2, implicit $a3] <clobbers caller-saved> ; %56
+  s.8 [fi#4], $a0 ; %56
+  s.8 [fi#4 + 8], $a1 ; %56
+  $t1 = la.8 [fi#4] ; %56
+  $t2 = l.8 [$s2] ; %36
+  $t3 = add.8 $s2, $s1 ; %37
+  $t4 = l.8 [$t3] ; %38
+  $t3 = l.8 [$s3] ; %39
+  $t5 = add.8 $s3, $s1 ; %40
+  $t6 = l.8 [$t5] ; %41
+  $t5 = l.8 [$s4] ; %42
+  $a0 = add.8 $s4, $s1 ; %43
+  $a6 = l.8 [$a0] ; %44
+  $a7 = l.8 [$t1] ; %45
+  $a0 = add.8 $t1, $s1 ; %46
+  $t1 = l.8 [$a0] ; %47
+  $a0 = MOP_COPY.8 $t2 ; %35
+  $a1 = MOP_COPY.8 $t4 ; %35
+  $a2 = MOP_COPY.8 $t3 ; %35
+  $a3 = MOP_COPY.8 $t6 ; %35
+  $a4 = MOP_COPY.8 $t5 ; %35
+  $a5 = MOP_COPY.8 $a6 ; %35
+  $a6 = MOP_COPY.8 $a7 ; %35
+  $a7 = MOP_COPY.8 $t1 ; %35
+  call ra_limits_callee [implicit-def $a0, implicit-def $a1, implicit $a0, implicit $a1, implicit $a2, implicit $a3, implicit $a4, implicit $a5, implicit $a6, implicit $a7] <clobbers caller-saved> ; %35
+  s.8 [fi#5], $a0 ; %35
+  s.8 [fi#5 + 8], $a1 ; %35
+  $t1 = la.8 [fi#5] ; %35
+  $t2 = l.8 [$t1] ; %26
+  s.8 [fi#2], $t2 ; %26
+  $t2 = l.8 [$t1 + 8] ; %26
+  s.8 [fi#2 + 8], $t2 ; %26
+
+MBB #1, '<exit>', ir #1, <- #2
+  $t1 = la.8 [fi#2] ; %29
+  $t2 = l.8 [$t1] ; %32
+  $t3 = add.8 $t1, $s1 ; %33
+  $t1 = l.8 [$t3] ; %34
+  $a0 = MOP_COPY.8 $t2 ; %31
+  $a1 = MOP_COPY.8 $t1 ; %31
+  ret ; %31
+
+

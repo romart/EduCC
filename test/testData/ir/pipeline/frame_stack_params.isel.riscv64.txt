@@ -1,0 +1,43 @@
+--- Phase: isel ---
+MachineFunction 'frame_stack_params' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %73
+  %v1 : gp/8 ; %30
+  %v2 : gp/8 ; %27
+  %v3 : gp/8 ; %0
+  %v4 : gp/4 ; %21
+  %v5 : gp/4 ; %24
+  %v6 : gp/8 ; %28
+  %v7 : gp/4 ; %48
+  %v8 : gp/4 ; %52
+  %v9 : gp/4 ; %53
+  %v10 : gp/8 ; %55
+  %v11 : gp/4 ; %56
+  %v12 : gp/4 ; %57
+Frame: 16 bytes
+  fi#0 : param 0/8 @ 0 ; %26
+  fi#1 : local 16/4 @ -16 'arr' ; %31
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = li.8 4 ; %73
+  %v1 = li.8 16 ; %30
+  %v2 = li.8 0 ; %27
+  %v3 = MOP_COPY.8 $sp ; %0
+  %v4 = MOP_COPY.4 $a6 ; %21
+  %v5 = MOP_COPY.4 $a7 ; %24
+  %v6 = l.8 [fi#0] ; %28
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  s.4 [fi#1], %v4 ; %38
+  s.4 [fi#1 + 4], %v5 ; %44
+  %v7 = l.8/4 [fi#1] ; %48
+  %v8 = l.8/4 [fi#1 + 4] ; %52
+  %v9 = addw.4 %v7, %v8 ; %53
+  %v10 = l.8 [%v6] ; %55
+  %v11 = sext.4 %v10 ; %56
+  %v12 = addw.4 %v9, %v11 ; %57
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.4 %v12 ; %60
+  ret ; %60
+
+

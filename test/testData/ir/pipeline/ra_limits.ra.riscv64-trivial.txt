@@ -1,0 +1,328 @@
+--- Phase: ra ---
+MachineFunction 'ra_byte_setcc' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %3
+  %v1 : gp/4 ; %6
+  %v2 : gp/4 ; %11
+  %v3 : gp/1 ; %12
+Frame: 32 bytes
+  fi#0 : spill 8/8 @ -8 %v0 ; %3
+  fi#1 : spill 8/8 @ -16 %v1 ; %6
+  fi#2 : spill 8/8 @ -24 %v2 ; %11
+  fi#3 : spill 8/8 @ -32 %v3 ; %12
+Allocator: trivial
+Physical registers used: $zero $a0 $a1 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = MOP_COPY.4 $a0 ; %3
+  MOP_SPILL.8 fi#0, $t4
+  $t4 = MOP_COPY.4 $a1 ; %6
+  MOP_SPILL.8 fi#1, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t5 = MOP_RELOAD.8 fi#0
+  $t6 = MOP_RELOAD.8 fi#1
+  $t4 = or.4 $t5, $t6 ; %11
+  MOP_SPILL.8 fi#2, $t4
+  $t5 = MOP_RELOAD.8 fi#2
+  $t4 = sltu.8 $zero, $t5 ; %12
+  MOP_SPILL.8 fi#3, $t4
+
+MBB #1, '<exit>', ir #1, <- #2
+  $t4 = MOP_RELOAD.8 fi#3
+  $a0 = MOP_COPY.1 $t4 ; %15
+  ret ; %15
+
+
+--- Phase: ra ---
+MachineFunction 'ra_scratch_budget' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %5
+  %v1 : gp/8 ; %1
+  %v2 : gp/8 ; %3
+  %v3 : gp/8 ; %7
+  %v4 : gp/8 ; %10
+  %v5 : gp/8 ; %13
+  %v6 : gp/8 ; %18
+  %v7 : gp/8 ; %19
+  %v8 : gp/8 ; %20
+  %v9 : gp/8 ; %21
+  %v10 : gp/8 ; %50
+  %v11 : gp/8 ; %51
+  %v12 : gp/8 ; %52
+  %v13 : gp/8 ; %53
+  %v14 : gp/8 ; %54
+  %v15 : gp/8 ; %55
+  %v16 : gp/8 ; %48
+  %v17 : gp/8 ; %23
+  %v18 : gp/8 ; %24
+  %v19 : gp/8 ; %58
+  %v20 : gp/8 ; %59
+  %v21 : gp/8 ; %60
+  %v22 : gp/8 ; %61
+  %v23 : gp/8 ; %62
+  %v24 : gp/8 ; %63
+  %v25 : gp/8 ; %56
+  %v26 : gp/8 ; %36
+  %v27 : gp/8 ; %37
+  %v28 : gp/8 ; %38
+  %v29 : gp/8 ; %39
+  %v30 : gp/8 ; %40
+  %v31 : gp/8 ; %41
+  %v32 : gp/8 ; %42
+  %v33 : gp/8 ; %43
+  %v34 : gp/8 ; %44
+  %v35 : gp/8 ; %45
+  %v36 : gp/8 ; %46
+  %v37 : gp/8 ; %47
+  %v38 : gp/8 ; %35
+  %v39 : gp/8
+  %v40 : gp/8 ; %29
+  %v41 : gp/8 ; %32
+  %v42 : gp/8 ; %33
+  %v43 : gp/8 ; %34
+Frame: 448 bytes
+  fi#0 : local 16/16 @ -16 'a' ; %2
+  fi#1 : local 16/16 @ -32 'b' ; %9
+  fi#2 : local 16/8 @ -48 ; %15
+  fi#3 : call-result 16/8 @ -64
+  fi#4 : call-result 16/8 @ -80
+  fi#5 : call-result 16/8 @ -96
+  fi#6 : spill 8/8 @ -104 %v0 ; %5
+  fi#7 : spill 8/8 @ -112 %v1 ; %1
+  fi#8 : spill 8/8 @ -120 %v2 ; %3
+  fi#9 : spill 8/8 @ -128 %v3 ; %7
+  fi#10 : spill 8/8 @ -136 %v4 ; %10
+  fi#11 : spill 8/8 @ -144 %v5 ; %13
+  fi#12 : spill 8/8 @ -152 %v6 ; %18
+  fi#13 : spill 8/8 @ -160 %v7 ; %19
+  fi#14 : spill 8/8 @ -168 %v8 ; %20
+  fi#15 : spill 8/8 @ -176 %v9 ; %21
+  fi#16 : spill 8/8 @ -184 %v10 ; %50
+  fi#17 : spill 8/8 @ -192 %v11 ; %51
+  fi#18 : spill 8/8 @ -200 %v12 ; %52
+  fi#19 : spill 8/8 @ -208 %v13 ; %53
+  fi#20 : spill 8/8 @ -216 %v14 ; %54
+  fi#21 : spill 8/8 @ -224 %v15 ; %55
+  fi#22 : spill 8/8 @ -232 %v16 ; %48
+  fi#23 : spill 8/8 @ -240 %v17 ; %23
+  fi#24 : spill 8/8 @ -248 %v18 ; %24
+  fi#25 : spill 8/8 @ -256 %v19 ; %58
+  fi#26 : spill 8/8 @ -264 %v20 ; %59
+  fi#27 : spill 8/8 @ -272 %v21 ; %60
+  fi#28 : spill 8/8 @ -280 %v22 ; %61
+  fi#29 : spill 8/8 @ -288 %v23 ; %62
+  fi#30 : spill 8/8 @ -296 %v24 ; %63
+  fi#31 : spill 8/8 @ -304 %v25 ; %56
+  fi#32 : spill 8/8 @ -312 %v26 ; %36
+  fi#33 : spill 8/8 @ -320 %v27 ; %37
+  fi#34 : spill 8/8 @ -328 %v28 ; %38
+  fi#35 : spill 8/8 @ -336 %v29 ; %39
+  fi#36 : spill 8/8 @ -344 %v30 ; %40
+  fi#37 : spill 8/8 @ -352 %v31 ; %41
+  fi#38 : spill 8/8 @ -360 %v32 ; %42
+  fi#39 : spill 8/8 @ -368 %v33 ; %43
+  fi#40 : spill 8/8 @ -376 %v34 ; %44
+  fi#41 : spill 8/8 @ -384 %v35 ; %45
+  fi#42 : spill 8/8 @ -392 %v36 ; %46
+  fi#43 : spill 8/8 @ -400 %v37 ; %47
+  fi#44 : spill 8/8 @ -408 %v38 ; %35
+  fi#45 : spill 8/8 @ -416 %v39
+  fi#46 : spill 8/8 @ -424 %v40 ; %29
+  fi#47 : spill 8/8 @ -432 %v41 ; %32
+  fi#48 : spill 8/8 @ -440 %v42 ; %33
+  fi#49 : spill 8/8 @ -448 %v43 ; %34
+Allocator: trivial
+Physical registers used: $a0 $a1 $a2 $a3 $a4 $a5 $a6 $a7 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = li.8 8 ; %5
+  MOP_SPILL.8 fi#6, $t4
+  $t4 = li.8 16 ; %1
+  MOP_SPILL.8 fi#7, $t4
+  $t4 = MOP_COPY.8 $a0 ; %3
+  MOP_SPILL.8 fi#8, $t4
+  $t4 = MOP_RELOAD.8 fi#8
+  s.8 [fi#0], $t4 ; %4
+  $t4 = MOP_COPY.8 $a1 ; %7
+  MOP_SPILL.8 fi#9, $t4
+  $t4 = MOP_RELOAD.8 fi#9
+  s.8 [fi#0 + 8], $t4 ; %8
+  $t4 = MOP_COPY.8 $a2 ; %10
+  MOP_SPILL.8 fi#10, $t4
+  $t4 = MOP_RELOAD.8 fi#10
+  s.8 [fi#1], $t4 ; %11
+  $t4 = MOP_COPY.8 $a3 ; %13
+  MOP_SPILL.8 fi#11, $t4
+  $t4 = MOP_RELOAD.8 fi#11
+  s.8 [fi#1 + 8], $t4 ; %14
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t4 = la.8 [fi#0] ; %18
+  MOP_SPILL.8 fi#12, $t4
+  $t4 = la.8 [fi#1] ; %19
+  MOP_SPILL.8 fi#13, $t4
+  $t4 = la.8 [fi#0] ; %20
+  MOP_SPILL.8 fi#14, $t4
+  $t4 = la.8 [fi#1] ; %21
+  MOP_SPILL.8 fi#15, $t4
+  $t5 = MOP_RELOAD.8 fi#14
+  $t4 = l.8 [$t5] ; %50
+  MOP_SPILL.8 fi#16, $t4
+  $t5 = MOP_RELOAD.8 fi#14
+  $t6 = MOP_RELOAD.8 fi#6
+  $t4 = add.8 $t5, $t6 ; %51
+  MOP_SPILL.8 fi#17, $t4
+  $t5 = MOP_RELOAD.8 fi#17
+  $t4 = l.8 [$t5] ; %52
+  MOP_SPILL.8 fi#18, $t4
+  $t5 = MOP_RELOAD.8 fi#15
+  $t4 = l.8 [$t5] ; %53
+  MOP_SPILL.8 fi#19, $t4
+  $t5 = MOP_RELOAD.8 fi#15
+  $t6 = MOP_RELOAD.8 fi#6
+  $t4 = add.8 $t5, $t6 ; %54
+  MOP_SPILL.8 fi#20, $t4
+  $t5 = MOP_RELOAD.8 fi#20
+  $t4 = l.8 [$t5] ; %55
+  MOP_SPILL.8 fi#21, $t4
+  $t4 = MOP_RELOAD.8 fi#16
+  $a0 = MOP_COPY.8 $t4 ; %48
+  $t4 = MOP_RELOAD.8 fi#18
+  $a1 = MOP_COPY.8 $t4 ; %48
+  $t4 = MOP_RELOAD.8 fi#19
+  $a2 = MOP_COPY.8 $t4 ; %48
+  $t4 = MOP_RELOAD.8 fi#21
+  $a3 = MOP_COPY.8 $t4 ; %48
+  call __addtf3 [implicit-def $a0, implicit-def $a1, implicit $a0, implicit $a1, implicit $a2, implicit $a3] <clobbers caller-saved> ; %48
+  s.8 [fi#3], $a0 ; %48
+  s.8 [fi#3 + 8], $a1 ; %48
+  $t4 = la.8 [fi#3] ; %48
+  MOP_SPILL.8 fi#22, $t4
+  $t4 = la.8 [fi#0] ; %23
+  MOP_SPILL.8 fi#23, $t4
+  $t4 = la.8 [fi#1] ; %24
+  MOP_SPILL.8 fi#24, $t4
+  $t5 = MOP_RELOAD.8 fi#23
+  $t4 = l.8 [$t5] ; %58
+  MOP_SPILL.8 fi#25, $t4
+  $t5 = MOP_RELOAD.8 fi#23
+  $t6 = MOP_RELOAD.8 fi#6
+  $t4 = add.8 $t5, $t6 ; %59
+  MOP_SPILL.8 fi#26, $t4
+  $t5 = MOP_RELOAD.8 fi#26
+  $t4 = l.8 [$t5] ; %60
+  MOP_SPILL.8 fi#27, $t4
+  $t5 = MOP_RELOAD.8 fi#24
+  $t4 = l.8 [$t5] ; %61
+  MOP_SPILL.8 fi#28, $t4
+  $t5 = MOP_RELOAD.8 fi#24
+  $t6 = MOP_RELOAD.8 fi#6
+  $t4 = add.8 $t5, $t6 ; %62
+  MOP_SPILL.8 fi#29, $t4
+  $t5 = MOP_RELOAD.8 fi#29
+  $t4 = l.8 [$t5] ; %63
+  MOP_SPILL.8 fi#30, $t4
+  $t4 = MOP_RELOAD.8 fi#25
+  $a0 = MOP_COPY.8 $t4 ; %56
+  $t4 = MOP_RELOAD.8 fi#27
+  $a1 = MOP_COPY.8 $t4 ; %56
+  $t4 = MOP_RELOAD.8 fi#28
+  $a2 = MOP_COPY.8 $t4 ; %56
+  $t4 = MOP_RELOAD.8 fi#30
+  $a3 = MOP_COPY.8 $t4 ; %56
+  call __subtf3 [implicit-def $a0, implicit-def $a1, implicit $a0, implicit $a1, implicit $a2, implicit $a3] <clobbers caller-saved> ; %56
+  s.8 [fi#4], $a0 ; %56
+  s.8 [fi#4 + 8], $a1 ; %56
+  $t4 = la.8 [fi#4] ; %56
+  MOP_SPILL.8 fi#31, $t4
+  $t5 = MOP_RELOAD.8 fi#12
+  $t4 = l.8 [$t5] ; %36
+  MOP_SPILL.8 fi#32, $t4
+  $t5 = MOP_RELOAD.8 fi#12
+  $t6 = MOP_RELOAD.8 fi#6
+  $t4 = add.8 $t5, $t6 ; %37
+  MOP_SPILL.8 fi#33, $t4
+  $t5 = MOP_RELOAD.8 fi#33
+  $t4 = l.8 [$t5] ; %38
+  MOP_SPILL.8 fi#34, $t4
+  $t5 = MOP_RELOAD.8 fi#13
+  $t4 = l.8 [$t5] ; %39
+  MOP_SPILL.8 fi#35, $t4
+  $t5 = MOP_RELOAD.8 fi#13
+  $t6 = MOP_RELOAD.8 fi#6
+  $t4 = add.8 $t5, $t6 ; %40
+  MOP_SPILL.8 fi#36, $t4
+  $t5 = MOP_RELOAD.8 fi#36
+  $t4 = l.8 [$t5] ; %41
+  MOP_SPILL.8 fi#37, $t4
+  $t5 = MOP_RELOAD.8 fi#22
+  $t4 = l.8 [$t5] ; %42
+  MOP_SPILL.8 fi#38, $t4
+  $t5 = MOP_RELOAD.8 fi#22
+  $t6 = MOP_RELOAD.8 fi#6
+  $t4 = add.8 $t5, $t6 ; %43
+  MOP_SPILL.8 fi#39, $t4
+  $t5 = MOP_RELOAD.8 fi#39
+  $t4 = l.8 [$t5] ; %44
+  MOP_SPILL.8 fi#40, $t4
+  $t5 = MOP_RELOAD.8 fi#31
+  $t4 = l.8 [$t5] ; %45
+  MOP_SPILL.8 fi#41, $t4
+  $t5 = MOP_RELOAD.8 fi#31
+  $t6 = MOP_RELOAD.8 fi#6
+  $t4 = add.8 $t5, $t6 ; %46
+  MOP_SPILL.8 fi#42, $t4
+  $t5 = MOP_RELOAD.8 fi#42
+  $t4 = l.8 [$t5] ; %47
+  MOP_SPILL.8 fi#43, $t4
+  $t4 = MOP_RELOAD.8 fi#32
+  $a0 = MOP_COPY.8 $t4 ; %35
+  $t4 = MOP_RELOAD.8 fi#34
+  $a1 = MOP_COPY.8 $t4 ; %35
+  $t4 = MOP_RELOAD.8 fi#35
+  $a2 = MOP_COPY.8 $t4 ; %35
+  $t4 = MOP_RELOAD.8 fi#37
+  $a3 = MOP_COPY.8 $t4 ; %35
+  $t4 = MOP_RELOAD.8 fi#38
+  $a4 = MOP_COPY.8 $t4 ; %35
+  $t4 = MOP_RELOAD.8 fi#40
+  $a5 = MOP_COPY.8 $t4 ; %35
+  $t4 = MOP_RELOAD.8 fi#41
+  $a6 = MOP_COPY.8 $t4 ; %35
+  $t4 = MOP_RELOAD.8 fi#43
+  $a7 = MOP_COPY.8 $t4 ; %35
+  call ra_limits_callee [implicit-def $a0, implicit-def $a1, implicit $a0, implicit $a1, implicit $a2, implicit $a3, implicit $a4, implicit $a5, implicit $a6, implicit $a7] <clobbers caller-saved> ; %35
+  s.8 [fi#5], $a0 ; %35
+  s.8 [fi#5 + 8], $a1 ; %35
+  $t4 = la.8 [fi#5] ; %35
+  MOP_SPILL.8 fi#44, $t4
+  $t5 = MOP_RELOAD.8 fi#44
+  $t4 = l.8 [$t5] ; %26
+  MOP_SPILL.8 fi#45, $t4
+  $t4 = MOP_RELOAD.8 fi#45
+  s.8 [fi#2], $t4 ; %26
+  $t5 = MOP_RELOAD.8 fi#44
+  $t4 = l.8 [$t5 + 8] ; %26
+  MOP_SPILL.8 fi#45, $t4
+  $t4 = MOP_RELOAD.8 fi#45
+  s.8 [fi#2 + 8], $t4 ; %26
+
+MBB #1, '<exit>', ir #1, <- #2
+  $t4 = la.8 [fi#2] ; %29
+  MOP_SPILL.8 fi#46, $t4
+  $t5 = MOP_RELOAD.8 fi#46
+  $t4 = l.8 [$t5] ; %32
+  MOP_SPILL.8 fi#47, $t4
+  $t5 = MOP_RELOAD.8 fi#46
+  $t6 = MOP_RELOAD.8 fi#6
+  $t4 = add.8 $t5, $t6 ; %33
+  MOP_SPILL.8 fi#48, $t4
+  $t5 = MOP_RELOAD.8 fi#48
+  $t4 = l.8 [$t5] ; %34
+  MOP_SPILL.8 fi#49, $t4
+  $t4 = MOP_RELOAD.8 fi#47
+  $a0 = MOP_COPY.8 $t4 ; %31
+  $t4 = MOP_RELOAD.8 fi#49
+  $a1 = MOP_COPY.8 $t4 ; %31
+  ret ; %31
+
+

@@ -1,0 +1,80 @@
+--- Phase: ra ---
+MachineFunction 'one' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %3
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $a0
+MBB #0, '<entry>', ir #0, -> #2
+  $a0 = la.8 [cp#0 "hello"] ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %6
+
+
+--- Phase: ra ---
+MachineFunction 'twice' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %19
+  %v1 : gp/8 ; %5
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $a0
+MBB #0, '<entry>', ir #0, -> #2
+  $a0 = li.4 1 ; %19
+  $t1 = la.8 [cp#0 "same"] ; %5
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %13
+
+
+--- Phase: ra ---
+MachineFunction 'distinct' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %14
+  %v1 : gp/8 ; %8
+  %v2 : gp/8 ; %11
+  %v3 : gp/4 ; %3
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $zero $t1 $t2 $a0
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = la.8 [cp#0 "second"] ; %11
+  $t2 = la.8 [cp#1 "first"] ; %8
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3 #4
+  bne $a0, $zero, #3 ; %7
+
+MBB #4, '<ifFalse>', ir #4, <- #2, -> #5
+  j #5 ; %13
+
+MBB #3, '<ifTrue>', ir #3, <- #2, -> #5
+  $t1 = MOP_COPY.8 $t2 ; %14
+
+MBB #5, '<ternary_exit>', ir #5, <- #3 #4, -> #1
+
+MBB #1, '<exit>', ir #1, <- #5
+  $a0 = MOP_COPY.8 $t1 ; %17
+  ret ; %17
+
+
+--- Phase: ra ---
+MachineFunction 'embedded' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %3
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $a0
+MBB #0, '<entry>', ir #0, -> #2
+  $a0 = la.8 [cp#0 "a\n\"b\\c\200\000d"] ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %6
+
+

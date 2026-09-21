@@ -1,0 +1,23 @@
+--- Phase: isel ---
+MachineFunction 'load_value_cse' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %3
+  %v1 : gp/4 ; %6
+  %v2 : gp/4 ; %13
+  %v3 : gp/4 ; %17
+  %v4 : gp/4 ; %25
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = MOP_COPY.8 $a0 ; %3
+  %v1 = MOP_COPY.4 $a1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v2 = l.8/4 [%v0] ; %13
+  %v3 = addw.4 %v2, %v1 ; %17
+  %v4 = addw.4 %v3, %v3 ; %25
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.4 %v4 ; %28
+  ret ; %28
+
+

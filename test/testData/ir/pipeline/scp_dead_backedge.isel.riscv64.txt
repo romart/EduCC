@@ -1,0 +1,39 @@
+--- Phase: isel ---
+MachineFunction 'scp_dead_backedge' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %38
+  %v1 : gp/4 ; %11
+  %v2 : gp/4 ; %36
+  %v3 : gp/4 ; %27
+  %v4 : gp/4 ; %21
+  %v5 : gp/4 ; %3
+  %v6 : gp/4 ; %6
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v1 = li.4 0 ; %11
+  %v5 = MOP_COPY.4 $a0 ; %3
+  %v6 = MOP_COPY.4 $a1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  %v0 = MOP_COPY.4 %v1 ; %38
+  %v2 = MOP_COPY.4 %v1 ; %36
+
+MBB #3, '<while_head>', ir #3, <- #2 #6, -> #4 #5
+  bge %v2, %v6, #5 ; %18
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #6
+  %v4 = addw.4 %v2, 1 ; %21
+
+MBB #6, '<if_exit>', ir #6, <- #4, -> #3
+  %v3 = addw.4 %v0, %v5 ; %27
+  %v0 = MOP_COPY.4 %v3 ; %38
+  %v2 = MOP_COPY.4 %v4 ; %36
+  j #3 ; %29
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+
+MBB #1, '<exit>', ir #1, <- #5
+  $a0 = MOP_COPY.4 %v0 ; %33
+  ret ; %33
+
+

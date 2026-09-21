@@ -1,0 +1,206 @@
+--- Phase: ra ---
+MachineFunction 'large' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %10
+  %v1 : gp/8 ; %8
+  %v2 : gp/4 ; %3
+  %v3 : gp/8 ; %6
+  %v4 : gp/8 ; %18
+  %v5 : gp/8
+  %v6 : gp/8
+Frame: 48 bytes
+  fi#0 : local 40/8 @ -40 'r' ; %9
+Allocator: graph colouring
+Physical registers used: $t1 $a0 $a1
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.8 0 ; %10
+  $t1 = li.8 40 ; %8
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t1 = sext.8/4 $a1 ; %18
+  s.8 [fi#0], $t1 ; %19
+  $t1 = lu.8 [fi#0] ; %21
+  s.8 [$a0], $t1 ; %21
+  $t1 = lu.8 [fi#0 + 8] ; %21
+  s.8 [$a0 + 8], $t1 ; %21
+  $t1 = lu.8 [fi#0 + 16] ; %21
+  s.8 [$a0 + 16], $t1 ; %21
+  $t1 = lu.8 [fi#0 + 24] ; %21
+  s.8 [$a0 + 24], $t1 ; %21
+  $t1 = lu.8 [fi#0 + 32] ; %21
+  s.8 [$a0 + 32], $t1 ; %21
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %23
+
+
+--- Phase: ra ---
+MachineFunction 'small' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %11
+  %v1 : gp/8 ; %7
+  %v2 : gp/8 ; %1
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %15
+  %v5 : gp/8
+  %v6 : gp/8 ; %20
+Frame: 16 bytes
+  fi#0 : local 8/8 @ -8 ; %5
+  fi#1 : local 8/4 @ -16 'r' ; %6
+Allocator: graph colouring
+Physical registers used: $t1 $a0
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.8 4 ; %11
+  $t1 = li.8 0 ; %7
+  $t1 = li.8 8 ; %1
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  s.4 [fi#1], $a0 ; %10
+  $t1 = addw.4 $a0, 1 ; %15
+  s.4 [fi#1 + 4], $t1 ; %16
+  $t1 = lu.8 [fi#1] ; %17
+  s.8 [fi#0], $t1 ; %17
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = l.8 [fi#0] ; %20
+  ret ; %19
+
+
+--- Phase: ra ---
+MachineFunction 'shifted' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %65
+  %v1 : gp/8 ; %25
+  %v2 : gp/8 ; %23
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+  %v5 : gp/4 ; %9
+  %v6 : gp/4 ; %12
+  %v7 : gp/4 ; %15
+  %v8 : gp/4 ; %18
+  %v9 : gp/8 ; %21
+  %v10 : gp/4 ; %34
+  %v11 : gp/4 ; %36
+  %v12 : gp/8 ; %37
+  %v13 : gp/8
+  %v14 : gp/4 ; %46
+  %v15 : gp/4 ; %48
+  %v16 : gp/8 ; %49
+  %v17 : gp/8
+  %v18 : gp/8
+Frame: 48 bytes
+  fi#0 : local 40/8 @ -40 'r' ; %24
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0 $a1 $a2 $a3 $a4 $a5 $a6
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.8 8 ; %65
+  $t1 = li.8 0 ; %25
+  $t1 = li.8 40 ; %23
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t1 = addw.4 $a1, $a2 ; %34
+  $t2 = addw.4 $t1, $a3 ; %36
+  $t1 = sext.8/4 $t2 ; %37
+  s.8 [fi#0], $t1 ; %38
+  $t1 = addw.4 $a4, $a5 ; %46
+  $t2 = addw.4 $t1, $a6 ; %48
+  $t1 = sext.8/4 $t2 ; %49
+  s.8 [fi#0 + 8], $t1 ; %50
+  $t1 = lu.8 [fi#0] ; %52
+  s.8 [$a0], $t1 ; %52
+  $t1 = lu.8 [fi#0 + 8] ; %52
+  s.8 [$a0 + 8], $t1 ; %52
+  $t1 = lu.8 [fi#0 + 16] ; %52
+  s.8 [$a0 + 16], $t1 ; %52
+  $t1 = lu.8 [fi#0 + 24] ; %52
+  s.8 [$a0 + 24], $t1 ; %52
+  $t1 = lu.8 [fi#0 + 32] ; %52
+  s.8 [$a0 + 32], $t1 ; %52
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %54
+
+
+--- Phase: ra ---
+MachineFunction 'twice' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %51
+  %v1 : gp/8 ; %49
+  %v2 : gp/8 ; %48
+  %v3 : gp/4 ; %12
+  %v4 : gp/8 ; %10
+  %v5 : gp/8 ; %8
+  %v6 : gp/4 ; %3
+  %v7 : gp/8 ; %6
+  %v8 : gp/8 ; %18
+  %v9 : gp/8
+  %v10 : gp/8
+  %v11 : gp/8
+Frame: 48 bytes
+  fi#0 : local 40/8 @ -40 'r' ; %9
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0 $a1 $t3 $t4
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.8 -1 ; %51
+  $t2 = li.8 8 ; %49
+  $t2 = li.8 1 ; %48
+  $t3 = li.4 0 ; %12
+  $t4 = li.8 0 ; %10
+  $t4 = li.8 40 ; %8
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  $t4 = sext.8/4 $a1 ; %18
+  s.8 [fi#0], $t4 ; %19
+  blt $a1, $t3, #4 ; %22
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  s.8 [fi#0 + 8], $t2 ; %39
+  $t1 = lu.8 [fi#0] ; %41
+  s.8 [$a0], $t1 ; %41
+  $t1 = lu.8 [fi#0 + 8] ; %41
+  s.8 [$a0 + 8], $t1 ; %41
+  $t1 = lu.8 [fi#0 + 16] ; %41
+  s.8 [$a0 + 16], $t1 ; %41
+  $t1 = lu.8 [fi#0 + 24] ; %41
+  s.8 [$a0 + 24], $t1 ; %41
+  $t1 = lu.8 [fi#0 + 32] ; %41
+  s.8 [$a0 + 32], $t1 ; %41
+  j #1 ; %42
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  s.8 [fi#0 + 8], $t1 ; %30
+  $t1 = lu.8 [fi#0] ; %32
+  s.8 [$a0], $t1 ; %32
+  $t1 = lu.8 [fi#0 + 8] ; %32
+  s.8 [$a0 + 8], $t1 ; %32
+  $t1 = lu.8 [fi#0 + 16] ; %32
+  s.8 [$a0 + 16], $t1 ; %32
+  $t1 = lu.8 [fi#0 + 24] ; %32
+  s.8 [$a0 + 24], $t1 ; %32
+  $t1 = lu.8 [fi#0 + 32] ; %32
+  s.8 [$a0 + 32], $t1 ; %32
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  ret ; %43
+
+
+--- Phase: ra ---
+MachineFunction 'plain' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %3
+  %v1 : gp/4 ; %8
+  %v2 : gp/8 ; %9
+  %v3 : gp/8
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $a0
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t1 = addw.4 $a0, 1 ; %8
+  $a0 = sext.8/4 $t1 ; %9
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %12
+
+

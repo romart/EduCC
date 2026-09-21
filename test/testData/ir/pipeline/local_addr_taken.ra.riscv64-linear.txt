@@ -1,0 +1,27 @@
+--- Phase: ra ---
+MachineFunction 'local_addr_taken' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %1
+  %v1 : gp/4 ; %3
+  %v2 : gp/4 ; %14
+  %v3 : gp/4 ; %17
+  %v4 : gp/4 ; %21
+Frame: 16 bytes
+  fi#0 : local 8/4 @ -8 'x' ; %9
+Allocator: linear scan
+Physical registers used: $t1 $t2 $a0 $t3
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.8 8 ; %1
+  $t1 = MOP_COPY.4 $a0 ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  s.4 [fi#0], $t1 ; %11
+  $t1 = l.8/4 [fi#0] ; %14
+  $t2 = l.8/4 [fi#0] ; %17
+  $t3 = addw.4 $t1, $t2 ; %21
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.4 $t3 ; %24
+  ret ; %24
+
+

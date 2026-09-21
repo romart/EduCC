@@ -1,0 +1,72 @@
+--- Phase: ra ---
+MachineFunction 'phi_swap_cycle' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %75
+  %v1 : gp/4 ; %12
+  %v2 : gp/4 ; %69
+  %v3 : gp/4 ; %6
+  %v4 : gp/4 ; %65
+  %v5 : gp/4 ; %3
+  %v6 : gp/4 ; %30
+  %v7 : gp/4 ; %73
+  %v8 : gp/4 ; %71
+  %v9 : gp/4 ; %9
+  %v10 : gp/4 ; %67
+  %v11 : gp/4 ; %63
+  %v12 : gp/4 ; %46
+  %v13 : gp/4
+  %v14 : gp/4
+  %v15 : gp/4 ; %53
+  %v16 : gp/4 ; %50
+  %v17 : gp/4 ; %29
+  %v18 : gp/4 ; %19
+  %v19 : gp/4 ; %51
+  %v20 : gp/4 ; %54
+  %v21 : gp/4 ; %55
+  %v22 : gp/4 ; %57
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0 $a1 $a2 $a3 $t3 $t4 $t5
+MBB #0, '<entry>', ir #0, -> #2
+  $t2 = li.4 10 ; %53
+  $t3 = li.4 100 ; %50
+  $t4 = li.4 1 ; %29
+  $t5 = li.4 0 ; %19
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+
+MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
+  bge $t5, $a3, #5 ; %21
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #3
+  $t1 = subw.4 $a3, $t4 ; %30
+  $a3 = MOP_COPY.4 $t1 ; %75
+  $t1 = MOP_COPY.4 $a1
+  $a1 = MOP_COPY.4 $a0 ; %69
+  $a0 = MOP_COPY.4 $t1 ; %65
+  j #3 ; %32
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #6
+
+MBB #6, '<while_head>', ir #6, <- #5 #7, -> #7 #8
+  bge $a3, $t5, #8 ; %36
+
+MBB #7, '<while_body>', ir #7, <- #6, -> #6
+  $t1 = addw.4 $a3, $t4 ; %46
+  $a3 = MOP_COPY.4 $t1 ; %73
+  $t1 = MOP_COPY.4 $a2
+  $a2 = MOP_COPY.4 $a0 ; %71
+  $a0 = MOP_COPY.4 $a1 ; %63
+  $a1 = MOP_COPY.4 $t1 ; %67
+  j #6 ; %48
+
+MBB #8, '<while_exit>', ir #8, <- #6, -> #1
+  $t1 = mulw.4 $a0, $t3 ; %51
+  $t3 = mulw.4 $a1, $t2 ; %54
+  $t2 = addw.4 $t1, $t3 ; %55
+  $a0 = addw.4 $t2, $a2 ; %57
+
+MBB #1, '<exit>', ir #1, <- #8
+  ret ; %60
+
+

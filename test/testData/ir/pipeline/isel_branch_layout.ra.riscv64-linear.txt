@@ -1,0 +1,79 @@
+--- Phase: ra ---
+MachineFunction 'isel_branch_layout' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %54
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %27
+  %v3 : gp/4 ; %23
+  %v4 : gp/4 ; %21
+  %v5 : gp/4 ; %52
+  %v6 : gp/4 ; %43
+  %v7 : gp/4 ; %38
+  %v8 : gp/4 ; %39
+  %v9 : gp/4 ; %36
+  %v10 : gp/4 ; %3
+  %v11 : gp/4 ; %6
+  %v12 : gp/4 ; %9
+  %v13 : gp/4 ; %17
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $zero $t1 $t2 $a0 $a1 $a2 $t3 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 1 ; %39
+  $t2 = li.4 0 ; %13
+  $t3 = MOP_COPY.4 $a0 ; %3
+  $t4 = MOP_COPY.4 $a1 ; %6
+  $t5 = MOP_COPY.4 $a2 ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #5 #11
+  $t6 = slt.8/4 $t5, $t3 ; %17
+  bne $t6, $zero, #5 ; %18
+
+MBB #11, '<crit_splitter>', ir #11, <- #2, -> #6
+  $a0 = MOP_COPY.4 $t2 ; %23
+  j #6 ; %61
+
+MBB #5, '< && >', ir #5, <- #2, -> #6
+  $a1 = slt.8/4 $t5, $t4 ; %21
+  $a0 = MOP_COPY.4 $a1 ; %23
+
+MBB #6, '< &&-exit>', ir #6, <- #11 #5, -> #4 #13
+  bne $a0, $zero, #4 ; %24
+
+MBB #13, '<crit_splitter>', ir #13, <- #6, -> #3
+  $a0 = MOP_COPY.4 $t2 ; %54
+  j #3 ; %63
+
+MBB #4, '<if_then>', ir #4, <- #6, -> #3
+  $t2 = addw.4 $t3, $t4 ; %27
+  $a0 = MOP_COPY.4 $t2 ; %54
+
+MBB #3, '<if_exit>', ir #3, <- #13 #4, -> #9 #12
+  beq $t6, $zero, #9 ; %33
+
+MBB #12, '<crit_splitter>', ir #12, <- #3, -> #10
+  $t2 = MOP_COPY.4 $t1 ; %38
+  j #10 ; %62
+
+MBB #9, '< || >', ir #9, <- #3, -> #10
+  $t1 = slt.8/4 $t5, $t4 ; %36
+  $t2 = MOP_COPY.4 $t1 ; %38
+
+MBB #10, '< ||-exit>', ir #10, <- #12 #9, -> #8 #14
+  bne $t2, $zero, #8 ; %40
+
+MBB #14, '<crit_splitter>', ir #14, <- #10, -> #7
+  $t1 = MOP_COPY.4 $a0 ; %52
+  j #7 ; %64
+
+MBB #8, '<if_then>', ir #8, <- #10, -> #7
+  $t2 = addw.4 $a0, $t5 ; %43
+  $t1 = MOP_COPY.4 $t2 ; %52
+
+MBB #7, '<if_exit>', ir #7, <- #14 #8, -> #1
+
+MBB #1, '<exit>', ir #1, <- #7
+  $a0 = MOP_COPY.4 $t1 ; %49
+  ret ; %49
+
+

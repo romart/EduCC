@@ -1,0 +1,51 @@
+--- Phase: ra ---
+MachineFunction 'frame_dynamic_alloca' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %60
+  %v1 : gp/8 ; %58
+  %v2 : gp/8 ; %12
+  %v3 : gp/8 ; %1
+  %v4 : gp/4 ; %3
+  %v5 : gp/8 ; %9
+  %v6 : gp/8
+  %v7 : gp/8 ; %13
+  %v8 : gp/8
+  %v9 : gp/8 ; %14
+  %v10 : gp/4 ; %32
+  %v11 : gp/4 ; %43
+  %v12 : gp/4 ; %47
+  %v13 : gp/4 ; %48
+Frame: 16 bytes, dynamic
+  fi#0 : local 8/4 @ -8 'fixed' ; %7
+  fi#1 : local dynamic 'v' ; %14
+Allocator: linear scan
+Physical registers used: $sp $t1 $t2 $a0 $t3 $t4
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.8 4 ; %60
+  $t1 = li.8 0 ; %58
+  $t1 = li.8 4 ; %12
+  $t2 = li.8 8 ; %1
+  $t2 = MOP_COPY.4 $a0 ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t3 = sext.8/4 $t2 ; %9
+  $t4 = MOP_COPY.8 $t3 ; %9
+  $t3 = mul.8 $t4, $t1 ; %13
+  $t1 = MOP_COPY.8 $t3 ; %14
+  $t1 = add.8 $t1, 15 ; %14
+  $t1 = and.8 $t1, -16 ; %14
+  $sp = sub.8 $sp, $t1 ; %14
+  $t1 = la.8 [$sp] ; %14
+  s.4 [$t1], $t2 ; %24
+  $t3 = l.8/4 [$t1] ; %32
+  s.4 [fi#0], $t3 ; %33
+  s.4 [fi#0 + 4], $t2 ; %39
+  $t1 = l.8/4 [fi#0] ; %43
+  $t2 = l.8/4 [fi#0 + 4] ; %47
+  $t3 = addw.4 $t1, $t2 ; %48
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.4 $t3 ; %51
+  ret ; %51
+
+

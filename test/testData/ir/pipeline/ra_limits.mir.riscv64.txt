@@ -1,0 +1,25 @@
+--- Phase: mir ---
+MachineFunction 'ra_byte_setcc' [target = riscv64]
+VRegs: <none>
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+
+--- Phase: mir ---
+MachineFunction 'ra_scratch_budget' [target = riscv64]
+VRegs: <none>
+Frame: 48 bytes
+  fi#0 : local 16/16 @ -16 'a' ; %2
+  fi#1 : local 16/16 @ -32 'b' ; %9
+  fi#2 : local 16/8 @ -48 ; %15
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+

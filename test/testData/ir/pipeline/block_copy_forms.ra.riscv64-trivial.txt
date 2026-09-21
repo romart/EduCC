@@ -1,0 +1,480 @@
+--- Phase: ra ---
+MachineFunction 'small' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %14
+  %v1 : gp/8 ; %11
+  %v2 : gp/8 ; %3
+  %v3 : gp/8 ; %6
+  %v4 : gp/8
+  %v5 : gp/8 ; %21
+Frame: 48 bytes
+  fi#0 : spill 8/8 @ -8 %v0 ; %14
+  fi#1 : spill 8/8 @ -16 %v1 ; %11
+  fi#2 : spill 8/8 @ -24 %v2 ; %3
+  fi#3 : spill 8/8 @ -32 %v3 ; %6
+  fi#4 : spill 8/8 @ -40 %v4
+  fi#5 : spill 8/8 @ -48 %v5 ; %21
+Allocator: trivial
+Physical registers used: $a0 $a1 $t4 $t5
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = li.8 0 ; %14
+  MOP_SPILL.8 fi#0, $t4
+  $t4 = li.8 24 ; %11
+  MOP_SPILL.8 fi#1, $t4
+  $t4 = MOP_COPY.8 $a0 ; %3
+  MOP_SPILL.8 fi#2, $t4
+  $t4 = MOP_COPY.8 $a1 ; %6
+  MOP_SPILL.8 fi#3, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 8] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 8], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 16] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 16], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#2
+  $t4 = l.8 [$t5] ; %21
+  MOP_SPILL.8 fi#5, $t4
+
+MBB #1, '<exit>', ir #1, <- #2
+  $t4 = MOP_RELOAD.8 fi#5
+  $a0 = MOP_COPY.8 $t4 ; %24
+  ret ; %24
+
+
+--- Phase: ra ---
+MachineFunction 'large' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %14
+  %v1 : gp/8 ; %11
+  %v2 : gp/8 ; %3
+  %v3 : gp/8 ; %6
+  %v4 : gp/8
+  %v5 : gp/8 ; %21
+Frame: 48 bytes
+  fi#0 : spill 8/8 @ -8 %v0 ; %14
+  fi#1 : spill 8/8 @ -16 %v1 ; %11
+  fi#2 : spill 8/8 @ -24 %v2 ; %3
+  fi#3 : spill 8/8 @ -32 %v3 ; %6
+  fi#4 : spill 8/8 @ -40 %v4
+  fi#5 : spill 8/8 @ -48 %v5 ; %21
+Allocator: trivial
+Physical registers used: $a0 $a1 $t4 $t5
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = li.8 0 ; %14
+  MOP_SPILL.8 fi#0, $t4
+  $t4 = li.8 512 ; %11
+  MOP_SPILL.8 fi#1, $t4
+  $t4 = MOP_COPY.8 $a0 ; %3
+  MOP_SPILL.8 fi#2, $t4
+  $t4 = MOP_COPY.8 $a1 ; %6
+  MOP_SPILL.8 fi#3, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 8] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 8], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 16] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 16], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 24] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 24], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 32] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 32], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 40] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 40], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 48] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 48], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 56] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 56], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 64] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 64], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 72] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 72], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 80] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 80], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 88] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 88], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 96] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 96], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 104] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 104], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 112] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 112], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 120] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 120], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 128] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 128], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 136] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 136], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 144] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 144], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 152] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 152], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 160] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 160], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 168] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 168], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 176] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 176], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 184] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 184], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 192] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 192], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 200] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 200], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 208] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 208], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 216] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 216], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 224] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 224], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 232] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 232], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 240] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 240], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 248] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 248], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 256] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 256], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 264] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 264], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 272] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 272], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 280] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 280], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 288] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 288], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 296] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 296], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 304] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 304], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 312] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 312], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 320] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 320], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 328] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 328], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 336] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 336], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 344] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 344], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 352] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 352], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 360] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 360], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 368] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 368], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 376] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 376], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 384] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 384], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 392] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 392], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 400] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 400], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 408] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 408], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 416] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 416], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 424] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 424], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 432] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 432], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 440] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 440], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 448] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 448], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 456] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 456], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 464] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 464], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 472] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 472], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 480] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 480], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 488] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 488], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 496] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 496], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = lu.8 [$t5 + 504] ; %12
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#4
+  s.8 [$t4 + 504], $t5 ; %12
+  $t5 = MOP_RELOAD.8 fi#2
+  $t4 = l.8 [$t5] ; %21
+  MOP_SPILL.8 fi#5, $t4
+
+MBB #1, '<exit>', ir #1, <- #2
+  $t4 = MOP_RELOAD.8 fi#5
+  $a0 = MOP_COPY.8 $t4 ; %24
+  ret ; %24
+
+

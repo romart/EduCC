@@ -1,0 +1,52 @@
+--- Phase: ra ---
+MachineFunction 'dce_unreachable' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %35
+  %v1 : gp/4 ; %15
+  %v2 : gp/4 ; %20
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+Frame: 48 bytes
+  fi#0 : spill 8/8 @ -8 %v3 ; %3
+  fi#1 : spill 8/8 @ -16 %v4 ; %6
+  fi#2 : spill 8/8 @ -24 %v2 ; %20
+  fi#3 : spill 8/8 @ -32 %v0 ; %35
+  fi#4 : spill 8/8 @ -40 %v1 ; %15
+Allocator: trivial
+Physical registers used: $a0 $a1 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = MOP_COPY.4 $a0 ; %3
+  MOP_SPILL.8 fi#0, $t4
+  $t4 = MOP_COPY.4 $a1 ; %6
+  MOP_SPILL.8 fi#1, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  $t4 = MOP_RELOAD.8 fi#1
+  $t5 = MOP_RELOAD.8 fi#0
+  blt $t4, $t5, #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  $t5 = MOP_RELOAD.8 fi#0
+  $t6 = MOP_RELOAD.8 fi#1
+  $t4 = subw.4 $t5, $t6 ; %20
+  MOP_SPILL.8 fi#2, $t4
+  $t5 = MOP_RELOAD.8 fi#2
+  $t4 = MOP_COPY.4 $t5 ; %35
+  MOP_SPILL.8 fi#3, $t4
+  j #1 ; %22
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $t5 = MOP_RELOAD.8 fi#0
+  $t6 = MOP_RELOAD.8 fi#1
+  $t4 = addw.4 $t5, $t6 ; %15
+  MOP_SPILL.8 fi#4, $t4
+  $t5 = MOP_RELOAD.8 fi#4
+  $t4 = MOP_COPY.4 $t5 ; %35
+  MOP_SPILL.8 fi#3, $t4
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $t4 = MOP_RELOAD.8 fi#3
+  $a0 = MOP_COPY.4 $t4 ; %32
+  ret ; %32
+
+

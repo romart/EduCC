@@ -1,0 +1,82 @@
+--- Phase: isel ---
+MachineFunction 'phi_swap_cycle' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %75
+  %v1 : gp/4 ; %12
+  %v2 : gp/4 ; %69
+  %v3 : gp/4 ; %6
+  %v4 : gp/4 ; %65
+  %v5 : gp/4 ; %3
+  %v6 : gp/4 ; %30
+  %v7 : gp/4 ; %73
+  %v8 : gp/4 ; %71
+  %v9 : gp/4 ; %9
+  %v10 : gp/4 ; %67
+  %v11 : gp/4 ; %63
+  %v12 : gp/4 ; %46
+  %v13 : gp/4
+  %v14 : gp/4
+  %v15 : gp/4 ; %53
+  %v16 : gp/4 ; %50
+  %v17 : gp/4 ; %29
+  %v18 : gp/4 ; %19
+  %v19 : gp/4 ; %51
+  %v20 : gp/4 ; %54
+  %v21 : gp/4 ; %55
+  %v22 : gp/4 ; %57
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v15 = li.4 10 ; %53
+  %v16 = li.4 100 ; %50
+  %v17 = li.4 1 ; %29
+  %v18 = li.4 0 ; %19
+  %v5 = MOP_COPY.4 $a0 ; %3
+  %v3 = MOP_COPY.4 $a1 ; %6
+  %v9 = MOP_COPY.4 $a2 ; %9
+  %v1 = MOP_COPY.4 $a3 ; %12
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  %v0 = MOP_COPY.4 %v1 ; %75
+  %v2 = MOP_COPY.4 %v3 ; %69
+  %v4 = MOP_COPY.4 %v5 ; %65
+
+MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
+  bge %v18, %v0, #5 ; %21
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #3
+  %v6 = subw.4 %v0, %v17 ; %30
+  %v0 = MOP_COPY.4 %v6 ; %75
+  %v13 = MOP_COPY.4 %v2
+  %v2 = MOP_COPY.4 %v4 ; %69
+  %v4 = MOP_COPY.4 %v13 ; %65
+  j #3 ; %32
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #6
+  %v7 = MOP_COPY.4 %v0 ; %73
+  %v8 = MOP_COPY.4 %v9 ; %71
+  %v10 = MOP_COPY.4 %v2 ; %67
+  %v11 = MOP_COPY.4 %v4 ; %63
+
+MBB #6, '<while_head>', ir #6, <- #5 #7, -> #7 #8
+  bge %v7, %v18, #8 ; %36
+
+MBB #7, '<while_body>', ir #7, <- #6, -> #6
+  %v12 = addw.4 %v7, %v17 ; %46
+  %v7 = MOP_COPY.4 %v12 ; %73
+  %v14 = MOP_COPY.4 %v8
+  %v8 = MOP_COPY.4 %v11 ; %71
+  %v11 = MOP_COPY.4 %v10 ; %63
+  %v10 = MOP_COPY.4 %v14 ; %67
+  j #6 ; %48
+
+MBB #8, '<while_exit>', ir #8, <- #6, -> #1
+  %v19 = mulw.4 %v11, %v16 ; %51
+  %v20 = mulw.4 %v10, %v15 ; %54
+  %v21 = addw.4 %v19, %v20 ; %55
+  %v22 = addw.4 %v21, %v8 ; %57
+
+MBB #1, '<exit>', ir #1, <- #8
+  $a0 = MOP_COPY.4 %v22 ; %60
+  ret ; %60
+
+

@@ -1,0 +1,36 @@
+--- Phase: mir ---
+MachineFunction 'pass' [target = riscv64]
+VRegs: <none>
+Frame: 32 bytes
+  fi#0 : local 24/8 @ -24 ; %7
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+
+--- Phase: mir ---
+MachineFunction 'scalars' [target = riscv64]
+VRegs: <none>
+Frame: 32 bytes
+  fi#0 : local 24/8 @ -24 ; %14
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+
+--- Phase: mir ---
+MachineFunction 'small' [target = riscv64]
+VRegs: <none>
+Frame: 16 bytes
+  fi#0 : local 8/4 @ -8 's' ; %2
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #1, '<exit>', ir #1, <- #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+

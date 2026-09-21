@@ -1,0 +1,37 @@
+--- Phase: ra ---
+MachineFunction 'scp_loop_const' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %35
+  %v1 : gp/4 ; %8
+  %v2 : gp/4 ; %33
+  %v3 : gp/4 ; %20
+  %v4 : gp/4 ; %24
+  %v5 : gp/4 ; %3
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $t1 $t2 $a0 $t3 $t4 $t5
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 0 ; %8
+  $t2 = MOP_COPY.4 $a0 ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  $t3 = MOP_COPY.4 $t1 ; %35
+  $t4 = MOP_COPY.4 $t1 ; %33
+
+MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
+  bge $t4, $t2, #5 ; %15
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #3
+  $t1 = addw.4 $t3, 6 ; %20
+  $t5 = addw.4 $t4, 1 ; %24
+  $t3 = MOP_COPY.4 $t1 ; %35
+  $t4 = MOP_COPY.4 $t5 ; %33
+  j #3 ; %26
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+
+MBB #1, '<exit>', ir #1, <- #5
+  $a0 = MOP_COPY.4 $t3 ; %30
+  ret ; %30
+
+

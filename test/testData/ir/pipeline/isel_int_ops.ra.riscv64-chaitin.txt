@@ -1,0 +1,80 @@
+--- Phase: ra ---
+MachineFunction 'isel_int_ops' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %90
+  %v1 : gp/4 ; %53
+  %v2 : gp/4 ; %62
+  %v3 : gp/4 ; %88
+  %v4 : gp/4 ; %72
+  %v5 : gp/4 ; %99
+  %v6 : gp/4 ; %98
+  %v7 : gp/4 ; %3
+  %v8 : gp/4 ; %6
+  %v9 : gp/4 ; %9
+  %v10 : gp/4 ; %12
+  %v11 : gp/4 ; %21
+  %v12 : gp/4 ; %22
+  %v13 : gp/4 ; %23
+  %v14 : gp/4 ; %27
+  %v15 : gp/4 ; %28
+  %v16 : gp/4 ; %29
+  %v17 : gp/4 ; %34
+  %v18 : gp/4 ; %35
+  %v19 : gp/4 ; %40
+  %v20 : gp/4 ; %41
+  %v21 : gp/4 ; %46
+  %v22 : gp/4 ; %47
+  %v23 : gp/4 ; %52
+  %v24 : gp/4 ; %80
+  %v25 : gp/4 ; %81
+  %v26 : gp/4 ; %82
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0 $a1 $a2 $a3 $t3 $t4
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = li.4 252645135 ; %99
+  $t1 = li.4 0 ; %98
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
+  $t2 = not.4 $a2 ; %21
+  $t3 = sext.4 $t2 ; %22
+  $t2 = addw.4 $t1, $t3 ; %23
+  $t1 = sltu.8/4 $a3, 1 ; %27
+  $t3 = sext.4 $t1 ; %28
+  $t1 = addw.4 $t2, $t3 ; %29
+  $t2 = sllw.4 $a0, $a3 ; %34
+  $t3 = addw.4 $t1, $t2 ; %35
+  $t1 = srlw.4 $a0, 3 ; %40
+  $t2 = addw.4 $t3, $t1 ; %41
+  $t1 = divuw.4 $a0, $a1 ; %46
+  $t3 = addw.4 $t2, $t1 ; %47
+  $t2 = remuw.4 $a0, $a1 ; %52
+  $t1 = addw.4 $t3, $t2 ; %53
+  bltu $a0, $a1, #4 ; %58
+
+MBB #7, '<crit_splitter>', ir #7, <- #2, -> #3
+  j #3 ; %102
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  $t2 = addw.4 $t1, 1 ; %62
+  $t1 = MOP_COPY.4 $t2 ; %90
+
+MBB #3, '<if_exit>', ir #3, <- #7 #4, -> #6 #8
+  bltu $a1, $a0, #6 ; %68
+
+MBB #8, '<crit_splitter>', ir #8, <- #3, -> #5
+  $t2 = MOP_COPY.4 $t1 ; %88
+  j #5 ; %103
+
+MBB #6, '<if_then>', ir #6, <- #3, -> #5
+  $t2 = addw.4 $t1, 2 ; %72
+
+MBB #5, '<if_exit>', ir #5, <- #8 #6, -> #1
+  $t1 = xor.4 $a1, $t4 ; %80
+  $t3 = or.4 $a0, $t1 ; %81
+  $a0 = and.4 $t2, $t3 ; %82
+
+MBB #1, '<exit>', ir #1, <- #5
+  ret ; %85
+
+

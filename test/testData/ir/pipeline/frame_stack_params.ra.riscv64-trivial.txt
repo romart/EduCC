@@ -1,0 +1,80 @@
+--- Phase: ra ---
+MachineFunction 'frame_stack_params' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %73
+  %v1 : gp/8 ; %30
+  %v2 : gp/8 ; %27
+  %v3 : gp/8 ; %0
+  %v4 : gp/4 ; %21
+  %v5 : gp/4 ; %24
+  %v6 : gp/8 ; %28
+  %v7 : gp/4 ; %48
+  %v8 : gp/4 ; %52
+  %v9 : gp/4 ; %53
+  %v10 : gp/8 ; %55
+  %v11 : gp/4 ; %56
+  %v12 : gp/4 ; %57
+Frame: 128 bytes
+  fi#0 : param 0/8 @ 0 ; %26
+  fi#1 : local 16/4 @ -16 'arr' ; %31
+  fi#2 : spill 8/8 @ -24 %v0 ; %73
+  fi#3 : spill 8/8 @ -32 %v1 ; %30
+  fi#4 : spill 8/8 @ -40 %v2 ; %27
+  fi#5 : spill 8/8 @ -48 %v3 ; %0
+  fi#6 : spill 8/8 @ -56 %v4 ; %21
+  fi#7 : spill 8/8 @ -64 %v5 ; %24
+  fi#8 : spill 8/8 @ -72 %v6 ; %28
+  fi#9 : spill 8/8 @ -80 %v7 ; %48
+  fi#10 : spill 8/8 @ -88 %v8 ; %52
+  fi#11 : spill 8/8 @ -96 %v9 ; %53
+  fi#12 : spill 8/8 @ -104 %v10 ; %55
+  fi#13 : spill 8/8 @ -112 %v11 ; %56
+  fi#14 : spill 8/8 @ -120 %v12 ; %57
+Allocator: trivial
+Physical registers used: $sp $a0 $a6 $a7 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = li.8 4 ; %73
+  MOP_SPILL.8 fi#2, $t4
+  $t4 = li.8 16 ; %30
+  MOP_SPILL.8 fi#3, $t4
+  $t4 = li.8 0 ; %27
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_COPY.8 $sp ; %0
+  MOP_SPILL.8 fi#5, $t4
+  $t4 = MOP_COPY.4 $a6 ; %21
+  MOP_SPILL.8 fi#6, $t4
+  $t4 = MOP_COPY.4 $a7 ; %24
+  MOP_SPILL.8 fi#7, $t4
+  $t4 = l.8 [fi#0] ; %28
+  MOP_SPILL.8 fi#8, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t4 = MOP_RELOAD.8 fi#6
+  s.4 [fi#1], $t4 ; %38
+  $t4 = MOP_RELOAD.8 fi#7
+  s.4 [fi#1 + 4], $t4 ; %44
+  $t4 = l.8/4 [fi#1] ; %48
+  MOP_SPILL.8 fi#9, $t4
+  $t4 = l.8/4 [fi#1 + 4] ; %52
+  MOP_SPILL.8 fi#10, $t4
+  $t5 = MOP_RELOAD.8 fi#9
+  $t6 = MOP_RELOAD.8 fi#10
+  $t4 = addw.4 $t5, $t6 ; %53
+  MOP_SPILL.8 fi#11, $t4
+  $t5 = MOP_RELOAD.8 fi#8
+  $t4 = l.8 [$t5] ; %55
+  MOP_SPILL.8 fi#12, $t4
+  $t5 = MOP_RELOAD.8 fi#12
+  $t4 = sext.4 $t5 ; %56
+  MOP_SPILL.8 fi#13, $t4
+  $t5 = MOP_RELOAD.8 fi#11
+  $t6 = MOP_RELOAD.8 fi#13
+  $t4 = addw.4 $t5, $t6 ; %57
+  MOP_SPILL.8 fi#14, $t4
+
+MBB #1, '<exit>', ir #1, <- #2
+  $t4 = MOP_RELOAD.8 fi#14
+  $a0 = MOP_COPY.4 $t4 ; %60
+  ret ; %60
+
+

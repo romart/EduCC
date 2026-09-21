@@ -1,0 +1,45 @@
+--- Phase: isel ---
+MachineFunction 'isel_immediates' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %33
+  %v1 : gp/8 ; %23
+  %v2 : gp/8 ; %19
+  %v3 : gp/8 ; %3
+  %v4 : gp/8 ; %6
+  %v5 : gp/8 ; %16
+  %v6 : gp/8 ; %20
+  %v7 : gp/8 ; %24
+  %v8 : gp/8 ; %26
+  %v9 : gp/8 ; %27
+  %v10 : gp/8 ; %31
+  %v11 : gp/8 ; %35
+  %v12 : gp/8 ; %39
+  %v13 : gp/8 ; %41
+  %v14 : gp/8 ; %43
+  %v15 : gp/8 ; %45
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = li.8 3 ; %33
+  %v1 = li.8 100 ; %23
+  %v2 = li.8 78187493520 ; %19
+  %v3 = MOP_COPY.8 $a0 ; %3
+  %v4 = MOP_COPY.8 $a1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v5 = add.8 %v3, 7 ; %16
+  %v6 = add.8 %v3, %v2 ; %20
+  %v7 = add.8 %v3, %v1 ; %24
+  %v8 = div.8 %v1, %v4 ; %26
+  %v9 = add.8 %v7, %v8 ; %27
+  %v10 = sll.8 %v3, 5 ; %31
+  %v11 = sub.8 %v0, %v3 ; %35
+  %v12 = add.8 %v5, %v6 ; %39
+  %v13 = add.8 %v12, %v9 ; %41
+  %v14 = add.8 %v13, %v10 ; %43
+  %v15 = add.8 %v14, %v11 ; %45
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.8 %v15 ; %48
+  ret ; %48
+
+

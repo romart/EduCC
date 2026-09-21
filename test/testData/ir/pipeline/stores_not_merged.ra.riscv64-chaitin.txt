@@ -1,0 +1,18 @@
+--- Phase: ra ---
+MachineFunction 'stores_not_merged' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %3
+  %v1 : gp/4 ; %6
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $a0 $a1
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  s.4 [$a0], $a1 ; %10
+  s.4 [$a0], $a1 ; %13
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %15
+
+

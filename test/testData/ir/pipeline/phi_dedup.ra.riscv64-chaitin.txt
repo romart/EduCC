@@ -1,0 +1,43 @@
+--- Phase: ra ---
+MachineFunction 'phi_dedup' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %59
+  %v1 : gp/4 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/4 ; %55
+  %v4 : gp/4 ; %20
+  %v5 : gp/4 ; %9
+  %v6 : gp/4 ; %12
+  %v7 : gp/4 ; %47
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $a0 $a1 $a2 $a3
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 0 ; %20
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
+  blt $t1, $a2, #4 ; %22
+
+MBB #5, '<if_else>', ir #5, <- #2, -> #3
+  j #3 ; %32
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  $a1 = MOP_COPY.4 $a0 ; %59
+
+MBB #3, '<if_exit>', ir #3, <- #4 #5, -> #7 #8
+  blt $t1, $a3, #7 ; %39
+
+MBB #8, '<crit_splitter>', ir #8, <- #3, -> #6
+  $a0 = MOP_COPY.4 $a1 ; %55
+  j #6 ; %70
+
+MBB #7, '<if_then>', ir #7, <- #3, -> #6
+
+MBB #6, '<if_exit>', ir #6, <- #8 #7, -> #1
+  $t1 = addw.4 $a0, $a0 ; %47
+
+MBB #1, '<exit>', ir #1, <- #6
+  $a0 = MOP_COPY.4 $t1 ; %50
+  ret ; %50
+
+

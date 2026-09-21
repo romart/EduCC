@@ -1,0 +1,33 @@
+--- Phase: ra ---
+MachineFunction 'scp_dead_arm_live_phi' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %37
+  %v1 : gp/4 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/4 ; %14
+  %v4 : gp/4 ; %9
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0 $a1 $a2
+MBB #0, '<entry>', ir #0, -> #2
+  $t2 = li.4 0 ; %14
+  $t1 = MOP_COPY.4 $a0 ; %3
+  $a0 = MOP_COPY.4 $a1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
+  blt $t2, $a2, #4 ; %16
+
+MBB #5, '<if_else>', ir #5, <- #2, -> #3
+  j #3 ; %22
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  $a0 = MOP_COPY.4 $t1 ; %37
+
+MBB #3, '<if_exit>', ir #3, <- #4 #5, -> #6
+
+MBB #6, '<if_exit>', ir #6, <- #3, -> #1
+
+MBB #1, '<exit>', ir #1, <- #6
+  ret ; %32
+
+

@@ -1,0 +1,69 @@
+--- Phase: ra ---
+MachineFunction 'nested_loops' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %69
+  %v1 : gp/4 ; %18
+  %v2 : gp/4 ; %67
+  %v3 : gp/4 ; %47
+  %v4 : gp/4 ; %50
+  %v5 : gp/4 ; %71
+  %v6 : gp/4 ; %63
+  %v7 : gp/4 ; %36
+  %v8 : gp/4 ; %40
+  %v9 : gp/4 ; %3
+  %v10 : gp/4 ; %6
+  %v11 : gp/4 ; %9
+  %v12 : gp/4 ; %12
+  %v13 : gp/4 ; %35
+  %v14 : gp/4 ; %46
+  %v15 : gp/4 ; %56
+  %v16 : gp/4 ; %57
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $t1 $t2 $a0 $a1 $a2 $a3 $a4 $t3 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 0 ; %18
+  $t2 = MOP_COPY.4 $a0 ; %3
+  $t3 = MOP_COPY.4 $a1 ; %6
+  $t4 = MOP_COPY.4 $a2 ; %9
+  $t5 = MOP_COPY.4 $a3 ; %12
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  $t6 = MOP_COPY.4 $t1 ; %69
+  $a0 = MOP_COPY.4 $t1 ; %67
+
+MBB #3, '<while_head>', ir #3, <- #2 #8, -> #4 #5
+  bge $a0, $t4, #5 ; %25
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #6
+  $a1 = MOP_COPY.4 $t6 ; %71
+  $a2 = MOP_COPY.4 $t1 ; %63
+
+MBB #6, '<while_head>', ir #6, <- #4 #7, -> #7 #8
+  bge $a2, $t5, #8 ; %31
+
+MBB #7, '<while_body>', ir #7, <- #6, -> #6
+  $a3 = mulw.4 $t2, $t3 ; %35
+  $a4 = addw.4 $a1, $a3 ; %36
+  $a3 = addw.4 $a2, 1 ; %40
+  $a1 = MOP_COPY.4 $a4 ; %71
+  $a2 = MOP_COPY.4 $a3 ; %63
+  j #6 ; %42
+
+MBB #8, '<while_exit>', ir #8, <- #6, -> #3
+  $a2 = mulw.4 $t2, $t3 ; %46
+  $a3 = addw.4 $a1, $a2 ; %47
+  $a1 = addw.4 $a0, 1 ; %50
+  $t6 = MOP_COPY.4 $a3 ; %69
+  $a0 = MOP_COPY.4 $a1 ; %67
+  j #3 ; %52
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+  $t1 = mulw.4 $t2, $t3 ; %56
+  $t2 = addw.4 $t6, $t1 ; %57
+
+MBB #1, '<exit>', ir #1, <- #5
+  $a0 = MOP_COPY.4 $t2 ; %60
+  ret ; %60
+
+

@@ -1,0 +1,38 @@
+--- Phase: ra ---
+MachineFunction 'scp_const_switch' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %11
+  %v1 : gp/4 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/4 ; %30
+Frame: 32 bytes
+  fi#0 : spill 8/8 @ -8 %v0 ; %11
+  fi#1 : spill 8/8 @ -16 %v1 ; %3
+  fi#2 : spill 8/8 @ -24 %v2 ; %6
+  fi#3 : spill 8/8 @ -32 %v3 ; %30
+Allocator: trivial
+Physical registers used: $a0 $a1 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = li.4 2 ; %11
+  MOP_SPILL.8 fi#0, $t4
+  $t4 = MOP_COPY.4 $a0 ; %3
+  MOP_SPILL.8 fi#1, $t4
+  $t4 = MOP_COPY.4 $a1 ; %6
+  MOP_SPILL.8 fi#2, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4
+
+MBB #4, '<case_block>', ir #7, <- #2, -> #3
+  $t5 = MOP_RELOAD.8 fi#1
+  $t6 = MOP_RELOAD.8 fi#2
+  $t4 = mulw.4 $t5, $t6 ; %30
+  MOP_SPILL.8 fi#3, $t4
+
+MBB #3, '<switch_exit>', ir #3, <- #4, -> #1
+
+MBB #1, '<exit>', ir #1, <- #3
+  $t4 = MOP_RELOAD.8 fi#3
+  $a0 = MOP_COPY.4 $t4 ; %38
+  ret ; %38
+
+

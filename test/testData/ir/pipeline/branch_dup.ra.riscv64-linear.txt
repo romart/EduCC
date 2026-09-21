@@ -1,0 +1,58 @@
+--- Phase: ra ---
+MachineFunction 'branch_dup' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %57
+  %v1 : gp/8 ; %23
+  %v2 : gp/8 ; %36
+  %v3 : gp/8 ; %20
+  %v4 : gp/4 ; %15
+  %v5 : gp/8 ; %3
+  %v6 : gp/4 ; %6
+  %v7 : gp/4 ; %9
+  %v8 : gp/8 ; %34
+  %v9 : gp/8
+  %v10 : gp/8 ; %35
+  %v11 : gp/8 ; %21
+  %v12 : gp/8
+  %v13 : gp/8 ; %22
+  %v14 : gp/4 ; %46
+  %v15 : gp/4 ; %48
+  %v16 : gp/4 ; %49
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $t1 $t2 $a0 $a1 $a2 $t3 $t4 $t5
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.8 4 ; %20
+  $t2 = li.4 0 ; %15
+  $t3 = MOP_COPY.8 $a0 ; %3
+  $t4 = MOP_COPY.4 $a1 ; %6
+  $t5 = MOP_COPY.4 $a2 ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
+  blt $t2, $t5, #4 ; %17
+
+MBB #5, '<if_else>', ir #5, <- #2, -> #3
+  $t2 = sext.8/4 $t4 ; %34
+  $t5 = MOP_COPY.8 $t2 ; %34
+  $t2 = mul.8 $t5, $t1 ; %35
+  $t5 = add.8 $t3, $t2 ; %36
+  $t2 = MOP_COPY.8 $t5 ; %57
+  j #3 ; %44
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  $t5 = sext.8/4 $t4 ; %21
+  $t4 = MOP_COPY.8 $t5 ; %21
+  $t5 = mul.8 $t4, $t1 ; %22
+  $t1 = add.8 $t3, $t5 ; %23
+  $t2 = MOP_COPY.8 $t1 ; %57
+
+MBB #3, '<if_exit>', ir #3, <- #4 #5, -> #1
+  $t1 = l.8/4 [$t2] ; %46
+  $t3 = l.8/4 [$t2] ; %48
+  $t2 = addw.4 $t1, $t3 ; %49
+
+MBB #1, '<exit>', ir #1, <- #3
+  $a0 = MOP_COPY.4 $t2 ; %52
+  ret ; %52
+
+

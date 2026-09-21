@@ -1,0 +1,43 @@
+--- Phase: ra ---
+MachineFunction 'partial_redundancy' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %41
+  %v1 : gp/4 ; %42
+  %v2 : gp/4 ; %33
+  %v3 : gp/4 ; %13
+  %v4 : gp/4 ; %20
+  %v5 : gp/4 ; %3
+  %v6 : gp/4 ; %6
+  %v7 : gp/4 ; %9
+  %v8 : gp/4 ; %27
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $t1 $t2 $a0 $a1 $a2 $t3 $t4 $t5
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 0 ; %13
+  $t2 = MOP_COPY.4 $a0 ; %3
+  $t3 = MOP_COPY.4 $a1 ; %6
+  $t4 = MOP_COPY.4 $a2 ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
+  blt $t1, $t4, #4 ; %17
+
+MBB #5, '<crit_splitter>', ir #5, <- #2, -> #3
+  $t4 = addw.4 $t2, $t3 ; %42
+  $t5 = MOP_COPY.4 $t4 ; %41
+  $t4 = MOP_COPY.4 $t1 ; %33
+  j #3 ; %40
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  $t1 = addw.4 $t2, $t3 ; %20
+  $t5 = MOP_COPY.4 $t1 ; %41
+  $t4 = MOP_COPY.4 $t1 ; %33
+
+MBB #3, '<if_exit>', ir #3, <- #5 #4, -> #1
+  $t1 = addw.4 $t4, $t5 ; %27
+
+MBB #1, '<exit>', ir #1, <- #3
+  $a0 = MOP_COPY.4 $t1 ; %30
+  ret ; %30
+
+

@@ -1,0 +1,45 @@
+--- Phase: isel ---
+MachineFunction 'loop_backedge_guard' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %45
+  %v1 : gp/4 ; %14
+  %v2 : gp/4 ; %43
+  %v3 : gp/4 ; %26
+  %v4 : gp/4 ; %30
+  %v5 : gp/4 ; %3
+  %v6 : gp/4 ; %6
+  %v7 : gp/4 ; %9
+  %v8 : gp/4 ; %25
+  %v9 : gp/4 ; %36
+  %v10 : gp/4 ; %37
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v1 = li.4 0 ; %14
+  %v5 = MOP_COPY.4 $a0 ; %3
+  %v6 = MOP_COPY.4 $a1 ; %6
+  %v7 = MOP_COPY.4 $a2 ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  %v0 = MOP_COPY.4 %v1 ; %45
+  %v2 = MOP_COPY.4 %v1 ; %43
+
+MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
+  bge %v2, %v7, #5 ; %21
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #3
+  %v8 = addw.4 %v5, %v6 ; %25
+  %v3 = addw.4 %v0, %v8 ; %26
+  %v4 = addw.4 %v2, 1 ; %30
+  %v0 = MOP_COPY.4 %v3 ; %45
+  %v2 = MOP_COPY.4 %v4 ; %43
+  j #3 ; %32
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+  %v9 = addw.4 %v5, %v6 ; %36
+  %v10 = addw.4 %v0, %v9 ; %37
+
+MBB #1, '<exit>', ir #1, <- #5
+  $a0 = MOP_COPY.4 %v10 ; %40
+  ret ; %40
+
+

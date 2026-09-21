@@ -1,0 +1,99 @@
+--- Phase: isel ---
+MachineFunction 'pass' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %6
+  %v1 : gp/8 ; %1
+  %v2 : gp/8 ; %7
+  %v3 : gp/8
+  %v4 : gp/4 ; %5
+Frame: 32 bytes
+  fi#0 : local 24/8 @ -24 ; %7
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = li.8 24 ; %6
+  %v1 = MOP_COPY.8 $a0 ; %1
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v2 = la.8 [fi#0] ; %7
+  %v3 = lu.8 [%v1] ; %8
+  s.8 [fi#0], %v3 ; %8
+  %v3 = lu.8 [%v1 + 8] ; %8
+  s.8 [fi#0 + 8], %v3 ; %8
+  %v3 = lu.8 [%v1 + 16] ; %8
+  s.8 [fi#0 + 16], %v3 ; %8
+  $a0 = MOP_COPY.8 %v2 ; %5
+  call takeBig [implicit-def $a0, implicit $a0] <clobbers caller-saved> ; %5
+  %v4 = MOP_COPY.4 $a0 ; %5
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.4 %v4 ; %11
+  ret ; %11
+
+
+--- Phase: isel ---
+MachineFunction 'scalars' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %13
+  %v1 : gp/4 ; %3
+  %v2 : gp/8 ; %5
+  %v3 : gp/4 ; %7
+  %v4 : gp/8 ; %14
+  %v5 : gp/8
+  %v6 : gp/8
+  %v7 : gp/8
+  %v8 : gp/4 ; %11
+Frame: 32 bytes
+  fi#0 : local 24/8 @ -24 ; %14
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = li.8 24 ; %13
+  %v1 = MOP_COPY.4 $a0 ; %3
+  %v2 = MOP_COPY.8 $a1 ; %5
+  %v3 = MOP_COPY.4 $a2 ; %7
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v4 = la.8 [fi#0] ; %14
+  %v5 = lu.8 [%v2] ; %15
+  s.8 [fi#0], %v5 ; %15
+  %v5 = lu.8 [%v2 + 8] ; %15
+  s.8 [fi#0 + 8], %v5 ; %15
+  %v5 = lu.8 [%v2 + 16] ; %15
+  s.8 [fi#0 + 16], %v5 ; %15
+  %v6 = sext.8/4 %v1 ; %11
+  $a0 = MOP_COPY.8 %v6 ; %11
+  $a1 = MOP_COPY.8 %v4 ; %11
+  %v7 = sext.8/4 %v3 ; %11
+  $a2 = MOP_COPY.8 %v7 ; %11
+  call mixed [implicit-def $a0, implicit $a0, implicit $a1, implicit $a2] <clobbers caller-saved> ; %11
+  %v8 = MOP_COPY.4 $a0 ; %11
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.4 %v8 ; %19
+  ret ; %19
+
+
+--- Phase: isel ---
+MachineFunction 'small' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %8
+  %v1 : gp/8 ; %1
+  %v2 : gp/8 ; %3
+  %v3 : gp/8 ; %10
+  %v4 : gp/4 ; %7
+Frame: 16 bytes
+  fi#0 : local 8/4 @ -8 's' ; %2
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = li.8 0 ; %8
+  %v1 = li.8 8 ; %1
+  %v2 = MOP_COPY.8 $a0 ; %3
+  s.8 [fi#0], %v2 ; %4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  %v3 = l.8 [fi#0] ; %10
+  $a0 = MOP_COPY.8 %v3 ; %7
+  call takeSmall [implicit-def $a0, implicit $a0] <clobbers caller-saved> ; %7
+  %v4 = MOP_COPY.4 $a0 ; %7
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.4 %v4 ; %13
+  ret ; %13
+
+

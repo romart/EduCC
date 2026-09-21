@@ -1,0 +1,18 @@
+--- Phase: ra ---
+MachineFunction 'scp_const_fold' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %3
+  %v1 : gp/4 ; %22
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $a0
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t1 = addw.4 $a0, 100 ; %22
+
+MBB #1, '<exit>', ir #1, <- #2
+  $a0 = MOP_COPY.4 $t1 ; %25
+  ret ; %25
+
+

@@ -1,0 +1,87 @@
+--- Phase: ra ---
+MachineFunction 'isel_int_ops' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %90
+  %v1 : gp/4 ; %53
+  %v2 : gp/4 ; %62
+  %v3 : gp/4 ; %88
+  %v4 : gp/4 ; %72
+  %v5 : gp/4 ; %99
+  %v6 : gp/4 ; %98
+  %v7 : gp/4 ; %3
+  %v8 : gp/4 ; %6
+  %v9 : gp/4 ; %9
+  %v10 : gp/4 ; %12
+  %v11 : gp/4 ; %21
+  %v12 : gp/4 ; %22
+  %v13 : gp/4 ; %23
+  %v14 : gp/4 ; %27
+  %v15 : gp/4 ; %28
+  %v16 : gp/4 ; %29
+  %v17 : gp/4 ; %34
+  %v18 : gp/4 ; %35
+  %v19 : gp/4 ; %40
+  %v20 : gp/4 ; %41
+  %v21 : gp/4 ; %46
+  %v22 : gp/4 ; %47
+  %v23 : gp/4 ; %52
+  %v24 : gp/4 ; %80
+  %v25 : gp/4 ; %81
+  %v26 : gp/4 ; %82
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $t1 $t2 $a0 $a1 $a2 $a3 $t3 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 252645135 ; %99
+  $t2 = li.4 0 ; %98
+  $t3 = MOP_COPY.4 $a0 ; %3
+  $t4 = MOP_COPY.4 $a1 ; %6
+  $t5 = MOP_COPY.4 $a2 ; %9
+  $t6 = MOP_COPY.4 $a3 ; %12
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
+  $a0 = not.4 $t5 ; %21
+  $t5 = sext.4 $a0 ; %22
+  $a0 = addw.4 $t2, $t5 ; %23
+  $t2 = sltu.8/4 $t6, 1 ; %27
+  $t5 = sext.4 $t2 ; %28
+  $t2 = addw.4 $a0, $t5 ; %29
+  $t5 = sllw.4 $t3, $t6 ; %34
+  $t6 = addw.4 $t2, $t5 ; %35
+  $t2 = srlw.4 $t3, 3 ; %40
+  $t5 = addw.4 $t6, $t2 ; %41
+  $t2 = divuw.4 $t3, $t4 ; %46
+  $t6 = addw.4 $t5, $t2 ; %47
+  $t2 = remuw.4 $t3, $t4 ; %52
+  $t5 = addw.4 $t6, $t2 ; %53
+  bltu $t3, $t4, #4 ; %58
+
+MBB #7, '<crit_splitter>', ir #7, <- #2, -> #3
+  $t2 = MOP_COPY.4 $t5 ; %90
+  j #3 ; %102
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  $t6 = addw.4 $t5, 1 ; %62
+  $t2 = MOP_COPY.4 $t6 ; %90
+
+MBB #3, '<if_exit>', ir #3, <- #7 #4, -> #6 #8
+  bltu $t4, $t3, #6 ; %68
+
+MBB #8, '<crit_splitter>', ir #8, <- #3, -> #5
+  $t5 = MOP_COPY.4 $t2 ; %88
+  j #5 ; %103
+
+MBB #6, '<if_then>', ir #6, <- #3, -> #5
+  $t6 = addw.4 $t2, 2 ; %72
+  $t5 = MOP_COPY.4 $t6 ; %88
+
+MBB #5, '<if_exit>', ir #5, <- #8 #6, -> #1
+  $t2 = xor.4 $t4, $t1 ; %80
+  $t1 = or.4 $t3, $t2 ; %81
+  $t2 = and.4 $t5, $t1 ; %82
+
+MBB #1, '<exit>', ir #1, <- #5
+  $a0 = MOP_COPY.4 $t2 ; %85
+  ret ; %85
+
+

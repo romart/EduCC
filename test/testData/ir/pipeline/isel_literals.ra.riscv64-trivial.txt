@@ -1,0 +1,109 @@
+--- Phase: ra ---
+MachineFunction 'one' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %3
+Frame: 16 bytes
+  fi#0 : spill 8/8 @ -8 %v0 ; %3
+Allocator: trivial
+Physical registers used: $a0 $t4
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = la.8 [cp#0 "hello"] ; %3
+  MOP_SPILL.8 fi#0, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+MBB #1, '<exit>', ir #1, <- #2
+  $t4 = MOP_RELOAD.8 fi#0
+  $a0 = MOP_COPY.8 $t4 ; %6
+  ret ; %6
+
+
+--- Phase: ra ---
+MachineFunction 'twice' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %19
+  %v1 : gp/8 ; %5
+Frame: 16 bytes
+  fi#0 : spill 8/8 @ -8 %v0 ; %19
+  fi#1 : spill 8/8 @ -16 %v1 ; %5
+Allocator: trivial
+Physical registers used: $a0 $t4
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = li.4 1 ; %19
+  MOP_SPILL.8 fi#0, $t4
+  $t4 = la.8 [cp#0 "same"] ; %5
+  MOP_SPILL.8 fi#1, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+MBB #1, '<exit>', ir #1, <- #2
+  $t4 = MOP_RELOAD.8 fi#0
+  $a0 = MOP_COPY.4 $t4 ; %13
+  ret ; %13
+
+
+--- Phase: ra ---
+MachineFunction 'distinct' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %14
+  %v1 : gp/8 ; %8
+  %v2 : gp/8 ; %11
+  %v3 : gp/4 ; %3
+Frame: 32 bytes
+  fi#0 : spill 8/8 @ -8 %v2 ; %11
+  fi#1 : spill 8/8 @ -16 %v1 ; %8
+  fi#2 : spill 8/8 @ -24 %v3 ; %3
+  fi#3 : spill 8/8 @ -32 %v0 ; %14
+Allocator: trivial
+Physical registers used: $zero $a0 $t4 $t5
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = la.8 [cp#0 "second"] ; %11
+  MOP_SPILL.8 fi#0, $t4
+  $t4 = la.8 [cp#1 "first"] ; %8
+  MOP_SPILL.8 fi#1, $t4
+  $t4 = MOP_COPY.4 $a0 ; %3
+  MOP_SPILL.8 fi#2, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3 #4
+  $t4 = MOP_RELOAD.8 fi#2
+  bne $t4, $zero, #3 ; %7
+
+MBB #4, '<ifFalse>', ir #4, <- #2, -> #5
+  $t5 = MOP_RELOAD.8 fi#0
+  $t4 = MOP_COPY.8 $t5 ; %14
+  MOP_SPILL.8 fi#3, $t4
+  j #5 ; %13
+
+MBB #3, '<ifTrue>', ir #3, <- #2, -> #5
+  $t5 = MOP_RELOAD.8 fi#1
+  $t4 = MOP_COPY.8 $t5 ; %14
+  MOP_SPILL.8 fi#3, $t4
+
+MBB #5, '<ternary_exit>', ir #5, <- #3 #4, -> #1
+
+MBB #1, '<exit>', ir #1, <- #5
+  $t4 = MOP_RELOAD.8 fi#3
+  $a0 = MOP_COPY.8 $t4 ; %17
+  ret ; %17
+
+
+--- Phase: ra ---
+MachineFunction 'embedded' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %3
+Frame: 16 bytes
+  fi#0 : spill 8/8 @ -8 %v0 ; %3
+Allocator: trivial
+Physical registers used: $a0 $t4
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = la.8 [cp#0 "a\n\"b\\c\200\000d"] ; %3
+  MOP_SPILL.8 fi#0, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+
+MBB #1, '<exit>', ir #1, <- #2
+  $t4 = MOP_RELOAD.8 fi#0
+  $a0 = MOP_COPY.8 $t4 ; %6
+  ret ; %6
+
+

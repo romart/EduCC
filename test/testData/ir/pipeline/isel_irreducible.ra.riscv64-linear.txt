@@ -1,0 +1,59 @@
+--- Phase: ra ---
+MachineFunction 'isel_irreducible' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %49
+  %v1 : gp/4 ; %14
+  %v2 : gp/4 ; %43
+  %v3 : gp/4 ; %16
+  %v4 : gp/4 ; %47
+  %v5 : gp/4 ; %28
+  %v6 : gp/4 ; %45
+  %v7 : gp/4 ; %32
+  %v8 : gp/4 ; %3
+  %v9 : gp/4 ; %6
+  %v10 : gp/4 ; %9
+  %v11 : gp/4 ; %37
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $zero $t1 $t2 $a0 $a1 $a2 $t3 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 1 ; %16
+  $t2 = li.4 0 ; %14
+  $t3 = MOP_COPY.4 $a0 ; %3
+  $t4 = MOP_COPY.4 $a1 ; %6
+  $t5 = MOP_COPY.4 $a2 ; %9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  bne $t3, $zero, #4 ; %19
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #6
+  $t3 = MOP_COPY.4 $t2 ; %47
+  $t6 = MOP_COPY.4 $t1 ; %45
+  j #6 ; %21
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #5
+  $a0 = MOP_COPY.4 $t2 ; %49
+  $t2 = MOP_COPY.4 $t1 ; %43
+
+MBB #5, 'again', ir #5, <- #4 #7, -> #6
+  $a1 = addw.4 $a0, $t1 ; %32
+  $t3 = MOP_COPY.4 $a1 ; %47
+  $t6 = MOP_COPY.4 $t2 ; %45
+
+MBB #6, '<while_head>', ir #6, <- #3 #5, -> #7 #8
+  bge $t3, $t4, #8 ; %25
+
+MBB #7, '<while_body>', ir #7, <- #6, -> #5
+  $a1 = mulw.4 $t6, $t5 ; %28
+  $a0 = MOP_COPY.4 $t3 ; %49
+  $t2 = MOP_COPY.4 $a1 ; %43
+  j #5 ; %30
+
+MBB #8, '<while_exit>', ir #8, <- #6, -> #1
+  $t1 = addw.4 $t6, $t3 ; %37
+
+MBB #1, '<exit>', ir #1, <- #8
+  $a0 = MOP_COPY.4 $t1 ; %40
+  ret ; %40
+
+

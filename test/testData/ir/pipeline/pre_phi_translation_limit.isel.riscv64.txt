@@ -1,0 +1,63 @@
+--- Phase: isel ---
+MachineFunction 'pre_phi_translation_limit' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %56
+  %v1 : gp/8 ; %57
+  %v2 : gp/4 ; %47
+  %v3 : gp/4 ; %16
+  %v4 : gp/8 ; %23
+  %v5 : gp/4 ; %29
+  %v6 : gp/8 ; %3
+  %v7 : gp/4 ; %6
+  %v8 : gp/4 ; %9
+  %v9 : gp/4 ; %12
+  %v10 : gp/8
+  %v11 : gp/8
+  %v12 : gp/8 ; %25
+  %v13 : gp/8 ; %26
+  %v14 : gp/4 ; %27
+  %v15 : gp/8 ; %36
+  %v16 : gp/8 ; %37
+  %v17 : gp/4 ; %38
+  %v18 : gp/4 ; %40
+  %v19 : gp/4 ; %41
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v3 = li.4 0 ; %16
+  %v6 = MOP_COPY.8 $a0 ; %3
+  %v7 = MOP_COPY.4 $a1 ; %6
+  %v8 = MOP_COPY.4 $a2 ; %9
+  %v9 = MOP_COPY.4 $a3 ; %12
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #5
+  blt %v3, %v9, #4 ; %20
+
+MBB #5, '<crit_splitter>', ir #5, <- #2, -> #3
+  %v10 = sext.8/4 %v7 ; %57
+  %v1 = MOP_COPY.8 %v10 ; %57
+  %v0 = MOP_COPY.8 %v1 ; %56
+  %v2 = MOP_COPY.4 %v3 ; %47
+  j #3 ; %55
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  %v11 = sext.8/4 %v7 ; %23
+  %v4 = MOP_COPY.8 %v11 ; %23
+  %v12 = sll.8 %v4, 2 ; %25
+  %v13 = add.8 %v6, %v12 ; %26
+  %v14 = l.8/4 [%v13] ; %27
+  %v5 = addw.4 %v14, %v8 ; %29
+  %v0 = MOP_COPY.8 %v4 ; %56
+  %v2 = MOP_COPY.4 %v5 ; %47
+
+MBB #3, '<if_exit>', ir #3, <- #5 #4, -> #1
+  %v15 = sll.8 %v0, 2 ; %36
+  %v16 = add.8 %v6, %v15 ; %37
+  %v17 = l.8/4 [%v16] ; %38
+  %v18 = addw.4 %v17, %v8 ; %40
+  %v19 = addw.4 %v2, %v18 ; %41
+
+MBB #1, '<exit>', ir #1, <- #3
+  $a0 = MOP_COPY.4 %v19 ; %44
+  ret ; %44
+
+

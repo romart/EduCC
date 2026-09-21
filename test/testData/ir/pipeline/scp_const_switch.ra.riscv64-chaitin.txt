@@ -1,0 +1,25 @@
+--- Phase: ra ---
+MachineFunction 'scp_const_switch' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %11
+  %v1 : gp/4 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/4 ; %30
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $a0 $a1
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 2 ; %11
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4
+
+MBB #4, '<case_block>', ir #7, <- #2, -> #3
+  $t1 = mulw.4 $a0, $a1 ; %30
+
+MBB #3, '<switch_exit>', ir #3, <- #4, -> #1
+
+MBB #1, '<exit>', ir #1, <- #3
+  $a0 = MOP_COPY.4 $t1 ; %38
+  ret ; %38
+
+

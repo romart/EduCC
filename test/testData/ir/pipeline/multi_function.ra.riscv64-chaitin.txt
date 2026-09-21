@@ -1,0 +1,40 @@
+--- Phase: ra ---
+MachineFunction 'first_fn' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %3
+  %v1 : gp/4 ; %6
+  %v2 : gp/4 ; %13
+  %v3 : gp/4 ; %21
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $a0 $a1
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t1 = addw.4 $a0, $a1 ; %13
+  $a0 = addw.4 $t1, $t1 ; %21
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %24
+
+
+--- Phase: ra ---
+MachineFunction 'second_fn' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %3
+  %v1 : gp/4 ; %6
+  %v2 : gp/4 ; %13
+  %v3 : gp/4 ; %21
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $a0 $a1
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t1 = addw.4 $a0, $a1 ; %13
+  $a0 = addw.4 $t1, $t1 ; %21
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %24
+
+

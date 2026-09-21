@@ -1,0 +1,47 @@
+--- Phase: ra ---
+MachineFunction 'frame_dynamic_alloca' [target = riscv64]
+VRegs:
+  %v0 : gp/8 ; %60
+  %v1 : gp/8 ; %58
+  %v2 : gp/8 ; %12
+  %v3 : gp/8 ; %1
+  %v4 : gp/4 ; %3
+  %v5 : gp/8 ; %9
+  %v6 : gp/8
+  %v7 : gp/8 ; %13
+  %v8 : gp/8
+  %v9 : gp/8 ; %14
+  %v10 : gp/4 ; %32
+  %v11 : gp/4 ; %43
+  %v12 : gp/4 ; %47
+  %v13 : gp/4 ; %48
+Frame: 16 bytes, dynamic
+  fi#0 : local 8/4 @ -8 'fixed' ; %7
+  fi#1 : local dynamic 'v' ; %14
+Allocator: graph colouring
+Physical registers used: $sp $t1 $t2 $a0 $t3
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.8 4 ; %60
+  $t1 = li.8 0 ; %58
+  $t1 = li.8 4 ; %12
+  $t2 = li.8 8 ; %1
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t2 = sext.8/4 $a0 ; %9
+  $t3 = mul.8 $t2, $t1 ; %13
+  $t3 = add.8 $t3, 15 ; %14
+  $t3 = and.8 $t3, -16 ; %14
+  $sp = sub.8 $sp, $t3 ; %14
+  $t1 = la.8 [$sp] ; %14
+  s.4 [$t1], $a0 ; %24
+  $t2 = l.8/4 [$t1] ; %32
+  s.4 [fi#0], $t2 ; %33
+  s.4 [fi#0 + 4], $a0 ; %39
+  $t1 = l.8/4 [fi#0] ; %43
+  $t2 = l.8/4 [fi#0 + 4] ; %47
+  $a0 = addw.4 $t1, $t2 ; %48
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %51
+
+

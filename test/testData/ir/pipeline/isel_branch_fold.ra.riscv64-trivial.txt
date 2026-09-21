@@ -1,0 +1,446 @@
+--- Phase: ra ---
+MachineFunction 'folded' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+Frame: 48 bytes
+  fi#0 : spill 8/8 @ -8 %v2 ; %16
+  fi#1 : spill 8/8 @ -16 %v1 ; %13
+  fi#2 : spill 8/8 @ -24 %v3 ; %3
+  fi#3 : spill 8/8 @ -32 %v4 ; %6
+  fi#4 : spill 8/8 @ -40 %v0 ; %22
+Allocator: trivial
+Physical registers used: $a0 $a1 $t4 $t5
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = li.4 2 ; %16
+  MOP_SPILL.8 fi#0, $t4
+  $t4 = li.4 1 ; %13
+  MOP_SPILL.8 fi#1, $t4
+  $t4 = MOP_COPY.4 $a0 ; %3
+  MOP_SPILL.8 fi#2, $t4
+  $t4 = MOP_COPY.4 $a1 ; %6
+  MOP_SPILL.8 fi#3, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#3
+  blt $t4, $t5, #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  $t5 = MOP_RELOAD.8 fi#0
+  $t4 = MOP_COPY.4 $t5 ; %22
+  MOP_SPILL.8 fi#4, $t4
+  j #1 ; %18
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $t5 = MOP_RELOAD.8 fi#1
+  $t4 = MOP_COPY.4 $t5 ; %22
+  MOP_SPILL.8 fi#4, $t4
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $t4 = MOP_RELOAD.8 fi#4
+  $a0 = MOP_COPY.4 $t4 ; %19
+  ret ; %19
+
+
+--- Phase: ra ---
+MachineFunction 'inverted' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %28
+  %v1 : gp/4 ; %18
+  %v2 : gp/4 ; %22
+  %v3 : gp/4 ; %17
+  %v4 : gp/4 ; %15
+  %v5 : gp/4 ; %14
+  %v6 : gp/4 ; %3
+  %v7 : gp/4 ; %6
+  %v8 : gp/8
+Frame: 80 bytes
+  fi#0 : spill 8/8 @ -8 %v2 ; %22
+  fi#1 : spill 8/8 @ -16 %v1 ; %18
+  fi#2 : spill 8/8 @ -24 %v5 ; %14
+  fi#3 : spill 8/8 @ -32 %v6 ; %3
+  fi#4 : spill 8/8 @ -40 %v7 ; %6
+  fi#5 : spill 8/8 @ -48 %v3 ; %17
+  fi#6 : spill 8/8 @ -56 %v8
+  fi#7 : spill 8/8 @ -64 %v4 ; %15
+  fi#8 : spill 8/8 @ -72 %v0 ; %28
+Allocator: trivial
+Physical registers used: $zero $a0 $a1 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = li.4 2 ; %22
+  MOP_SPILL.8 fi#0, $t4
+  $t4 = li.4 1 ; %18
+  MOP_SPILL.8 fi#1, $t4
+  $t4 = li.4 0 ; %14
+  MOP_SPILL.8 fi#2, $t4
+  $t4 = MOP_COPY.4 $a0 ; %3
+  MOP_SPILL.8 fi#3, $t4
+  $t4 = MOP_COPY.4 $a1 ; %6
+  MOP_SPILL.8 fi#4, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #5 #7
+  $t4 = MOP_RELOAD.8 fi#4
+  $t5 = MOP_RELOAD.8 fi#3
+  bge $t4, $t5, #5 ; %12
+
+MBB #7, '<crit_splitter>', ir #7, <- #2, -> #6
+  $t5 = MOP_RELOAD.8 fi#1
+  $t4 = MOP_COPY.4 $t5 ; %17
+  MOP_SPILL.8 fi#5, $t4
+  j #6 ; %33
+
+MBB #5, '< || >', ir #5, <- #2, -> #6
+  $t5 = MOP_RELOAD.8 fi#3
+  $t6 = MOP_RELOAD.8 fi#2
+  $t4 = sub.8 $t5, $t6 ; %15
+  MOP_SPILL.8 fi#6, $t4
+  $t5 = MOP_RELOAD.8 fi#6
+  $t4 = sltu.8 $t5, 1 ; %15
+  MOP_SPILL.8 fi#7, $t4
+  $t5 = MOP_RELOAD.8 fi#7
+  $t4 = MOP_COPY.4 $t5 ; %17
+  MOP_SPILL.8 fi#5, $t4
+
+MBB #6, '< ||-exit>', ir #6, <- #7 #5, -> #4 #3
+  $t4 = MOP_RELOAD.8 fi#5
+  bne $t4, $zero, #4 ; %19
+
+MBB #3, '<if_exit>', ir #3, <- #6, -> #1
+  $t5 = MOP_RELOAD.8 fi#0
+  $t4 = MOP_COPY.4 $t5 ; %28
+  MOP_SPILL.8 fi#8, $t4
+  j #1 ; %24
+
+MBB #4, '<if_then>', ir #4, <- #6, -> #1
+  $t5 = MOP_RELOAD.8 fi#1
+  $t4 = MOP_COPY.4 $t5 ; %28
+  MOP_SPILL.8 fi#8, $t4
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $t4 = MOP_RELOAD.8 fi#8
+  $a0 = MOP_COPY.4 $t4 ; %25
+  ret ; %25
+
+
+--- Phase: ra ---
+MachineFunction 'unsigned_' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+Frame: 48 bytes
+  fi#0 : spill 8/8 @ -8 %v2 ; %16
+  fi#1 : spill 8/8 @ -16 %v1 ; %13
+  fi#2 : spill 8/8 @ -24 %v3 ; %3
+  fi#3 : spill 8/8 @ -32 %v4 ; %6
+  fi#4 : spill 8/8 @ -40 %v0 ; %22
+Allocator: trivial
+Physical registers used: $a0 $a1 $t4 $t5
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = li.4 2 ; %16
+  MOP_SPILL.8 fi#0, $t4
+  $t4 = li.4 1 ; %13
+  MOP_SPILL.8 fi#1, $t4
+  $t4 = MOP_COPY.4 $a0 ; %3
+  MOP_SPILL.8 fi#2, $t4
+  $t4 = MOP_COPY.4 $a1 ; %6
+  MOP_SPILL.8 fi#3, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  $t4 = MOP_RELOAD.8 fi#2
+  $t5 = MOP_RELOAD.8 fi#3
+  bltu $t4, $t5, #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  $t5 = MOP_RELOAD.8 fi#0
+  $t4 = MOP_COPY.4 $t5 ; %22
+  MOP_SPILL.8 fi#4, $t4
+  j #1 ; %18
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $t5 = MOP_RELOAD.8 fi#1
+  $t4 = MOP_COPY.4 $t5 ; %22
+  MOP_SPILL.8 fi#4, $t4
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $t4 = MOP_RELOAD.8 fi#4
+  $a0 = MOP_COPY.4 $t4 ; %19
+  ret ; %19
+
+
+--- Phase: ra ---
+MachineFunction 'kept' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %27
+  %v1 : gp/4 ; %18
+  %v2 : gp/4 ; %12
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+  %v5 : gp/8
+Frame: 48 bytes
+  fi#0 : spill 8/8 @ -8 %v3 ; %3
+  fi#1 : spill 8/8 @ -16 %v4 ; %6
+  fi#2 : spill 8/8 @ -24 %v5
+  fi#3 : spill 8/8 @ -32 %v2 ; %12
+  fi#4 : spill 8/8 @ -40 %v0 ; %27
+  fi#5 : spill 8/8 @ -48 %v1 ; %18
+Allocator: trivial
+Physical registers used: $zero $a0 $a1 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = MOP_COPY.4 $a0 ; %3
+  MOP_SPILL.8 fi#0, $t4
+  $t4 = MOP_COPY.4 $a1 ; %6
+  MOP_SPILL.8 fi#1, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  $t5 = MOP_RELOAD.8 fi#0
+  $t6 = MOP_RELOAD.8 fi#1
+  $t4 = sub.8 $t5, $t6 ; %12
+  MOP_SPILL.8 fi#2, $t4
+  $t5 = MOP_RELOAD.8 fi#2
+  $t4 = sltu.8 $t5, 1 ; %12
+  MOP_SPILL.8 fi#3, $t4
+  $t4 = MOP_RELOAD.8 fi#3
+  bne $t4, $zero, #4 ; %15
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = MOP_COPY.4 $t5 ; %27
+  MOP_SPILL.8 fi#4, $t4
+  j #1 ; %23
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $t5 = MOP_RELOAD.8 fi#3
+  $t4 = addw.4 $t5, 10 ; %18
+  MOP_SPILL.8 fi#5, $t4
+  $t5 = MOP_RELOAD.8 fi#5
+  $t4 = MOP_COPY.4 $t5 ; %27
+  MOP_SPILL.8 fi#4, $t4
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $t4 = MOP_RELOAD.8 fi#4
+  $a0 = MOP_COPY.4 $t4 ; %24
+  ret ; %24
+
+
+--- Phase: ra ---
+MachineFunction 'distant' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %35
+  %v1 : gp/4 ; %24
+  %v2 : gp/4 ; %27
+  %v3 : gp/4 ; %3
+  %v4 : gp/4 ; %6
+  %v5 : gp/4 ; %9
+  %v6 : gp/4 ; %15
+Frame: 64 bytes
+  fi#0 : spill 8/8 @ -8 %v2 ; %27
+  fi#1 : spill 8/8 @ -16 %v1 ; %24
+  fi#2 : spill 8/8 @ -24 %v3 ; %3
+  fi#3 : spill 8/8 @ -32 %v4 ; %6
+  fi#4 : spill 8/8 @ -40 %v5 ; %9
+  fi#5 : spill 8/8 @ -48 %v6 ; %15
+  fi#6 : spill 8/8 @ -56 %v0 ; %35
+Allocator: trivial
+Physical registers used: $zero $a0 $a1 $a2 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = li.4 2 ; %27
+  MOP_SPILL.8 fi#0, $t4
+  $t4 = li.4 1 ; %24
+  MOP_SPILL.8 fi#1, $t4
+  $t4 = MOP_COPY.4 $a0 ; %3
+  MOP_SPILL.8 fi#2, $t4
+  $t4 = MOP_COPY.4 $a1 ; %6
+  MOP_SPILL.8 fi#3, $t4
+  $t4 = MOP_COPY.4 $a2 ; %9
+  MOP_SPILL.8 fi#4, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
+  $t5 = MOP_RELOAD.8 fi#3
+  $t6 = MOP_RELOAD.8 fi#2
+  $t4 = slt.8/4 $t5, $t6 ; %15
+  MOP_SPILL.8 fi#5, $t4
+  $t4 = MOP_RELOAD.8 fi#4
+  bne $t4, $zero, #4 ; %18
+
+MBB #7, '<crit_splitter>', ir #7, <- #2, -> #3
+  j #3 ; %42
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+
+MBB #3, '<if_exit>', ir #3, <- #7 #4, -> #6 #5
+  $t4 = MOP_RELOAD.8 fi#5
+  bne $t4, $zero, #6 ; %23
+
+MBB #5, '<if_exit>', ir #5, <- #3, -> #1
+  $t5 = MOP_RELOAD.8 fi#0
+  $t4 = MOP_COPY.4 $t5 ; %35
+  MOP_SPILL.8 fi#6, $t4
+  j #1 ; %29
+
+MBB #6, '<if_then>', ir #6, <- #3, -> #1
+  $t5 = MOP_RELOAD.8 fi#1
+  $t4 = MOP_COPY.4 $t5 ; %35
+  MOP_SPILL.8 fi#6, $t4
+
+MBB #1, '<exit>', ir #1, <- #6 #5
+  $t4 = MOP_RELOAD.8 fi#6
+  $a0 = MOP_COPY.4 $t4 ; %30
+  ret ; %30
+
+
+--- Phase: ra ---
+MachineFunction 'notCompare' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %17
+  %v1 : gp/4 ; %8
+  %v2 : gp/4 ; %11
+  %v3 : gp/4 ; %3
+Frame: 32 bytes
+  fi#0 : spill 8/8 @ -8 %v2 ; %11
+  fi#1 : spill 8/8 @ -16 %v1 ; %8
+  fi#2 : spill 8/8 @ -24 %v3 ; %3
+  fi#3 : spill 8/8 @ -32 %v0 ; %17
+Allocator: trivial
+Physical registers used: $zero $a0 $t4 $t5
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = li.4 2 ; %11
+  MOP_SPILL.8 fi#0, $t4
+  $t4 = li.4 1 ; %8
+  MOP_SPILL.8 fi#1, $t4
+  $t4 = MOP_COPY.4 $a0 ; %3
+  MOP_SPILL.8 fi#2, $t4
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  $t4 = MOP_RELOAD.8 fi#2
+  bne $t4, $zero, #4 ; %7
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  $t5 = MOP_RELOAD.8 fi#0
+  $t4 = MOP_COPY.4 $t5 ; %17
+  MOP_SPILL.8 fi#3, $t4
+  j #1 ; %13
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $t5 = MOP_RELOAD.8 fi#1
+  $t4 = MOP_COPY.4 $t5 ; %17
+  MOP_SPILL.8 fi#3, $t4
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $t4 = MOP_RELOAD.8 fi#3
+  $a0 = MOP_COPY.4 $t4 ; %14
+  ret ; %14
+
+
+--- Phase: ra ---
+MachineFunction 'floatOrder' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+  %v3 : fp/8 ; %3
+  %v4 : fp/8 ; %6
+  %v5 : gp/4 ; %11
+Frame: 48 bytes
+  fi#0 : spill 8/8 @ -8 %v2 ; %16
+  fi#1 : spill 8/8 @ -16 %v1 ; %13
+  fi#2 : spill 8/8 @ -24 %v3 ; %3
+  fi#3 : spill 8/8 @ -32 %v4 ; %6
+  fi#4 : spill 8/8 @ -40 %v5 ; %11
+  fi#5 : spill 8/8 @ -48 %v0 ; %22
+Allocator: trivial
+Physical registers used: $zero $a0 $t4 $t5 $fa0 $fa1 $ft9 $ft10
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = li.4 2 ; %16
+  MOP_SPILL.8 fi#0, $t4
+  $t4 = li.4 1 ; %13
+  MOP_SPILL.8 fi#1, $t4
+  $ft9 = MOP_COPY.8 $fa0 ; %3
+  MOP_SPILL.8 fi#2, $ft9
+  $ft9 = MOP_COPY.8 $fa1 ; %6
+  MOP_SPILL.8 fi#3, $ft9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  $ft9 = MOP_RELOAD.8 fi#3
+  $ft10 = MOP_RELOAD.8 fi#2
+  $t4 = fle.8 $ft9, $ft10 ; %11
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#4
+  bne $t4, $zero, #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  $t5 = MOP_RELOAD.8 fi#0
+  $t4 = MOP_COPY.4 $t5 ; %22
+  MOP_SPILL.8 fi#5, $t4
+  j #1 ; %18
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $t5 = MOP_RELOAD.8 fi#1
+  $t4 = MOP_COPY.4 $t5 ; %22
+  MOP_SPILL.8 fi#5, $t4
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $t4 = MOP_RELOAD.8 fi#5
+  $a0 = MOP_COPY.4 $t4 ; %19
+  ret ; %19
+
+
+--- Phase: ra ---
+MachineFunction 'floatEqual' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %22
+  %v1 : gp/4 ; %13
+  %v2 : gp/4 ; %16
+  %v3 : fp/8 ; %3
+  %v4 : fp/8 ; %6
+  %v5 : gp/4 ; %11
+Frame: 48 bytes
+  fi#0 : spill 8/8 @ -8 %v2 ; %16
+  fi#1 : spill 8/8 @ -16 %v1 ; %13
+  fi#2 : spill 8/8 @ -24 %v3 ; %3
+  fi#3 : spill 8/8 @ -32 %v4 ; %6
+  fi#4 : spill 8/8 @ -40 %v5 ; %11
+  fi#5 : spill 8/8 @ -48 %v0 ; %22
+Allocator: trivial
+Physical registers used: $zero $a0 $t4 $t5 $fa0 $fa1 $ft9 $ft10
+MBB #0, '<entry>', ir #0, -> #2
+  $t4 = li.4 2 ; %16
+  MOP_SPILL.8 fi#0, $t4
+  $t4 = li.4 1 ; %13
+  MOP_SPILL.8 fi#1, $t4
+  $ft9 = MOP_COPY.8 $fa0 ; %3
+  MOP_SPILL.8 fi#2, $ft9
+  $ft9 = MOP_COPY.8 $fa1 ; %6
+  MOP_SPILL.8 fi#3, $ft9
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  $ft9 = MOP_RELOAD.8 fi#2
+  $ft10 = MOP_RELOAD.8 fi#3
+  $t4 = feq.8 $ft9, $ft10 ; %11
+  MOP_SPILL.8 fi#4, $t4
+  $t4 = MOP_RELOAD.8 fi#4
+  bne $t4, $zero, #4 ; %12
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  $t5 = MOP_RELOAD.8 fi#0
+  $t4 = MOP_COPY.4 $t5 ; %22
+  MOP_SPILL.8 fi#5, $t4
+  j #1 ; %18
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $t5 = MOP_RELOAD.8 fi#1
+  $t4 = MOP_COPY.4 $t5 ; %22
+  MOP_SPILL.8 fi#5, $t4
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $t4 = MOP_RELOAD.8 fi#5
+  $a0 = MOP_COPY.4 $t4 ; %19
+  ret ; %19
+
+

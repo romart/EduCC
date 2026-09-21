@@ -1,0 +1,23 @@
+--- Phase: isel ---
+MachineFunction 'scp_const_branch' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %35
+  %v1 : gp/4 ; %3
+  %v2 : gp/4 ; %6
+  %v3 : gp/4 ; %23
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v0 = li.4 0 ; %35
+  %v1 = MOP_COPY.4 $a0 ; %3
+  %v2 = MOP_COPY.4 $a1 ; %6
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  %v3 = subw.4 %v1, %v2 ; %23
+
+MBB #1, '<exit>', ir #1, <- #3
+  $a0 = MOP_COPY.4 %v3 ; %26
+  ret ; %26
+
+

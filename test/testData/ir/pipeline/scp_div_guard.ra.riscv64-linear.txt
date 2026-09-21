@@ -1,0 +1,36 @@
+--- Phase: ra ---
+MachineFunction 'scp_div_guard' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %25
+  %v1 : gp/4 ; %14
+  %v2 : gp/4 ; %19
+  %v3 : gp/4 ; %17
+  %v4 : gp/4 ; %12
+  %v5 : gp/4 ; %7
+  %v6 : gp/4 ; %3
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $t1 $t2 $a0 $t3 $t4
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 1 ; %17
+  $t2 = li.4 10 ; %12
+  $t3 = li.4 0 ; %7
+  $t4 = MOP_COPY.4 $a0 ; %3
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #3
+  blt $t3, $t4, #4 ; %11
+
+MBB #3, '<if_exit>', ir #3, <- #2, -> #1
+  $t4 = remw.4 $t1, $t3 ; %19
+  $t1 = MOP_COPY.4 $t4 ; %25
+  j #1 ; %21
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #1
+  $t4 = divw.4 $t2, $t3 ; %14
+  $t1 = MOP_COPY.4 $t4 ; %25
+
+MBB #1, '<exit>', ir #1, <- #4 #3
+  $a0 = MOP_COPY.4 $t1 ; %22
+  ret ; %22
+
+

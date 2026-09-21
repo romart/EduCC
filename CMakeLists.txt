@@ -296,13 +296,11 @@ if(BUILD_TESTING)
   # only assumed - it was tested by accident until step 18 removed the per
   # function fallback that arranged it (docs/ir-codegen-design.md section 9).
   #
-  # This and every IR-dump suite below it are x86-64's, and a cross build
-  # leaves the lot out. crossabi's premise is two backends meeting in one link
-  # and riscv64 has one, the way roadmap step 59's R4 always said. The dumps
-  # are a different reason and a debt rather than a fact: every one of them,
-  # not just the three phases R6 predicted, records a target's answers, so they
-  # need baselines of their own under '--baseline-tag riscv64' before stage 2
-  # can be asked about them.
+  # This and every IR-dump suite below it run for the host machine, and a
+  # cross build leaves the lot out. crossabi's premise is two backends meeting
+  # in one link and riscv64 has one, the way roadmap step 59's R4 always said.
+  # The dumps are a different reason: an x86-64 baseline is an x86-64 answer,
+  # and the riscv64 ones are registered separately below.
   if(NOT EDUCC_CROSS_RISCV64)
   educc_add_test(crossabi crossabi crossabi 120)
   # Compares '-irDump:ssa' output against golden dumps, isolating buildSSA
@@ -350,6 +348,28 @@ if(BUILD_TESTING)
                  --compiler-flag=-Xregalloc=linear --baseline-tag linear)
   educc_add_test(ir_ra_trivial ir/pipeline ir 60 ra
                  --compiler-flag=-Xregalloc=trivial --baseline-tag trivial)
+
+  # And the machine phases for the other machine (roadmap step 59, R6).
+  #
+  # Only the machine ones. R6 expected every phase to need a second baseline
+  # and measured it instead: over all 65 fixtures and all five pre-machine
+  # phases the entire difference is the *name* of the register a parameter
+  # arrives in, and seven fixtures whose subject is the ABI. A second set of
+  # golden files there would have recorded the first set twice plus a rename
+  # table - so what pins that down is checker_ir_target_neutral below, which
+  # states the claim a baseline cannot: that the IR ahead of selection is the
+  # same on both machines.
+  set(EDUCC_RISCV64_IR --compiler-flag=-march --compiler-flag=riscv64)
+  educc_add_test(ir_mir_riscv64 ir/pipeline ir 60 mir
+                 ${EDUCC_RISCV64_IR} --baseline-tag riscv64)
+  educc_add_test(ir_isel_riscv64 ir/pipeline ir 60 isel
+                 ${EDUCC_RISCV64_IR} --baseline-tag riscv64)
+  educc_add_test(ir_ra_riscv64_chaitin ir/pipeline ir 60 ra ${EDUCC_RISCV64_IR}
+                 --compiler-flag=-Xregalloc=chaitin --baseline-tag riscv64-chaitin)
+  educc_add_test(ir_ra_riscv64_linear ir/pipeline ir 60 ra ${EDUCC_RISCV64_IR}
+                 --compiler-flag=-Xregalloc=linear --baseline-tag riscv64-linear)
+  educc_add_test(ir_ra_riscv64_trivial ir/pipeline ir 60 ra ${EDUCC_RISCV64_IR}
+                 --compiler-flag=-Xregalloc=trivial --baseline-tag riscv64-trivial)
   endif() # NOT EDUCC_CROSS_RISCV64
 
   # The three linker unit suites synthesize x86-64 inputs byte by byte - an
@@ -467,6 +487,25 @@ if(BUILD_TESTING)
           SKIP_RETURN_CODE 2)
       endforeach()
     endforeach()
+
+    # ir_target_neutral.py is the other exception, and for the opposite
+    # reason: it compiles for *both* machines and compares, so neither a
+    # target nor an allocator is something to register a second round for. A
+    # cross build leaves it out - it needs a compiler that can still target
+    # x86-64, and a riscv64-hosted one reads the sysroot's headers whatever it
+    # is asked for.
+    if(NOT EDUCC_CROSS_RISCV64)
+      add_test(NAME checker_ir_target_neutral
+        COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_SOURCE_DIR}/test/checkers/ir_target_neutral.py"
+                "${EDUCC_TEST_COMPILER}" "test/testData/ir"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+      )
+      set_tests_properties(checker_ir_target_neutral PROPERTIES
+        TIMEOUT 300
+        LABELS checkers
+        SKIP_RETURN_CODE 2)
+    endif()
 
     # link.py is the exception to the round-per-allocator: it reads the linked
     # executable, and which allocator filled the .text in changes nothing about

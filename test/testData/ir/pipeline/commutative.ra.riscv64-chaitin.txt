@@ -1,0 +1,22 @@
+--- Phase: ra ---
+MachineFunction 'commutative' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %3
+  %v1 : gp/4 ; %6
+  %v2 : gp/4 ; %11
+  %v3 : gp/4 ; %15
+  %v4 : gp/4 ; %23
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0 $a1
+MBB #0, '<entry>', ir #0, -> #2
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #1
+  $t1 = addw.4 $a0, $a1 ; %11
+  $t2 = mulw.4 $t1, $t1 ; %15
+  $a0 = addw.4 $t2, $t2 ; %23
+
+MBB #1, '<exit>', ir #1, <- #2
+  ret ; %26
+
+

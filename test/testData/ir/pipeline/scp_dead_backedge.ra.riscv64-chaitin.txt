@@ -1,0 +1,38 @@
+--- Phase: ra ---
+MachineFunction 'scp_dead_backedge' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %38
+  %v1 : gp/4 ; %11
+  %v2 : gp/4 ; %36
+  %v3 : gp/4 ; %27
+  %v4 : gp/4 ; %21
+  %v5 : gp/4 ; %3
+  %v6 : gp/4 ; %6
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0 $a1 $t3
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 0 ; %11
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  $t2 = MOP_COPY.4 $t1 ; %36
+
+MBB #3, '<while_head>', ir #3, <- #2 #6, -> #4 #5
+  bge $t2, $a1, #5 ; %18
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #6
+  $t3 = addw.4 $t2, 1 ; %21
+
+MBB #6, '<if_exit>', ir #6, <- #4, -> #3
+  $t2 = addw.4 $t1, $a0 ; %27
+  $t1 = MOP_COPY.4 $t2 ; %38
+  $t2 = MOP_COPY.4 $t3 ; %36
+  j #3 ; %29
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+
+MBB #1, '<exit>', ir #1, <- #5
+  $a0 = MOP_COPY.4 $t1 ; %33
+  ret ; %33
+
+

@@ -1,0 +1,84 @@
+--- Phase: ra ---
+MachineFunction 'phi_swap_cycle' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %75
+  %v1 : gp/4 ; %12
+  %v2 : gp/4 ; %69
+  %v3 : gp/4 ; %6
+  %v4 : gp/4 ; %65
+  %v5 : gp/4 ; %3
+  %v6 : gp/4 ; %30
+  %v7 : gp/4 ; %73
+  %v8 : gp/4 ; %71
+  %v9 : gp/4 ; %9
+  %v10 : gp/4 ; %67
+  %v11 : gp/4 ; %63
+  %v12 : gp/4 ; %46
+  %v13 : gp/4
+  %v14 : gp/4
+  %v15 : gp/4 ; %53
+  %v16 : gp/4 ; %50
+  %v17 : gp/4 ; %29
+  %v18 : gp/4 ; %19
+  %v19 : gp/4 ; %51
+  %v20 : gp/4 ; %54
+  %v21 : gp/4 ; %55
+  %v22 : gp/4 ; %57
+Frame: <empty>
+Allocator: linear scan
+Physical registers used: $t1 $t2 $a0 $a1 $a2 $a3 $t3 $t4 $t5 $t6
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 10 ; %53
+  $t2 = li.4 100 ; %50
+  $t3 = li.4 1 ; %29
+  $t4 = li.4 0 ; %19
+  $t5 = MOP_COPY.4 $a0 ; %3
+  $t6 = MOP_COPY.4 $a1 ; %6
+  $a0 = MOP_COPY.4 $a2 ; %9
+  $a1 = MOP_COPY.4 $a3 ; %12
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  $a2 = MOP_COPY.4 $a1 ; %75
+  $a1 = MOP_COPY.4 $t6 ; %69
+  $t6 = MOP_COPY.4 $t5 ; %65
+
+MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
+  bge $t4, $a2, #5 ; %21
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #3
+  $t5 = subw.4 $a2, $t3 ; %30
+  $a2 = MOP_COPY.4 $t5 ; %75
+  $t5 = MOP_COPY.4 $a1
+  $a1 = MOP_COPY.4 $t6 ; %69
+  $t6 = MOP_COPY.4 $t5 ; %65
+  j #3 ; %32
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #6
+  $t5 = MOP_COPY.4 $a2 ; %73
+  $a2 = MOP_COPY.4 $a0 ; %71
+  $a0 = MOP_COPY.4 $a1 ; %67
+  $a1 = MOP_COPY.4 $t6 ; %63
+
+MBB #6, '<while_head>', ir #6, <- #5 #7, -> #7 #8
+  bge $t5, $t4, #8 ; %36
+
+MBB #7, '<while_body>', ir #7, <- #6, -> #6
+  $t6 = addw.4 $t5, $t3 ; %46
+  $t5 = MOP_COPY.4 $t6 ; %73
+  $t6 = MOP_COPY.4 $a2
+  $a2 = MOP_COPY.4 $a1 ; %71
+  $a1 = MOP_COPY.4 $a0 ; %63
+  $a0 = MOP_COPY.4 $t6 ; %67
+  j #6 ; %48
+
+MBB #8, '<while_exit>', ir #8, <- #6, -> #1
+  $t3 = mulw.4 $a1, $t2 ; %51
+  $t2 = mulw.4 $a0, $t1 ; %54
+  $t1 = addw.4 $t3, $t2 ; %55
+  $t2 = addw.4 $t1, $a2 ; %57
+
+MBB #1, '<exit>', ir #1, <- #8
+  $a0 = MOP_COPY.4 $t2 ; %60
+  ret ; %60
+
+

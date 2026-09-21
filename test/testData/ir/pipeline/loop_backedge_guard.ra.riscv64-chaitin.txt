@@ -1,0 +1,42 @@
+--- Phase: ra ---
+MachineFunction 'loop_backedge_guard' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %45
+  %v1 : gp/4 ; %14
+  %v2 : gp/4 ; %43
+  %v3 : gp/4 ; %26
+  %v4 : gp/4 ; %30
+  %v5 : gp/4 ; %3
+  %v6 : gp/4 ; %6
+  %v7 : gp/4 ; %9
+  %v8 : gp/4 ; %25
+  %v9 : gp/4 ; %36
+  %v10 : gp/4 ; %37
+Frame: <empty>
+Allocator: graph colouring
+Physical registers used: $t1 $t2 $a0 $a1 $a2 $t3 $t4
+MBB #0, '<entry>', ir #0, -> #2
+  $t1 = li.4 0 ; %14
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #3
+  $t2 = MOP_COPY.4 $t1 ; %43
+
+MBB #3, '<while_head>', ir #3, <- #2 #4, -> #4 #5
+  bge $t2, $a2, #5 ; %21
+
+MBB #4, '<while_body>', ir #4, <- #3, -> #3
+  $t4 = addw.4 $a0, $a1 ; %25
+  $t3 = addw.4 $t1, $t4 ; %26
+  $t4 = addw.4 $t2, 1 ; %30
+  $t1 = MOP_COPY.4 $t3 ; %45
+  $t2 = MOP_COPY.4 $t4 ; %43
+  j #3 ; %32
+
+MBB #5, '<while_exit>', ir #5, <- #3, -> #1
+  $t2 = addw.4 $a0, $a1 ; %36
+  $a0 = addw.4 $t1, $t2 ; %37
+
+MBB #1, '<exit>', ir #1, <- #5
+  ret ; %40
+
+

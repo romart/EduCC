@@ -1,0 +1,85 @@
+--- Phase: isel ---
+MachineFunction 'isel_int_ops' [target = riscv64]
+VRegs:
+  %v0 : gp/4 ; %90
+  %v1 : gp/4 ; %53
+  %v2 : gp/4 ; %62
+  %v3 : gp/4 ; %88
+  %v4 : gp/4 ; %72
+  %v5 : gp/4 ; %99
+  %v6 : gp/4 ; %98
+  %v7 : gp/4 ; %3
+  %v8 : gp/4 ; %6
+  %v9 : gp/4 ; %9
+  %v10 : gp/4 ; %12
+  %v11 : gp/4 ; %21
+  %v12 : gp/4 ; %22
+  %v13 : gp/4 ; %23
+  %v14 : gp/4 ; %27
+  %v15 : gp/4 ; %28
+  %v16 : gp/4 ; %29
+  %v17 : gp/4 ; %34
+  %v18 : gp/4 ; %35
+  %v19 : gp/4 ; %40
+  %v20 : gp/4 ; %41
+  %v21 : gp/4 ; %46
+  %v22 : gp/4 ; %47
+  %v23 : gp/4 ; %52
+  %v24 : gp/4 ; %80
+  %v25 : gp/4 ; %81
+  %v26 : gp/4 ; %82
+Frame: <empty>
+MBB #0, '<entry>', ir #0, -> #2
+  %v5 = li.4 252645135 ; %99
+  %v6 = li.4 0 ; %98
+  %v7 = MOP_COPY.4 $a0 ; %3
+  %v8 = MOP_COPY.4 $a1 ; %6
+  %v9 = MOP_COPY.4 $a2 ; %9
+  %v10 = MOP_COPY.4 $a3 ; %12
+
+MBB #2, '<FIRST>', ir #2, <- #0, -> #4 #7
+  %v11 = not.4 %v9 ; %21
+  %v12 = sext.4 %v11 ; %22
+  %v13 = addw.4 %v6, %v12 ; %23
+  %v14 = sltu.8/4 %v10, 1 ; %27
+  %v15 = sext.4 %v14 ; %28
+  %v16 = addw.4 %v13, %v15 ; %29
+  %v17 = sllw.4 %v7, %v10 ; %34
+  %v18 = addw.4 %v16, %v17 ; %35
+  %v19 = srlw.4 %v7, 3 ; %40
+  %v20 = addw.4 %v18, %v19 ; %41
+  %v21 = divuw.4 %v7, %v8 ; %46
+  %v22 = addw.4 %v20, %v21 ; %47
+  %v23 = remuw.4 %v7, %v8 ; %52
+  %v1 = addw.4 %v22, %v23 ; %53
+  bltu %v7, %v8, #4 ; %58
+
+MBB #7, '<crit_splitter>', ir #7, <- #2, -> #3
+  %v0 = MOP_COPY.4 %v1 ; %90
+  j #3 ; %102
+
+MBB #4, '<if_then>', ir #4, <- #2, -> #3
+  %v2 = addw.4 %v1, 1 ; %62
+  %v0 = MOP_COPY.4 %v2 ; %90
+
+MBB #3, '<if_exit>', ir #3, <- #7 #4, -> #6 #8
+  bltu %v8, %v7, #6 ; %68
+
+MBB #8, '<crit_splitter>', ir #8, <- #3, -> #5
+  %v3 = MOP_COPY.4 %v0 ; %88
+  j #5 ; %103
+
+MBB #6, '<if_then>', ir #6, <- #3, -> #5
+  %v4 = addw.4 %v0, 2 ; %72
+  %v3 = MOP_COPY.4 %v4 ; %88
+
+MBB #5, '<if_exit>', ir #5, <- #8 #6, -> #1
+  %v24 = xor.4 %v8, %v5 ; %80
+  %v25 = or.4 %v7, %v24 ; %81
+  %v26 = and.4 %v3, %v25 ; %82
+
+MBB #1, '<exit>', ir #1, <- #5
+  $a0 = MOP_COPY.4 %v26 ; %85
+  ret ; %85
+
+
