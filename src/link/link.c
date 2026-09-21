@@ -439,8 +439,14 @@ const char *linkCrtPath(uint16_t machine) {
     }
   }
 
-  fprintf(stderr, "educc: error: no %s C runtime directory found\n",
+  // Naming what was probed: the distributions lay these out differently, and
+  // "not found" alone says nothing about which layout the table is missing.
+  fprintf(stderr, "educc: error: no %s C runtime directory found; tried",
           target->name);
+  for (i = 0; i < target->crtDirCount; ++i) {
+    fprintf(stderr, " %s/crti.o", target->crtDirs[i]);
+  }
+  fprintf(stderr, "\n");
   exit(1);
 }
 
@@ -469,8 +475,12 @@ const char *linkGccPath(uint16_t machine) {
     if (cached[which][0] != '\0') return cached[which];
   }
 
-  fprintf(stderr, "educc: error: no %s gcc runtime directory found\n",
+  fprintf(stderr, "educc: error: no %s gcc runtime directory found; tried",
           target->name);
+  for (i = 0; i < target->gccGlobCount; ++i) {
+    fprintf(stderr, " %s", target->gccGlobs[i]);
+  }
+  fprintf(stderr, "\n");
   exit(1);
 }
 
