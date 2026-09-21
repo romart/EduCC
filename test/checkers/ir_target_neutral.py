@@ -53,10 +53,9 @@ PHASES = ("initial", "ssa", "scp", "gvn", "dce")
 PREG = re.compile(r"\$[a-z0-9]+")
 
 # Fixtures whose IR is *about* the ABI, and so differs by more than a register
-# name. Not a list of known problems - each of these is a fixture doing its
-# job, and the entry says which job.
-# Keyed by the fixture's path, so a same-named file elsewhere is not excused
-# by accident.
+# name. Not a list of known problems: each is a fixture doing its job, and the
+# entry says which job. Keyed by the path under test/testData, so a same-named
+# file elsewhere is not excused by accident.
 ABI_SPECIFIC = {
     "ir/pipeline/aggregate_argument":
         "LP64D passes a large aggregate by reference and SysV as bytes",
@@ -93,14 +92,19 @@ def dumpFor(compiler, source, phase, target, out, obj):
 
 
 def compare(where, phase, left, right):
-    """left is x86-64's dump, right riscv64's. The rename has to be a bijection."""
+    """left is x86-64's dump, right riscv64's. The renaming has to be a bijection.
+
+    One register must always become the same one, and two must never become
+    the same one - the second is what would say that two things the ABI keeps
+    apart on one machine have been collapsed into one on the other.
+    """
     findings = []
 
     if len(left) != len(right):
         return [f"{where} [{phase}]: {len(left)} lines for x86_64, "
                 f"{len(right)} for riscv64"]
 
-    renaming = {}
+    forward, back = {}, {}
 
     for idx, (a, b) in enumerate(zip(left, right)):
         if a == b:
@@ -114,9 +118,12 @@ def compare(where, phase, left, right):
             continue
 
         for x, r in zip(PREG.findall(a), PREG.findall(b)):
-            if renaming.setdefault(x, r) != r:
+            if forward.setdefault(x, r) != r:
                 findings.append(f"{where} [{phase}] line {idx + 1}: {x} is "
-                                f"{renaming[x]} elsewhere and {r} here")
+                                f"{forward[x]} elsewhere and {r} here")
+            if back.setdefault(r, x) != x:
+                findings.append(f"{where} [{phase}] line {idx + 1}: {r} stands "
+                                f"for {back[r]} elsewhere and {x} here")
 
     return findings
 
@@ -126,7 +133,9 @@ def main():
     files = corpus.sources(roots)
 
     findings, failed, compared, excused = [], [], 0, 0
-    stale = set(ABI_SPECIFIC)
+    # Only fixtures this walk actually reached can be called stale: pointed at
+    # a root that holds none of them, every entry would otherwise look dead.
+    seen, differed = set(), set()
 
     with tempfile.TemporaryDirectory() as tmp:
         obj = os.path.join(tmp, "d.o")
@@ -144,8 +153,9 @@ def main():
 
                 if name in ABI_SPECIFIC:
                     excused += 1
+                    seen.add(name)
                     if found:
-                        stale.discard(name)
+                        differed.add(name)
                     continue
 
                 compared += 1
@@ -154,7 +164,7 @@ def main():
     # A listed fixture whose IR no longer differs is an exemption that has
     # stopped exempting anything, which is the same kind of silence a rotted
     # mutation is - so it is a finding rather than a note.
-    for name in sorted(stale):
+    for name in sorted(seen - differed):
         findings.append(f"{name} is listed as ABI-specific "
                         f"({ABI_SPECIFIC[name]}) but its IR no longer differs "
                         f"from x86-64's - delete the entry")
