@@ -296,8 +296,10 @@ static void riscvWritePlt(uint8_t *plt, uint64_t pltAddress, uint8_t *gotPlt,
   }
 }
 
-// Arch's cross toolchain, which is the one this was brought up against. The
-// sysroot holds glibc and the CRT objects; gcc's own half stays in /usr/lib.
+// Two cross toolchains, and they differ in both halves. The sysroot holds
+// glibc and the CRT objects - under 'usr/lib' on Arch and 'lib' on Debian -
+// while gcc's own half stays outside it, in 'gcc' on Arch and 'gcc-cross' on
+// Debian, which is what a host gcc that also targets this machine looks like.
 static const char *const riscvCrtDirs[] = {
   "/usr/riscv64-linux-gnu/usr/lib",
   "/usr/riscv64-linux-gnu/lib",
@@ -305,6 +307,7 @@ static const char *const riscvCrtDirs[] = {
 
 static const char *const riscvGccGlobs[] = {
   "/usr/lib/gcc/riscv64-linux-gnu/*/crtbegin.o",
+  "/usr/lib/gcc-cross/riscv64-linux-gnu/*/crtbegin.o", // For Debian and Ubuntu
 };
 
 static const char *const riscvLibDirs[] = {
