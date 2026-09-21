@@ -89,6 +89,36 @@ double p_ninth(double a, double b, double c, double d, double e, double f,
          (double)j * 10;
 }
 
+#include <stdarg.h>
+
+long p_vSplit(int n, ...) {
+  va_list ap;
+  long acc = 0;
+  int i;
+
+  va_start(ap, n);
+  for (i = 0; i < 6; ++i) acc += va_arg(ap, long);
+  { struct LL v = va_arg(ap, struct LL); acc ^= v.a ^ (v.b << 1); }
+  acc += va_arg(ap, long) * 100;
+  va_end(ap);
+
+  return acc;
+}
+
+long double p_vLdSplit(int n, ...) {
+  va_list ap;
+  long double acc = 0;
+  int i;
+
+  va_start(ap, n);
+  for (i = 0; i < 6; ++i) acc += (long double)va_arg(ap, long);
+  acc += va_arg(ap, long double) * 8.0L;
+  acc += (long double)va_arg(ap, long) * 100.0L;
+  va_end(ap);
+
+  return acc;
+}
+
 long p_bigLate(long a, long b, long c, long d, long e, long f, long g, long h,
                struct Big v) {
   return (a + b + c + d + e + f + g + h) * 10000 + v.a * 1000 + v.b * 100 +

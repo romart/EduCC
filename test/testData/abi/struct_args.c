@@ -92,6 +92,20 @@ double p_ninth(double, double, double, double, double, double, double, double,
 // reference and not arithmetic on the stack pointer.
 long p_bigLate(long, long, long, long, long, long, long, long, struct Big);
 
+// The split again, on the variadic side, where it is two rules rather than
+// one and they disagree. Six unnamed words ahead of the argument leave
+// exactly one integer register:
+//
+//   an aggregate splits - low word in a7, high word on the stack;
+//   a long double does not - it takes an *even* register pair, so the odd one
+//   left is skipped and both halves go on the stack instead.
+//
+// The callee reads both out of the flat save area and cannot tell the
+// difference, which is the whole point of the flat va_list - so only a caller
+// EduCC compiled against a callee it did not says which rule was applied.
+long p_vSplit(int, ...);
+long double p_vLdSplit(int, ...);
+
 int main(void) {
   struct FF ff = {1.5f, 2.25f};
   struct FI fi = {3.5f, 7};
@@ -169,6 +183,8 @@ int main(void) {
   printf("llSplit6 %lx\n", p_llSplit6(1, 2, 3, 4, 5, 6, ll));
   printf("ninth %g\n", p_ninth(1, 2, 3, 4, 5, 6, 7, 8, 9, 10.5f));
   printf("bigLate %ld\n", p_bigLate(1, 2, 3, 4, 5, 6, 7, 8, big));
+  printf("vSplit %lx\n", p_vSplit(0, 1L, 2L, 3L, 4L, 5L, 6L, ll, 7L));
+  printf("vLdSplit %La\n", p_vLdSplit(0, 1L, 2L, 3L, 4L, 5L, 6L, 1.5L, 7L));
 
   return 0;
 }

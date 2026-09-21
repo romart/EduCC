@@ -1485,13 +1485,17 @@ static uint32_t callArgLocation(const TargetDescriptor *target, const IrInstruct
           reg[p] = argRegOf(target, argFile[p], used[argFile[p]]++);
         }
       } else if (target->splitsArgumentsAcrossStack && parts == 2 &&
-                 want[RC_GP] == 2 && !isUnnamedCallArg(call, idx) &&
-                 used[RC_GP] + 1 == target->intArgRegCount) {
+                 want[RC_GP] == 2 && used[RC_GP] + 1 == target->intArgRegCount) {
         // The split: two integer words with exactly one integer argument
         // register left take it for the low word and the stack for the high
         // one. The only argument that is not all in registers or all on the
         // stack, and it can only be the first to reach the stack at all -
         // which is why the high word needs no alignment of its own.
+        //
+        // An unnamed long double never gets here, and needs no test of its
+        // own: the even-pair skip above has already moved 'used' past the odd
+        // register, so there is no longer exactly one left. Which is the
+        // right answer - the oracle puts both of its halves on the stack.
         reg[0] = argRegOf(target, RC_GP, used[RC_GP]++);
       }
     }
