@@ -451,10 +451,10 @@ if(BUILD_TESTING)
   # 'checkers', so they can be run alone with `ctest -L checkers` or left out
   # with `ctest -LE checkers`.
   #
-  # On by default because the whole set costs about ten seconds - they walk the
-  # corpus once per phase they read, which is a few hundred compiler runs, not
-  # the hours the note in section 9 used to assume. -DEDUCC_RUN_CHECKERS=OFF
-  # takes them out entirely.
+  # On by default because the whole set costs under two minutes - they walk
+  # the corpus once per phase they read, which is a few thousand compiler runs
+  # now that each answers for both machines, not the hours the note in section
+  # 9 used to assume. -DEDUCC_RUN_CHECKERS=OFF takes them out entirely.
   #
   # SKIP_RETURN_CODE catches a checker that cannot answer rather than one that
   # found something: emission_objdump needs GNU objdump as its oracle and exits

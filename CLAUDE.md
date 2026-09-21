@@ -240,8 +240,9 @@ They share `test/checkers/corpus.py` (argument parsing, the corpus walk, the dum
 
 ```sh
 ctest --test-dir build                # the fixture suites, the IR dumps, and the checkers
-ctest --test-dir build -L checkers    # just the checkers, once per allocator (~50s)
-ctest --test-dir build -LE checkers   # everything but (~12s)
+ctest --test-dir build -L checkers    # just the checkers, once per allocator and once more for riscv64 (~85s)
+ctest --test-dir build -LE checkers   # everything but (~17s)
+ctest --test-dir build -R riscv64     # everything the other machine adds (~25s)
 cmake -B build -S . -DEDUCC_RUN_CHECKERS=OFF   # do not register them at all
 ```
 
